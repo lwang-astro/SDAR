@@ -1,5 +1,6 @@
 #pragma once
 #include <cassert>
+#include <iomanip>
 #include "Float.h"
 
 #ifndef NAN_CHECK

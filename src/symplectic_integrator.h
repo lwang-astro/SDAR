@@ -96,6 +96,8 @@ namespace AR {
         }
 
         //! operator = 
+        /*! Copy function will remove the local data and also copy the particle data or the link
+         */
         SymplecticIntegrator& operator = (const SymplecticIntegrator& _sym) {
             clear();
             time_   = _sym.time_;
@@ -113,6 +115,8 @@ namespace AR {
             slowdown = _sym.slowdown;
             particles = _sym.particles;
             binarytree = _sym.binarytree;
+
+            return *this;
         }
 
     private:

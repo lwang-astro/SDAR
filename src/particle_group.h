@@ -59,15 +59,18 @@ namespace AR {
                 assert(adr_!=NULL);
                 delete[] data_;
                 delete[] adr_;
-                data_ = NULL;
                 adr_ = NULL;
             }
+            data_ = NULL; // in link case also set to NULL
+            num_ = 0;
             nmax_ = 0;
             origin_frame_flag = true;
             modified_flag = false;
         }
 
-        // copy operator
+        //! operator = is copy
+        /* Copy function will remove the local data and also copy the particle data or the link
+         */
         ParticleGroup& operator = (const ParticleGroup& _particle_group) {
             clear();
             // in allocated case
@@ -130,8 +133,9 @@ namespace AR {
         /*!
           \return: one particle original address array 
         */
-        Tparticle** getParticleOriginAddress(const int _index) const{
+        Tparticle* getParticleOriginAddress(const int _index) const{
             assert(_index<num_);
+            assert(_index<nmax_);
             assert(_index>=0);
             return adr_[_index];
         }
@@ -182,6 +186,8 @@ namespace AR {
             // last particle index 
             int ilast = _n_particle-1;
             const int n_new = _n_particle - _n_index; // new ptcl number
+            // initial table
+            for (int i=0; i<_n_particle; i++) _remove_table[i] = -1;
 
             for (int i=0; i<_n_index; i++) {
                 int k=_index[i];
@@ -251,20 +257,36 @@ namespace AR {
         /*!
           @param[in] _remove_table: table map the particle new position and deleted ones, generated from #createRemoveTable
          */
-        void removeParticleList(const int* remove_table) {
-            for (int i=0; i<num_; i++) {
-                assert(remove_table[i]<=num_);
+        void removeParticleTable(const int* remove_table) {
+            const int num_org = num_;
+            for (int i=0; i<num_org; i++) {
+                assert(remove_table[i]<=num_org);
                 // no change case
                 if(remove_table[i]<0) continue;
-                // remove case
-                else if(remove_table[i]<num_) {
+                // move case
+                else if(remove_table[i]<num_org) {
                     const int inew = remove_table[i];
                     data_[inew] = data_[i];
-                    adr_[inew] = adr_[i];
-                    num_--;
+                    if(nmax_>0) adr_[inew] = adr_[i];
                 }
+                // remove count
+                else num_--;
             }
             modified_flag = true;
+        }
+
+        //! remove a list of particle based on an index list
+        /*!
+          @param[in] _index: particle index list for remove
+          @param[in] _n_list: number of removing particles
+         */
+        void removeParticleList(const int* _index, const int _n_index) {
+            assert(_n_index<=num_);
+            const int num_org = num_;
+            int remove_table[num_];
+            createRemoveTable(_index, _n_index, num_, remove_table);
+            removeParticleTable(remove_table);
+            assert(num_+_n_index==num_org);
         }
 
         //! Backup member particle position and velocity
