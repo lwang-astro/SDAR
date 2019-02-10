@@ -70,7 +70,7 @@ namespace AR {
             assert(_nmax>=0);
             // use particle reserved size
             int nmax = _nmax;
-            if(nmax==0) nmax = particles.getParticleMemNumberMax();
+            if(nmax==0) nmax = particles.getSizeMax();
             else particles.reserveMem(nmax);
             assert(force_==NULL);
             force_ = new Force[nmax];
@@ -108,7 +108,7 @@ namespace AR {
 #ifdef AR_TTL
             gt_inv_     = _sym.gt_inv_;
 #endif
-            const int nmax = _sym.particles.getParticleMemNumberMax();
+            const int nmax = _sym.particles.getSizeMax();
             force_ = new Force[nmax];
             for (int i=0; i<nmax; i++) force_[i] = _sym.force_[i];
             manager = _sym.manager;
@@ -123,8 +123,8 @@ namespace AR {
         //! Calculate kinetic energy
         inline void calcEKin(){
             ekin_ = Float(0.0);
-            const int num = particles.getParticleNumber();
-            Tparticle* pdat = particles.getParticleDataAddress();
+            const int num = particles.getSize();
+            Tparticle* pdat = particles.getDataAddress();
             for (int i=0; i<num; i++) {
                 const Float *vi=pdat[i].vel;
                 ekin_ += 0.5 * pdat[i].mass * (vi[0]*vi[0]+vi[1]*vi[1]+vi[2]*vi[2]);
@@ -136,8 +136,8 @@ namespace AR {
           @param[in] _dt: time size
         */
         inline void kickVel(const Float _dt) {
-            const int num = particles.getParticleNumber();            
-            Tparticle* pdat = particles.getParticleDataAddress();
+            const int num = particles.getSize();            
+            Tparticle* pdat = particles.getDataAddress();
             const Float kappa = slowdown.getSlowDownFactor();
             for (int i=0; i<num; i++) {
                 // kick velocity
@@ -163,8 +163,8 @@ namespace AR {
             slowdown.driftRealTime(_dt);
 
             // drift position
-            const int num = particles.getParticleNumber();
-            Tparticle* pdat = particles.getParticleDataAddress();
+            const int num = particles.getSize();
+            Tparticle* pdat = particles.getDataAddress();
             for (int i=0; i<num; i++) {
                 Float* pos = pdat[i].pos;
                 Float* vel = pdat[i].vel;
@@ -185,8 +185,8 @@ namespace AR {
             Float de = Float(0.0);
             Float dgt = Float(0.0);
             const Float kappa = slowdown.getSlowDownFactor();
-            const int num = particles.getParticleNumber();
-            Tparticle* pdat = particles.getParticleDataAddress();
+            const int num = particles.getSize();
+            Tparticle* pdat = particles.getDataAddress();
             for (int i=0;i<num;i++) {
                 Float  mass= pdat[i].mass;
                 Float* vel = pdat[i].vel;
@@ -211,8 +211,8 @@ namespace AR {
         inline void kickEtot(const Float _dt) {
             Float de = 0.0;
             const Float kappa = slowdown.getSlowDownFactor();
-            const int num = particles.getParticleNumber();
-            Tparticle* pdat = particles.getParticleDataAddress();
+            const int num = particles.getSize();
+            Tparticle* pdat = particles.getDataAddress();
             for (int i=0;i<num;i++) {
                 Float  mass= pdat[i].mass;
                 Float* vel = pdat[i].vel;
@@ -282,8 +282,8 @@ namespace AR {
             // reset particle modification flag
             particles.setModifiedFalse();
 
-            Tparticle* pdat = particles.getParticleDataAddress();
-            const int num = particles.getParticleNumber();
+            Tparticle* pdat = particles.getDataAddress();
+            const int num = particles.getSize();
 
 #ifdef AR_TTL
             // calculate acceleration, potential, time transformation function gradient and time transformation factor 
@@ -336,8 +336,8 @@ namespace AR {
                 Float ds_kick = manager->step.getDK(i)*_ds;
 
                 // particle pointer and size
-                const int n_particle = particles.getParticleNumber();
-                Tparticle* particle_ptr = particles.getParticleDataAddress();
+                const int n_particle = particles.getSize();
+                Tparticle* particle_ptr = particles.getDataAddress();
 
 #ifdef AR_TTL
                 // calculate acceleration, potential, time transformation function gradient and time transformation factor for kick

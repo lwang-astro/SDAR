@@ -1,5 +1,5 @@
 ## TARGET
-TARGET=ar
+TARGET=ar ptclgrouptest
 
 VPATH=../src
 
