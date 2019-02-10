@@ -140,7 +140,7 @@ namespace AR {
           @param [in] _fin: FILE IO for reading.
         */
         void readBinary(FILE* _fin) {
-            TList::setMode(ListMode::local);
+            assert(TList::mode_==ListMode::local);
             assert(TList::num_==0);
             assert(TList::nmax_==0);
             int n_new;
@@ -164,7 +164,7 @@ namespace AR {
           @param [in] _fin: std::istream IO for reading.
         */
         void readAscii(std::istream& _fin) {
-            TList::setMode(ListMode::local);
+            assert(TList::mode_==ListMode::local);
             assert(TList::num_==0);
             assert(TList::nmax_==0);
             int n_new;

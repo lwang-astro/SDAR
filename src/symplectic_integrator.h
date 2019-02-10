@@ -4,6 +4,7 @@
 #include "force.h"
 #include "slow_down.h"
 #include "particle_group.h"
+#include "list.h"
 #include "binary_tree.h"
 
 //! Algorithmic regularization chain (ARC) namespace
@@ -46,7 +47,7 @@ namespace AR {
 #endif
 
         // force array
-        Force* force_; ///< acceleration array 
+        List<Force> force_; ///< acceleration array 
 
     public:
         SymplecticManager<Tmethod>* manager; ///< integration manager
@@ -57,33 +58,28 @@ namespace AR {
         
         //! Constructor
 #ifdef AR_TTL
-        SymplecticIntegrator(): time_(0), etot_(0), ekin_(0), epot_(0), gt_inv_(0), force_(NULL), manager(NULL), perturber(), slowdown(), particles(), binarytree() {}
+        SymplecticIntegrator(): time_(0), etot_(0), ekin_(0), epot_(0), gt_inv_(0), force_(), manager(NULL), perturber(), slowdown(), particles(), binarytree() {}
 #else
-        SymplecticIntegrator(): time_(0), etot_(0), ekin_(0), epot_(0), force_(NULL), manager(NULL), perturber(), slowdown(), particles(), binarytree() {}
+        SymplecticIntegrator(): time_(0), etot_(0), ekin_(0), epot_(0), force_(), manager(NULL), perturber(), slowdown(), particles(), binarytree() {}
 #endif
 
-        //! reserve memory for particles and accelerations
-        /*! If particles are linked, only reserve memory for acceleration
+        //! reserve memory for force
+        /*! The size of force depends on the particle data size.Thus particles should be added first before call this function
           @param[in] _nmax: maximum number of particles for memory allocation, if not given (0), use particles reserved size
         */
-        void reserveMem(const int _nmax=0) {
-            assert(_nmax>=0);
-            // use particle reserved size
-            int nmax = _nmax;
-            if(nmax==0) nmax = particles.getSizeMax();
-            else particles.reserveMem(nmax);
-            assert(force_==NULL);
-            force_ = new Force[nmax];
+        void reserveMem() {
+            // force array always allocated local memory
+            force_.setMode(ListMode::local);
+            int nmax = particles.getSizeMax();
+            assert(nmax>0);
+            force_.reserveMem(nmax);
         }
 
         //! Clear function
         /*! Free dynamical memory space allocated
          */
         void clear() {
-            if (force_) {
-                delete [] force_;
-                force_ = NULL;
-            }
+            force_.clear();
             perturber.clear();
             slowdown.clear();
             particles.clear();
@@ -106,11 +102,9 @@ namespace AR {
             ekin_   = _sym.ekin_;
             epot_   = _sym.epot_;
 #ifdef AR_TTL
-            gt_inv_     = _sym.gt_inv_;
+            gt_inv_ = _sym.gt_inv_;
 #endif
-            const int nmax = _sym.particles.getSizeMax();
-            force_ = new Force[nmax];
-            for (int i=0; i<nmax; i++) force_[i] = _sym.force_[i];
+            force_  = _sym.force_;
             manager = _sym.manager;
             slowdown = _sym.slowdown;
             particles = _sym.particles;
@@ -138,12 +132,13 @@ namespace AR {
         inline void kickVel(const Float _dt) {
             const int num = particles.getSize();            
             Tparticle* pdat = particles.getDataAddress();
+            Force* force = force_.getDataAddress();
             const Float kappa = slowdown.getSlowDownFactor();
             for (int i=0; i<num; i++) {
                 // kick velocity
                 Float* vel = pdat[i].vel;
-                Float* acc = force_[i].acc_in;
-                Float* pert= force_[i].acc_pert;
+                Float* acc = force[i].acc_in;
+                Float* pert= force[i].acc_pert;
                 // half dv 
                 vel[0] += _dt * (acc[0] + kappa*pert[0]);
                 vel[1] += _dt * (acc[1] + kappa*pert[1]);
@@ -187,11 +182,12 @@ namespace AR {
             const Float kappa = slowdown.getSlowDownFactor();
             const int num = particles.getSize();
             Tparticle* pdat = particles.getDataAddress();
+            Force* force = force_.getDataAddress();
             for (int i=0;i<num;i++) {
                 Float  mass= pdat[i].mass;
                 Float* vel = pdat[i].vel;
-                Float* pert= force_[i].acc_pert;
-                Float* gtgrad=force_[i].gtgrad;
+                Float* pert= force[i].acc_pert;
+                Float* gtgrad=force[i].gtgrad;
                 de += mass * (vel[0] * kappa*pert[0] +
                               vel[1] * kappa*pert[1] +
                               vel[2] * kappa*pert[2]);
@@ -213,10 +209,11 @@ namespace AR {
             const Float kappa = slowdown.getSlowDownFactor();
             const int num = particles.getSize();
             Tparticle* pdat = particles.getDataAddress();
+            Force* force = force_.getDataAddress();
             for (int i=0;i<num;i++) {
                 Float  mass= pdat[i].mass;
                 Float* vel = pdat[i].vel;
-                Float* pert= force_[i].acc_pert;
+                Float* pert= force[i].acc_pert;
                 de += mass * (vel[0] * kappa*pert[0] +
                               vel[1] * kappa*pert[1] +
                               vel[2] * kappa*pert[2]);
@@ -282,15 +279,16 @@ namespace AR {
             // reset particle modification flag
             particles.setModifiedFalse();
 
-            Tparticle* pdat = particles.getDataAddress();
+            Tparticle* particle_data = particles.getDataAddress();
+            Force* force_data = force_.getDataAddress();
             const int num = particles.getSize();
 
 #ifdef AR_TTL
             // calculate acceleration, potential, time transformation function gradient and time transformation factor 
-            Float gt_kick = manager->interaction.calcAccPotGTGradAndGTKick(force_, epot_, pdat, num); 
+            Float gt_kick = manager->interaction.calcAccPotGTGradAndGTKick(force_data, epot_, particle_data, num); 
 #else
             // calculate acceleration, potential and time transfromation factor
-            manager->interaction.calcAccPotAndGTKick(force_, epot_, pdat, num); 
+            manager->interaction.calcAccPotAndGTKick(force_data, epot_, particle_data, num); 
 #endif
             // calculate kinetic energy
             calcEKin();
@@ -337,18 +335,19 @@ namespace AR {
 
                 // particle pointer and size
                 const int n_particle = particles.getSize();
-                Tparticle* particle_ptr = particles.getDataAddress();
+                Tparticle* particle_data = particles.getDataAddress();
+                Force* force_data = force_.getDataAddress();
 
 #ifdef AR_TTL
                 // calculate acceleration, potential, time transformation function gradient and time transformation factor for kick
-                Float gt_kick = manager->interaction.calcAccPotGTGradAndGTKick(force_, epot_, particle_ptr, n_particle); 
+                Float gt_kick = manager->interaction.calcAccPotGTGradAndGTKick(force_data, epot_, particle_data, n_particle); 
 #else
                 // calculate acceleration, potential and time transfromation factor
-                Float gt_kick = manager->interaction.calcAccPotAndGTKick(force_, epot_, particle_ptr, n_particle); 
+                Float gt_kick = manager->interaction.calcAccPotAndGTKick(force_data, epot_, particle_data, n_particle); 
 #endif
 
                 // calcualte perturbation force (cumulative to acc)
-                manager->interaction.calcAccPert(force_, particle_ptr, n_particle, particles.cm, perturber);
+                manager->interaction.calcAccPert(force_data, particle_data, n_particle, particles.cm, perturber);
 
                 // time step for kick
                 Float dt_kick = ds_kick* gt_kick;

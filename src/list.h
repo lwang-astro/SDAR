@@ -80,30 +80,30 @@ namespace AR {
                 assert(adr_!=NULL);
                 delete[] data_;
                 delete[] adr_;
+                num_ = 0;
+                nmax_ =0;
                 data_= NULL;
                 adr_ = NULL;
-                nmax_ =0;
-                num_ = 0;
                 break;
             case ListMode::local:
                 assert(data_!=NULL);
                 assert(adr_==NULL);
                 delete[] data_;
-                data_=NULL;
-                nmax_ =0;
                 num_ = 0;
+                nmax_ =0;
+                data_=NULL;
                 break;
             case ListMode::link:
-                assert(nmax_==0);
                 assert(adr_==NULL);
-                data_=NULL;
                 num_ = 0;
+                nmax_ = 0;
+                data_=NULL;
                 break;
             case ListMode::none:
+                assert(num_==0);
+                assert(nmax_==0);
                 assert(data_==NULL);
                 assert(adr_==NULL);
-                assert(nmax_==0);
-                assert(num_==0);
                 break;
             }
             mode_ = ListMode::none;
@@ -130,6 +130,7 @@ namespace AR {
                 break;
             case ListMode::link:
                 num_ = _list.num_; 
+                nmax_ = _list.nmax_;
                 data_ = _list.data_;
                 break;
             case ListMode::none:
@@ -228,9 +229,11 @@ namespace AR {
         void linkMemberList(Ttype _member[], const int _n_member) {
             assert(mode_==ListMode::link);
             assert(nmax_==0);
+            assert(num_==0);
             assert(data_==NULL);
             data_= _member;
             num_ = _n_member;
+            nmax_= _n_member;
             modified_flag_ = true;
         }
 

@@ -159,6 +159,7 @@ int main(int argc, char **argv){
         
     }
     else {
+        sym_int.particles.setMode(ListMode::local);
         sym_int.particles.readAscii(fin);
         sym_int.particles.calcCenterOfMass();
         sym_int.particles.shiftToCM();
