@@ -161,8 +161,6 @@ int main(int argc, char **argv){
     else {
         sym_int.particles.setMode(ListMode::local);
         sym_int.particles.readAscii(fin);
-        sym_int.particles.calcCenterOfMass();
-        sym_int.particles.shiftToCM();
         sym_int.reserveMem();
     }
 
@@ -180,10 +178,13 @@ int main(int argc, char **argv){
     sym_int.printColumn(std::cout, print_width);
     std::cout<<std::endl;
 
+    
     // integration loop
+    const int n_particle = sym_int.particles.getSize();
     if (time_end<0.0) {
         for (int i=0; i<nstep; i++) {
-            sym_int.integrateOneStep(s);
+            if(n_particle==2) sym_int.integrateTwoOneStep(s);
+            else sym_int.integrateOneStep(s);
             sym_int.printColumn(std::cout, print_width);
             std::cout<<std::endl;
         }

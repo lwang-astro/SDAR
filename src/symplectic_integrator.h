@@ -266,7 +266,7 @@ namespace AR {
     public:
 
         //! initialization for integration
-        /*! initialize the system 
+        /*! initialize the system. Acceleration, energy and time transformation factors are updated. If the center-of-mass is not yet calculated, the system will be shifted to center-of-mass frame.
           @param[in] _time_real: real physical time to initialize
         */
         void initial(const Float _time_real) {
@@ -279,27 +279,55 @@ namespace AR {
             // reset particle modification flag
             particles.setModifiedFalse();
 
+            // check the center-of-mass initialization
+            if(particles.isOriginFrame()) {
+                particles.calcCenterOfMass();
+                particles.shiftToCenterOfMassFrame();
+            }
+
             Tparticle* particle_data = particles.getDataAddress();
             Force* force_data = force_.getDataAddress();
-            const int num = particles.getSize();
+            const int n_particle = particles.getSize();
+
+            if (n_particle==2) {
 
 #ifdef AR_TTL
-            // calculate acceleration, potential, time transformation function gradient and time transformation factor 
-            Float gt_kick = manager->interaction.calcAccPotGTGradAndGTKick(force_data, epot_, particle_data, num); 
-#else
-            // calculate acceleration, potential and time transfromation factor
-            manager->interaction.calcAccPotAndGTKick(force_data, epot_, particle_data, num); 
+                // calculate acceleration, potential, time transformation function gradient and time transformation factor 
+                Float gt_kick = manager->interaction.calcAccPotAndGTKickTwo(force_data, epot_, particle_data, n_particle); 
+
+                // initially gt_drift 
+                gt_inv_ = 1.0/gt_kick;
+#else 
+                // calculate acceleration, potential and time transformation factor 
+                manager->interaction.calcAccPotAndGTKickTwo(force_data, epot_, particle_data, n_particle); 
 #endif
+
+                // two-body case, also initialslowdown
+                // calcualte perturbation force (cumulative to acc) and slowdown perturbation estimation
+                Float sd_pert = manager->interaction.calcAccAndSlowDownPert(force_data, particle_data, n_particle, particles.cm, perturber);
+                // slowdown factor
+                slowdown.calcSlowDownFactorBinary(etot_, sd_pert);
+
+            }
+            else {
+#ifdef AR_TTL
+                // calculate acceleration, potential, time transformation function gradient and time transformation factor 
+                Float gt_kick = manager->interaction.calcAccPotAndGTKick(force_data, epot_, particle_data, n_particle); 
+
+                // initially gt_drift 
+                gt_inv_ = 1.0/gt_kick;
+#else 
+                // calculate acceleration, potential and time transformation factor 
+                manager->interaction.calcAccPotAndGTKick(force_data, epot_, particle_data, n_particle); 
+#endif
+            }
+
             // calculate kinetic energy
             calcEKin();
 
             // initial total energy
             etot_ = ekin_ + epot_;
-            
-            // initially gt_drift 
-#ifdef AR_TTL
-            gt_inv_ = 1.0/gt_kick;
-#endif
+
         }
 
         //! integration for one step
@@ -310,8 +338,13 @@ namespace AR {
             assert(!particles.isModified());
             assert(_ds>0);
 
-            // symplectic step coefficent group number
+            // symplectic step coefficent group n_particleber
             const int nloop = manager->step.getCDPairSize();
+
+            // particle pointer and size
+            const int n_particle = particles.getSize();
+            Tparticle* particle_data = particles.getDataAddress();
+            Force* force_data = force_.getDataAddress();
             
             for (int i=0; i<nloop; i++) {
                 // step for drift
@@ -333,21 +366,12 @@ namespace AR {
                 // step for kick
                 Float ds_kick = manager->step.getDK(i)*_ds;
 
-                // particle pointer and size
-                const int n_particle = particles.getSize();
-                Tparticle* particle_data = particles.getDataAddress();
-                Force* force_data = force_.getDataAddress();
-
-#ifdef AR_TTL
-                // calculate acceleration, potential, time transformation function gradient and time transformation factor for kick
-                Float gt_kick = manager->interaction.calcAccPotGTGradAndGTKick(force_data, epot_, particle_data, n_particle); 
-#else
                 // calculate acceleration, potential and time transfromation factor
+                // Notice in TTL method, time transformation function gradient is also updated 
                 Float gt_kick = manager->interaction.calcAccPotAndGTKick(force_data, epot_, particle_data, n_particle); 
-#endif
 
                 // calcualte perturbation force (cumulative to acc)
-                manager->interaction.calcAccPert(force_data, particle_data, n_particle, particles.cm, perturber);
+                manager->interaction.calcAccAndSlowDownPert(force_data, particle_data, n_particle, particles.cm, perturber);
 
                 // time step for kick
                 Float dt_kick = ds_kick* gt_kick;
@@ -367,6 +391,141 @@ namespace AR {
                 
                 // calculate kinetic energy
                 calcEKin();
+            }
+        }
+
+        //! integration for two body one step
+        /*! For two-body problem the calculation can be much symplified to improve performance. 
+          Besides, the slow-down factor calculation is embedded in the Drift (for time) and Kick (for perturbation)
+         */
+        void integrateTwoOneStep(const Float _ds) {
+            assert(!particles.isModified());
+            assert(_ds>0);
+
+            // symplectic step coefficent group number
+            const int nloop = manager->step.getCDPairSize();
+            
+            const int n_particle = particles.getSize();
+            assert(n_particle==2);
+
+            Tparticle* particle_data = particles.getDataAddress();
+            Float mass1 = particle_data[0].mass;
+            Float* pos1 = particle_data[0].pos;
+            Float* vel1 = particle_data[0].vel;
+
+            Float mass2 = particle_data[1].mass;
+            Float* pos2 = particle_data[1].pos;
+            Float* vel2 = particle_data[1].vel;
+
+            Force* force_data = force_.getDataAddress();
+            Float* acc1 = force_data[0].acc_in;
+            Float* pert1= force_data[0].acc_pert;
+
+            Float* acc2 = force_data[1].acc_in;
+            Float* pert2= force_data[1].acc_pert;
+#ifdef AR_TTL
+            Float* gtgrad1 = force_data[0].gtgrad;
+            Float* gtgrad2 = force_data[1].gtgrad;
+#endif
+            for (int i=0; i<nloop; i++) {
+                // step for drift
+                Float ds = manager->step.getCK(i)*_ds;
+                // time transformation factor for drift
+#ifdef AR_TTL
+                Float gt = 1.0/gt_inv_;
+#else 
+                Float gt = manager->interaction.calcGTDrift(ekin_-etot_); // pt = -etot
+#endif
+                // drift
+                Float dt = ds*gt;
+                
+                // drift time 
+                time_ += dt;
+
+                // update real time
+                slowdown.driftRealTime(dt);
+
+                // drift position
+                pos1[0] += dt * vel1[0];
+                pos1[1] += dt * vel1[1];
+                pos1[2] += dt * vel1[2];
+
+                pos2[0] += dt * vel2[0];
+                pos2[1] += dt * vel2[1];
+                pos2[2] += dt * vel2[2];
+
+                // step for kick
+                ds = manager->step.getDK(i)*_ds;
+
+                // calculate acceleration, potential, and time transformation factor for kick
+                // Notice in TTL method, time transformation function gradient is also updated 
+                gt = manager->interaction.calcAccPotAndGTKickTwo(force_data, epot_, particle_data, n_particle); 
+
+                // time step for kick
+                dt = 0.5*ds*gt;
+
+                // calcualte perturbation force (cumulative to acc) and slowdown perturbation estimation
+                Float sd_pert = manager->interaction.calcAccAndSlowDownPert(force_data, particle_data, n_particle, particles.cm, perturber);
+
+                // slowdown factor
+                const Float kappa = slowdown.calcSlowDownFactorBinary(etot_, sd_pert);
+
+                // kick half step for velocity
+                Float dvel1[3], dvel2[3];
+                Float kpert1[3], kpert2[3];
+                kpert1[0] = kappa*pert1[0];
+                kpert1[1] = kappa*pert1[1];
+                kpert1[2] = kappa*pert1[2];
+
+                dvel1[0] = dt * (acc1[0] + kpert1[0]);
+                dvel1[1] = dt * (acc1[1] + kpert1[1]);
+                dvel1[2] = dt * (acc1[2] + kpert1[2]);
+
+                vel1[0] += dvel1[0];
+                vel1[1] += dvel1[1];
+                vel1[2] += dvel1[2];
+
+                kpert2[0] = kappa*pert2[0];
+                kpert2[1] = kappa*pert2[1];
+                kpert2[2] = kappa*pert2[2];
+
+                dvel2[0] = dt * (acc2[0] + kappa*pert2[0]);
+                dvel2[1] = dt * (acc2[1] + kappa*pert2[1]);
+                dvel2[2] = dt * (acc2[2] + kappa*pert2[2]);
+
+                vel2[0] += dvel2[0];
+                vel2[1] += dvel2[1];
+                vel2[2] += dvel2[2];
+
+                // kick total energy and time transformation factor for drift
+                etot_ += 2.0*dt * (mass1* (vel1[0] * kpert1[0] + 
+                                           vel1[1] * kpert1[1] + 
+                                           vel1[2] * kpert1[2]) +
+                                   mass2* (vel2[0] * kpert2[0] + 
+                                           vel2[1] * kpert2[1] + 
+                                           vel2[2] * kpert2[2]));
+
+#ifdef AR_TTL                
+                gt_inv_ +=  2.0*dt* (vel1[0] * gtgrad1[0] +
+                                     vel1[1] * gtgrad1[1] +
+                                     vel1[2] * gtgrad1[2] +
+                                     vel2[0] * gtgrad2[0] +
+                                     vel2[1] * gtgrad2[1] +
+                                     vel2[2] * gtgrad2[2]);
+#endif
+
+                // kick half step for velocity
+                vel1[0] += dvel1[0];
+                vel1[1] += dvel1[1];
+                vel1[2] += dvel1[2];
+                
+                vel2[0] += dvel2[0];
+                vel2[1] += dvel2[1];
+                vel2[2] += dvel2[2];
+                
+                // calculate kinetic energy
+                ekin_ = 0.5 * (mass1 * (vel1[0]*vel1[0]+vel1[1]*vel1[1]+vel1[2]*vel1[2]) +
+                               mass2 * (vel2[0]*vel2[0]+vel2[1]*vel2[1]+vel2[2]*vel2[2]));
             }
         }
         

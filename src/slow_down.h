@@ -68,6 +68,25 @@ namespace AR{
             kappa_ = std::max(Float(1.0), kappa_);
         }
 
+        //! calculate slowdown factor based on perturbation force and inner binding energy for a binary
+        /* if it is a hyperbolic encounter, (ebin_>0), set slowdown factor to 1.0
+          @param[in] _ebin: binary binding energy
+          @param[in] _fpert: perturbation force (Notice this is scaler force not accelertion), if zero, slowdown factor is 1.0
+          \return slowdown factor
+         */
+        Float calcSlowDownFactorBinary(const Float _ebin, const Float _fpert) {
+            // hyberbolic case
+            if(_ebin>0.0||_fpert==0.0) {
+                kappa_org_ = kappa_ = Float(1.0);
+            }
+            else { // binary case
+                kappa_org_ = - kappa_ref_*_ebin/_fpert;
+                kappa_ = std::min(kappa_, kappa_max_);
+                kappa_ = std::max(Float(1.0), kappa_);
+            }
+            return kappa_;
+        }
+
         // Get slow-down factor
         /*!
           \return get adjusted kappa by keeping phase corrected

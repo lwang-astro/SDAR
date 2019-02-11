@@ -182,7 +182,7 @@ namespace AR {
         /*! Shift positions and velocities of particles from original frame to their center-of-mass frame\n
           Notice the center-of-mass position and velocity use values from #cm
         */
-        void shiftToCM() {
+        void shiftToCenterOfMassFrame() {
             if (origin_frame_flag) {
                 const Float *rc = cm.pos;
                 const Float *vc = cm.vel;
@@ -207,7 +207,7 @@ namespace AR {
         /*! Shift positions and velocities of particles from center-of-mass frame to original frame\n
           Notice the center-of-mass position and velocity use values from #cm
         */
-        void shiftToOrigin() {
+        void shiftToOriginFrame() {
             if (origin_frame_flag) {
                 std::cerr<<"Warning: particles are already in original frame!\n";
             }
@@ -254,7 +254,11 @@ namespace AR {
             cm.vel[1] /= cm.mass; 
             cm.vel[2] /= cm.mass;
         }
-
+        
+        //! return true if the system is the in their origin frame
+        bool isOriginFrame() const {
+            return origin_frame_flag;
+        }
     };
-    
+
 }
