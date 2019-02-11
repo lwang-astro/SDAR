@@ -49,6 +49,13 @@ namespace AR {
             clear();
         }
 
+        //! get backup data size 
+        /*! \return the data array size for backupParticlePosVel()
+         */
+        int getBackupDataSize() const {
+            return 6*TList::num_;
+        }
+
         //! Backup member particle position and velocity
         /*!
           \return backup array size

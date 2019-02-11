@@ -20,9 +20,8 @@ namespace AR {
 
         // members
         int sym_order_;                       // symplectic order 
-        int cd_pair_array_size_;              // cd_pair array size 
         int sym_type_;                        // symplectic method (Yoshida) solution 1 or 2
-        Float half_step_error_scale_factor_;  // half_step error scaling factor: 0.5^sym_order_
+        int cd_pair_array_size_;              // cd_pair array size 
         CDPair* cd_pair_;                     // Ck Dk pair for KDKD... or DKDK...
         CumSumCkIndex* sorted_cumsum_ck_index_;  // increasing order of cumsum ck with index of cd_pair
 
@@ -236,7 +235,7 @@ namespace AR {
     public:
 
         //!constructor
-        SymplecticStep(): sym_order_(0), cd_pair_array_size_(0), sym_type_(0), half_step_error_scale_factor_(Float(0.0)), cd_pair_(NULL), sorted_cumsum_ck_index_(NULL) {}
+        SymplecticStep(): sym_order_(0), sym_type_(0), cd_pair_array_size_(0),  cd_pair_(NULL), sorted_cumsum_ck_index_(NULL) {}
 
         //! clear function
         void clear() {
@@ -251,7 +250,6 @@ namespace AR {
             }
             sym_order_ = 0;
             sym_type_ = 0;
-            half_step_error_scale_factor_ = Float(0.0);
         }
         
         //! Symplectic coefficients generation for input order
@@ -280,7 +278,6 @@ namespace AR {
 
             // store the order
             sym_order_ = _n<0?-_n:_n;
-            half_step_error_scale_factor_ = pow(Float(0.5),sym_order_);
             
             // store the symplectic method type
             sym_type_ = _n<0?2:1;
@@ -303,9 +300,30 @@ namespace AR {
             return cd_pair_array_size_;
         }
 
-        //! get half step error scaling factor
-        Float getHalfStepErrorScaleFactor() const {
-            return half_step_error_scale_factor_;
+        //! get sorted cumsum CK index
+        int getSortCumSumCKIndex(const int _k) const {
+            return sorted_cumsum_ck_index_[_k].index;
+        }
+
+        //! get sorted cumsum CK 
+        Float getSortCumSumCK(const int _k) const {
+            return sorted_cumsum_ck_index_[_k].cck;
+        }
+
+        //! calculate the step modify factor based on the order scaling and input energy error ratio
+        /*! 
+          @param[in] _error_new_over_old: integration error change ratio expected to reach after modify step size (expected new error / old error)
+         */
+        Float calcStepModifyFactorFromErrorRatio(const Float _error_new_over_old) {
+            return pow(_error_new_over_old, Float(1.0/sym_order_));
+        }
+
+        //! calculate the enstep modify factor based on the order scaling and input energy error ratio
+        /*! 
+          @param[in] _step_new_over_old: step size modify ratio (new step size / old)
+         */
+        Float calcErrorRatioFromStepModifyFactor(const Float _step_new_over_old) {
+            return pow(_step_new_over_old, Float(sym_order_));
         }
 
         //! get Symplectic order

@@ -22,21 +22,27 @@ int main(int argc, char **argv){
     int print_width=22; //print width
     int print_precision=14; //print digital precision
     int nstep=1000; // total step size
+    int nstep_max=1000000; // maximum time step allown for tsyn integration
     int sym_order=-6; // symplectic integrator order
     Float energy_error=1e-10; // phase error requirement
     Float time_error=1e-6; // time synchronization error
     Float s=0.5;    // step size
     Float time_zero=0.0;    // initial physical time
     Float time_end=-1.0; // ending physical time
+    Float dt_min = 1e-24; // minimum physical time step
     char* filename_par=NULL; // par dumped filename
+    FixStepOption fix_step_option=FixStepOption::none; // fix step option
     bool load_flag=false; // if true; load dumped data
 
     int copt;
     static struct option long_options[] = {
         {"time-start", required_argument, 0, 0},
         {"time-end", required_argument, 0, 't'},
+        {"fix-step-option", required_argument, 0, 0},
         {"energy-error",required_argument, 0, 'e'},
         {"time-error",required_argument, 0, 0},
+        {"dt-min",required_argument, 0, 0},
+        {"n-step-max",required_argument, 0, 0},
         {"print-width",required_argument, 0, 0},
         {"print-precision",required_argument, 0, 0},
         {"load-data",no_argument, 0, 'l'},
@@ -56,16 +62,31 @@ int main(int argc, char **argv){
             case 0:
                 time_zero = atof(optarg);
                 break;
-            case 3:
-                time_error = atof(optarg);
+            case 2:
+                if (strcmp(optarg,"none")) fix_step_option=FixStepOption::none;
+                else if (strcmp(optarg,"always")) fix_step_option=FixStepOption::always;
+                else if (strcmp(optarg,"later")) fix_step_option=FixStepOption::later;
+                else {
+                    std::cerr<<"Error: fix step option unknown ("<<optarg<<"), should be always, later, none\n";
+                    abort();
+                }
                 break;
             case 4:
-                print_width = atof(optarg);
+                time_error = atof(optarg);
                 break;
             case 5:
-                print_precision = atoi(optarg);
+                dt_min = atof(optarg);
+                break;
+            case 6:
+                nstep_max = atoi(optarg);
                 break;
             case 7:
+                print_width = atof(optarg);
+                break;
+            case 8:
+                print_precision = atoi(optarg);
+                break;
+            case 10:
                 filename_par = optarg;
                 break;
             default:
@@ -100,10 +121,11 @@ int main(int argc, char **argv){
                      <<"    -t [Float]:  ending physical time; if set, -n will be invalid (unset)\n"
                      <<"          --time-end (same as -t)\n"
                      <<"    -s [Float]:  step size, not physical time step ("<<s<<")\n"
+                     <<"          --fix-step-option [char]:  always, later, none (none) \n"
                      <<"    -k [int]:  Symplectic integrator order,should be even number ("<<sym_order<<")\n"
-                     <<"    -e [Float]:  energy error limit ("<<energy_error<<")\n"
+                     <<"    -e [Float]:  relative energy error limit ("<<energy_error<<")\n"
                      <<"          --energy-error (same as -e)\n"
-                     <<"          --time-error [Float]: time synchronization error limit ("<<time_error<<")\n"
+                     <<"          --time-error [Float]:    time synchronization relative error limit ("<<time_error<<")\n"
                      <<"          --print-width [int]:     print width of value ("<<print_width<<")\n"
                      <<"          --print-precision [int]: print digital precision ("<<print_precision<<")\n"
                      <<"    -l :          load dumped data for restart (if used, the input file is dumped data)\n"
@@ -148,6 +170,11 @@ int main(int argc, char **argv){
 
     // manager
     SymplecticManager<Interaction> manager;
+    manager.time_step_real_min = dt_min;
+    manager.time_error_relative_max_real = time_error;
+    manager.energy_error_relative_max = energy_error; 
+    manager.step_count_max = nstep_max;
+    
     // set symplectic order
     manager.step.initialSymplecticCofficients(sym_order);
 
@@ -182,12 +209,22 @@ int main(int argc, char **argv){
     // integration loop
     const int n_particle = sym_int.particles.getSize();
     if (time_end<0.0) {
+        Float time_table[manager.step.getCDPairSize()];
         for (int i=0; i<nstep; i++) {
-            if(n_particle==2) sym_int.integrateTwoOneStep(s);
-            else sym_int.integrateOneStep(s);
+            if(n_particle==2) sym_int.integrateTwoOneStep(s, time_table);
+            else sym_int.integrateOneStep(s, time_table);
             sym_int.printColumn(std::cout, print_width);
             std::cout<<std::endl;
         }
+    }
+    else {
+        bool fail_flag = sym_int.integrateToTime(s, time_end, fix_step_option);
+        if (fail_flag) {
+            std::cerr<<"Integration fail!\n";
+            abort();
+        }
+        sym_int.printColumn(std::cout, print_width);
+        std::cout<<std::endl;
     }
 
     //fpu_fix_end(&oldcw);

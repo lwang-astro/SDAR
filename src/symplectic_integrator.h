@@ -6,18 +6,31 @@
 #include "particle_group.h"
 #include "list.h"
 #include "binary_tree.h"
+#include "profile.h"
 
 //! Algorithmic regularization chain (ARC) namespace
 /*!
   All major ARC classes and related acceleration functions (typedef) are defined
 */
 namespace AR {
+    //! Fix step options for integration with adjusted step (not for time sychronizatio phase)
+    /*! always: use the given step without change \n
+        later: fix step after a few adjustment of initial steps due to energy error
+        none: don't fix step
+     */
+    enum class FixStepOption {always, later, none};
+
     //! Symplectic integrator manager
     /*! Tmethod is the class contain the interaction function, see sample of interaction.h:\n
      */
     template <class Tmethod>
     class SymplecticManager {
     public:
+        Float time_error_relative_max_real; ///> maximum fraction of the time error over the integrated (real) time step, should be positive value
+        Float energy_error_relative_max; ///> maximum energy error requirement 
+        Float time_step_real_min;        ///> minimum real time step allown
+        long long int step_count_max; ///> maximum step counts
+        
         Tmethod interaction; ///> class contain interaction function
         SymplecticStep step;  ///> class to manager kick drift step
     };
@@ -55,6 +68,7 @@ namespace AR {
         SlowDown slowdown; ///< slowdown controller
         ParticleGroup<Tparticle> particles; ///< particle group manager
         BinaryTree binarytree;   ///< particle chain
+        Profile  profile;  ///< profile to measure the performance
         
         //! Constructor
 #ifdef AR_TTL
@@ -84,6 +98,7 @@ namespace AR {
             slowdown.clear();
             particles.clear();
             binarytree.clear();
+            profile.clear();
         }
 
         //! destructor
@@ -109,6 +124,7 @@ namespace AR {
             slowdown = _sym.slowdown;
             particles = _sym.particles;
             binarytree = _sym.binarytree;
+            profile = _sym.profile;
 
             return *this;
         }
@@ -222,6 +238,27 @@ namespace AR {
         }
 #endif
             
+        //! get backup data size
+        int getBackupDataSize() const {
+#ifdef AR_TTL
+            int bk_size = 5; 
+#else
+            int bk_size = 4;
+#endif
+            bk_size += particles.getBackupDataSize();
+            bk_size += slowdown.getBackupDataSize();
+            return bk_size;
+        }
+
+        //! get energy error from backup data
+        Float getEnergyErrorFromBackup(Float* _bk) const {
+            return -_bk[1] + _bk[2] + _bk[3];
+        }
+
+        //! get energy error from backup data
+        Float getEtotFromBackup(Float* _bk) const {
+            return _bk[1];
+        }
 
         //! Backup integration data 
         /*! Backup #time_, #etot_, #ekin_, $epot_, #gt_drift_, $gt_kick_, #particles, $slowdown to one Float data array
@@ -275,6 +312,9 @@ namespace AR {
 
             // slowdown initial time
             slowdown.setRealTime(_time_real);
+
+            // check particle number
+            assert(particles.getSize()>=2);
 
             // reset particle modification flag
             particles.setModifiedFalse();
@@ -333,8 +373,9 @@ namespace AR {
         //! integration for one step
         /*!
           @param[in] _ds: step size
+          @param[out] _time_table: for high order symplectic integration, store the substep integrated (real) time, used for estimate the step for time synchronization, size should be consistent with step.getCDPairSize().
         */
-        void integrateOneStep(const Float _ds) {
+        void integrateOneStep(const Float _ds, Float _time_table[]) {
             assert(!particles.isModified());
             assert(_ds>0);
 
@@ -362,6 +403,7 @@ namespace AR {
 
                 // drift time and postion
                 driftTimeAndPos(dt_drift);
+                _time_table[i] = slowdown.getRealTime();
 
                 // step for kick
                 Float ds_kick = manager->step.getDK(i)*_ds;
@@ -396,9 +438,11 @@ namespace AR {
 
         //! integration for two body one step
         /*! For two-body problem the calculation can be much symplified to improve performance. 
-          Besides, the slow-down factor calculation is embedded in the Drift (for time) and Kick (for perturbation)
-         */
-        void integrateTwoOneStep(const Float _ds) {
+          Besides, the slow-down factor calculation is embedded in the Drift (for time) and Kick (for perturbation). 
+          @param[in] _ds: step size
+          @param[out] _time_table: for high order symplectic integration, store the substep integrated (real) time, used for estimate the step for time synchronization, size should be consistent with step.getCDPairSize().         
+        */
+        void integrateTwoOneStep(const Float _ds, Float _time_table[]) {
             assert(!particles.isModified());
             assert(_ds>0);
 
@@ -444,6 +488,7 @@ namespace AR {
 
                 // update real time
                 slowdown.driftRealTime(dt);
+                _time_table[i] = slowdown.getRealTime();
 
                 // drift position
                 pos1[0] += dt * vel1[0];
@@ -529,6 +574,319 @@ namespace AR {
             }
         }
         
+        // Integrate the system to a given time
+        /*!
+          @param[in] _ds: the integration step size
+          @param[in] _time_end_real: the expected finishing real time 
+          @param[in] _fix_step_option: FixStepOption for controlling the auto-adjust step size
+          \return if integration is fail, return true
+         */
+        bool integrateToTime(const Float _ds, const Float _time_end_real, const FixStepOption _fix_step_option) {
+
+            // real full time step
+            const Float dt_real_full = _time_end_real - slowdown.getRealTime();
+
+            // time error 
+            assert(manager->time_error_relative_max_real>0.0);
+            const Float time_error_real = manager->time_error_relative_max_real*dt_real_full;
+
+            // energy error limit
+            const Float energy_error_rel_max = manager->energy_error_relative_max;
+            // expect energy_error using half step if energy_error_rel_max reached
+            const Float energy_error_rel_max_half_step = energy_error_rel_max * manager->step.calcErrorRatioFromStepModifyFactor(0.5);
+            const Float dt_real_min = manager->time_step_real_min;
+
+            // backup data size
+            const int bk_data_size = getBackupDataSize();
+            
+            Float backup_data[bk_data_size]; // for backup chain data
+#ifdef AR_DEBUG_DUMP
+            Float backup_data_init[bk_data_size]; // for backup initial data
+#endif
+            bool backup_flag=true; // flag for backup or restore
+
+            // time table
+            const int cd_pair_size = manager->step.getCDPairSize();
+            Float time_table[cd_pair_size]; // for storing sub-integrated time 
+
+            // step control
+            Float ds[2] = {_ds,_ds}; // step with a buffer
+            Float ds_backup = _ds;  //backup step size
+            int ds_switch=0;   // 0 or 1
+            int n_step_wait=-1; // number of waiting step to change ds
+            int n_step_end=0;  // number of steps integrated to reach the time end for one during the time sychronization sub steps
+
+            // time end flag
+            bool time_end_flag=false; // indicate whether time reach the end
+
+            // step count
+            int step_count=0; // integration step 
+            int step_count_tsyn=0; // time synchronization step
+            
+            // particle data
+            const int n_particle = particles.getSize();
+
+#ifdef AR_DEBUG
+            Float ekin_check = ekin_;
+            calcEkin();
+            assert(abs(ekin_check-ekin_)<1e-10);
+            ekin_ = ekin_check;
+#endif
+
+#ifdef AR_DEBUG_DUMP
+            // back up initial data
+            backupIntData(backup_data_init);
+#endif
+      
+            // integration loop
+            while(true) {
+                // backup data
+                if(backup_flag) {
+                    int bk_return_size = backupIntData(backup_data);
+                    assert(bk_return_size == bk_data_size);
+                }
+                else { //restore data
+                    int bk_return_size = restoreIntData(backup_data);
+                    assert(bk_return_size == bk_data_size);
+                }
+                
+                // get real time 
+                Float dt_real = slowdown.getRealTime();
+
+                // integrate one step
+                if(n_particle==2) integrateTwoOneStep(ds[ds_switch], time_table);
+                else integrateOneStep(ds[ds_switch], time_table);
+
+                // real step size
+                Float time_real = slowdown.getRealTime();
+                dt_real =  time_real - dt_real;
+                
+                step_count++;
+
+                // energy check
+                Float energy_error_bk = getEnergyErrorFromBackup(backup_data);
+                Float etot_bk = getEtotFromBackup(backup_data);
+                Float energy_error = getEnergyError();
+                Float energy_error_diff = energy_error - energy_error_bk;
+                Float energy_error_rel_abs = abs(energy_error_diff/etot_bk);
+
+                // time error
+                Float time_diff_real_rel = (_time_end_real - time_real)/dt_real_full;
+
+#ifdef AR_WARN
+                // warning for large number of steps
+                if(step_count>=manager->step_count_max) {
+                    std::cerr<<"Warning: step count is signficiant large "<<stepcount<<std::endl;
+                    std::cerr<<"Time(int): "<<time_
+                             <<" Time(real): "<<time_real
+                             <<" Time_end(real): "<<_time_end_real
+                             <<" Time_diff_rel(real): "<<time_diff_real_rel
+                             <<" ds(used): "<<ds[ds_switch]
+                             <<" ds(next): "<<ds[1-ds_switch]
+                             <<" Energy_error_rel_abs: "<<energy_error_rel_abs
+                             <<std::endl;
+                    printColumnTitle(std::cerr);
+                    std::cerr<<std::endl;
+                    printColumn(std::cerr);
+                    std::cerr<<std::endl;
+                }
+#endif
+          
+                // When time sychronization steps too large, abort
+                if(step_count_tsyn>manager->step_count_max) {
+                    std::cerr<<"Error! step count after time synchronization is too large "<<step_count_tsyn<<std::endl;
+                    std::cerr<<" Time(int): "<<time_
+                             <<" Time(real): "<<time_real
+                             <<" Time_end(real): "<<_time_end_real
+                             <<" Time_error_rel(real): "<<time_diff_real_rel
+                             <<" ds(used): "<<ds[ds_switch]
+                             <<" ds(next): "<<ds[1-ds_switch]
+                             <<" ds_backup: "<<ds_backup
+                             <<" Energy_error_rel_abs: "<<energy_error_rel_abs
+                             <<" Step_count: "<<step_count
+                             <<std::endl;
+                    printColumnTitle(std::cerr);
+                    std::cerr<<std::endl;
+                    printColumn(std::cerr);
+                    std::cerr<<std::endl;
+#ifdef AR_DEBUG_DUMP
+                    restoreIntData(backup_data_init);
+#endif
+                    return true;
+                }
+
+
+#ifdef AR_DEEP_DEBUG
+                std::cerr<<" Time(int): "<<time_
+                         <<" Time(real): "<<time_real
+                         <<" Time_end(real): "<<_time_end_real
+                         <<" Time_error_rel(real): "<<time_diff_real_rel
+                         <<" ds(used): "<<ds[ds_switch]
+                         <<" ds(next): "<<ds[1-ds_switch]
+                         <<" ds_backup: "<<ds_backup
+                         <<" Energy_error_rel_abs: "<<energy_error_rel_abs
+                         <<" Step_count: "<<step_count
+                         <<std::endl;
+                std::cerr<<"Timetable: ";
+                for (int i=0; i<cd_pair_size; i++) std::cerr<<" "<<time_table[manager->step.getSortCumSumCKIndex(i)];
+                std::cerr<<std::endl;
+#endif
+
+                // modify step if energy error is large
+                if(energy_error_rel_abs>energy_error_rel_max) {
+                    if(_fix_step_option!=FixStepOption::always) {
+
+                        // estimate the modification factor based on the symplectic order
+                        Float energy_error_ratio = energy_error_rel_max/energy_error_rel_abs;
+                        // limit modify_factor to 0.125
+                        Float modify_factor = std::max(manager->step.calcStepModifyFactorFromErrorRatio(energy_error_ratio), Float(0.125));
+
+                        // for initial steps
+                        if(step_count<3) {
+                            n_step_wait=-1;
+                            ds[ds_switch] *= modify_factor;
+                            ds[1-ds_switch] = ds[ds_switch];
+                            backup_flag = false;
+#ifdef AR_DEEP_DEBUG
+                            std::cerr<<"Detected energy error too large, energy_error/max ="<<1.0/energy_error_ratio<<" energy_error_rel_abs ="<<energy_error_rel_abs<<" modify_factor ="<<modify_factor<<std::endl;
+#endif
+                            continue;
+                        }
+                        // for big energy error
+                        else if (_fix_step_option==FixStepOption::none && energy_error_ratio<0.1) {
+                            if(backup_flag) ds_backup = ds[ds_switch];
+                            ds[ds_switch] *= modify_factor;
+                            ds[1-ds_switch] = ds[ds_switch];
+                            backup_flag = false;
+                            n_step_wait = 2*to_int(1.0/modify_factor);
+#ifdef AR_DEEP_DEBUG
+                            std::cerr<<"Detected energy error too large, energy_error/max ="<<1.0/energy_error_ratio<<" energy_error_rel_abs ="<<energy_error_rel_abs<<" modify_factor ="<<modify_factor<<" n_step_wait ="<<n_step_wait<<std::endl;
+#endif
+                            continue;
+                        }
+                    }
+                }
+#ifdef ARC_WARN
+                if(energy_error_rel_abs>100.0*energy_error_rel_max) {
+                    std::cerr<<"Warning: symplectic integrator error > 100*criterion:"<<energy_error_rel_abs<<std::endl;
+                }
+#endif
+
+                // abort when too small step found
+                if(!time_end_flag&&dt_real<dt_real_min) {
+                    std::cerr<<"Error! symplectic integrated time step ("<<dt_real<<") < minimum step ("<<dt_real_min<<")!\n";
+                    std::cerr<<" Time(int): "<<time_
+                             <<" Time(real): "<<time_real
+                             <<" Time_end(real): "<<_time_end_real
+                             <<" Time_error_rel(real): "<<(_time_end_real - time_real)/dt_real_full
+                             <<" ds(used): "<<ds[ds_switch]
+                             <<" ds(next): "<<ds[1-ds_switch]
+                             <<" ds_backup: "<<ds_backup
+                             <<" Energy_error_rel_abs: "<<energy_error_rel_abs
+                             <<" Step_count: "<<step_count
+                             <<std::endl;
+
+#ifdef ARC_DEBUG_DUMP
+                    restoreIntData(backup_data_init);
+#endif
+                    return true;
+                }
+          
+                // check integration time
+                if(time_real < _time_end_real - time_error_real){
+                    // step increase depend on n_step_wait or energy_error
+                    if(_fix_step_option==FixStepOption::none && !time_end_flag) {
+                        // waiting step count reach
+                        if(n_step_wait==0) {
+#ifdef AR_DEEP_DEBUG
+                            std::cerr<<"Recover to backup step ds_current="<<ds[ds_switch]<<" ds_next="<<ds[1-ds_switch]<<" ds_backup="<<ds_backup<<std::endl;
+#endif
+                            ds[1-ds_switch] = ds_backup;
+                        }
+                        else if(energy_error_rel_abs<energy_error_rel_max_half_step) {
+                            Float energy_error_ratio = energy_error_rel_max/energy_error_rel_abs;
+                            Float modify_factor = manager->step.calcStepModifyFactorFromErrorRatio(energy_error_ratio);
+                            ds[1-ds_switch] *= modify_factor;
+#ifdef ARC_DEEP_DEBUG
+                            std::cerr<<"Energy error is small enought for increase step, energy_error_rel_abs="<<Energy_error_rel_abs
+                                     <<" energy_error_rel_max="<<energy_error_rel_max<<" step_modify_factor="<<modify_factor<<" new ds="<<ds[1-dsk]<<std::endl;
+#endif
+                        }
+                        n_step_wait--;
+                    }
+
+                    // time sychronization on case, when step size too small to reach time end, increase step size
+                    if(time_end_flag && ds[ds_switch]==ds[1-ds_switch]) {
+                        step_count_tsyn++;
+
+                        Float dt_real_end = _time_end_real - time_real;
+                        if(n_step_end>1 && dt_real<0.3*dt_real_end) {
+                            ds[1-ds_switch] = ds[ds_switch] * dt_real_end/dt_real;
+#ifdef AR_DEEP_DEBUG
+                            std::cerr<<"Time step dt(real) "<<dt_real<<" <0.3*(time_end-time)(real) "<<dt_real_end<<" enlarge step factor: "<<dt_real_end/dt_real<<" new ds: "<<ds[1-ds_switch]<<std::endl;
+#endif
+                        }
+                        else n_step_end++;
+                    }
+
+                    // when used once, update to the new step
+                    ds[ds_switch] = ds[1-ds_switch]; 
+                    ds_switch = 1-ds_switch;
+
+                    backup_flag = true;
+                }
+                else if(time_real > _time_end_real + time_error_real) {
+                    time_end_flag = true;
+                    backup_flag = false;
+
+                    step_count_tsyn++;
+                    n_step_end=0;
+
+                    // check timetable
+                    int i=-1,k=0; // i indicate the increasing time index, k is the corresponding index in time_table
+                    for(i=0; i<cd_pair_size; i++) {
+                        k = manager->step.getSortCumSumCKIndex(i);
+                        if(_time_end_real<time_table[k]) break;
+                    }
+                    if (i==0) { // first step case
+                        ds[ds_switch] *= manager->step.getSortCumSumCK(i)*_time_end_real/time_table[k];
+                        ds[1-ds_switch] = ds[ds_switch];
+#ifdef AR_DEEP_DEBUG
+                        std::cerr<<"Time_end_real reach, time[k](real)= "<<time_table[k]<<" time(real)= "<<time_real<<" time_end/time[k](real)="<<_time_end_real/time_table[k]<<" CumSum_CK="<<manager->step.getSortCumSumCK(i)<<" ds(next) = "<<ds[ds_switch]<<" ds(next_next) = "<<ds[1-ds_switch]<<"\n";
+#endif
+                    }
+                    else { // not first step case, get the interval time 
+                        // previous integrated sub time in time table
+                        Float time_real_prev = time_table[manager->step.getSortCumSumCKIndex(i-1)];
+                        Float dt_real_k = time_table[k] - time_real_prev;
+                        Float ds_tmp = ds[ds_switch];
+                        // get cumsum CK factor for two steps near the time_end_real
+                        Float cck_prev = manager->step.getSortCumSumCK(i-1);
+                        Float cck = manager->step.getSortCumSumCK(i);
+                        // in case the time is between two sub step, first scale the next step with the previous step CumSum CK cck(i-1)
+                        ds[ds_switch] *= cck_prev;  
+                        // then next next step, scale with the CumSum CK between two step: cck(i) - cck(i-1) 
+                        ds[1-ds_switch] = ds_tmp*(cck-cck_prev)*std::min(Float(1.0),(_time_end_real-time_real_prev+time_error_real)/dt_real_k); 
+#ifdef AR_DEEP_DEBUG
+                        std::cerr<<"Time_end_real reach, time_prev(real)= "<<time_real_prev<<" time[k](real)= "<<time_table[k]<<" time(real)= "<<time_real<<" (time_end-time_prev)/dt(real)="<<(_time_end_real-time_real_prev)/dt_real<<" CumSum_CK="<<cck<<" CumSum_CK(prev)="<<cck_prev<<" ds(next) = "<<ds[ds_switch]<<" ds(next_next) = "<<ds[1-ds_switch]<<" \n";
+#endif
+                    }
+                }
+                else {
+#ifdef AR_DEEP_DEBUG
+                    std::cerr<<"Finish, time_diff_real_rel = "<<time_diff_real_rel<<" energy_error_rel_abs = "<<energy_error_rel_abs<<std::endl;
+#endif
+                    break;
+                }
+            }
+
+            // cumulative step count 
+            profile.step_count += step_count;
+            profile.step_count_tsyn += step_count_tsyn;
+
+            return false;
+        }
+
         //! Get current physical time
         /*! \return current physical time
          */
@@ -555,6 +913,13 @@ namespace AR {
          */
         Float getEtot() const {
             return etot_;
+        }
+
+        //! get energy error 
+        /*! \return energy error
+         */
+        Float getEnergyError() const {
+            return ekin_ + epot_ - etot_;
         }
 
 #ifdef AR_TTL
@@ -585,6 +950,7 @@ namespace AR {
             slowdown.printColumnTitle(_fout, _width);
             particles.printColumnTitle(_fout, _width);
         }
+
         //! print data of class members using column style
         /*! print data of class members in one line for column style. Notice no newline is printed at the end
           @param[out] _fout: std::ostream output object
@@ -592,16 +958,16 @@ namespace AR {
         */
         void printColumn(std::ostream & _fout, const int _width=20){
             _fout<<std::setw(_width)<<time_
-                 <<std::setw(_width)<<ekin_+epot_-etot_
+                 <<std::setw(_width)<<getEnergyError()
                  <<std::setw(_width)<<etot_
                  <<std::setw(_width)<<ekin_
                  <<std::setw(_width)<<epot_;
 #ifdef AR_TTL
             _fout<<std::setw(_width)<<gt_inv_;
 #endif
+            profile.printColumn(_fout, _width);
             slowdown.printColumn(_fout, _width);
             particles.printColumn(_fout, _width);
         }
-
     };
 }

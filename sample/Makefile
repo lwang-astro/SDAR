@@ -5,7 +5,7 @@ VPATH=../src
 
 use_x86=yes
 #use_k_computer=yes
-QD_PATH=/opt/qd-2.3.18
+QD_PATH=/opt/qd-2.3.22
 #GPERF_PATH = /opt/gperftools-2.6.1
 
 
@@ -30,8 +30,8 @@ endif
 
 ## for debug------------------------------------------#
 #CXXFLAGS += -D DEBUG 
-#CXXFLAGS += -D ARC_DEBUG
-#CXXFLAGS += -D ARC_DEEP_DEBUG
+#CXXFLAGS += -D AR_DEBUG
+CXXFLAGS += -D AR_DEEP_DEBUG
 
 ## Flag ----------------------------------------------#
 CXXFLAGS += -I../src

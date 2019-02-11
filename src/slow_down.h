@@ -126,8 +126,15 @@ namespace AR{
             }
         }
         
+        //! get backup data size 
+        /*! \return the data array size for backupSlowDownFactorAndTimeReal()
+         */
+        int getBackupDataSize() const {
+            return 2;
+        }
+
         //! backup real time and force ratio
-        /*! @param[in] _bk: backup data array, should be size of 2
+        /*! @param[in] _bk: backup data array, should be size of getBackupDataSize() (2)
           \return backup array size
          */
         int backupSlowDownFactorAndTimeReal(Float* _bk) {
