@@ -68,26 +68,26 @@ namespace AR{
             kappa_ = std::max(Float(1.0), kappa_);
         }
 
-        //! calculate slowdown factor based on perturbation force and inner binding energy for a binary
+        //! calculate slowdown factor based on perturbation and inner acceleration
         /* if it is a hyperbolic encounter, (ebin_>0), set slowdown factor to 1.0
-          @param[in] _ebin: binary binding energy
-          @param[in] _fpert: perturbation force (Notice this is scaler force not accelertion), if zero, slowdown factor is 1.0
+          @param[in] _acc_in: binary inner acceleration (negative means hyperbolic case)
+          @param[in] _acc_pert: perturbation acceleration (if zero, slowdown factor is 1.0)
           \return slowdown factor
          */
-        Float calcSlowDownFactorBinary(const Float _ebin, const Float _fpert) {
-            // hyberbolic case
-            if(_ebin>0.0||_fpert==0.0) {
+        Float calcSlowDownFactor(const Float _acc_in, const Float _acc_pert) {
+            // hyberbolic case or no perturbation
+            if(_acc_in<0.0||_acc_pert==0.0) {
                 kappa_org_ = kappa_ = Float(1.0);
             }
-            else { // binary case
-                kappa_org_ = - kappa_ref_*_ebin/_fpert;
+            else { 
+                kappa_org_ = - kappa_ref_*_acc_in/_acc_pert;
                 kappa_ = std::min(kappa_, kappa_max_);
                 kappa_ = std::max(Float(1.0), kappa_);
             }
             return kappa_;
         }
 
-        // Get slow-down factor
+        //! Get slow-down factor
         /*!
           \return get adjusted kappa by keeping phase corrected
         */
@@ -95,7 +95,7 @@ namespace AR{
             return kappa_;
         }
 
-        // Get original slow-down factor
+        //! Get original slow-down factor
         /*!
           \return kappa_origin
         */
@@ -103,9 +103,14 @@ namespace AR{
             return kappa_org_;
         }
 
-        // Get sd reference factor
+        //! Get sd reference factor
         Float getSlowDownFactorReference() const {
             return kappa_ref_;
+        }
+
+        //! Get slow-down fact maximum
+        Float getSlowDownFactorMax() const {
+            return kappa_max_;
         }
 
         //! write class data with BINARY format

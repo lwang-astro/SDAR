@@ -24,6 +24,7 @@ namespace AR{
         }
     };
 
+    //! profiling class for AR integrator
     class Profile {
     public:
         typedef long long unsigned int UInt64;

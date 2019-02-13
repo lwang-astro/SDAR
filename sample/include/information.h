@@ -5,10 +5,9 @@
 
 namespace AR{
 
-    class BinaryTree{
+//! empty information class 
+    class Information{
     public:
-        //! clear function
-        void clear() {
-        }
+        void clear() {}
     };
 }

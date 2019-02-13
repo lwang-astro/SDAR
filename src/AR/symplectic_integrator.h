@@ -5,7 +5,6 @@
 #include "slow_down.h"
 #include "particle_group.h"
 #include "list.h"
-#include "binary_tree.h"
 #include "profile.h"
 
 //! Algorithmic regularization chain (ARC) namespace
@@ -41,9 +40,9 @@ namespace AR {
       2. Initial system (initial) \n
       3. Integration (integrateOneStep/integrateToTime) \n
       Requirement for Tparticle class, public memebers: pos[3], vel[3], mass\n
-      Template dependence: Tparticle: particle type;  Tpert: perturber class type, Tmethod: interaction class;
+      Template dependence: Tparticle: particle type; Tpcm: particle cm type  Tpert: perturber class type, Tmethod: interaction class;
     */
-    template <class Tparticle, class Tpert, class Tmethod>
+    template <class Tparticle, class Tpcm, class Tpert, class Tmethod, class Tinfo>
     class SymplecticIntegrator {
     private:
         // intergrated variables
@@ -66,22 +65,22 @@ namespace AR {
         SymplecticManager<Tmethod>* manager; ///< integration manager
         Tpert   perturber; ///< perturber class 
         SlowDown slowdown; ///< slowdown controller
-        ParticleGroup<Tparticle> particles; ///< particle group manager
-        BinaryTree binarytree;   ///< particle chain
+        ParticleGroup<Tparticle,Tpcm> particles; ///< particle group manager
+        Tinfo    info;   ///< particle information 
         Profile  profile;  ///< profile to measure the performance
         
         //! Constructor
 #ifdef AR_TTL
-        SymplecticIntegrator(): time_(0), etot_(0), ekin_(0), epot_(0), gt_inv_(0), force_(), manager(NULL), perturber(), slowdown(), particles(), binarytree() {}
+        SymplecticIntegrator(): time_(0), etot_(0), ekin_(0), epot_(0), gt_inv_(0), force_(), manager(NULL), perturber(), slowdown(), particles(), info(), profile() {}
 #else
-        SymplecticIntegrator(): time_(0), etot_(0), ekin_(0), epot_(0), force_(), manager(NULL), perturber(), slowdown(), particles(), binarytree() {}
+        SymplecticIntegrator(): time_(0), etot_(0), ekin_(0), epot_(0), force_(), manager(NULL), perturber(), slowdown(), particles(), info(), profile() {}
 #endif
 
         //! reserve memory for force
         /*! The size of force depends on the particle data size.Thus particles should be added first before call this function
           @param[in] _nmax: maximum number of particles for memory allocation, if not given (0), use particles reserved size
         */
-        void reserveMem() {
+        void reserveForceMem() {
             // force array always allocated local memory
             force_.setMode(ListMode::local);
             int nmax = particles.getSizeMax();
@@ -97,7 +96,7 @@ namespace AR {
             perturber.clear();
             slowdown.clear();
             particles.clear();
-            binarytree.clear();
+            info.clear();
             profile.clear();
         }
 
@@ -123,7 +122,7 @@ namespace AR {
             manager = _sym.manager;
             slowdown = _sym.slowdown;
             particles = _sym.particles;
-            binarytree = _sym.binarytree;
+            info = _sym.binarytree;
             profile = _sym.profile;
 
             return *this;
@@ -345,8 +344,10 @@ namespace AR {
                 // two-body case, also initialslowdown
                 // calcualte perturbation force (cumulative to acc) and slowdown perturbation estimation
                 Float sd_pert = manager->interaction.calcAccAndSlowDownPert(force_data, particle_data, n_particle, particles.cm, perturber);
-                // slowdown factor
-                slowdown.calcSlowDownFactorBinary(etot_, sd_pert);
+                // slowdown factor, for inner perturbation, m1*m2/(2.0*semi)^3 is used
+                Float m1m2 = particle_data[0].mass*particle_data[1].mass;
+                Float sd_in = etot_*etot_*etot_/(m1m2*m1m2);
+                slowdown.calcSlowDownFactor(sd_in, sd_pert);
 
             }
             else {
@@ -513,7 +514,9 @@ namespace AR {
                 Float sd_pert = manager->interaction.calcAccAndSlowDownPert(force_data, particle_data, n_particle, particles.cm, perturber);
 
                 // slowdown factor
-                const Float kappa = slowdown.calcSlowDownFactorBinary(etot_, sd_pert);
+                const Float m1m2  = mass1*mass2;
+                const Float sd_in = etot_*etot_*etot_/(m1m2*m1m2);
+                const Float kappa = slowdown.calcSlowDownFactor(sd_in, sd_pert);
 
                 // kick half step for velocity
                 Float dvel1[3], dvel2[3];

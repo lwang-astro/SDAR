@@ -1,11 +1,11 @@
 ## TARGET
 TARGET=ar ptclgrouptest
 
-VPATH=../src
+VPATH=../src/AR ./include
 
 use_x86=yes
 #use_k_computer=yes
-QD_PATH=/opt/qd-2.3.22
+QD_PATH=/opt/qd-2.3.18
 #GPERF_PATH = /opt/gperftools-2.6.1
 
 
@@ -34,9 +34,9 @@ endif
 CXXFLAGS += -D AR_DEEP_DEBUG
 
 ## Flag ----------------------------------------------#
-CXXFLAGS += -I../src
+CXXFLAGS += -I../src/AR -I./include
 CXXFLAGS += -std=c++11
-CXXFLAGS += -DAR_TTL
+#CXXFLAGS += -D AR_TTL
 
 ## OpenMP flag----------------------------------------#
 #CXXFLAGS += -fopenmp -D USE_OMP

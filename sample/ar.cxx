@@ -11,8 +11,10 @@
 #include "particle.h"
 #include "perturber.h"
 #include "interaction.h"
+#include "information.h"
 
 using namespace AR;
+
 
 int main(int argc, char **argv){
 
@@ -179,7 +181,7 @@ int main(int argc, char **argv){
     manager.step.initialSymplecticCofficients(sym_order);
 
     // integrator
-    SymplecticIntegrator<Particle, Perturber, Interaction> sym_int;
+    SymplecticIntegrator<Particle, Particle, Perturber, Interaction, Information> sym_int;
     sym_int.manager = &manager;
 
     if(load_flag) {
@@ -188,7 +190,7 @@ int main(int argc, char **argv){
     else {
         sym_int.particles.setMode(ListMode::local);
         sym_int.particles.readAscii(fin);
-        sym_int.reserveMem();
+        sym_int.reserveForceMem();
     }
 
     // initialization 

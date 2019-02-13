@@ -9,14 +9,14 @@ namespace AR {
 //! Particle group class to store and manage a group of particle
 /*! A list that storing particle memory addresses and their copy (based on template class particle_)
  */
-    template <class Tparticle>
+    template <class Tparticle, class Tpcm>
     class ParticleGroup: public List<Tparticle>{
     private:
         typedef List<Tparticle> TList;
         bool origin_frame_flag; //!< true: particles are in original frame; false: particles are in c.m. frame
 
     public:
-        Tparticle cm;  //! center of mass particle for the group
+        Tpcm cm;  //! center of mass particle for the group
 
         //! Constructor 
         /*! Set particle number to zero, clear pointers

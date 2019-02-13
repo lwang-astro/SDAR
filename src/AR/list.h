@@ -196,12 +196,12 @@ namespace AR {
             return nmax_;
         }
     
-        //! copy one member 
+        //! copy one member and its address
         /*! add a member by copying member into local allocated memory and storing the original memory address of it.
           Only work for #ListMode::copy
           @param [in] a: a member to store (push back at the end of local array)
         */
-        void addMember(Ttype &_member) {
+        void addMemberAndAddress(Ttype &_member) {
             assert(mode_==ListMode::copy);
             assert(num_<nmax_);
             data_[num_] = _member;
@@ -210,14 +210,38 @@ namespace AR {
             modified_flag_ = true;
         }
 
+        //! copy one member and its address
+        /*! add a member by copying it into local allocated memory.
+          Only work for #ListMode::local
+          @param [in] a: a member to store (push back at the end of local array)
+        */
+        void addMember(Ttype &_member) {
+            assert(mode_==ListMode::local);
+            assert(num_<nmax_);
+            data_[num_] = _member;
+            num_++;
+            modified_flag_ = true;
+        }
+
         //! increase size without initialization 
         /*! Work for #ListMode::local case. 
           Require the memory size is big enough to contain the new number of members.
          */
-        void increaseSizeNoInitial(const int _n) {
+        void increaseSizeNoInitialize(const int _n) {
             assert(mode_==ListMode::local);
             assert(num_+_n<=nmax_);
             num_ += _n;
+            modified_flag_ = true;
+        }
+
+        //! increase size without initialization 
+        /*! Work for #ListMode::local case. 
+          Require the memory size is big enough to contain the new number of members.
+         */
+        void resizeNoInitialize(const int _n) {
+            assert(mode_==ListMode::local);
+            assert(_n<=nmax_);
+            num_ = _n;
             modified_flag_ = true;
         }
     
@@ -226,7 +250,7 @@ namespace AR {
           @param [in] _member: array of members
           @param [in] _n_member: number of members
         */
-        void linkMemberList(Ttype _member[], const int _n_member) {
+        void linkMemberArray(Ttype _member[], const int _n_member) {
             assert(mode_==ListMode::link);
             assert(nmax_==0);
             assert(num_==0);
