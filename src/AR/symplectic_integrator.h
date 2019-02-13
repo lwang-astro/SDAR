@@ -1,11 +1,11 @@
 #pragma once
 
-#include "symplectic_step.h"
-#include "force.h"
-#include "slow_down.h"
-#include "particle_group.h"
-#include "list.h"
-#include "profile.h"
+#include "Common/list.h"
+#include "Common/particle_group.h"
+#include "AR/symplectic_step.h"
+#include "AR/force.h"
+#include "AR/slow_down.h"
+#include "AR/profile.h"
 
 //! Algorithmic regularization chain (ARC) namespace
 /*!
@@ -35,7 +35,7 @@ namespace AR {
     };
     
     //! Symplectic integrator class for a group of particles
-    /*! The basic steps to integrate \n
+    /*! The basic steps to use the integrator \n
       1. Add particles (particles.addParticle/particles.linkParticleList)  \n
       2. Initial system (initial) \n
       3. Integration (integrateOneStep/integrateToTime) \n
@@ -59,14 +59,14 @@ namespace AR {
 #endif
 
         // force array
-        List<Force> force_; ///< acceleration array 
+        COMM::List<Force> force_; ///< acceleration array 
 
     public:
         SymplecticManager<Tmethod>* manager; ///< integration manager
         Tpert   perturber; ///< perturber class 
         SlowDown slowdown; ///< slowdown controller
         ParticleGroup<Tparticle,Tpcm> particles; ///< particle group manager
-        Tinfo    info;   ///< particle information 
+        Tinfo    info;   ///< information of the system
         Profile  profile;  ///< profile to measure the performance
         
         //! Constructor
@@ -78,7 +78,6 @@ namespace AR {
 
         //! reserve memory for force
         /*! The size of force depends on the particle data size.Thus particles should be added first before call this function
-          @param[in] _nmax: maximum number of particles for memory allocation, if not given (0), use particles reserved size
         */
         void reserveForceMem() {
             // force array always allocated local memory
@@ -306,6 +305,8 @@ namespace AR {
           @param[in] _time_real: real physical time to initialize
         */
         void initial(const Float _time_real) {
+            assert(manager!=NULL);
+
             // Initial intgrt value t (avoid confusion of real time when slowdown is used)
             time_ = Float(0.0);
 
@@ -377,6 +378,7 @@ namespace AR {
           @param[out] _time_table: for high order symplectic integration, store the substep integrated (real) time, used for estimate the step for time synchronization, size should be consistent with step.getCDPairSize().
         */
         void integrateOneStep(const Float _ds, Float _time_table[]) {
+            assert(manager!=NULL);
             assert(!particles.isModified());
             assert(_ds>0);
 
@@ -444,6 +446,7 @@ namespace AR {
           @param[out] _time_table: for high order symplectic integration, store the substep integrated (real) time, used for estimate the step for time synchronization, size should be consistent with step.getCDPairSize().         
         */
         void integrateTwoOneStep(const Float _ds, Float _time_table[]) {
+            assert(manager!=NULL);
             assert(!particles.isModified());
             assert(_ds>0);
 
@@ -585,6 +588,7 @@ namespace AR {
           \return if integration is fail, return true
          */
         bool integrateToTime(const Float _ds, const Float _time_end_real, const FixStepOption _fix_step_option) {
+            assert(manager!=NULL);
 
             // real full time step
             const Float dt_real_full = _time_end_real - slowdown.getRealTime();

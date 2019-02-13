@@ -4,7 +4,7 @@
 #include "Float.h"
 #include "list.h"
 
-namespace AR {
+namespace COMM {
 
 //! Particle group class to store and manage a group of particle
 /*! A list that storing particle memory addresses and their copy (based on template class particle_)

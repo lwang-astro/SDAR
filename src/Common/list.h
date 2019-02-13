@@ -3,7 +3,7 @@
 #include <cassert>
 #include "Float.h"
 
-namespace AR {
+namespace COMM {
 
     //! list mode indicator
     /* copy: copy data and link original address (data_, adr_ allocated); \n
