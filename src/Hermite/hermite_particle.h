@@ -104,6 +104,12 @@ namespace H4{
     public:
         Float acc0[3]; //
         Float acc1[3]; //
+
+        //! clear function
+        void clear() {
+            acc0[0] = acc0[1] = acc0[2] = 0.0;
+            acc1[0] = acc1[1] = acc1[2] = 0.0;
+        }
     };
 
 }

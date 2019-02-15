@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Float.h"
+#include "Common/Float.h"
 
 namespace H4{
     // forth order Time step calculator class
@@ -21,8 +21,10 @@ namespace H4{
                         const Float* acc1) const {
             const Float s0 = acc0[0] * acc0[0] + acc0[1] * acc0[1] + acc0[2] * acc0[2];
             const Float s1 = acc1[0] * acc1[0] + acc1[1] * acc1[1] + acc1[2] * acc1[2];
-            assert(s1>0.0);
-            return eta_2nd * sqrt( s0 / s1 );
+            if(s0 == 0.0 || s1 == 0.0)
+                return NUMERIC_FLOAT_MAX;
+            else 
+                return eta_2nd * sqrt( s0 / s1 );
         }
 
         //! calculate 4th order time step 
@@ -41,8 +43,10 @@ namespace H4{
             const Float s1 = acc1[0] * acc1[0] + acc1[1] * acc1[1] + acc1[2] * acc1[2];
             const Float s2 = acc2[0] * acc2[0] + acc2[1] * acc2[1] + acc2[2] * acc2[2];
             const Float s3 = acc3[0] * acc3[0] + acc3[1] * acc3[1] + acc3[2] * acc3[2];
-            assert(!(s1==0.0||s3==0.0)&&s2==0.0);
-            return eta_sq_ * sqrt( (sqrt(s0*s2) + s1) / (sqrt(s1*s3) + s2) );
+            if(!(s1==0.0||s3==0.0)&&s2==0.0)
+                return NUMERIC_FLOAT_MAX;
+            else 
+                return eta_sq_ * sqrt( (sqrt(s0*s2) + s1) / (sqrt(s1*s3) + s2) );
         }
 
         void print(std::ostream & _fout) const{
@@ -91,60 +95,26 @@ namespace H4{
 
     // Block time step class
     class BlockTimeStep4th: public TimeStep4th{
-    private:
-        Float dt_max_;  // maximum time step
-        Float dt_min_;  // minimum time step
-        Float dt_max_next_;
     public:
+        Float dt_max;  // maximum time step
+        Float dt_min;  // minimum time step
 
         //! contructor
-        BlockTimeStep4th(): TimeStep4th(), dt_max_(0.0), dt_max_next_(0.0), dt_min_(0.0), time_(-1.0) {}
-
-        //! Set maximum and minimum time step limits
-        /*! 
-          @param[in] _dt_max: maximum time step
-          @param[in] _dt_min: minimum time step
-        */
-        void setDtLimit(const Float _dt_max, const Float _dt_min) {
-            dt_max_ = _dt_max;
-            dt_min_ = _dt_min;
-            dt_max_next_ = _dt_max;
-            assert(dt_max_>dt_min_);
-            assert(dt_min_>0.0);
-        }
-
-        //! get maximum time step
-        /*! \return maximum time step
-         */
-        const PS::F64& getDtMax() const {
-            return dt_max_;
-        }
-
-        //! get minimum time step
-        /*! \return minimum time step
-         */
-        const PS::F64& getDtMin() const {
-            return dt_min_;
-        }
-
-        //! get next maximum time step
-        /*! \return next maximum time step
-         */
-        const Float& getDtMaxNext() const {
-            return dt_max_next_;
-        }
+        BlockTimeStep4th(): TimeStep4th(), dt_max(1.0), dt_min(1e-24) {}
 
         //! calculate the maximum time step limit for next block step based on the input (current) time
         /*! 
           Basic algorithm: the integer of time/dt_min is the binary tree for block step, counting from the minimum digital, the last zero indicate the maximum block step level allown for next step
           @param[in] _time: current time
         */
-        void calcNextDtMax(const Float _time) {
+        Float calcNextDtLimit(const Float _time) {
+            assert(dt_max>dt_min);
+            assert(dt_min>0.0);
             // for first step, the maximum time step is OK
-            if(_time==0.0) dt_max_next_ = dt_max_;
+            if(_time==0.0) return dt_max;
             else {
                 // the binary tree for current time position in block step 
-                PS::U64 bitmap = _time/dt_min_;
+                PS::U64 bitmap = _time/dt_min;
                 //#ifdef __GNUC__ 
                 //        PS::S64 dts = __builtin_ctz(bitmap) ;
                 //        PS::U64 c = (1<<dts);
@@ -161,28 +131,30 @@ namespace H4{
                 //#endif
             
                 // return the maximum step allown
-                dt_max_next_ = std::min(c*dt_min_,dt_max_);
+                return std::min(c*dt_min,dt_max);
             }
         }
 
         //! Calculate 2nd order block time step
         /*! calculate block time step based on Acc and its derivatives
-          @param[in] acc0: acceleration
-          @param[in] acc1: first order derivative of acc0
+          @param[in] _acc0: acceleration
+          @param[in] _acc1: first order derivative of acc0
+          @param[in] _dt_limit: maximum step limit
           \return step size, if dt<dt_min, return -dt;
         */
-        Float calcBlockDt2nd(const Float* acc0, 
-                             const Float* acc1) const{
-            assert(dt_max_>dt_min_);
-            assert(dt_max_next_<=dt_max_);
-            assert(dt_max_next_>=dt_min_);
+        Float calcBlockDt2nd(const Float* _acc0, 
+                             const Float* _acc1,
+                             const Float _dt_limit) const{
+            assert(dt_max>dt_min);
+            assert(_dt_limit<=dt_max);
+            assert(_dt_limit>=dt_min);
 
             const Float dt_ref = TimeStep::calcDt2nd(acc0, acc1);
-            Float dt = dt_max_next_;
+            Float dt = _dt_limit;
             while(dt > dt_ref) dt *= 0.5;
 
-            if(dt<dt_min_) {
-                std::cerr<<"Error: time step size too small: ("<<dt<<") < dt_min ("<<dt_min_<<")!"<<std::endl;
+            if(dt<dt_min) {
+                std::cerr<<"Error: time step size too small: ("<<dt<<") < dt_min ("<<dt_min<<")!"<<std::endl;
                 return -dt;
             }
             else return dt;
@@ -231,8 +203,8 @@ namespace H4{
             TimeStep::printColumnTitle(_fout, _width);
             _fout<<std::setw(_width)<<"Dt_max"
                  <<std::setw(_width)<<"Dt_max_next"
-                 <<std::setw(_width)<<"Dt_min"
-                }
+                 <<std::setw(_width)<<"Dt_min";
+        }
 
         //! print data of class members using column style
         /*! print data of class members in one line for column style. Notice no newline is printed at the end

@@ -319,15 +319,20 @@ namespace AR {
             // reset particle modification flag
             particles.setModifiedFalse();
 
+
             // check the center-of-mass initialization
             if(particles.isOriginFrame()) {
                 particles.calcCenterOfMass();
                 particles.shiftToCenterOfMassFrame();
             }
 
-            Tparticle* particle_data = particles.getDataAddress();
-            Force* force_data = force_.getDataAddress();
+            // particle number and data address
             const int n_particle = particles.getSize();
+            Tparticle* particle_data = particles.getDataAddress();
+
+            // resize force array
+            force_.resizeNoInitialize(n_particle);
+            Force* force_data = force_.getDataAddress();
 
             if (n_particle==2) {
 
@@ -892,6 +897,29 @@ namespace AR {
             profile.step_count_tsyn += step_count_tsyn;
 
             return false;
+        }
+
+        //! write back particles with slowdown velocity
+        /*! write back particles with slowdown velocity to original address
+          @param[in] _particle_cm: center of mass particle to calculate the original frame, different from the particles.cm
+         */
+        template <class Tptcl>
+        void writeBackSlowDownParticles(const Tptcl& _particle_cm) {
+            assert(particles.getMode()==ListMode::copy);
+            auto* particle_adr = particles.getMemberOriginAddress();
+            auto* particle_data= particles.getDataAddress();
+            const Float kappa_inv = 1.0/slowdown.getSlowDownFactor();
+            for (int i=0; i<particles.getSize(); i++) {
+                particle_adr[i]->mass = particle_data[i].mass;
+
+                particle_adr[i]->pos[0] = particle_data[i].pos[0] + _particle_cm.pos[0];
+                particle_adr[i]->pos[1] = particle_data[i].pos[1] + _particle_cm.pos[1];
+                particle_adr[i]->pos[2] = particle_data[i].pos[2] + _particle_cm.pos[2];
+
+                particle_adr[i]->vel[0] = particle_data[i].vel[0]*kappa_inv + _particle_cm.pos[0];
+                particle_adr[i]->vel[1] = particle_data[i].vel[1]*kappa_inv + _particle_cm.pos[1];
+                particle_adr[i]->vel[2] = particle_data[i].vel[2]*kappa_inv + _particle_cm.pos[2];
+            }
         }
 
         //! Get current physical time

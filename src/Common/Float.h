@@ -18,3 +18,4 @@ using std::sin;
 using std::cos;
 #endif
 
+const Float NUMERIC_FLOAT_MAX = std::numeric_limits<Float>::max();
