@@ -25,33 +25,18 @@ public:
     Float calcAccAndSlowDownPert(Force* _force, const Tparticle* _particles, const int _n_particle, const Tparticle& _particle_cm, const ARPerturber& _perturber, const Float _time) {
         static const Float inv3 = 1.0 / 3.0;
 
-        const int n_single = _perturber.neighbors.single_list.getSize();
-        const auto* single_index = _perturber.neighbors.single_list.getDataAddress();
-        const int n_group = _perturber.neighbors.group_list.getSize();
-        const auto* group_index = _perturber.neighbors.group_list.getDataAddress();
-        
-        const int n_pert = n_single +n_group;
+        const int n_pert = _perturber.neighbors.neighbor_address.getSize();
+        const auto* pert_adr = _perturber.neighbors.neighbor_address.getDataAddress();
+
         Float xp[n_pert][3], xcm[3], m[n_pert];
 
-        assert(_perturber.single_particles!=NULL);
-
-        for (int j=0; j<n_single; j++) {
-            auto& pertj = _perturber.single_particles[single_index[j]];
+        for (int j=0; j<n_pert; j++) {
+            auto& pertj = *pert_adr[j];
             Float dt = _time - pertj.time;
             xp[j][0] = pertj.pos[0] + dt*(pertj.vel[0] + 0.5*dt*(pertj.acc0[0] + inv3*dt*pertj.acc1[0]));
             xp[j][1] = pertj.pos[1] + dt*(pertj.vel[1] + 0.5*dt*(pertj.acc0[1] + inv3*dt*pertj.acc1[1]));
             xp[j][2] = pertj.pos[2] + dt*(pertj.vel[2] + 0.5*dt*(pertj.acc0[2] + inv3*dt*pertj.acc1[2]));
             m[j] = pertj.mass;
-        }
-
-        for (int j=0; j<n_group; j++) {
-            auto& pertj = _perturber.group_particles[group_index[j]].particles.cm;
-            Float dt = _time - pertj.time;
-            const int k =j+n_single;
-            xp[k][0] = pertj.pos[0] + dt*(pertj.vel[0] + 0.5*dt*(pertj.acc0[0] + inv3*dt*pertj.acc1[0]));
-            xp[k][1] = pertj.pos[1] + dt*(pertj.vel[1] + 0.5*dt*(pertj.acc0[1] + inv3*dt*pertj.acc1[1]));
-            xp[k][2] = pertj.pos[2] + dt*(pertj.vel[2] + 0.5*dt*(pertj.acc0[2] + inv3*dt*pertj.acc1[2]));
-            m[k] = pertj.mass;
         }
 
         Float dt = _time - _particle_cm.time;

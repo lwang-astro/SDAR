@@ -167,6 +167,11 @@ namespace COMM {
             return data_;
         }
 
+        //! return last member
+        Ttype& getLastMember() {
+            return data_[num_-1];
+        }
+
         //! return one member data reference operator
         /*! overload []
           @param [in] _index: index of member in group
@@ -228,9 +233,20 @@ namespace COMM {
           Require the memory size is big enough to contain the new number of members.
          */
         void increaseSizeNoInitialize(const int _n) {
-            assert(mode_==ListMode::local);
+            assert(mode_==ListMode::local||mode_==ListMode::link);
             assert(num_+_n<=nmax_);
             num_ += _n;
+            modified_flag_ = true;
+        }
+
+        //! increase size without initialization 
+        /*! Work for #ListMode::local and link case. 
+          Require the memory size is big enough to contain the new number of members.
+         */
+        void decreaseSizeNoInitialize(const int _n) {
+            assert(mode_==ListMode::local||mode_==ListMode::link);
+            assert(num_-_n>=0);
+            num_ -= _n;
             modified_flag_ = true;
         }
 
@@ -239,7 +255,7 @@ namespace COMM {
           Require the memory size is big enough to contain the new number of members.
          */
         void resizeNoInitialize(const int _n) {
-            assert(mode_==ListMode::local);
+            assert(mode_==ListMode::local||mode_==ListMode::link);
             assert(_n<=nmax_);
             num_ = _n;
             modified_flag_ = true;

@@ -52,56 +52,57 @@ namespace H4{
     };
 
     //!Hermite integrator class
-    template <class Tparticle, class Tpcm, class Tpert, class Tmethod, class Tgint, class Tinfo>
+    template <class Tparticle, class Tpcm, class Tpert, class Tmethod, class Tarmethod, class Tinfo>
     class HermiteIntegrator{
     private:
         typedef ParticleH4<Tparticle> PtclH4;
-        // for get sorted index of single
-        class SortIndexDtSingle{
-        private:
-            Float * time_;
-        public:
-            SortIndexDt(Float * _time): time_(_time) {}
-            bool operator() (const int & left, const int & right) const {
-                return time_[left] < time_[right];
-            }
-        };
+        typedef AR::Symplectic_integration<ParticleAR<Tparticle>, PtclH4, ARPerturber<Tparticle>, Tarmethod, ARInformation<Tparticle>> ARSym;
 
-        // for get sorted index of group
-        class SortIndexDtGroup{
-        private:
-            Float * time_;
-            int offset_;
-        public:
-            SortIndexDt(Float * _time, int _offset): time_(_time), offset_(_offset) {}
-            bool operator() (const int & left, const int & right) const {
-                return time_[left+_offset] < time_[right+_offset];
-            }
-        };
-
+        // time 
         Float time_;   ///< integrated time (not real physical time if slowdown is on)
         Float time_next_min_; ///< the next minimum time 
+
+        // active particle number
         int n_act_single_;    /// active particle number of singles
         int n_act_group_;    /// active particle number of groups
+
+        // initial particle number
         int n_init_single_;  /// number of singles need to initial
         int n_init_group_;   /// number of groups need to initial
-        int index_offset_group_; /// offset of group index in pred_, force_ and time_next_
-        bool initial_system_flag_; /// flag to indicate whether the system is initialized
 
+        // group offset
+        int index_offset_group_; /// offset of group index in pred_, force_ and time_next_
+
+        // flags
+        bool initial_system_flag_; /// flag to indicate whether the system is initialized with all array size defined (reest in initialSystem)
+        bool modify_system_flag_;  /// flag to indicate whether the system (group/single) is added/removed (reset in adjustSystemAfterModify)
+
+        // arrays
+        // sorted time index list for select active particles
         COMM::List<int> index_dt_sorted_single_; // index of particles with time next sorted order (small to large)
         COMM::List<int> index_dt_sorted_group_; // index list of active groups
+
+        // index list to store the groups with members resolved/only cm in Hermite integration 
         COMM::List<int> index_group_resolve_;   // index of resolved group for integration
         COMM::List<int> index_group_cm_;        // index of group with cm for integration
+
+        // particle prediction, force, time array
         COMM::List<Tparticle> pred_; // predictor
         COMM::List<ForceH4> force_;  // force
         COMM::List<Float> time_next_; // next integrated time of particles
-        COMM::List<bool> index_single_mask_; // bool mask to indicate whether the particle of index (single) is masked (true) or used (false)
-        COMM::List<bool> index_group_mask_; // bool mask to indicate whether the particle of index (group) is masked (true) or used (false)
+
+        // table of mask to show which particles are removed from the integration
+        COMM::List<int> index_group_mask_;   // index list to record the masked groups
+        COMM::List<bool> table_group_mask_; // bool mask to indicate whether the particle of index (group) (same index of table) is masked (true) or used (false)
+        COMM::List<bool> table_single_mask_; // bool mask to indicate whether the particle of index (single) (same index of table) is masked (true) or used (false)
+
     public:
         HermiteManager<Tmethod>* manager; ///< integration manager
+        HermiteManager<Tarmethod>* ar_manager; ///< integration manager
         COMM::ParticleGroup<ParticleH4<Tparticle>, Tpcm> particles; // particles
-        COMM::List<Tgint> groups; // integrator for sub-groups
+        COMM::List<ARSym> groups; // integrator for sub-groups
         COMM::List<Neighbor> neighbors; // neighbor information of particles
+        Tpert perturber; // external perturberx
         Tinfo info; ///< information of the system
 
     private:
@@ -373,7 +374,7 @@ namespace H4{
                 if (_pi.id==pj.id) continue;
                 Float r2 = manager->interaction.calcAccJerkPair(_fi, _pi, pj);
                 assert(r2>0.0);
-                if (r2<_nbi.r_crit_sq) _nbi.single_list.addMember(j);
+                if (r2<_nbi.r_crit_sq) _nbi.neigbor_address.addMember(&particles[j]);
                 // mass weighted nearest neigbor
                 if (r2*_nbi.r_min_mass < _nbi.r_min_sq*pj.mass) {
                     _nbi.r_min_sq = r2;
@@ -410,7 +411,7 @@ namespace H4{
                     if (r2<_nbi.r_crit_sq) nb_flag = true;
                     r2_min = std::min(r2_min, r2);
                 }
-                if (nb_flag) _nbi.group_list.addMember(j);
+                if (nb_flag) _nbi.neighbor_address.addMember(&groupj.particles.cm);
                 // mass weighted nearest neigbor
                 const Float cm_mass = groupj.particles.cm.mass;
                 if (r2_min*_nbi.r_min_mass < _nbi.r_min_sq*cm_mass) {
@@ -438,7 +439,7 @@ namespace H4{
                 assert(_pi.id!=pj.id);
                 Float r2 = manager->interaction.calcAccJerkPair(_fi, _pi, pj);
                 assert(r2>0.0);
-                if (r2<_nbi.r_crit_sq) _nbi.group_list.addMember(j);
+                if (r2<_nbi.r_crit_sq) _nbi.neighbor_address.addMember(&groupj.particles.cm);
                 // mass weighted nearest neigbor
                 if (r2*_nbi.r_min_mass < _nbi.r_min_sq*pj.mass) {
                     _nbi.r_min_sq = r2;
@@ -507,6 +508,29 @@ namespace H4{
                 }
             }
         }
+
+        // for get sorted index of single
+        class SortIndexDtSingle{
+        private:
+            Float * time_;
+        public:
+            SortIndexDt(Float * _time): time_(_time) {}
+            bool operator() (const int & left, const int & right) const {
+                return time_[left] < time_[right];
+            }
+        };
+
+        // for get sorted index of group
+        class SortIndexDtGroup{
+        private:
+            Float * time_;
+            int offset_;
+        public:
+            SortIndexDt(Float * _time, int _offset): time_(_time), offset_(_offset) {}
+            bool operator() (const int & left, const int & right) const {
+                return time_[left+_offset] < time_[right+_offset];
+            }
+        };
         
     public:
         //! constructor
@@ -514,12 +538,12 @@ namespace H4{
                              n_act_single_(0), n_act_group_(0), 
                              n_init_single_(0), n_init_group_(0), 
                              index_offset_group_(0), 
-                             initial_system_flag_(false), 
+                             initial_system_flag_(false), modify_system_flag_(false),
                              index_dt_sorted_single_(), index_dt_sorted_group_(), 
                              index_group_resolve_(), index_group_cm_(), 
                              pred_(), force_(), time_next_(), 
-                             index_single_mask_(), index_group_mask_(), 
-                             manager(NULL), particles(), groups(), neighbors(), info() {}
+                             index_group_mask_(), table_group_mask_(), table_single_mask_(), 
+                             manager(NULL), ar_manager(NULL), particles(), groups(), neighbors(), perturber(), info() {}
         //! reserve memory 
         /*! The size of memory depends on the particle data size. Thus particles should be added or reserve first before call this function
           @param[in] _nmax_group: maximum number of groups
@@ -533,8 +557,9 @@ namespace H4{
             index_dt_sorted_group_.setMode(ListMode::local);
             index_group_resolve_.setMode(ListMode::local);
             index_group_cm_.setMode(ListMode::local);
-            index_single_mask_.setMode(ListMode::local);
             index_group_mask_.setMode(ListMode::local);
+            table_group_mask_.setMode(ListMode::local);
+            table_single_mask_.setMode(ListMode::local);
             pred_.setMode(ListMode::local);
             force_.setMode(ListMode::local);
             time_next_.setMode(ListMode::local);
@@ -547,8 +572,9 @@ namespace H4{
             index_group_resolve_.reserveMem(_nmax_group);
             index_group_cm_.reserveMem(_nmax_group);
 
-            index_single_mask_.reserveMem(nmax);
             index_group_mask_.reserveMem(_nmax_group);
+            table_group_mask_.reserveMem(_nmax_group);
+            table_single_mask_.reserveMem(nmax);
 
             // total allocation size includes both single and group c.m. size
             index_offset_group_ = nmax;
@@ -568,18 +594,22 @@ namespace H4{
         //! clear function
         void clear() {
             particles.clear();
+            groups.clear();
             index_dt_sorted_single_.clear();
             index_dt_sorted_group_.clear();
             index_group_resolve_.clear();
             index_group_cm_.clear();
-            index_single_mask_.clear();
             index_group_mask_.clear();
+            table_group_mask_.clear();
+            table_single_mask_.clear();
             pred_.clear();
             force_.clear();
             time_next_.clear();
             neighbors.clear();
-            groups.clear();
-            initial_system_flag = false;
+            perturber.clear();
+            info.clear();
+            initial_system_flag_ = false;
+            modify_system_flag_ = false;
         }
 
         //! Initial system after adding particles
@@ -587,7 +617,7 @@ namespace H4{
          */
         void initialSystem() {
             particles.setModifiedFalse();
-            initial_system_flag = true;
+            initial_system_flag_ = true;
 
             const int n_particle = particles.getSize();
             assert(n_particle>1);
@@ -597,16 +627,132 @@ namespace H4{
             time_next_.resizeNoInitialize(n_particle);
             neighbors.resizeNoInitialize(n_particle);
             index_dt_sorted_single_.resizeNoInitialize(n_particle);
-            index_single_mask_.resizeNoInitialize(n_particle);
+            table_single_mask_.resizeNoInitialize(n_particle);
             // initial index_dt_sorted_single_ first to allow initialIntegration work
             for (int i=0; i<n_particle; i++) {
                 index_dt_sorted_single_[i] = i;
-                index_single_mask_[i] = false;
+                table_single_mask_[i] = false;
             }
         }
 
+        //! add groups from lists of particle index 
+        /*! 
+          @param[in] _particle_index: particle index
+          @param[in] _n_group_offset: offset to separate groups in _particle_index
+          @param[in] _n_group: number of new groups
+         */
+        void addGroups(const int* _particle_index, const int* _n_group_offset, const int _n_group) {
+            assert(!particles.isModified());
+            assert(initial_step_flag);
+            assert(_n_group>0);
+
+            modify_system_flag_ = true;
+
+            // gether the new index in groups first
+            int group_index[_n_group];
+            for (int i=0; i<_n_group; i++) {
+                // check suppressed group
+                int igroup;
+                if(index_group_mask_.getSize()>0) {
+                    igroup = index_group_mask_.getLastMember();
+                    table_group_mask_[igroup] = false;
+                    index_group_mask_.decreaseSizeNoInitialize(1);
+                }
+                else {
+                    // add new
+                    igroup = groups.getSize();
+                    table_group_mask_.addMember(false);
+                    groups.increaseSizeNoInitialize(1);
+                    // also increase the cm predictor force and time_next
+                    pred_.increaseSizeNoInitialize(1);
+                    force_.increaseSizeNoInitialize(1);
+                    time_next_.increaseSizeNoInitialize(1);
+                }
+                group_index[i] = igroup;
+            }
+
+            // add new group
+            for (int i=0; i<_n_group; i++) {
+                auto& group_new = groups[group_index[i]];
+
+                // set manager
+                assert(ar_manager!=NULL);
+                group_new.mamager = ar_manager;
+
+                // allocate memory
+                const int n_particle = _n_group_offset[i+1] - _n_group_offset[i];
+                assert(n_particle>0);
+                assert(n_particle<=particles.getSize());
+                group_new.particles.setMode(AR::LisdMode::copy);
+                group_new.particles.reserveMem(n_particle);
+                group_new.reserveForceMem();
+                group_new.information.reserveMem(n_particle);
+            
+                // Add members to AR 
+                for(int j=_n_group_offset[i]; j<_n_group_offset[i+1]; j++) {
+                    const int p_index = _particle_index[j];
+                    assert(p_index<particles.getSize());
+                    group_new.addMemberAndAddress(particles[p_index]);
+                    group_new.info.particle_index.addMember(p_index);
+                }
+                
+                // calculate the c.m.
+                group_new.particles.calcCenterOfMass();
+                // shift to c.m. frame
+                group_new.particles.shiftToCenterOfMassFrame();
+            
+                // initial perturber
+                auto& pert = group_new.perturber;
+                pert.neighbor.setMode(AR::ListMode::local);
+                pert.single_particles = _particle_index;
+                pert.group_particles = groups.getDataAddress();
+                pert.need_resolve_flag = false;
+            }
+                
+            // modify the sorted_dt array 
+            const int n_group_old = index_dt_sorted_group_.getSize();
+            index_dt_sorted_group_.increaseSizeNoInitialize(_n_group);
+            for (int i=n_group_old-1; i>=0; i--) {
+                index_dt_sorted_group_[i+_n_group] = index_dt_sorted_group_[i];
+            }
+            for (int i=0; i<_n_group; i++) {
+                index_dt_sorted_group_[i] = group_index[i];
+            }
+            n_init_group_ += _n_group;
+            n_act_group_  += _n_group;
+
+            // update single mask table
+            for (int i=_n_group_offset[0], i<_n_group_offset[_n_group]; i++) {
+                assert(table_single_mask_[_particle_index[i]]==false);
+                table_single_mask_[_particle_index[i]] = true;
+            }
+        }
+
+        //! break groups
+        /* Split one group to two sub-groups based on the binarytree upper-most pair
+           If sub-groups have only one particles, return it to the single list
+           Notice if groups are removed, the group index are not changed, only the removed groups are masked and cleared for reusing
+         */
+        void breakGroups(const int* _break_group_index, const int _n_break) {
+            assert(!particles.isModified());
+            assert(initial_step_flag);
+            assert(_n_break<=index_dt_sorted_group_.getSize());
+            for (int i=0; i<_n_break; i++) {
+                
+            }
+        }
+
+        //! after groups are modified, adjust the system after modification
+        /*! remove the index in sorted_dt array due to the change of groups
+         */
+        void adjustSystemAfterModify() {
+            
+        }
+
         //! Initial Hermite integrator
-        /*! Initial f, fdot and step for new add/remove particles, if start_flag, the whole system are initialized
+        /*! Initial f, fdot and step for new add/remove particles. 
+          If start_flag, the whole system are initialized; else the first n_init_single_ and n_init_group_ of sorted index list will be initialized. 
+          The active particle number will be set to the total number of particles
           @param[in] _time_sys: current set time
           @param[in] _start_flag: indicate whether it is the first step 
         */
@@ -614,7 +760,7 @@ namespace H4{
                                 const bool _start_flag) {
 
             assert(!particles.isModified());
-            assert(initial_system_flag);
+            assert(initial_system_flag_);
 
             // start case, set n_init_single_ and n_init_group_ consistent with index_dt_sorted array
             if(_start_flag) {
@@ -692,13 +838,16 @@ namespace H4{
                 pcm.acc1[0] = fcm.acc1[0];
                 pcm.acc1[1] = fcm.acc1[1];
                 pcm.acc1[2] = fcm.acc1[2];
+
+                // initial group integration
+                group_ptr[k].initial(_time_sys);
             }
 
             bool fail_flag = calcDt2ndAct(index_single, n_init_single_, index_group, n_init_group_);
             if (fail_flag) return true;
 
             updateTimeNextList(index_single, n_init_single_, index_group, n_init_group_);
-            
+
             return false;
         }
 
@@ -707,6 +856,9 @@ namespace H4{
         /*! Integrated to time_sys
         */
         void integrateOneStepAct() {
+            assert(!particles.isModified());
+            assert(initial_system_flag_);
+            assert(n_init_group_==0&&n_init_single_==0);
 
             // get next time
             Float time_sys = getNextTime();
@@ -717,8 +869,8 @@ namespace H4{
             const int n_group_tot = index_dt_sorted_group_.getSize();
             for (int i=0; i<n_group_tot; i++) {
                 const int k = index_dt_sorted_group_[i];
-                const Float ds = groups[k].info.getStepSize();
-                groups[k].integrateToTime(ds, _time_sys, groups[k].info.getStepOption());
+                const Float ds = groups[k].info.ds;
+                groups[k].integrateToTime(ds, _time_sys, groups[k].info.fix_step_option);
             }
 
             // prediction positions
@@ -757,6 +909,8 @@ namespace H4{
                                  const int _n_single,
                                  const int* _index_group,
                                  const int _n_group) {
+            assert(!particles.isModified());
+            assert(initial_system_flag_);
 
             // adjust dt
             // single

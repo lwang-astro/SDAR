@@ -4,6 +4,23 @@
 
 namespace H4{
 
+    //! particle type for AR integrator
+    template <Tparticle>
+    class ParticleAR: public Tparticle{
+    public:
+        Tparticle* adr_org; // original particle address
+
+        ParticleAR& operator = (Tparticle & _p) {
+            *(Tparticle*)this = _p;
+            adr_org = &_p;
+        }
+        
+        ParticleAR& operator = (ParticleAR & _p) {
+            *(Tparticle*)this = *(Tparticle*)&_p;
+            adr_org = _p.adr_org;
+        }
+    };
+
     //! Particle type for hermite integrator
     template <Tparticle>
     class ParticleH4: public Tparticle{
