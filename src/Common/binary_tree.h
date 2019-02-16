@@ -3,7 +3,7 @@
 #include<cmath>
 #include"Comm/matrix.h"
 
-namespace H4 {
+namespace Comm {
     const Float PI = 4.0*atan(1.0);
 
     //! Binary parameter class
@@ -16,9 +16,10 @@ namespace H4 {
         Float rot_self;     // rotational angle in orbital plane, Eular angle gamma
         Float t_peri;       // t_peri: time to peri-center
         Float period;       // period: period
-        Float ecca;         // ecca: eccentricty anomaly
+        Float ecca;         // ecca: eccentricty anomaly (-pi, pi)
         Float m1;           // m1: mass 1
         Float m2;           // m2: mass 2
+        Float r;            // distance between too members
         Float am[3];        // angular momentum
 
 
@@ -77,11 +78,11 @@ namespace H4 {
             Vector3<Float> pos_red(_p2.pos[0] - _p1.pos[0], _p2.pos[1] - _p1.pos[1], _p2.pos[2] - _p1.pos[2]);
             Vector3<Float> vel_red(_p2.vel[0] - _p1.vel[0], _p2.vel[1] - _p1.vel[1], _p2.vel[2] - _p1.vel[2]);
             Float r_sq = pos_red * pos_red;
-            Float r = sqrt(r_sq);
+            r = sqrt(r_sq);
             Float inv_dr = 1.0 / r;
             Float v_sq = vel_red * vel_red;
             _bin.semi = 1.0 / (2.0*inv_dr - v_sq / m_tot);
-            //    assert(semi > 0.0);
+            //    ASSERT(semi > 0.0);
             _bin.am = pos_red ^ vel_red;
             _bin.incline = atan2( sqrt(_bin.am.x*_bin.am.x+_bin.am.y*_bin.am.y), _bin.am.z);
             _bin.rot_horizon = atan2(_bin.am.x, -_bin.am.y);
@@ -200,7 +201,8 @@ namespace H4 {
                <<"period:      period:               "<<period<<std::endl
                <<"ecca:        eccentricty anomaly: "<<ecca<<std::endl
                <<"m1:          mass 1: "<<m1<<std::endl
-               <<"m2:          mass 2: "<<m2<<std::endl;
+               <<"m2:          mass 2: "<<m2<<std::endl
+               <<"r:           separation: "<<r<<std::endl;
         }
 
         //! print titles of class members using column style
@@ -218,7 +220,8 @@ namespace H4 {
                  <<std::setw(_width)<<"period"
                  <<std::setw(_width)<<"ecca"
                  <<std::setw(_width)<<"m1"
-                 <<std::setw(_width)<<"m2";
+                 <<std::setw(_width)<<"m2"
+                 <<std::setw(_width)<<"r";
         }
 
         //! print data of class members using column style
@@ -236,7 +239,8 @@ namespace H4 {
                  <<std::setw(_width)<<period
                  <<std::setw(_width)<<ecca
                  <<std::setw(_width)<<m1
-                 <<std::setw(_width)<<m2;
+                 <<std::setw(_width)<<m2
+                 <<std::setw(_width)<<r;
         }
 
 
@@ -320,7 +324,7 @@ namespace H4 {
                     }
                 }
 #ifdef KEPLER_DEBUG
-                assert(jc>=0);
+                ASSERT(jc>=0);
 #endif
                 if (jc!=i+1) {
                     int jtmp = _ptcl_list[i+1];
@@ -376,7 +380,7 @@ namespace H4 {
                 if(bin_host[k]==NULL) {
                     p[0] = &_ptcl[_ptcl_list[k]];
 #ifdef KEPLER_DEBUG
-                    assert(p[0]->id>0);
+                    ASSERT(p[0]->id>0);
 #endif
                     bin_host[k] = &_bins[i];
                 }
@@ -392,7 +396,7 @@ namespace H4 {
                 if(bin_host[k+1]==NULL) {
                     p[1] = &_ptcl[_ptcl_list[k+1]];
 #ifdef KEPLER_DEBUG
-                    assert(p[1]->id>0);
+                    ASSERT(p[1]->id>0);
 #endif
                     bin_host[k+1] = &_bins[i];
                 }
@@ -413,8 +417,8 @@ namespace H4 {
             }
 
 #ifdef KEPLER_DEBUG
-            for(int i=0; i<_n; i++) assert(bin_host[i]==&_bins[_n-2]); // check whether all bin_host point to the last of bins
-            assert(_bins[_n-2].getMemberN() == _n); // makesure the particle number match the binarytree recored member
+            for(int i=0; i<_n; i++) ASSERT(bin_host[i]==&_bins[_n-2]); // check whether all bin_host point to the last of bins
+            ASSERT(_bins[_n-2].getMemberN() == _n); // makesure the particle number match the binarytree recored member
 #endif
         }
 
@@ -430,9 +434,9 @@ namespace H4 {
         //! calculate center-of-mass from members
         void calcCenterOfMass() {
 #ifdef KEPLER_DEBUG
-            assert(member[0]!=NULL);
-            assert(member[1]!=NULL);
-            assert(member[0]->id!=0);
+            ASSERT(member[0]!=NULL);
+            ASSERT(member[1]!=NULL);
+            ASSERT(member[0]->id!=0);
 #endif
             Float m1 = member[0]->mass;
             Float m2 = member[1]->mass;
@@ -450,8 +454,8 @@ namespace H4 {
         //! calc total number of members
         int calcMemberN() {
 #ifdef KEPLER_DEBUG
-            assert(member[0]!=NULL);
-            assert(member[1]!=NULL);
+            ASSERT(member[0]!=NULL);
+            ASSERT(member[1]!=NULL);
 #endif
             n_members = 0;
             if (member[0]->id<0) n_members += ((BinaryTree<Tptcl>*)member[0])->getMemberN();
@@ -469,8 +473,8 @@ namespace H4 {
         //! calc total number of members iteratively
         int calcMemberNIter() {
 #ifdef KEPLER_DEBUG
-            assert(member[0]!=NULL);
-            assert(member[1]!=NULL);
+            ASSERT(member[0]!=NULL);
+            ASSERT(member[1]!=NULL);
 #endif
             n_members = 0;
             if (member[0]->id<0) n_members += (BinaryTree<Tptcl>*)member[0]->calcMemberNIter();
@@ -486,8 +490,8 @@ namespace H4 {
         template <class T>
         void processLeafIter(T& _c, ProcessFunctionLeaf<T> _f) {
 #ifdef KEPLER_DEBUG
-            assert(member[0]!=NULL);
-            assert(member[1]!=NULL);
+            ASSERT(member[0]!=NULL);
+            ASSERT(member[1]!=NULL);
 #endif
             if (member[0]->id<0) ((BinaryTree<Tptcl>*)member[0])->processLeafIter(_c, _f);
             else _f(_c, member[0]);
@@ -507,10 +511,8 @@ namespace H4 {
         */
         template <class T>
         T processRootIter(const T& _dat, ProcessFunctionRoot<T> _f){ 
-#ifdef KEPLER_DEBUG
-            assert(member[0]!=NULL);
-            assert(member[1]!=NULL);
-#endif
+            ASSERT(member[0]!=NULL);
+            ASSERT(member[1]!=NULL);
             T dat_new = _f(_dat, *this);
             for (int k=0; k<2; k++) 
                 if (member[k]->id<0) dat_new = ((BinaryTree<Tptcl>*)member[0])->processRootIter(dat_new, _f);
@@ -531,9 +533,7 @@ namespace H4 {
             for (int k=0; k<2; k++) {
                 if (member[k]->id<0) {
                     inow--;
-#ifdef KEPLER_DEBUG
-                    assert(inow>=0);
-#endif
+                    ASSERT(inow>=0);
                     _bin_out[_i].member[k] = &_bin_out[inow];
                     n_iter += ((BinaryTree<Tptcl>*)member[k])->copyDataIter(_bin_out, inow);
                 }
@@ -550,9 +550,7 @@ namespace H4 {
 
         //! get member first
         Tptcl* getMember(const size_t i) const {
-#ifdef KEPLER_DEBUG
-            assert(i<2);
-#endif
+            ASSERT(i<2);
             return member[i];
         }
 

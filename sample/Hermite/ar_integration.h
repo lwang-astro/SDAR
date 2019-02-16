@@ -85,7 +85,7 @@ public:
             pert_cm += mor3;
         }
         
-        return pert_cm;
+        return _particles_cm.mass*pert_cm;
     }
 
     //! (Necessary) calculate inner member acceleration, potential and time transformation function gradient and factor for kick (two-body case)

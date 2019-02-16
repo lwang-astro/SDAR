@@ -108,8 +108,8 @@ namespace H4{
           @param[in] _time: current time
         */
         Float calcNextDtLimit(const Float _time) {
-            assert(dt_max>dt_min);
-            assert(dt_min>0.0);
+            ASSERT(dt_max>dt_min);
+            ASSERT(dt_min>0.0);
             // for first step, the maximum time step is OK
             if(_time==0.0) return dt_max;
             else {
@@ -145,9 +145,9 @@ namespace H4{
         Float calcBlockDt2nd(const Float* _acc0, 
                              const Float* _acc1,
                              const Float _dt_limit) const{
-            assert(dt_max>dt_min);
-            assert(_dt_limit<=dt_max);
-            assert(_dt_limit>=dt_min);
+            ASSERT(dt_max>dt_min);
+            ASSERT(_dt_limit<=dt_max);
+            ASSERT(_dt_limit>=dt_min);
 
             const Float dt_ref = TimeStep::calcDt2nd(acc0, acc1);
             Float dt = _dt_limit;
@@ -155,7 +155,8 @@ namespace H4{
 
             if(dt<dt_min) {
                 std::cerr<<"Error: time step size too small: ("<<dt<<") < dt_min ("<<dt_min<<")!"<<std::endl;
-                return -dt;
+                DATADUMP();
+                abort();
             }
             else return dt;
         }
@@ -172,9 +173,9 @@ namespace H4{
                              const Float* acc1,
                              const Float* acc2,
                              const Float* acc3) const {
-            assert(dt_max_>dt_min_);
-            assert(dt_max_next_<=dt_max_);
-            assert(dt_max_next_>=dt_min_);
+            ASSERT(dt_max_>dt_min_);
+            ASSERT(dt_max_next_<=dt_max_);
+            ASSERT(dt_max_next_>=dt_min_);
 
             const Float dt_ref = TimeStep::calcDt4th(acc0, acc1, acc2, acc3);
             Float dt = dt_max_next_;
@@ -182,7 +183,8 @@ namespace H4{
 
             if(dt<dt_min_) {
                 std::cerr<<"Error: time step size too small: ("<<dt<<") < dt_min ("<<dt_min_<<")!"<<std::endl;
-                return -dt;
+                DATADUMP();
+                abort();
             }
             else return dt;
         }
@@ -224,7 +226,7 @@ namespace H4{
         void writeBinary(FILE *_fp) const {
             fwrite(this, sizeof(*this),1,_fp);
         }
-
+p
         //! read class data to file with binary format
         /*! @param[in] _fp: FILE type file for reading
          */

@@ -10,6 +10,7 @@ namespace H4{
     template <class Tmethod>
     class HermiteManager{
     public:
+        Float r_break_crit; ///> the distance criterion to break the groups
         Tmethod interaction; ///> class contain interaction function
         BlockTimeStep4th step; ///> time step calculator
 
@@ -55,12 +56,12 @@ namespace H4{
     template <class Tparticle, class Tpcm, class Tpert, class Tmethod, class Tarmethod, class Tinfo>
     class HermiteIntegrator{
     private:
-        typedef ParticleH4<Tparticle> PtclH4;
-        typedef AR::Symplectic_integration<ParticleAR<Tparticle>, PtclH4, ARPerturber<Tparticle>, Tarmethod, ARInformation<Tparticle>> ARSym;
+        typedef AR::Symplectic_integration<ParticleAR<Tparticle>, ParticleH4<Tparticle>, Neighbor<Tparticle>, Tarmethod, ARInformation<Tparticle>> ARSym;
 
         // time 
         Float time_;   ///< integrated time (not real physical time if slowdown is on)
         Float time_next_min_; ///< the next minimum time 
+        Float dt_limit_;  // maximum step size allown for next integration step calculation
 
         // active particle number
         int n_act_single_;    /// active particle number of singles
@@ -76,6 +77,7 @@ namespace H4{
         // flags
         bool initial_system_flag_; /// flag to indicate whether the system is initialized with all array size defined (reest in initialSystem)
         bool modify_system_flag_;  /// flag to indicate whether the system (group/single) is added/removed (reset in adjustSystemAfterModify)
+        bool first_step_flag_;   /// flag to indicate the first integration step
 
         // arrays
         // sorted time index list for select active particles
@@ -101,7 +103,7 @@ namespace H4{
         HermiteManager<Tarmethod>* ar_manager; ///< integration manager
         COMM::ParticleGroup<ParticleH4<Tparticle>, Tpcm> particles; // particles
         COMM::List<ARSym> groups; // integrator for sub-groups
-        COMM::List<Neighbor> neighbors; // neighbor information of particles
+        COMM::List<Neighbor<Tparticle>> neighbors; // neighbor information of particles
         Tpert perturber; // external perturberx
         Tinfo info; ///< information of the system
 
@@ -112,14 +114,13 @@ namespace H4{
           @param[in] _n_single: number of active singles
           @param[in] _index_group: active particle index for groups
           @param[in] _n_group: number of active groups
-          \return fail_flag
         */
         template <class Tptcl>
-        bool calcDt2ndList(const int* _index_single,
+        void calcDt2ndList(const int* _index_single,
                            const int _n_single,
                            const int* _index_group,
                            const int _n_group) {
-            assert(manager!=NULL);
+            ASSERT(manager!=NULL);
             // for single
             for (int i=0; i<_n_single; i++){
                 const int k = _index_single(i);
@@ -127,10 +128,6 @@ namespace H4{
                 const Float* acc1 = force_[k].acc1;
                 const dt =manager->step.calcDt2nd(acc0, acc1);
                 particles[k].dt = dt;
-                if(dt<0.0) {
-                    std::cerr<<"Particle: index="<<k<<" id="<<_ptcl[k].id<<std::endl;
-                    return true;
-                }
             }
             // for group
             for (int i=0; i<_n_group; i++) {
@@ -140,10 +137,6 @@ namespace H4{
                 const Float* acc1 = force_[kf].acc1;
                 const dt =manager->step.calcDt2nd(acc0, acc1);
                 groups[k].particles.cm.dt = dt;
-                if(dt<0.0) {
-                    std::cerr<<"Group: index="<<k<<" id="<<groups[k].particles.cm.id<<std::endl;
-                    return true;
-                }
             }
         }
 
@@ -156,7 +149,7 @@ namespace H4{
             static thread_local const Float inv3 = 1.0 / 3.0;
             // single
             const int n_single = index_dt_sorted_single_.getSize();
-            assert(n_single <= particles.getSize());
+            ASSERT(n_single <= particles.getSize());
             const auto* ptcl = particles.getDataAddress();
             auto* pred = pred_.getDataAddress();
             for (int k=0; k<n_single; k++){
@@ -174,7 +167,7 @@ namespace H4{
             }
             // group
             const int n_group = index_dt_sorted_group_.getSize();
-            assert(n_group <= groups.getSize());
+            ASSERT(n_group <= groups.getSize());
             auto* group_ptr = groups.getDataAddress();
             for (int k=0; k<n_group; k++) {
                 const int i = index_dt_sorted_group_[k];
@@ -196,36 +189,40 @@ namespace H4{
 
         //! correct particle and calculate step 
         /*! Correct particle and calculate next time step
+          @param[in] _pi: particle to corect
+          @param[in] _fi: force for correction
+          @param[in] _dt_limit: maximum step size allown
+          @param[in] _inti_step_flag: true: only calculate dt 2nd instead of 4th
          */
-        bool correctAndCalcDt4thOne(ParticleH4<Tparticle>& pi, ForceH4& fi) {
-            const Float dt = pi.dt;
+        bool correctAndCalcDt4thOne(ParticleH4<Tparticle>& _pi, ForceH4& _fi, const Float _dt_limit, const bool _init_step_flag) {
+            const Float dt = _pi.dt;
             const Float h = 0.5 * dt;
             const Float hinv = 2.0 / dt;
-            const Float A0p[3] = {fi.acc0[0] + pi.acc0[0], fi.acc0[1] + pi.acc0[1], fi.acc0[2] + pi.acc0[2]};
-            const Float A0m[3] = {fi.acc0[0] - pi.acc0[0], fi.acc0[1] - pi.acc0[1], fi.acc0[2] - pi.acc0[2]};
-            const Float A1p[3] = {(fi.acc1[0] + pi.acc1[0])*h, (fi.acc1[1] + pi.acc1[1])*h, (fi.acc1[2] + pi.acc1[2])*h};
-            const Float A1m[3] = {(fi.acc1[0] - pi.acc1[0])*h, (fi.acc1[1] - pi.acc1[1])*h, (fi.acc1[2] - pi.acc1[2])*h};
+            const Float A0p[3] = {_fi.acc0[0] + _pi.acc0[0], _fi.acc0[1] + _pi.acc0[1], _fi.acc0[2] + _pi.acc0[2]};
+            const Float A0m[3] = {_fi.acc0[0] - _pi.acc0[0], _fi.acc0[1] - _pi.acc0[1], _fi.acc0[2] - _pi.acc0[2]};
+            const Float A1p[3] = {(_fi.acc1[0] + _pi.acc1[0])*h, (_fi.acc1[1] + _pi.acc1[1])*h, (_fi.acc1[2] + _pi.acc1[2])*h};
+            const Float A1m[3] = {(_fi.acc1[0] - _pi.acc1[0])*h, (_fi.acc1[1] - _pi.acc1[1])*h, (_fi.acc1[2] - _pi.acc1[2])*h};
 
-            const Float vel_new[3] = {pi.vel + h*( A0p[0] - inv3*A1m[0] ), 
-                                      pi.vel + h*( A0p[1] - inv3*A1m[1] ), 
-                                      pi.vel + h*( A0p[2] - inv3*A1m[2] )};
-            pi.pos[0] += h*( (pi.vel[0] + vel_new[0]) + h*(-inv3*A0m[0]));
-            pi.pos[1] += h*( (pi.vel[1] + vel_new[1]) + h*(-inv3*A0m[1]));
-            pi.pos[2] += h*( (pi.vel[2] + vel_new[2]) + h*(-inv3*A0m[2]));
+            const Float vel_new[3] = {_pi.vel + h*( A0p[0] - inv3*A1m[0] ), 
+                                      _pi.vel + h*( A0p[1] - inv3*A1m[1] ), 
+                                      _pi.vel + h*( A0p[2] - inv3*A1m[2] )};
+            _pi.pos[0] += h*( (_pi.vel[0] + vel_new[0]) + h*(-inv3*A0m[0]));
+            _pi.pos[1] += h*( (_pi.vel[1] + vel_new[1]) + h*(-inv3*A0m[1]));
+            _pi.pos[2] += h*( (_pi.vel[2] + vel_new[2]) + h*(-inv3*A0m[2]));
 
-            pi.vel[0] = vel_new[0];
-            pi.vel[1] = vel_new[1];
-            pi.vel[2] = vel_new[2];
+            _pi.vel[0] = vel_new[0];
+            _pi.vel[1] = vel_new[1];
+            _pi.vel[2] = vel_new[2];
 
-            pi.acc0[0] = fi.acc0[0];
-            pi.acc0[1] = fi.acc0[1];
-            pi.acc0[2] = fi.acc0[2];
+            _pi.acc0[0] = _fi.acc0[0];
+            _pi.acc0[1] = _fi.acc0[1];
+            _pi.acc0[2] = _fi.acc0[2];
 
-            pi.acc1[0] = fi.acc1[0];
-            pi.acc1[1] = fi.acc1[1];
-            pi.acc1[2] = fi.acc1[2];
+            _pi.acc1[0] = _fi.acc1[0];
+            _pi.acc1[1] = _fi.acc1[1];
+            _pi.acc1[2] = _fi.acc1[2];
 
-            pi.time += dt;
+            _pi.time += dt;
 
             const Float acc3[3] = {(1.5*hinv*hinv*hinv) * (A1p[0] - A0m[0]),
                                    (1.5*hinv*hinv*hinv) * (A1p[1] - A0m[1]),
@@ -236,34 +233,35 @@ namespace H4{
 
 #ifdef HERMITE_DEBUG
             // for debug
-            assert(!std::isnan(pi.pos[0]));
-            assert(!std::isnan(pi.pos[1]));
-            assert(!std::isnan(pi.pos[2]));
-            assert(!std::isnan(pi.vel[0]));
-            assert(!std::isnan(pi.vel[1]));
-            assert(!std::isnan(pi.vel[2]));
+            ASSERT(!std::isnan(_pi.pos[0]));
+            ASSERT(!std::isnan(_pi.pos[1]));
+            ASSERT(!std::isnan(_pi.pos[2]));
+            ASSERT(!std::isnan(_pi.vel[0]));
+            ASSERT(!std::isnan(_pi.vel[1]));
+            ASSERT(!std::isnan(_pi.vel[2]));
 #ifdef HERMITE_DEBUG_ACC
-            pi.acc2[0] = acc2[0];
-            pi.acc2[1] = acc2[1];
-            pi.acc2[2] = acc2[2];
+            _pi.acc2[0] = acc2[0];
+            _pi.acc2[1] = acc2[1];
+            _pi.acc2[2] = acc2[2];
 
-            pi.acc3[0] = acc3[0];
-            pi.acc3[1] = acc3[1];
-            pi.acc3[2] = acc3[2];
+            _pi.acc3[0] = acc3[0];
+            _pi.acc3[1] = acc3[1];
+            _pi.acc3[2] = acc3[2];
 #endif
 #endif
-            const Float dt_old = pi.dt;
-            pi.dt = manager->step.calcDt4th(pi.acc0, pi.acc1, acc2, acc3);
+            const Float dt_old = _pi.dt;
+            if(_init_step_flag) _pi.dt = manager->step.calcBlockDt2nd(_pi.acc0, _pi.acc1, _dt_limit);
+            _pi.dt = manager->step.calcBlockDt4th(_pi.acc0, _pi.acc1, acc2, acc3, _dt_limit);
 
 #ifdef HERMITE_DEBUG
 #ifdef HERMITE_DEBUG_DUMP
-            if (dt_old! <= 0.0|| pi.dt <= 0.0) {
-                pi.print(std::cerr);
+            if (dt_old! <= 0.0|| _pi.dt <= 0.0) {
+                _pi.print(std::cerr);
                 return true;
             }
 #else
-            assert(dt_old != 0.0);
-            assert(pi.dt != 0.0);
+            ASSERT(dt_old != 0.0);
+            ASSERT(_pi.dt != 0.0);
 #endif
 #endif
         }
@@ -274,57 +272,50 @@ namespace H4{
           @param[in] _n_single: number of active singles
           @param[in] _index_group: active particle index for groups
           @param[in] _n_group: number of active groups
-          \return fail_flag: if the time step < dt_min, return true (failure)
+          @param[in] _dt_limit: time step maximum
         */
-        bool correctAndCalcDt4thList(const int* _index_single,
+        void correctAndCalcDt4thList(const int* _index_single,
                                      const int _n_single,
                                      const int* _index_group,
-                                     const int _n_group) {
+                                     const int _n_group,
+                                     const Float _dt_limit) {
             static thread_local const Float inv3 = 1.0 / 3.0;
 
-            assert(_n_single<=index_dt_sorted_single_.getSize());
-            assert(_n_group<=index_dt_sorted_group_.getSize());
+            ASSERT(_n_single<=index_dt_sorted_single_.getSize());
+            ASSERT(_n_group<=index_dt_sorted_group_.getSize());
 
             // single
             auto* ptcl = particles.getDataAddress();
             ForceH4* force = force_.getDataAddress();
             for(int i=0; i<_n_single; i++){
                 const int k = _index_single[i];
-                auto&    pi = ptcl[k];
-                ForceH4& fi = force[k];
-                bool fail_flag = correctAndCalcDt4thOne(pi, fi);
-                if(fail_flag) return true;
+                correctAndCalcDt4thOne(ptcl[k], force[k], _dt_limit, neighbors[k].initial_step_flag);
             }
             // group
             auto* group_ptr = groups.getDataAddress();
             for(int i=0; i<_n_group; i++) {
                 const int k = _index_group[i];
-                auto&  pi = group_ptr[k].particles.cm;
-                ForceH4& fi = force[k+index_offset_group_];
-                bool fail_flag = correctAndCalcDt4thOne(pi, fi);
-                if(fail_flag) return true;
+                auto& groupi = group_ptr[k];
+                correctAndCalcDt4thOne(groupi.particles.cm, force[k+index_offset_group_], _dt_limit, groupi.info.initial_step_flag);
             }
-
-            return false;
         }
 
         //! check whether group need to resolve
         /*! @param[in] _n_group: number of groups in index_dt_sorted_group_ to check
          */
         void checkGroupResolve(const int _n_group) {
-            assert(_n_group<=index_dt_sorted_group_.getSize());
+            ASSERT(_n_group<=index_dt_sorted_group_.getSize());
             for (int i=0; i<_n_group; i++) {
                 const int k = index_dt_sorted_group_[i];
                 auto& groupk = groups[k];
                 const Float kappa = groupk.slowdown.getSlowDownFactor();
-                auto& pert = groupk.perturber;
-                if (kappa==1.0 && !pert.need_resolve_flag) {
-                    pert.need_resolve_flag = true;
-                    pert.neighbors.initial_step_flag = true;
+                if (kappa==1.0 && !groupk.info.need_resolve_flag) {
+                    groupk.info.need_resolve_flag = true;
+                    groupk.perturber.initial_step_flag = true;
                 }
-                if (kappa>3.0 && pert.need_resolve_flag) {
-                    pert.need_resolve_flag = false;
-                    pert.neighbors.initial_step_flag = true;
+                if (kappa>3.0 && groupk.info.need_resolve_flag) {
+                    groupk.info.need_resolve_flag = false;
+                    groupk.perturber.initial_step_flag = true;
                 }
             }
         }
@@ -341,7 +332,7 @@ namespace H4{
             for (int i=0; i<n_group_org; i++) {
                 const int k = index_dt_sorted_group_[i];
                 auto& group_k = group_ptr[k];
-                if (group_k.perturber.need_resolve_flag) {
+                if (group_k.info.need_resolve_flag) {
                     group_k.writeBackSlowDownParticles(ptcl[k+index_offset_group_]);
                     index_group_resolve_.addMember(k);
                 }
@@ -369,11 +360,11 @@ namespace H4{
             auto* ptcl = pred_.getDataAddress();
             for (int i=0; i<n_single; i++) {
                 const int j = single_list[i];
-                assert(j<pred_.getSize());
+                ASSERT(j<pred_.getSize());
                 const auto& pj = ptcl[j];
                 if (_pi.id==pj.id) continue;
                 Float r2 = manager->interaction.calcAccJerkPair(_fi, _pi, pj);
-                assert(r2>0.0);
+                ASSERT(r2>0.0);
                 if (r2<_nbi.r_crit_sq) _nbi.neigbor_address.addMember(&particles[j]);
                 // mass weighted nearest neigbor
                 if (r2*_nbi.r_min_mass < _nbi.r_min_sq*pj.mass) {
@@ -398,16 +389,16 @@ namespace H4{
             for (int i=0; i<n_group_resolve; i++) {
                 const int j =index_group_resolve_[i];
                 auto& groupj = group_ptr[j];
-                assert(_pi.id!=groupj.particles.cm.id);
+                ASSERT(_pi.id!=groupj.particles.cm.id);
                 const int n_member = groupj.particles.getSize();
                 auto* member_adr = groupj.particles.getMemberOriginAddress();
                 bool nb_flag = false;
                 Float r2_min = NUMERIC_FLOAT_MAX;
                 for (int k=0; k<n_member; k++) {
-                    assert(_pi.id!=member_adr[k]->id);
+                    ASSERT(_pi.id!=member_adr[k]->id);
                     const auto& pj = *member_adr[k];
                     Float r2 = manager->interaction.calcAccJerkPair(_fi, _pi, pj);
-                    assert(r2>0.0);
+                    ASSERT(r2>0.0);
                     if (r2<_nbi.r_crit_sq) nb_flag = true;
                     r2_min = std::min(r2_min, r2);
                 }
@@ -416,16 +407,16 @@ namespace H4{
                 const Float cm_mass = groupj.particles.cm.mass;
                 if (r2_min*_nbi.r_min_mass < _nbi.r_min_sq*cm_mass) {
                     _nbi.r_min_sq = r2_min;
-                    _nbi.r_min_index = j;
+                    _nbi.r_min_index = j+index_offset_group_;
                     _nbi.r_min_mass = cm_mass;
                 }
                 // minimum mass
                 if(_nbi.min_mass < cm_mass) {
                     _nbi.min_mass = cm_mass;
-                    _nbi.min_mass_index = j;
+                    _nbi.min_mass_index = j+index_offset_group_;
                 }
                 // if neighbor step need update, also set update flag for i particle
-                if(groupj.perturber.neighbors.initial_step_flag) _nbi.initial_step_flag = true;
+                if(groupj.perturber.initial_step_flag) _nbi.initial_step_flag = true;
             }
 
             // cm group list
@@ -435,24 +426,24 @@ namespace H4{
                 auto& groupj = group_ptr[j];
                 // used predicted particle instead of original cm
                 const auto& pj = ptcl[j+index_offset_group_];
-                assert(j+index_offset_group_<pred_.getSize());
-                assert(_pi.id!=pj.id);
+                ASSERT(j+index_offset_group_<pred_.getSize());
+                ASSERT(_pi.id!=pj.id);
                 Float r2 = manager->interaction.calcAccJerkPair(_fi, _pi, pj);
-                assert(r2>0.0);
+                ASSERT(r2>0.0);
                 if (r2<_nbi.r_crit_sq) _nbi.neighbor_address.addMember(&groupj.particles.cm);
                 // mass weighted nearest neigbor
                 if (r2*_nbi.r_min_mass < _nbi.r_min_sq*pj.mass) {
                     _nbi.r_min_sq = r2;
-                    _nbi.r_min_index = j;
+                    _nbi.r_min_index = j+index_offset_group_;
                     _nbi.r_min_mass = _pj.mass;
                 }
                 // minimum mass
                 if(_nbi.min_mass<_pj.mass) {
                     _nbi.min_mass = _pj.mass;
-                    _nbi.min_mass_index = j;
+h                    _nbi.min_mass_index = j+index_offset_group_;
                 }
                 // if neighbor step need update, also set update flag for i particle
-                if(groupj.perturber.neighbors.initial_step_flag) _nbi.initial_step_flag = true;
+                if(groupj.perturber.initial_step_flag) _nbi.initial_step_flag = true;
             }
         }
         
@@ -488,7 +479,7 @@ namespace H4{
                 auto& groupi = group_ptr[i];
                 // use predictor of cm
                 auto& pi = ptcl[i+index_offset_group_];
-                auto& nbi = groupi.perturber.neighbors;
+                auto& nbi = groupi.perturber;
                 calcOneSingleAccJerkNB(fi, nbi, pi);
 
                 // for resolved case
@@ -507,6 +498,46 @@ namespace H4{
                     pi.calcAverageForce(member_adr, n_member);
                 }
             }
+        }
+
+        //! calculate dr dv of a pair
+        /*!
+          @param[in] _p1: particle 1
+          @param[in] _p2: particle 2
+         */
+        Float calcDrDv(const ParticleH4<Tparticle>& _p1, const ParticleH4<Tparticle>& _p2) {
+            Float dx[3],dv[3];
+            Float* pos1 = _p1.pos;
+            Float* pos2 = _p2.pos;
+            Float* vel1 = _p1.vel;
+            Float* vel2 = _p2.vel;
+            dx[0] = pos1[0] - pos2[0];
+            dx[1] = pos1[1] - pos2[1];
+            dx[2] = pos1[2] - pos2[2];
+
+            dv[0] = vel1[0] - vel2[0];
+            dv[1] = vel1[1] - vel2[1];
+            dv[2] = vel1[2] - vel2[2];
+        
+            Float drdv= dx[0]*dv[0] + dx[1]*dv[1] + dx[2]*dv[2];
+
+            return drdv;
+        }
+
+        //! estimate perturbation / inner ratio square for a pair
+        /*!
+          @param[in] _r2: separation square
+          @param[in] _p1: particle 1
+          @param[in] _p2: particle 2
+         */
+        Float calcPertInnerRatioSq(const Float _dr2, const ParticleH4<Tparticle>& _p1, const ParticleH4<Tparticle>& _p2) {
+            Float fcm[3] = {_p1.mass*_p1.acc0[0] + _p2.mass*_p2.acc0[0], 
+                               _p1.mass*_p1.acc0[1] + _p2.mass*_p2.acc0[1], 
+                               _p1.mass*_p1.acc0[2] + _p2.mass*_p2.acc0[2]};
+            Float fcm2 = acc_cm[0]*acc_cm[0] + acc_cm[1]*acc_cm[1] + acc_cm[2]*acc_cm[2];
+            Float fin2 = _p1.mass*_p2.mass/_dr2;
+            Float fratiosq = fcm2/fin2;
+            return fratiosq;
         }
 
         // for get sorted index of single
@@ -538,7 +569,7 @@ namespace H4{
                              n_act_single_(0), n_act_group_(0), 
                              n_init_single_(0), n_init_group_(0), 
                              index_offset_group_(0), 
-                             initial_system_flag_(false), modify_system_flag_(false),
+                             initial_system_flag_(false), modify_system_flag_(false), first_step_flag_(true),
                              index_dt_sorted_single_(), index_dt_sorted_group_(), 
                              index_group_resolve_(), index_group_cm_(), 
                              pred_(), force_(), time_next_(), 
@@ -549,9 +580,9 @@ namespace H4{
           @param[in] _nmax_group: maximum number of groups
         */
         void reserveMem(const int _nmax_group) {
-            assert(_nmax_group>0);
+            ASSERT(_nmax_group>0);
             const int nmax = particles.getSizeMax();
-            assert(nmax>0);
+            ASSERT(nmax>0);
 
             index_dt_sorted_single_.setMode(ListMode::local);
             index_dt_sorted_group_.setMode(ListMode::local);
@@ -610,6 +641,7 @@ namespace H4{
             info.clear();
             initial_system_flag_ = false;
             modify_system_flag_ = false;
+            first_step_flag_ = true;
         }
 
         //! Initial system after adding particles
@@ -620,7 +652,7 @@ namespace H4{
             initial_system_flag_ = true;
 
             const int n_particle = particles.getSize();
-            assert(n_particle>1);
+            ASSERT(n_particle>1);
             
             pred_.resizeNoInitialize(n_particle);
             force_.resizeNoInitialize(n_particle);
@@ -641,10 +673,14 @@ namespace H4{
           @param[in] _n_group_offset: offset to separate groups in _particle_index
           @param[in] _n_group: number of new groups
          */
+        /* Add particles from single (hermite.particles) to groups.
+           Add new groups into index_dt_sorted_group_ and increase n_init_group_.
+           set single mask to true for added particles
+         */
         void addGroups(const int* _particle_index, const int* _n_group_offset, const int _n_group) {
-            assert(!particles.isModified());
-            assert(initial_step_flag);
-            assert(_n_group>0);
+            ASSERT(!particles.isModified());
+            ASSERT(initial_step_flag);
+            ASSERT(_n_group>0);
 
             modify_system_flag_ = true;
 
@@ -676,13 +712,13 @@ namespace H4{
                 auto& group_new = groups[group_index[i]];
 
                 // set manager
-                assert(ar_manager!=NULL);
+                ASSERT(ar_manager!=NULL);
                 group_new.mamager = ar_manager;
 
                 // allocate memory
                 const int n_particle = _n_group_offset[i+1] - _n_group_offset[i];
-                assert(n_particle>0);
-                assert(n_particle<=particles.getSize());
+                ASSERT(n_particle>0);
+                ASSERT(n_particle<=particles.getSize());
                 group_new.particles.setMode(AR::LisdMode::copy);
                 group_new.particles.reserveMem(n_particle);
                 group_new.reserveForceMem();
@@ -691,9 +727,9 @@ namespace H4{
                 // Add members to AR 
                 for(int j=_n_group_offset[i]; j<_n_group_offset[i+1]; j++) {
                     const int p_index = _particle_index[j];
-                    assert(p_index<particles.getSize());
+                    ASSERT(p_index<particles.getSize());
                     group_new.addMemberAndAddress(particles[p_index]);
-                    group_new.info.particle_index.addMember(p_index);
+                    group_new.info.particle_index_origin.addMember(p_index);
                 }
                 
                 // calculate the c.m.
@@ -723,8 +759,17 @@ namespace H4{
 
             // update single mask table
             for (int i=_n_group_offset[0], i<_n_group_offset[_n_group]; i++) {
-                assert(table_single_mask_[_particle_index[i]]==false);
+                ASSERT(table_single_mask_[_particle_index[i]]==false);
                 table_single_mask_[_particle_index[i]] = true;
+            }
+
+            // remove single from index_dt_sorted
+            removeIndexFromTable(index_dt_sorted_single_, table_single_mask_);
+            // clear neighbor lists
+            int n_group = index_dt_sorted_group_.getSize();
+            for (int i=0; i<n_group; i++) {
+                const int k = index_dt_sorted_group_[i];
+                removeSingleAddressFromTable(groups[k].perturber.neighbor_address, particles.getDataAddress(), table_single_mask_);
             }
         }
 
@@ -732,21 +777,533 @@ namespace H4{
         /* Split one group to two sub-groups based on the binarytree upper-most pair
            If sub-groups have only one particles, return it to the single list
            Notice if groups are removed, the group index are not changed, only the removed groups are masked and cleared for reusing
+           @param[out] _new_group_particle_index_origin: particle index (for hermite particle data) of new group members
+           @param[out] _new_n_group_offset:  group member boundary, first value is defined already 
+           @param[out] _new_n_group:    number of new group
+           @param[in] _break_group_index:   break group index in groups
+           @param[in] _n_break_no_add: number of break groups without adding new particles
+           @param[in] _n_break:   number of break groups
          */
-        void breakGroups(const int* _break_group_index, const int _n_break) {
-            assert(!particles.isModified());
-            assert(initial_step_flag);
-            assert(_n_break<=index_dt_sorted_group_.getSize());
+        void breakGroups(int* _new_group_particle_index_origin, 
+                         int* _new_n_group_offset, 
+                         int& _new_n_group,
+                         const int* _break_group_index, 
+                         const int _n_break_no_add,
+                         const int _n_break) {
+            ASSERT(!particles.isModified());
+            ASSERT(initial_step_flag);
+            ASSERT(_n_break<=index_dt_sorted_group_.getSize());
+
+            modify_system_flag_=true;
+            int new_index_single[particles.getSize()];
+            int n_single_new=0;
+
             for (int i=0; i<_n_break; i++) {
+                auto& groupi = groups[i];
+                const int n_member =groupi.particles.getSize();
+                int particle_index_origin[n_member];
+                int ibreak = groupi.info.getTwoBranchParticleIndexOriginFromBinaryTree(particle_index_origin, groupi.particles.getDataAddress());
+                // clear group
+                groupi.particles.shiftToOriginFrame();
+                groupi.particles.writeBackMemberAll();
+                groupi.clear();
+                table_group_mask_[i] = true;
                 
+                // check single case
+                // left side
+                if (ibreak==1) {
+                    ASSERT(particle_index[0]<particles.getSize());
+                    ASSERT(table_single_mask_[particle_index[0]]==true);
+                    table_single_mask_[particle_index[0]] = false;
+                    new_index_single[n_single_new++] = particle_index[0];
+                }
+                else {
+                    for (int j=0; j<ibreak; j++) {
+                        int& offset = _new_n_group_offset[_new_n_group];
+                        _new_group_particle_index_origin[offset++] = particle_index_origin[j];
+                    }
+                    _new_n_group++;
+                }
+                // right side
+                if (n_member-ibreak==1) {
+                    ASSERT(particle_index[ibreak]<particles.getSize());
+                    ASSERT(table_single_mask_[particle_index[ibreak]]==true);
+                    table_single_mask_[particle_index[ibreak]] = false;
+                    new_index_single[n_single_new++] = particle_index[ibreak];
+                }
+                else {
+                    for (int j=ibreak; j<n_member; j++) {
+                        int& offset = _new_n_group_offset[_new_n_group];
+                        _new_group_particle_index_origin[offset++] = particle_index_origin[j];
+                    }
+                    _new_n_group++;
+                }
+            }
+
+            // modify the sorted_dt array of single
+            const int n_single_old = index_dt_sorted_single_.getSize();
+            index_dt_sorted_single_.increaseSizeNoInitialize(n_single_new);
+            for (int i=n_single_old-1; i>=0; i--) {
+                index_dt_sorted_single_[i+n_single_new] = index_dt_sorted_single_[i];
+            }
+            for (int i=0; i<n_single_new; i++) {
+                index_dt_sorted_single_[i] = new_index_single[i];
+            }
+            n_init_single_ += n_single_new;
+            n_act_single_  += n_single_new;
+
+            // only clear case
+            for (int i=_n_break; i<_n_break+_n_break_no_add; i++) {
+                auto& groupi = groups[i];
+                groupi.particles.shiftToOriginFrame();
+                groupi.particles.writeBackMemberAll();
+                groupi.clear();
+                table_group_mask_[i] = true;
+            }
+            
+            // clear index_dt_sorted_
+            removeIndexFromTable(index_dt_sorted_group_, table_group_mask_);
+            // clear neighbor lists
+            int n_group = index_dt_sorted_group_.getSize();
+            for (int i=0; i<n_group; i++) {
+                const int k = index_dt_sorted_group_[i];
+                removeGroupAddressFromTable(groups[k].perturber.neighbor_address, particles.getDataAddress(), table_group_mask_);
             }
         }
 
+        //! Check break condition
+        /*! Check whether it is necessary to break the chain\n
+          1. Inner distance criterion:
+          If r>r_break_crit, and ecca>0.0, break.\n
+          2. Perturbation criterion for closed orbit:
+          If inner slowdown factor >1.0 break.\n
+          @param[out] _break_group_list: group index list to break
+          @parma[out] _n_break: number of groups need to break
+        */
+        void checkBreak(int* _break_group_index, int& _n_break) {
+            const int n_group_tot = index_dt_sorted_group_.getSize();
+            for (int i=0; i<n_group_tot; i++) {
+                const int k = index_dt_sorted_group_[i];
+                ASSERT(table_group_mask_[k]==false);
+                auto& groupk = groups[k];
+
+                const int n_member = groupk.particles.getSize();
+                // generate binary tree
+                groupk.info.generateBinaryTree(groupk.particles);
+                
+                auto& bin_root = groupk.info.binarytree.getLastMember();
+                auto* members = groupk.particles.getDataAddress();
+
+                // check distance criterion and outcome (ecca>0) or income (ecca<0)
+                if(bin_root.r > manger->r_break_crit && bin_root.ecca>0.0) break_flag = true;
+
+                // check strong perturbed binary case
+                Float kappa_org = groupk.slowdown.getSlowDownFactorOrigin();
+                if (kappa_org<0.01 && bin_root.semi>0) break_flag = true;
+
+                // check few-body inner perturbation
+                if(n_member>2 && bin_root.ecca>0.0) {
+                    AR::SlowDown sd;
+                    sd.initialSlowDownReference(group.slowdown.getSlowDownFactorReference(),group.slowdown.getSlowDownFactorMax());
+                    for (int k=0; k<2; k++) {
+                        if (bin_root.member[k].id<0) {
+                            auto* bin_sub = (BinaryTree<Tparticle>*) bin_root.member[k];
+                            Float semi_db = 2.0*bin_sub->semi;
+                            // inner hyperbolic case
+                            if(semi_db<0.0) {
+                                break_flag = true;
+                                break;
+                            }
+                            Float f_in = bin_sub->m1*bin_sub->m2/(semi_db*semi_db*semi_db);
+                            Float f_out = bin_sub->mass*bin_root.member[k-1].mass/(sqrt(dr2)*dr2);
+                            Float kappa_in = sd.calcSlowDownFactor(f_in, f_out);
+                            // if slowdown factor is large, break the group
+                            if (kappa_in>1.0) {
+#ifdef ADJUST_GROUP_DEBUG
+                                std::cout<<"Inner kappa>1.0, i_group:"<<i<<" k:"<<k<<" kappa:"<<kappa_in<<std::endl;
+#endif
+                                break_flag = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if (break_flag) {
+#ifdef ADJUST_GROUP_DEBUG
+                    std::cout<<"Break group, group index: "<<i
+                             <<" N_member: "<<n_member
+                             <<" ecca: "<<ecca
+                             <<" separation : "<<r
+                             <<" r_crit: "<<r_break_crit
+                             <<std::endl;
+#endif
+                    _break_group_list[_n_break++] = i;
+                }
+            }
+        }
+
+        //! Insert particle index in an existed or new group
+        /*! Used for checkNewGroup, if particle _i, _j are already in new groups found before, insert _i or _j into this group, otherwise make new group
+          @param[in] _i: particle index _i
+          @param[in] _j: particle index _j
+          @param[in,out] _used_mask: mask table recored whether index is used in which group
+          @param[in,out] _new_group_particle_index_origin: particle index (for hermite particle data) of new group members
+          @param[in,out] _new_n_group_offset:  group member boundary, first value is defined already 
+          @param[in,out] _new_n_particle: total number of new member particles 
+          @param[in,out] _new_n_group:    number of new group
+          @param[in,out] _break_group_index:   break group index in groups
+          @param[out] _n_break_no_add: number of break groups without adding new particles
+          @param[in] _n_break:   number of break groups
+         */
+        void insertParticleIndexToGroup(const int _i, 
+                                        const int _j, 
+                                        int* _used_mask, 
+                                        int* _new_group_particle_index_origin,
+                                        int* _new_n_group_offset, 
+                                        int& _new_n_particle,
+                                        int& _new_n_group,
+                                        int* _break_group_index,
+                                        int& _n_break_no_add,
+                                        const int _n_break) {
+            int insert_group=-1, insert_index=-1;
+            if(_used_mask[_i]>=0) {
+                insert_group = _used_mask[_i];
+                insert_index = _j;
+            }
+            else if(_used_mask[_j]>=0) {
+                insert_group = _used_mask[_j];
+                insert_index = _i;
+            }
+            // the case of merging group
+            if(insert_group>=0) {
+                // check insert particle number
+                int insert_n = 1;
+                if (insert_index>=index_offset_group_) insert_n = groups[insert_index-index_offset_group_].particles.getSize();
+                
+                // shift the first index in last group to last 
+                int last_group_offset = _new_n_group_offset[_new_n_group-1];
+                for (int j=0; j<insert_n; j++) 
+                    _new_group_particle_index_origin[_new_n_particle++] = _new_group_particle_index_origin[last_group_offset+j];
+
+                // in the case insert_group is not the last group
+                if(insert_group<_new_n_group-1) {
+                    // shift first index in each group to the end to allow to insert j in i_group
+                    for (int k=_new_n_group-1; k>insert_group; k--) {
+                        int k0_group_offset = _new_n_group_offset[k-1];
+                        for (int j=0; j<insert_n; j++) 
+                            _new_group_particle_index_origin[_new_n_group_offset[k]++] = _new_group_particle_index_origin[k0_group_offset+j];
+                    }
+                }
+                // replace the first position of insert_group with insert ptcl
+                int insert_group_offset=_new_n_group_offset[insert_group];
+                if(insert_n>1) {
+                    auto& group = groups[insert_index-index_offset_group_];
+                    for (int j=0; j<insert_n; j++) 
+                        _new_group_particle_index_origin[insert_group_offset++] = group.info.particle_index[j];
+                    // add group index to break list
+                    _break_group_index[_n_break+_n_break_no_add] = insert_index;
+                    _n_break_no_add++;
+                }
+                else _new_group_particle_index_origin[insert_group_offset] = insert_index;
+                _used_mask[insert_index] = insert_group;
+            }
+            else {   // new group case
+                _new_n_group_offset[_new_n_group] = _new_n_particle;
+                if (_i>=index_offset_group_) {
+                    auto& group = groups[_i-index_offset_group_];
+                    int insert_n = group.particles.getSize();
+                    for (int j=0; j<insert_n; j++)
+                        _new_group_particle_index_origin[_new_n_particle++] = group.info.particle_index[j];
+                    // add group index to break list
+                    _break_group_index[_n_break+_n_break_no_add] = _i;
+                    _n_break_no_add++;
+                }
+                else _new_group_particle_index_origin[_new_n_particle++] = _i;
+                // used mask regist the current staying group of particle _i
+                used_mask[_i] = _new_n_group;
+
+                if (_j>=index_offset_group_) {
+                    auto& group = groups[_j-index_offset_group_];
+                    int insert_n = group.particles.getSize();
+                    for (int j=0; j<insert_n; j++)
+                        _new_group_particle_index_origin[_new_n_particle++] = group.info.particle_index[j];
+                    // add group index to break list
+                    _break_group_index[_n_break+_n_break_no_add] = _j;
+                    _n_break_no_add++;
+                }
+                else _new_group_particle_index_origin[_new_n_particle++] = _j;
+                // used mask regist the current staying group of particle _j
+                used_mask[_j] = _new_n_group;
+
+                _new_n_group++;
+            }
+        }
+
+        //! check the pair with distance below r_crit for ptcl in adr_dt_sorted_
+        /*! First check nearest neighbor distance r_min
+          If r_min<r_crit, check the direction, if income, accept as group
+          @param[out] _new_group_particle_index_origin: particle index (for hermite particle data) of new group members
+          @param[out] _new_n_group_offset:  group member boundary, first value is defined already 
+          @param[out] _new_n_group:    number of new group
+          @param[in,out] _break_group_index:   break group index in groups
+          @param[out] _n_break_no_add: number of break groups without adding new particles
+          @param[in] _n_break:   number of break groups
+        */
+        void checkNewGroup(int* _new_group_particle_index_origin,
+                           int* _new_n_group_offset, 
+                           int& _new_n_group, 
+                           int* _break_group_index,
+                           int& _n_break_no_add,
+                           const int _n_break) {
+            const int n_particle = particles.getSize();
+            const int n_group = groups.getSize();
+            ASSERT(index_offset_group_==n_particle);
+
+            int new_n_particle = 0;
+            // used_mask store the current group index of particle i if it is already in new group
+            int used_mask[n_particle+n_group];
+            // -1 means not yet used 
+            for (int k=0; k<n_particle; k++) used_mask[k] = -1;
+            for (int k=index_offset_group_; k<n_group+index_offset_group_; k++) used_mask[k] = -1;
+            // -2 means break groups
+            for (int k=0; k<_n_break; k++) used_mask[_break_group_index[k]+index_offset_group_] = -2;
+            
+            const Float r_crit_sq = r_break_crit*r_break_crit;
+
+            // gether list together
+            //const int n_check = n_act_single_+n_act_group_;
+            //int check_index[n_check];
+            //for (int k=0; k<n_act_single_; k++) check_index[k] = index_dt_sorted_single_[k];
+            //for (int k=0; k<n_act_group_; k++) check_index[k+n_act_single_] = index_dt_sorted_group_[k] + index_offset_group_;
+
+            // check only active particles 
+            // single case
+            for (int k=0; k<n_act_single_; k++) {
+                const int i = index_dt_sorted_single_[k];
+                const int j = neighbors[i].r_min_index_;
+                ASSERT(j<n_particle+n_group);
+                if(j<0) continue; 
+
+                const Float dr2 = neighbors[i].r_min_sq;
+                ASSERT(dr2>0.0);
+
+                // distance criterion
+                if (dr2 < r_crit_sq) {
+
+                    // avoid break member
+                    if(used_mask[j]==-2) continue;
+                    
+                    // avoid double count
+                    if(used_mask[i]>=0 && used_mask[j]>=0) continue;
+
+                    auto& pi = particles[i];
+                    ParticleH4<Tparticle>* pj;
+                    // neighbor is single 
+                    if (j<index_offset_group_) {
+                        pj = &particles[j];
+                    }
+                    else {
+                        const int jg = j-index_offset_group_;
+                        Float kappa_org_j = groups[jg].slowdown.getSlowDownFactorOrigin();
+                        if (kappa_org_j>1.0) continue;
+                        pj = &groups[jg].particles.cm;
+                    }
+                    // only inwards or first step case
+                    Float drdv = calcDrDv(pi, *pj);
+                    if(drdv<0.0||_first_step_flag) {
+                            
+                        Float fratiosq = calcPertInnerRatio(dr2, pi, *pj);
+
+                        // avoid strong perturbed case, estimate perturbation
+                        // if fratiosq >1.5, avoid to form new group, should be consistent as checkbreak
+                        if(fratiosq>1.5) continue;
+
+#ifdef ADJUST_GROUP_DEBUG
+                        if (j<index_offset_group_) {
+                            std::cout<<"Find new group   index: "<<i<<" "<<j<<"  ftid_sq: "<<fratiosq<<"\n"
+                        }
+                        else {
+                            auto& bin_root = groups[j-index_offset_group_].info.binarytree.getLastMember();
+                            std::cout<<"Find new group      index      slowdown      apo      ftid_sq \n"
+                                     <<"i1              "
+                                     <<std::setw(8)<<i
+                                     <<std::setw(16)<<0
+                                     <<std::setw(16)<<0
+                                     <<std::setw(16)<<fratiosq;
+                            std::cout<<"\ni2              "
+                                     <<std::setw(8)<<j
+                                     <<std::setw(16)<<kappa_org_j
+                                     <<std::setw(16)<<bin_root.semi*(1.0+bin_root.ecc)
+                                     <<std::setw(16)<<fratiosq;
+                            std::cout<<std::endl;
+                        }
+#endif
+                        insertParticleIndexToGroup(i, j, used_mask, _new_group_particle_index_origin, _new_n_group_offset, new_n_particle, _new_n_group, _break_group_index, _n_break_no_add,  _n_break);
+                    }
+                }
+            }
+
+            // group case
+            for (int k=0; k<n_act_group_; k++) {
+                const int i = index_dt_sorted_group_[k];
+                if (used_mask[i]==-2) continue;
+
+                const int j = groups[i].perturber.r_min_index_;
+                ASSERT(j<n_particle+n_group);
+                if(j<0) continue; 
+                
+                const Float dr2 = groups[i].perturber.r_min_sq;
+                ASSERT(dr2>0.0);
+
+                // distance criterion
+                if (dr2 < r_crit_sq) {
+
+                    // avoid break member
+                    if(used_mask[j]==-2) continue;
+                    
+                    // avoid double count
+                    if(used_mask[i]>=0 && used_mask[j]>=0) continue;
+
+                    auto& pi = groups[i].particles.cm;
+                    Float kappa_org_i = groups[i].slowdown.getSlowDownFactorOrigin();
+                    ParticleH4<Tparticle>* pj;
+                    // neighbor is single 
+                    if (j<index_offset_group_) {
+                        if (kappa_org_i>1.0) continue;
+                        pj = &particles[j];
+                    }
+                    else {
+                        const int jg = j-index_offset_group_;
+                        Float kappa_org_j = groups[jg].slowdown.getSlowDownFactorOrigin();
+                        if (kappa_org_i>1.0&&kappa_org_j>1.0) continue;
+                        pj = &groups[jg].particles.cm;
+
+                        // unknown, for test
+                        if (kappa_org_i*kappa_org_j>1.0) continue;
+                    }
+                    // only inwards or first step case
+                    Float drdv = calcDrDv(pi, *pj);
+                    if(drdv<0.0||_first_step_flag) {
+
+                        Float fratiosq = calcPertInnerRatio(dr2, pi, *pj);
+
+                        // avoid strong perturbed case, estimate perturbation
+                        // if fratiosq >1.5, avoid to form new group, should be consistent as checkbreak
+                        if(fratiosq>1.5) continue;
+
+#ifdef ADJUST_GROUP_DEBUG
+                        auto& bini = groups[i].info.binarytree.getLastMember();
+                        std::cout<<"Find new group      index      slowdown       apo      ftid_sq \n"
+                                 <<"i1              "
+                                 <<std::setw(8)<<i
+                                 <<std::setw(16)<<kappa_org_i
+                                 <<std::setw(16)<<bini*(1.0+bini.ecc)
+                                 <<std::setw(16)<<fratiosq;
+                        if(j<index_offset_group_) {
+                            std::cout<<"\ni2              "
+                                     <<std::setw(8)<<j
+                                     <<std::setw(16)<<0
+                                     <<std::setw(16)<<0
+                                     <<std::setw(16)<<fratiosq;
+                        }
+                        else {
+                            auto& binj = groups[j-index_offset_group_].info.binarytree.getLastMember();
+                            Float kappaj = groups[j-index_offset_group_].slowdown.getSlowDownFactorOrigin();
+                            std::cout<<"\ni2              "
+                                     <<std::setw(8)<<j
+                                     <<std::setw(16)<<kappaj
+                                     <<std::setw(16)<<binj*(1.0+binj.ecc)
+                                     <<std::setw(16)<<fratiosq;
+                        }
+                        std::cout<<std::endl;
+#endif
+                        insertParticleIndexToGroup(i, j, used_mask, _new_group_particle_index_origin, _new_n_group_offset, new_n_particle, _new_n_group);
+                    }
+                }
+            }
+            // for total number of members
+            _new_group_offset[_new_n_group] = new_n_particle;
+            ASSERT(new_n_particle<=particle.getSize());
+        }
+        
+
+        //! adjust groups
+        /* check break and new groups and modify the groups
+         */
+        void adjustGroups() {
+            ASSERT(!particles.isModified());
+            ASSERT(initial_step_flag);
+            modify_system_flag_=true;
+
+            // check
+            // break index
+            int break_group_index[groups.getSize()+1];
+            int n_break = 0;
+            int n_break_no_add = 0;
+            // new index
+            int new_group_particle_index[particles.getSize()];
+            int new_n_group_offset[groups.getSize()+1];
+            int new_n_group = 0;
+
+            checkBreak(break_group_index, n_break);
+            checkNewGroup(new_group_particle_index, new_n_group_offset, new_n_group, break_group_index, n_break_no_add, n_break);
+
+            // integrate modified single/groups to current time
+            integrateToTime(time_, new_group_particle_index, new_n_group_offset[new_n_group]);
+            integrateToTime(time_, break_group_index, n_break);
+
+            // break groups
+            breakGroups(new_group_particle_index, new_n_group_offset, new_n_group, break_group_index, n_break_no_add, n_break);
+            addGroups(new_group_particle_index, new_n_group_offset, new_n_group);
+        }
+
         //! after groups are modified, adjust the system after modification
-        /*! remove the index in sorted_dt array due to the change of groups
+        /*! 
+          remove the index in sorted_dt array due to the change of groups
+          Initial the new single and group integrator
          */
         void adjustSystemAfterModify() {
+            ASSERT(!particles.isModified());
+            ASSERT(initial_step_flag);
             
+            // check table size and index_dt_sorted size
+#ifdef HERMITE_DEBUG
+            int particle_index_count[particles.getSize()];
+            int group_index_count[groups.getSize()];
+            for (int i=0; i<particles.getSize(); i++) particle_index_count[i]=0;
+            for (int i=0; i<groups.getSize(); i++) group_index_count[i]=0;
+            // single list
+            for (int i=0; i<index_dt_sorted_single_.getSize(); i++) {
+                ASSERT(index_dt_sorted_single_[i]<particles.getSize());
+                particle_index_count[index_dt_sorted_single_[i]]++;
+            }
+            for (int i=0; i<index_dt_sorted_group_.getSize(); i++) {
+                ASSERT(index_dt_sorted_group_[i]<groups.getSize());
+                group_index_count[index_dt_sorted_group_[i]]++;
+            }
+            ASSERT(table_single_mask_.getSize()==particles.getSize());
+            for (int i=0; i<table_single_mask_.getSize(); i++) {
+                if (table_single_mask_[i]) particle_index_count[i]++;
+            }
+            ASSERT(table_group_mask_.getSize()==groups.getSize());
+            for (int i=0; i<table_group_mask_.getSize(); i++) {
+                if (table_group_mask_[i]) group_index_count[i]++;
+            }
+            for (int i=0; i<particles.getSize(); i++) 
+                ASSERT(particle_index_count[i]==1);
+            for (int i=0; i<groups.getSize(); i++) 
+                ASSERT(group_index_count[i]==1);
+            ASSERT(n_init_group_<index_dt_sorted_group_.getSize());
+            ASSERT(n_act_group_<index_dt_sorted_group_.getSize());
+            ASSERT(n_init_single_<index_dt_sorted_single_.getSize());
+            ASSERT(n_act_single_<index_dt_sorted_single_.getSize());
+#endif            
+
+            // intial integration
+            initialIntegration(time_, false);
+
+            modify_system_flag_=false;
         }
 
         //! Initial Hermite integrator
@@ -759,8 +1316,8 @@ namespace H4{
         void initialIntegration(const Float _time_sys,
                                 const bool _start_flag) {
 
-            assert(!particles.isModified());
-            assert(initial_system_flag_);
+            ASSERT(!particles.isModified());
+            ASSERT(initial_system_flag_);
 
             // start case, set n_init_single_ and n_init_group_ consistent with index_dt_sorted array
             if(_start_flag) {
@@ -790,6 +1347,7 @@ namespace H4{
             auto* group_ptr = groups.getDataAddress();
             for(int i=0; i<n_init_group_; i++){
                 int k = index_group[i];
+                ASSERT(table_group_mask_[k]==false);
                 // initial group integrator
                 group_ptr[k].initial(_time_sys);
                 // initial cm
@@ -798,11 +1356,11 @@ namespace H4{
                 pcm.acc1[0] = pcm.acc1[1] = pcm.acc1[2] = 0.0;
                 pcm.time = _time_sys;
                 pcm.dt   = 0.0;
-                assert(k+index_offset_group_<pred_.getSize());
+                ASSERT(k+index_offset_group_<pred_.getSize());
                 pred_[k+index_offset_group_] = pcm[k];
             }
 
-            Float dt_limit = mamager->step.calcNextDtLimit(_time_sys);
+            dt_limit_ = mamager->step.calcNextDtLimit(_time_sys);
 
             if(!_start_flag) predictAll(_time_sys);
 
@@ -856,25 +1414,26 @@ namespace H4{
         /*! Integrated to time_sys
         */
         void integrateOneStepAct() {
-            assert(!particles.isModified());
-            assert(initial_system_flag_);
-            assert(n_init_group_==0&&n_init_single_==0);
+            ASSERT(!particles.isModified());
+            ASSERT(initial_system_flag_);
+            ASSERT(n_init_group_==0&&n_init_single_==0);
 
             // get next time
-            Float time_sys = getNextTime();
+            Float time_next = getNextTime();
 
-            Float dt_limit = mamager->step.calcNextDtLimit(_time_sys);
+            dt_limit_ = mamager->step.calcNextDtLimit(time_next);
 
             // integrate groups first
             const int n_group_tot = index_dt_sorted_group_.getSize();
             for (int i=0; i<n_group_tot; i++) {
                 const int k = index_dt_sorted_group_[i];
+                ASSERT(table_group_mask_[k]==false);
                 const Float ds = groups[k].info.ds;
-                groups[k].integrateToTime(ds, _time_sys, groups[k].info.fix_step_option);
+                groups[k].integrateToTime(ds, time_next, groups[k].info.fix_step_option);
             }
 
             // prediction positions
-            predictAll(time_sys);
+            predictAll(time_next);
 
             // check resolve status
             checkGroupResolve(_n_group_tot);
@@ -889,68 +1448,63 @@ namespace H4{
             calcAccJerkNBList(index_single, n_act_single_, index_group, n_act_group_);
 
             const int n_single_tot = index_dt_sorted_single_.getSize();
-            correctAndCalcDt4thList(index_single, n_act_single_, index_group, n_act_group_);
+            correctAndCalcDt4thList(index_single, n_act_single_, index_group, n_act_group_, dt_limit);
 
             updatedTimeNextList(index_single, n_act_single_, index_group, n_act_group_);
+
+            // update time
+            time_ = time_next;
         }
 
         //! Integration a list of particle to current time (ingore dt)
         /*! Integrate a list of particle to current time.
-          @param[in] _time_sys: time to integrate
-          @param[in] _index_single: active particle index for singles
-          @param[in] _n_single: number of active singles
-          @param[in] _index_group: active particle index for groups
-          @param[in] _n_group: number of active groups
-          \return fail_flag: If step size < dt_min, return true
+          @param[in] _time_next: time to integrate
+          @param[in] _particle_index: particle index to integrate
+          @param[in] _n_particle: number of particles
         */
         template <class ARCint, class Tpars>
-        bool integrateToTimeList(const Float _time_sys,
-                                 const int* _index_single,
-                                 const int _n_single,
-                                 const int* _index_group,
-                                 const int _n_group) {
-            assert(!particles.isModified());
-            assert(initial_system_flag_);
+        void integrateToTimeList(const Float _time_next,
+                                 const int* _particle_index,
+                                 const int _n_particle) {
+            ASSERT(!particles.isModified());
+            ASSERT(initial_system_flag_);
 
             // adjust dt
             // single
             int index_single_select[_n_single];
             int n_single_select =0;
-
-            auto* ptcl = particles.getDataAddress();
-            for (int i=0; i<_n_single; i++){
-                const int k = _index_single(i);
-                if (ptcl[k].time>=time_sys) continue;
-                ptcl[k].dt = time_sys - ptcl[k].time;
-                index_single_select[n_single_select++] = k;
-            }
-
-            // group
             int index_group_select[_n_group];
             int n_group_select =0;
+
+            auto* ptcl = particles.getDataAddress();
             auto* group_ptr = groups.getDataAddress();
-            for (int i=0; i<_n_group; i++) {
-                const int k = _index_group[i];
-                auto& pcm = group_ptr[k].particles.cm;
-                if (pcm[k].time>=time_sys) continue;
-                pcm[k].dt = time_sys - pcm[k].time;
-                index_group_select[n_group_select++] = k;
-            }            
+            for (int i=0; i<_n_single; i++){
+                const int k = _index_single(i);
+                if (k<index_offset_group_) {
+                    if (table_single_mask_[k]) continue;
+                    if (ptcl[k].time>=_time_next) continue;
+                    ptcl[k].dt = _time_next - ptcl[k].time;
+                    index_single_select[n_single_select++] = k;
+                }
+                else {
+                    const int kg = k - index_offset_group_;
+                    if (table_group_mask_[kg]) continue;
+                    auto& pcm = group_ptr[kg].particles.cm;
+                    if (pcm.time>=_time_next) continue;
+                    pcm.dt = _time_next - pcm.time;
+                    index_group_select[n_group_select++] = kg;
+                }
+            }
 
-            if (n_single_select==0 && n_group_select==0) return false;
 
-            calcAccJerkNBList(index_single_select, n_single_select, index_group_select, n_group_select);
+            if (n_single_select>0 || n_group_select>0) {
 
-            bool fail_flag=correctAndCalcDt4thAct(index_single_select, n_single_select, index_group_select, n_group_select);
+                calcAccJerkNBList(index_single_select, n_single_select, index_group_select, n_group_select);
 
+                correctAndCalcDt4thList(index_single_select, n_single_select, index_group_select, n_group_select, dt_limit_);
 
-#ifdef HERMITE_DEBUG_DUMP
-            if (fail_flag) return true;
-#endif
-
-            updateTimeNextList(index_single_select, n_single_select, index_group_select, n_group_select);
-
-            return false;
+                updateTimeNextList(index_single_select, n_single_select, index_group_select, n_group_select);
+            }
         }
 
         //! sort time step array and select active particles
@@ -964,7 +1518,7 @@ namespace H4{
 
             // get minimum next time from single and group
             time_next_min_ = std::min(time_next_[index_dt_sorted_single_[0]], time_next_[index_dt_sorted_group_[0]));
-            assert(time_ref>0.0);
+            ASSERT(time_ref>0.0);
 
             // find active singles
             for(n_act_single_=0; n_act_single_<index_offset_group_; n_act_single_++){
@@ -975,10 +1529,8 @@ namespace H4{
             for(n_act_group_=0; n_act_group_<n_groups; n_act_group_++){
                 if (time_next_min_ < time_next_[index_dt_sorted_group_[0] + index_offset_group]) break;
             }
-            assert(n_act_single_==0&&n_act_group_==0);
+            ASSERT(n_act_single_==0&&n_act_group_==0);
         }
-
-        
 
         //! get next time for intergration
         Float getNextTime() const {
