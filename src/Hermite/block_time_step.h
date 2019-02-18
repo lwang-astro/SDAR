@@ -9,7 +9,7 @@ namespace H4{
         Float eta_4th;  ///> time step coefficient (outside sqrt) for forth order
         Float eta_2nd;  ///> time step coefficient (outside sqrt) for second order
 
-        TimeStep(): eta_4th(0.02), eta_2nd(0.005) {}
+        TimeStep4th(): eta_4th(0.02), eta_2nd(0.005) {}
 
         //! calculate 2nd order time step 
         /*! calculate time step based on Acc and its derivatives
@@ -46,12 +46,12 @@ namespace H4{
             if(!(s1==0.0||s3==0.0)&&s2==0.0)
                 return NUMERIC_FLOAT_MAX;
             else 
-                return eta_sq_ * sqrt( (sqrt(s0*s2) + s1) / (sqrt(s1*s3) + s2) );
+                return eta_4th * sqrt( (sqrt(s0*s2) + s1) / (sqrt(s1*s3) + s2) );
         }
 
         void print(std::ostream & _fout) const{
             _fout<<" eta_4th="<<eta_4th
-                 <<" eta_2nd="<<eta_2n;
+                 <<" eta_2nd="<<eta_2nd;
         }
 
         //! print titles of class members using column style
@@ -71,8 +71,8 @@ namespace H4{
         */
         void printColumn(std::ostream & _fout, const int _width=20){
             _fout<<std::setw(_width)<<eta_4th
-                 <<std::setw(_width)<<eta_2nd
-                }
+                 <<std::setw(_width)<<eta_2nd;
+        }
 
         //! write class data to file with binary format
         /*! @param[in] _fp: FILE type file for output
@@ -114,7 +114,7 @@ namespace H4{
             if(_time==0.0) return dt_max;
             else {
                 // the binary tree for current time position in block step 
-                PS::U64 bitmap = _time/dt_min;
+                unsigned long long int bitmap = to_double(_time/dt_min);
                 //#ifdef __GNUC__ 
                 //        PS::S64 dts = __builtin_ctz(bitmap) ;
                 //        PS::U64 c = (1<<dts);
@@ -122,7 +122,7 @@ namespace H4{
                 //#else
 
                 // block step multiply factor 
-                PS::U64 c=1;
+                unsigned long long int c=1;
                 // find the last zero in the binary tree to obtain the current block step level
                 while((bitmap&1)==0) {
                     bitmap = (bitmap>>1);
@@ -149,7 +149,7 @@ namespace H4{
             ASSERT(_dt_limit<=dt_max);
             ASSERT(_dt_limit>=dt_min);
 
-            const Float dt_ref = TimeStep::calcDt2nd(acc0, acc1);
+            const Float dt_ref = TimeStep4th::calcDt2nd(_acc0, _acc1);
             Float dt = _dt_limit;
             while(dt > dt_ref) dt *= 0.5;
 
@@ -172,17 +172,18 @@ namespace H4{
         Float calcBlockDt4th(const Float* acc0, 
                              const Float* acc1,
                              const Float* acc2,
-                             const Float* acc3) const {
-            ASSERT(dt_max_>dt_min_);
-            ASSERT(dt_max_next_<=dt_max_);
-            ASSERT(dt_max_next_>=dt_min_);
+                             const Float* acc3,
+                             const Float _dt_limit) const {
+            ASSERT(dt_max>dt_min);
+            ASSERT(_dt_limit<=dt_max);
+            ASSERT(_dt_limit>=dt_min);
 
-            const Float dt_ref = TimeStep::calcDt4th(acc0, acc1, acc2, acc3);
-            Float dt = dt_max_next_;
+            const Float dt_ref = TimeStep4th::calcDt4th(acc0, acc1, acc2, acc3);
+            Float dt = _dt_limit;
             while(dt > dt_ref) dt *= 0.5;
 
-            if(dt<dt_min_) {
-                std::cerr<<"Error: time step size too small: ("<<dt<<") < dt_min ("<<dt_min_<<")!"<<std::endl;
+            if(dt<dt_min) {
+                std::cerr<<"Error: time step size too small: ("<<dt<<") < dt_min ("<<dt_min<<")!"<<std::endl;
                 DATADUMP();
                 abort();
             }
@@ -190,10 +191,9 @@ namespace H4{
         }
 
         void print(std::ostream & _fout) const{
-            TimeStep::print(_fout);
-            _fout<<" dt_max="<<dt_max_
-                 <<" dt_max_next="<<dt_max_next_
-                 <<" dt_min="<<dt_min_;
+            TimeStep4th::print(_fout);
+            _fout<<" dt_max="<<dt_max
+                 <<" dt_min="<<dt_min;
         }
 
         //! print titles of class members using column style
@@ -202,9 +202,8 @@ namespace H4{
           @param[in] _width: print width (defaulted 20)
         */
         void printColumnTitle(std::ostream & _fout, const int _width=20) {
-            TimeStep::printColumnTitle(_fout, _width);
+            TimeStep4th::printColumnTitle(_fout, _width);
             _fout<<std::setw(_width)<<"Dt_max"
-                 <<std::setw(_width)<<"Dt_max_next"
                  <<std::setw(_width)<<"Dt_min";
         }
 
@@ -214,10 +213,9 @@ namespace H4{
           @param[in] _width: print width (defaulted 20)
         */
         void printColumn(std::ostream & _fout, const int _width=20){
-            TimeStep::printColumn(_fout, _width);
-            _fout<<std::setw(_width)<<dt_max_
-                 <<std::setw(_width)<<dt_max_next_
-                 <<std::setw(_width)<<dt_min_;
+            TimeStep4th::printColumn(_fout, _width);
+            _fout<<std::setw(_width)<<dt_max
+                 <<std::setw(_width)<<dt_min;
         }
 
         //! write class data to file with binary format
@@ -226,7 +224,7 @@ namespace H4{
         void writeBinary(FILE *_fp) const {
             fwrite(this, sizeof(*this),1,_fp);
         }
-p
+
         //! read class data to file with binary format
         /*! @param[in] _fp: FILE type file for reading
          */

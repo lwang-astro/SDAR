@@ -1,9 +1,9 @@
 #pragma once
 
 #include<cmath>
-#include"Comm/matrix.h"
+#include"Common/matrix.h"
 
-namespace Comm {
+namespace COMM{
     const Float PI = 4.0*atan(1.0);
 
     //! Binary parameter class
@@ -20,7 +20,7 @@ namespace Comm {
         Float m1;           // m1: mass 1
         Float m2;           // m2: mass 2
         Float r;            // distance between too members
-        Float am[3];        // angular momentum
+        Vector3<Float> am;        // angular momentum
 
 
     private:
@@ -155,7 +155,7 @@ namespace Comm {
                          const Float _dt) {
             Float freq = sqrt( (_bin.m1+_bin.m2) / (_bin.semi*_bin.semi*_bin.semi) );
             Float mean_anomaly_old = _bin.ecca - _bin.ecc * sin(_bin.ecca);
-            Float dt_tmp = _dt - (int)(_dt/_bin.period)*_bin.period;
+            Float dt_tmp = _dt - to_int(_dt/_bin.period)*_bin.period;
             Float mean_anomaly_new = freq * dt_tmp + mean_anomaly_old; // mean anomaly
             _bin.ecca = calcEccAnomaly(mean_anomaly_new, _bin.ecc); // eccentric anomaly
         }
@@ -289,7 +289,7 @@ namespace Comm {
     template <class Tptcl>
     class BinaryTree: public Tptcl, public Binary {
     private: 
-        typedef std::pair<int, int> R2Index;  // First is distance square, second is index
+        typedef std::pair<Float, int> R2Index;  // First is distance square, second is index
 
         int n_members; ///> Total member number belong to the tree (can be more than 2)
         Tptcl* member[2]; ///> member pointer
@@ -311,7 +311,7 @@ namespace Comm {
             for (int i=0; i<_n_members-1; i++) {
                 int k = _ptcl_list[i];
                 int jc=-1;
-                Float r2min = PS::LARGE_FLOAT;
+                Float r2min = NUMERIC_FLOAT_MAX;
                 for(int j=i+1; j<_n_members; j++) {
                     const int kj =_ptcl_list[j];
                     Vector3<Float> dr = {_ptcl[k].pos[0] - _ptcl[kj].pos[0],
@@ -440,8 +440,12 @@ namespace Comm {
 #endif
             Float m1 = member[0]->mass;
             Float m2 = member[1]->mass;
-            this->pos = m1*member[0]->pos + m2*member[1]->pos;
-            this->vel = m1*member[0]->vel + m2*member[1]->vel;
+            this->pos[0] = m1*member[0]->pos[0] + m2*member[1]->pos[0];
+            this->pos[1] = m1*member[0]->pos[1] + m2*member[1]->pos[1];
+            this->pos[2] = m1*member[0]->pos[2] + m2*member[1]->pos[2];
+            this->vel[0] = m1*member[0]->vel[0] + m2*member[1]->vel[0];
+            this->vel[1] = m1*member[0]->vel[1] + m2*member[1]->vel[1];
+            this->vel[2] = m1*member[0]->vel[2] + m2*member[1]->vel[2];
             this->mass = m1+m2;
             this->id = - std::abs(member[0]->id);
         }

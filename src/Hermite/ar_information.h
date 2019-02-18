@@ -1,16 +1,18 @@
 #pragma once
 
-#include "Comm/Float.h"
-#include "Comm/list.h"
-#include "Comm/binary_tree.h"
+#include "Common/Float.h"
+#include "Common/list.h"
+#include "Common/binary_tree.h"
+#include "Hermite/hermite_particle.h"
 
 namespace H4{
     //! contain group information
     template <class Tparticle>
     class ARInformation{
     private:
+        typedef ParticleAR<Tparticle> ARPtcl;
         //! calculate minimum kepler ds for ARC
-        static Float calcDsKeplerIter(const Float& _ds, Comm::BinaryTree<Tptcl>& _bin) {
+        static Float calcDsKeplerIter(const Float& _ds, COMM::BinaryTree<ARPtcl>& _bin) {
             Float ds;
             //kepler orbit, step ds=dt*m1*m2/r estimation (1/64 orbit): pi/4*sqrt(semi/(m1+m2))*m1*m2 
             if (_bin.semi>0) ds = 0.09817477042*std::sqrt(_bin.semi/(_bin.m1+_bin.m2))*(_bin.m1*_bin.m2);
@@ -20,7 +22,7 @@ namespace H4{
         }
 
         //! add one particle and relink the particle pointer to the local one in _particles
-        static void addOneParticleAndReLinkPointer(ParticleGroup<Tparticle>& _particles, Tparticle*& _ptcl) {
+        static void addOneParticleAndReLinkPointer(COMM::ParticleGroup<ARPtcl, ParticleH4<Tparticle>>& _particles, ARPtcl*& _ptcl) {
             _particles.addMember(*_ptcl);
             _ptcl = &_particles.getLastMember();
         }
@@ -28,31 +30,31 @@ namespace H4{
         //! struture to obtain the original particle index from binary_tree leaf iterator
         struct ParticleIndexAdr{
             int n_particle;
-            Tparticle* first_particle_index_local_address; // the local particle data first address to calculate local index
+            ARPtcl* first_particle_index_local_address; // the local particle data first address to calculate local index
             int* particle_index_origin_output; // to store the particle index 
             const int* particle_index_origin_all;    // to obtain the original index from local index
 
-            ParticleIndexAdr(Tparticle* _first_adr, int* _index_output, const int* _index_org): n_particle(0), first_particle_index_local_address(_firs_adr), particle_index_origin_output(_index_output), particle_index_origin_all(_index_org) {}
+            ParticleIndexAdr(ARPtcl* _first_adr, int* _index_output, const int* _index_org): n_particle(0), first_particle_index_local_address(_first_adr), particle_index_origin_output(_index_output), particle_index_origin_all(_index_org) {}
         };
 
         //! calculate particle index
-        static void calcParticleIndex(ParticleIndexAdr& _index, Tparticle*& _ptcl) {
-            _index.particle_index_origin_output[_index.n_particle++] = particle_index_origin_all[int(_ptcl - _index.first_particle_index_local_address)];
+        static void calcParticleIndex(ParticleIndexAdr& _index, ARPtcl*& _ptcl) {
+            _index.particle_index_origin_output[_index.n_particle++] = _index.particle_index_origin_all[int(_ptcl - _index.first_particle_index_local_address)];
         }
 
     public:
         Float ds;  ///> estimated step size for AR integration
         AR::FixStepOption fix_step_option; ///> fixt step option for integration
         bool need_resolve_flag; // indicate whether the members need to be resolved for outside
-        Comm::List<int> particle_index_origin; // particle index in original array (Hermite particles)
-        Comm::List<Comm::BinaryTree<Tparticle>> binarytree;
+        COMM::List<int> particle_index; // particle index in original array (Hermite particles)
+        COMM::List<COMM::BinaryTree<ARPtcl>> binarytree;
 
-        ARInformation(): ds(Float(0.0)), fix_step_option(FixStepOption::none), need_resolve_flag(false), particle_index(), binarytree() {}
+        ARInformation(): ds(Float(0.0)), fix_step_option(AR::FixStepOption::none), need_resolve_flag(false), particle_index(), binarytree() {}
     
         //! reserve memory
         void reserveMem(const int _nmax) {
-            particle_index.setMode(ListMode::local);
-            binarytree.setMode(ListMode::local);
+            particle_index.setMode(COMM::ListMode::local);
+            binarytree.setMode(COMM::ListMode::local);
             binarytree.reserveMem(_nmax);
             particle_index.reserveMem(_nmax);
         }
@@ -62,7 +64,7 @@ namespace H4{
             binarytree.clear();
         }
 
-        Comm::BinaryTree<Tparticle>& getBinaryTreeRoot() const {
+        COMM::BinaryTree<ARPtcl>& getBinaryTreeRoot() const {
             int n = binarytree.getSize();
             ASSERT(n>0);
             return binarytree[n-1];
@@ -75,25 +77,24 @@ namespace H4{
          */
         void calcDsAndStepOption(const Float _sd_org, const int _int_order) {
             ds = NUMERIC_FLOAT_MAX;
-            ds = getBinaryTreeRoot().processRootIter(ds_kepler, calcDsKeplerIter);
-            if (_sd_org<1.0) ds *= 1.0/8.0*std::pow(_sd_org, 1.0/Float(_int_order));
+            ds = getBinaryTreeRoot().processRootIter(ds, calcDsKeplerIter);
+            if (_sd_org<1.0) ds *= 1.0/8.0*pow(_sd_org, 1.0/Float(_int_order));
             auto& bin_root = getBinaryTreeRoot();
             const int n_particle = bin_root.getMemberN();
-            fix_step_option = FixStepOption::none;
-            if (n_particle==2||(n_particle>2&&bin_root.semi>0.0)) fix_step_option = FixStepOption::later;
+            fix_step_option = AR::FixStepOption::none;
+            if (n_particle==2||(n_particle>2&&bin_root.semi>0.0)) fix_step_option = AR::FixStepOption::later;
         }
 
         //! generate binary tree for a particle group
         /*! @param[in] _particles: particle group 
          */
-        void generateBinaryTree(ParticleGroup<Tparticle>& _particles) {
+        void generateBinaryTree(COMM::ParticleGroup<ARPtcl, ParticleH4<Tparticle>>& _particles) {
             const int n_particle = _particles.getSize();
             ASSERT(n_particle>1);
             binarytree.resizeNoInitialize(n_particle-1);
-            int particle_index[n_particle];
-            particle_index.resizeNoInitialize(n_particle);
-            for (int i=0; i<_n_particle; i++) particle_index[i] = i;
-            binarytree::generateBinaryTree(binarytree.getDataAddress(), particle_index.getDataAddress(), n_particle, _particles.getDataAddress());
+            int particle_index_local[n_particle];
+            for (int i=0; i<n_particle; i++) particle_index_local[i] = i;
+            COMM::BinaryTree<ARPtcl>::generateBinaryTree(binarytree.getDataAddress(), particle_index_local, n_particle, _particles.getDataAddress());
         }
 
         //! Initialize group of particles from a binarytree
@@ -102,8 +103,8 @@ namespace H4{
           @param[in] _particles: particle group to add particles
           @param[in] _bin: Binary tree root contain member particles
         */
-        void addParticlesAndCopyBinaryTree(ParticleGroup<Tparticle>& _particles, Comm::BinaryTree<Tparticle>& _bin) {
-            PS::S32 n_members = _bin.getMemberN();
+        void addParticlesAndCopyBinaryTree(COMM::ParticleGroup<ARPtcl, ParticleH4<Tparticle>>& _particles, COMM::BinaryTree<ARPtcl>& _bin) {
+            int n_members = _bin.getMemberN();
             // copy KeplerTree first
             binarytree.resizeNoInitialize(n_members-1);
             _bin.getherBinaryTreeIter(binarytree.getDataAddress());
@@ -123,12 +124,16 @@ namespace H4{
           @param[in] _origin_particle_address: particle begining address to calculate index
           \return the split index to separate two branches, index is the right boundary 
          */
-        int getTwoBranchParticleIndexOriginFromBinaryTree(int* _particle_index_origin_output, Tparticle* _first_particle_address) {
-            ParticleIndexAdr p_index(_first_particle_address, _particle_index_origin_output, particle_index_origin.getDataAddress());
+        int getTwoBranchParticleIndexOriginFromBinaryTree(int* _particle_index_origin_output, ARPtcl* _first_particle_address) {
+            ParticleIndexAdr p_index(_first_particle_address, _particle_index_origin_output, particle_index.getDataAddress());
             auto& bin_root = binarytree.getLastMember();
             bin_root.processLeafIter(p_index, calcParticleIndex);
             if (bin_root.getMemberN()==2) return 1;
-            else return bin_root.getMember(0).getMemberN();
+            else {
+                auto* member1 = bin_root.getMember(0);
+                if (member1->id<0) return ((COMM::BinaryTree<ARPtcl>*)member1)->getMemberN();
+                else return 1;
+            }
         }
 
         //! get dr * dv for two particles
@@ -138,7 +143,7 @@ namespace H4{
           @param[in] _p1: particle 1
           @param[in] _p2: particle 2
         */
-        void getDrDv(Float& _dr2, Float& _drdv, const Tparticle& _p1, const Tparticle& _p2) {
+        void getDrDv(Float& _dr2, Float& _drdv, const ARPtcl& _p1, const ARPtcl& _p2) {
             Float dx[3],dv[3];
             Float* pos1 = _p1.pos;
             Float* pos2 = _p2.pos;

@@ -65,7 +65,7 @@ namespace AR {
         SymplecticManager<Tmethod>* manager; ///< integration manager
         Tpert   perturber; ///< perturber class 
         SlowDown slowdown; ///< slowdown controller
-        ParticleGroup<Tparticle,Tpcm> particles; ///< particle group manager
+        COMM::ParticleGroup<Tparticle,Tpcm> particles; ///< particle group manager
         Tinfo    info;   ///< information of the system
         Profile  profile;  ///< profile to measure the performance
         
@@ -81,7 +81,7 @@ namespace AR {
         */
         void reserveForceMem() {
             // force array always allocated local memory
-            force_.setMode(ListMode::local);
+            force_.setMode(COMM::ListMode::local);
             int nmax = particles.getSizeMax();
             assert(nmax>0);
             force_.reserveMem(nmax);
@@ -349,7 +349,7 @@ namespace AR {
 
                 // two-body case, also initialslowdown
                 // calcualte perturbation force (cumulative to acc) and slowdown perturbation estimation
-                Float sd_pert = manager->interaction.calcAccAndSlowDownPert(force_data, particle_data, n_particle, particles.cm, perturber);
+                Float sd_pert = manager->interaction.calcAccAndSlowDownPert(force_data, particle_data, n_particle, particles.cm, perturber, _time_real);
                 // slowdown factor, for inner perturbation, m1*m2/(2.0*semi)^3 is used
                 Float m1m2 = particle_data[0].mass*particle_data[1].mass;
                 Float sd_in = etot_*etot_*etot_/(m1m2*m1m2);
@@ -421,7 +421,7 @@ namespace AR {
                 Float gt_kick = manager->interaction.calcAccPotAndGTKick(force_data, epot_, particle_data, n_particle); 
 
                 // calcualte perturbation force (cumulative to acc)
-                manager->interaction.calcAccAndSlowDownPert(force_data, particle_data, n_particle, particles.cm, perturber);
+                manager->interaction.calcAccAndSlowDownPert(force_data, particle_data, n_particle, particles.cm, perturber, slowdown.getRealTime());
 
                 // time step for kick
                 Float dt_kick = ds_kick* gt_kick;
@@ -519,7 +519,7 @@ namespace AR {
                 dt = 0.5*ds*gt;
 
                 // calcualte perturbation force (cumulative to acc) and slowdown perturbation estimation
-                Float sd_pert = manager->interaction.calcAccAndSlowDownPert(force_data, particle_data, n_particle, particles.cm, perturber);
+                Float sd_pert = manager->interaction.calcAccAndSlowDownPert(force_data, particle_data, n_particle, particles.cm, perturber, slowdown.getRealTime());
 
                 // slowdown factor
                 const Float m1m2  = mass1*mass2;
@@ -905,8 +905,9 @@ namespace AR {
          */
         template <class Tptcl>
         void writeBackSlowDownParticles(const Tptcl& _particle_cm) {
-            assert(particles.getMode()==ListMode::copy);
-            auto* particle_adr = particles.getMemberOriginAddress();
+            assert(particles.getMode()==COMM::ListMode::copy);
+            assert(!particles.isOriginFrame());
+            auto* particle_adr = particles.getOriginAddressArray();
             auto* particle_data= particles.getDataAddress();
             const Float kappa_inv = 1.0/slowdown.getSlowDownFactor();
             for (int i=0; i<particles.getSize(); i++) {
@@ -916,9 +917,38 @@ namespace AR {
                 particle_adr[i]->pos[1] = particle_data[i].pos[1] + _particle_cm.pos[1];
                 particle_adr[i]->pos[2] = particle_data[i].pos[2] + _particle_cm.pos[2];
 
-                particle_adr[i]->vel[0] = particle_data[i].vel[0]*kappa_inv + _particle_cm.pos[0];
-                particle_adr[i]->vel[1] = particle_data[i].vel[1]*kappa_inv + _particle_cm.pos[1];
-                particle_adr[i]->vel[2] = particle_data[i].vel[2]*kappa_inv + _particle_cm.pos[2];
+                particle_adr[i]->vel[0] = particle_data[i].vel[0]*kappa_inv + _particle_cm.vel[0];
+                particle_adr[i]->vel[1] = particle_data[i].vel[1]*kappa_inv + _particle_cm.vel[1];
+                particle_adr[i]->vel[2] = particle_data[i].vel[2]*kappa_inv + _particle_cm.vel[2];
+            }
+        }
+
+        //! write back particles to original address
+        /*! If particles are in center-off-mass frame, write back the particle in original frame but not modify local copies to avoid roundoff error
+         */
+        void writeBackParticlesOriginFrame() {
+            assert(particles.getMode()==COMM::ListMode::copy);
+            auto* particle_adr = particles.getOriginAddressArray();
+            auto* particle_data= particles.getDataAddress();
+            if (particles.isOriginFrame()) {
+                for (int i=0; i<particles.getSize(); i++) {
+                    *particle_adr[i] = particle_data[i];
+                }
+            }
+            else {
+                for (int i=0; i<particles.getSize(); i++) {
+                    Tparticle pc = particle_data[i];
+
+                    pc.pos[0] = particle_data[i].pos[0] + particles.cm.pos[0];
+                    pc.pos[1] = particle_data[i].pos[1] + particles.cm.pos[1];
+                    pc.pos[2] = particle_data[i].pos[2] + particles.cm.pos[2];
+
+                    pc.vel[0] = particle_data[i].vel[0] + particles.cm.vel[0];
+                    pc.vel[1] = particle_data[i].vel[1] + particles.cm.vel[1];
+                    pc.vel[2] = particle_data[i].vel[2] + particles.cm.vel[2];
+                    
+                    *particle_adr[i] = pc;
+                }
             }
         }
 

@@ -1,11 +1,12 @@
 #pragma once
 
-#include "Float.h"
+#include "Common/Float.h"
 
 namespace H4{
+    template <class Tparticle> class ParticleH4;
 
     //! particle type for AR integrator
-    template <Tparticle>
+    template <class Tparticle>
     class ParticleAR: public Tparticle{
     public:
         Tparticle* adr_org; // original particle address
@@ -13,16 +14,24 @@ namespace H4{
         ParticleAR& operator = (Tparticle & _p) {
             *(Tparticle*)this = _p;
             adr_org = &_p;
+            return *this;
+        }
+
+        ParticleAR& operator = (ParticleH4<Tparticle> & _p) {
+            *(Tparticle*)this = *(Tparticle*)&_p;
+            adr_org = &_p;
+            return *this;
         }
         
         ParticleAR& operator = (ParticleAR & _p) {
             *(Tparticle*)this = *(Tparticle*)&_p;
             adr_org = _p.adr_org;
+            return *this;
         }
     };
 
     //! Particle type for hermite integrator
-    template <Tparticle>
+    template <class Tparticle>
     class ParticleH4: public Tparticle{
     public:
         Float dt;
@@ -36,7 +45,7 @@ namespace H4{
 
         //! print function for one line
         void print(std::ostream & _fout) const{
-            Ptcl::print(_fout);
+            Tparticle::print(_fout);
             _fout<<" dt="<<dt
                  <<" time="<<time
                  <<" acc0="<<acc0
@@ -53,7 +62,7 @@ namespace H4{
           @param[in] _width: print width (defaulted 20)
         */
         void printColumnTitle(std::ostream & _fout, const int _width=20) {
-            Ptcl::printColumnTitle(_fout, _width);
+            Tparticle::printColumnTitle(_fout, _width);
             _fout<<std::setw(_width)<<"dt"
                  <<std::setw(_width)<<"time"
                  <<std::setw(_width)<<"acc0.x"

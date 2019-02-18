@@ -3,14 +3,18 @@
 #include <cmath>
 #include "Common/Float.h"
 #include "AR/force.h"
-#include "Hermite/perturber.h"
+#include "Hermite/neighbor.h"
+#include "particle.h"
 
 //! a sample interaction class with newtonian acceleration
 class ARInteraction{
 public:
+    typedef H4::ParticleAR<Particle> ARPtcl;
+    typedef H4::ParticleH4<Particle> H4Ptcl;
     Float eps_sq;
+    Float G;
 
-    ARIntegrator(): eps_sq(Float(0.0)) {}
+    ARInteraction(): eps_sq(Float(0.0)), G(Float(1.0)) {}
 
     //! (Necessary) calculate acceleration from perturber and the perturbation factor for slowdown calculation
     /*! The Force class acc_pert should be updated
@@ -21,17 +25,16 @@ public:
       @param[in] _perturber: pertuber container
       @param[in] _time: current time
     */
-    template <class Tparticle>
-    Float calcAccAndSlowDownPert(Force* _force, const Tparticle* _particles, const int _n_particle, const Tparticle& _particle_cm, const ARPerturber& _perturber, const Float _time) {
+    Float calcAccAndSlowDownPert(AR::Force* _force, const ARPtcl* _particles, const int _n_particle, const H4Ptcl& _particle_cm, const H4::Neighbor<Particle>& _perturber, const Float _time) {
         static const Float inv3 = 1.0 / 3.0;
 
-        const int n_pert = _perturber.neighbors.neighbor_address.getSize();
-        const auto* pert_adr = _perturber.neighbors.neighbor_address.getDataAddress();
+        const int n_pert = _perturber.neighbor_address.getSize();
+        auto* pert_adr = _perturber.neighbor_address.getDataAddress();
 
         Float xp[n_pert][3], xcm[3], m[n_pert];
 
         for (int j=0; j<n_pert; j++) {
-            auto& pertj = *pert_adr[j];
+            auto& pertj = *pert_adr[j].adr;
             Float dt = _time - pertj.time;
             xp[j][0] = pertj.pos[0] + dt*(pertj.vel[0] + 0.5*dt*(pertj.acc0[0] + inv3*dt*pertj.acc1[0]));
             xp[j][1] = pertj.pos[1] + dt*(pertj.vel[1] + 0.5*dt*(pertj.acc0[1] + inv3*dt*pertj.acc1[1]));
@@ -46,7 +49,7 @@ public:
 
         for (int i=0; i<_n_particle; i++) {
             Float* acc_pert = _force[i].acc_pert;
-            Tparticle& pi = _particles[i];
+            const Particle& pi = _particles[i];
             acc_pert[0] = acc_pert[1] = acc_pert[2] = Float(0.0);
 
             Float xi[3];
@@ -62,14 +65,14 @@ public:
                 Float dr[3] = {xp[j][0] - xi[0],
                                xp[j][1] - xi[1],
                                xp[j][2] - xi[2]};
-                Float dr2 = dx[0]*dx[0] + dx[1]*dx[1] + dx[2]*dx[2] + eps_sq;
-                Float dr  = sqrt(dr2);
-                Float dr3 = dr*dr2;
-                Float mor3 = m[j]/dr3;
+                Float r2 = dr[0]*dr[0] + dr[1]*dr[1] + dr[2]*dr[2] + eps_sq;
+                Float r  = sqrt(r2);
+                Float r3 = r*r2;
+                Float mor3 = G*m[j]/r3;
 
-                acc_pert[0] += mor3 * dx[0];
-                acc_pert[1] += mor3 * dx[1];
-                acc_pert[2] += mor3 * dx[2];
+                acc_pert[0] += mor3 * dr[0];
+                acc_pert[1] += mor3 * dr[1];
+                acc_pert[2] += mor3 * dr[2];
             }
         }   
 
@@ -78,14 +81,14 @@ public:
             Float dr[3] = {xp[j][0] - xcm[0],
                            xp[j][1] - xcm[1],
                            xp[j][2] - xcm[2]};
-            Float dr2 = dx[0]*dx[0] + dx[1]*dx[1] + dx[2]*dx[2] + eps_sq;
-            Float dr  = sqrt(dr2);
-            Float dr3 = dr*dr2;
-            Float mor3 = m[j]/dr3;
+            Float r2 = dr[0]*dr[0] + dr[1]*dr[1] + dr[2]*dr[2] + eps_sq;
+            Float r  = sqrt(r2);
+            Float r3 = r*r2;
+            Float mor3 = G*m[j]/r3;
             pert_cm += mor3;
         }
         
-        return _particles_cm.mass*pert_cm;
+        return _particle_cm.mass*pert_cm;
     }
 
     //! (Necessary) calculate inner member acceleration, potential and time transformation function gradient and factor for kick (two-body case)
@@ -96,8 +99,7 @@ public:
       @param[in] _n_particle: number of member particles
       \return the time transformation factor (gt_kick) for kick step
     */
-    template <class Tparticle>
-    Float calcAccPotAndGTKickTwo(Force* _force, Float& _epot, const Tparticle* _particles, const int _n_particle) {
+    Float calcAccPotAndGTKickTwo(AR::Force* _force, Float& _epot, const ARPtcl* _particles, const int _n_particle) {
         assert(_n_particle==2);
 
         // acceleration
@@ -110,24 +112,24 @@ public:
         Float dr[3] = {pos2[0] -pos1[0],
                        pos2[1] -pos1[1],
                        pos2[2] -pos1[2]};
-        Float r2 = dr[0]*dr[0] + dr[1]*dr[1] + dr[2]*dr[2];
+        Float r2 = dr[0]*dr[0] + dr[1]*dr[1] + dr[2]*dr[2] + eps_sq;
         Float inv_r = 1.0/sqrt(r2);
         Float inv_r3 = inv_r*inv_r*inv_r;
 
         Float* acc1 = _force[0].acc_in;
         Float* acc2 = _force[1].acc_in;
 
-        Float mor3_1 = mass2*inv_r3;
+        Float mor3_1 = G*mass2*inv_r3;
         acc1[0] = mor3_1 * dr[0];
         acc1[1] = mor3_1 * dr[1];
         acc1[2] = mor3_1 * dr[2];
 
-        Float mor3_2 = mass1*inv_r3;
+        Float mor3_2 = G*mass1*inv_r3;
         acc2[0] = - mor3_2 * dr[0];
         acc2[1] = - mor3_2 * dr[1];
         acc2[2] = - mor3_2 * dr[2];
 
-        Float m1m2 = mass1*mass2;
+        Float m1m2 = G*mass1*mass2;
 
 #ifdef AR_TTL 
         // trans formation function gradient
@@ -162,8 +164,7 @@ public:
       @param[in] _n_particle: number of member particles
       \return the time transformation factor (gt_kick) for kick step
     */
-    template <class Tparticle>
-    Float calcAccPotAndGTKick(Force* _force, Float& _epot, const Tparticle* _particles, const int _n_particle) {
+    Float calcAccPotAndGTKick(AR::Force* _force, Float& _epot, const ARPtcl* _particles, const int _n_particle) {
         _epot = Float(0.0);
         Float gt_kick = Float(0.0);
         for (int i=0; i<_n_particle; i++) {
@@ -187,10 +188,10 @@ public:
                 Float dr[3] = {posj[0] -posi[0],
                                posj[1] -posi[1],
                                posj[2] -posi[2]};
-                Float r2 = dr[0]*dr[0] + dr[1]*dr[1] + dr[2]*dr[2];
+                Float r2 = dr[0]*dr[0] + dr[1]*dr[1] + dr[2]*dr[2] + eps_sq;
                 Float inv_r = 1.0/sqrt(r2);
                 Float inv_r3 = inv_r*inv_r*inv_r;
-                Float mor3 = massj*inv_r3;
+                Float mor3 = G*massj*inv_r3;
                 acci[0] += mor3 * dr[0];
                 acci[1] += mor3 * dr[1];
                 acci[2] += mor3 * dr[2];
@@ -202,7 +203,7 @@ public:
                 gtgradi[2] += mimjor3 * dr[2];
 #endif
 
-                Float mor = massj*inv_r;
+                Float mor = G*massj*inv_r;
                 poti -= mor;
                 gtki += mor;
                     

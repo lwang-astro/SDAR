@@ -8,12 +8,20 @@ namespace COMM{
     public:
         T x,y,z;
 
+        Vector3() {}
         Vector3(const T _x, const T _y, const T _z): x(_x), y(_y), z(_z) {}
 
         T operator * (const Vector3<T> & _v) const {
             return x*_v.x + y*_v.y + z*_v.z;
         }
-    }
+
+        Vector3 operator ^ (const Vector3 & rhs) const{
+            return Vector3( (y * rhs.z - z * rhs.y),
+                            (z * rhs.x - x * rhs.z),
+                            (x * rhs.y - y * rhs.x) );
+        }
+
+    };
 
 
     template<class T>

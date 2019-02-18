@@ -151,6 +151,10 @@ namespace COMM {
         int getSize() const {
             return num_;
         }
+
+        ListMode getMode() const {
+            return mode_;
+        }
     
         //! return one member data reference
         /*!
@@ -163,8 +167,13 @@ namespace COMM {
         }
 
         //! return member data array address
-        Ttype* getDataAddress() {
+        Ttype* getDataAddress() const {
             return data_;
+        }
+
+        //! return member original address array
+        Ttype** getOriginAddressArray() const {
+            return adr_;
         }
 
         //! return last member
@@ -206,11 +215,12 @@ namespace COMM {
           Only work for #ListMode::copy
           @param [in] a: a member to store (push back at the end of local array)
         */
-        void addMemberAndAddress(Ttype &_member) {
+        template <class T>
+        void addMemberAndAddress(T &_member) {
             assert(mode_==ListMode::copy);
             assert(num_<nmax_);
             data_[num_] = _member;
-            adr_[num_]  = &_member;
+            adr_[num_]  = (Ttype*)&_member;
             num_++;
             modified_flag_ = true;
         }
@@ -220,7 +230,8 @@ namespace COMM {
           Only work for #ListMode::local
           @param [in] a: a member to store (push back at the end of local array)
         */
-        void addMember(Ttype &_member) {
+        template <class T>
+        void addMember(const T &_member) {
             assert(mode_==ListMode::local);
             assert(num_<nmax_);
             data_[num_] = _member;
