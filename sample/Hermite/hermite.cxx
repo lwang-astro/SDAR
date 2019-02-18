@@ -51,7 +51,7 @@ int main(int argc, char **argv){
     static struct option long_options[] = {
         {"time-start", required_argument, 0, 0},
         {"time-end", required_argument, 0, 't'},
-        {"r-break", required_argument, 0, 0},
+        {"r-break", required_argument, 0, 'r'},
         {"energy-error",required_argument, 0, 'e'},
         {"time-error",required_argument, 0, 0},
         {"dt-max",required_argument, 0, 0},
@@ -69,7 +69,7 @@ int main(int argc, char **argv){
     };
   
     int option_index;
-    while ((copt = getopt_long(argc, argv, "t:k:G:e:o:lh", long_options, &option_index)) != -1)
+    while ((copt = getopt_long(argc, argv, "t:r:k:G:e:o:lh", long_options, &option_index)) != -1)
         switch (copt) {
         case 0:
 #ifdef DEBUG
@@ -78,9 +78,6 @@ int main(int argc, char **argv){
             switch (option_index) {
             case 0:
                 time_zero = atof(optarg);
-                break;
-            case 2:
-                r_break = atof(optarg);
                 break;
             case 4:
                 time_error = atof(optarg);
@@ -120,6 +117,9 @@ int main(int argc, char **argv){
         case 't':
             time_end = atof(optarg);
             break;
+        case 'r':
+            r_break = atof(optarg);
+            break;
         case 'k':
             sym_order = atoi(optarg);
             break;
@@ -144,11 +144,14 @@ int main(int argc, char **argv){
                      <<"          --time-end (same as -t)\n"
                      <<"          --dt-max       [Float]: maximum hermite time step ("<<dt_max<<")\n"
                      <<"          --dt-min-power [int]  : power index to calculate mimimum hermite time step ("<<dt_min_power_index<<")\n"
+                     <<"    -r [Float]:  distance criterion for switching AR and Hermite ("<<r_break<<")\n"
+                     <<"          --r-break             : same as -r\n"
                      <<"    -o [Float]:  output time interval ("<<dt_output<<")\n"
                      <<"    -k [int]:  Symplectic integrator order, should be even number ("<<sym_order<<")\n"
                      <<"    -e [Float]:  relative energy error limit for AR ("<<energy_error<<")\n"
                      <<"          --energy-error (same as -e)\n"
                      <<"          --time-error [Float]:    time synchronization relative error limit for AR ("<<time_error<<")\n"
+                     <<"          --n-step-max [int]  :    number of maximum step for AR integration ("<<nstep_max<<")\n"
                      <<"    -G [Float]: gravitational constant ("<<G<<")\n"
                      <<"          --eta-4th:   time step coefficient for 4th order ("<<eta_4th<<")\n"
                      <<"          --eta-2nd:   time step coefficient for 2nd order ("<<eta_2nd<<")\n"
@@ -234,7 +237,7 @@ int main(int argc, char **argv){
     }
 
     // initialization 
-    h4_int.initialIntegration(true);
+    h4_int.initialIntegration();
     h4_int.sortDtAndSelectActParticle();
     h4_int.info.time = h4_int.getTime();
 

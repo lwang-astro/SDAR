@@ -689,18 +689,26 @@ namespace H4{
         };
         
         // ! remove index from bool table
-        void removeIndexFromTable(COMM::List<int>& _index, COMM::List<bool>& _table) {
-            int k = 0;
-            int k_last = _index.getSize()-1;
-            while (k<=k_last) {
-                // if mask is true, replace current index by the last, then next loop check the current index again
-                if (_table[_index[k]]) {
-                    _index[k] = _index[k_last];
-                    k_last--;
+        void removeDtIndexFromTable(COMM::List<int>& _index, int& _n_act, int& _n_init, COMM::List<bool>& _table) {
+            int i = 0;
+            int imove = 0;
+            int n_index = _index.getSize();
+            while (i<n_index) {
+                if (_table[_index[i]]) {
+                    if (i<_n_act) _n_act--;
+                    if (i<_n_init) _n_init--;
+                    imove++;
+                    n_index--;
                 }
-                else k++;
+                else i++;
+                if (i>=n_index) break;
+                _index[i] = _index[i+imove];
             }
-            _index.resizeNoInitialize(k_last+1);
+            ASSERT(_n_act>=0);
+            ASSERT(_n_act<=n_index);
+            ASSERT(_n_init>=0);
+            ASSERT(_n_init<=n_index);
+            _index.resizeNoInitialize(n_index);
         }
 
         // ! remove group particle address of a list from table_group_mask_
@@ -855,10 +863,9 @@ namespace H4{
             // set initial time
             time_ = _time_sys;
 
-            // cannot determine n_init and n_act before addgroups
-            //n_init_single_ = index_dt_sorted_single_.getSize();
-            //// if initial step, n_act are not given initially
-            //n_act_single_  = n_init_single_;
+            n_init_single_ = index_dt_sorted_single_.getSize();
+            // if initial step, n_act are not given initially
+            n_act_single_  = n_init_single_;
         }
 
         //! add groups from lists of particle index 
@@ -960,7 +967,7 @@ namespace H4{
             n_act_group_  += _n_group;
 
             // remove single from index_dt_sorted
-            removeIndexFromTable(index_dt_sorted_single_, table_single_mask_);
+            removeDtIndexFromTable(index_dt_sorted_single_, n_act_single_, n_init_single_, table_single_mask_);
             // clear neighbor lists
             int n_group = index_dt_sorted_group_.getSize();
             for (int i=0; i<n_group; i++) {
@@ -1086,7 +1093,7 @@ namespace H4{
             }
             
             // clear index_dt_sorted_
-            removeIndexFromTable(index_dt_sorted_group_, table_group_mask_);
+            removeDtIndexFromTable(index_dt_sorted_group_, n_act_group_, n_init_group_, table_group_mask_);
             // clear neighbor lists
             int n_group = index_dt_sorted_group_.getSize();
             for (int i=0; i<n_group; i++) {
@@ -1393,29 +1400,22 @@ namespace H4{
             addGroups(new_group_particle_index, new_n_group_offset, new_n_group);
 
             // initial integration
-            initialIntegration(false);
+            initialIntegration();
         }
 
         //! Initial Hermite integrator
         /*! Initial f, fdot and step for new add/remove particles. 
-          If start_flag, the whole system are initialized; else the first n_init_single_ and n_init_group_ of sorted index list will be initialized. 
+          //If start_flag, the whole system are initialized; else the first n_init_single_ and n_init_group_ of sorted index list will be initialized. 
           The active particle number will be set to the total number of particles
-          @param[in] _start_flag: true: the starting step of integration.
+          //@param[in] _start_flag: true: the starting step of integration.
         */
-        void initialIntegration(const bool _start_flag) {
+        void initialIntegration() {
 
             ASSERT(!particles.isModified());
             ASSERT(initial_system_flag_);
 
             modify_system_flag_=false;
 
-            // set active and initial particles
-            if (_start_flag) {
-                n_act_single_ = index_dt_sorted_single_.getSize();
-                n_act_group_ = index_dt_sorted_group_.getSize();
-                n_init_single_ = n_act_single_;
-                n_init_group_  = n_act_group_;
-            }
 
             // check table size and index_dt_sorted size
 #ifdef HERMITE_DEBUG
