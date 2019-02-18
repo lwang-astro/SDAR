@@ -6,6 +6,7 @@
 typedef dd_real Float;
 
 #else
+#include <limits>
 typedef double Float;
 #define to_int(x)     int(x)
 #define to_double(x)  double(x)

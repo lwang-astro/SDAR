@@ -4,7 +4,7 @@ VPATH=../../src
 
 use_x86=yes
 #use_k_computer=yes
-QD_PATH=/opt/qd-2.3.18
+#QD_PATH=/opt/qd
 #GPERF_PATH = /opt/gperftools-2.6.1
 
 

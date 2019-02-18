@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <iomanip>
 #include <cmath>
+#include <cassert>
 
 #define ASSERT(expr) assert(expr)
 #define DATADUMP(x) abort()
@@ -30,19 +31,21 @@ int main(int argc, char **argv){
     int print_precision=14; //print digital precision
     int nstep_max=1000000; // maximum time step allown for tsyn integration
     int sym_order=-6; // symplectic integrator order
+    int dt_min_power_index = 40; // power index to calculate minimum physical time step
     Float energy_error=1e-10; // phase error requirement
     Float time_error=1e-6; // time synchronization error
     Float time_zero=0.0;    // initial physical time
     Float time_end=1.0; // ending physical time
     Float dt_output = 0.25; // output time interval
-    Float dt_min = 1e-24; // minimum physical time step
-    char* filename_par=NULL; // par dumped filename
+    Float dt_max = 0.25; // maximum physical time step
     Float r_break = 1e-3; // binary break criterion
-    Float eta_4th = 0.02; // time step coefficient 
-    Float eta_2nd = 0.005; // time step coefficient for 2nd order
+    Float eta_4th = 0.1; // time step coefficient 
+    Float eta_2nd = 0.001; // time step coefficient for 2nd order
     Float eps_sq = 0.0;    // softening parameter
     Float G = 1.0;      // gravitational constant
     bool load_flag=false; // if true; load dumped data
+
+    char* filename_par=NULL; // par dumped filename
 
     int copt;
     static struct option long_options[] = {
@@ -51,7 +54,8 @@ int main(int argc, char **argv){
         {"r-break", required_argument, 0, 0},
         {"energy-error",required_argument, 0, 'e'},
         {"time-error",required_argument, 0, 0},
-        {"dt-min",required_argument, 0, 0},
+        {"dt-max",required_argument, 0, 0},
+        {"dt-min-power",required_argument, 0, 0},
         {"n-step-max",required_argument, 0, 0},
         {"eta-4th",required_argument, 0, 0},
         {"eta-2nd",required_argument, 0, 0},
@@ -82,27 +86,30 @@ int main(int argc, char **argv){
                 time_error = atof(optarg);
                 break;
             case 5:
-                dt_min = atof(optarg);
+                dt_max = atof(optarg);
                 break;
             case 6:
-                nstep_max = atoi(optarg);
+                dt_min_power_index = atoi(optarg);
                 break;
             case 7:
-                eta_4th = atof(optarg);
+                nstep_max = atoi(optarg);
                 break;
             case 8:
-                eta_2nd = atof(optarg);
+                eta_4th = atof(optarg);
                 break;
             case 9:
-                eps_sq = atof(optarg);
+                eta_2nd = atof(optarg);
                 break;
             case 10:
-                print_width = atof(optarg);
+                eps_sq = atof(optarg);
                 break;
             case 11:
+                print_width = atof(optarg);
+                break;
+            case 12:
                 print_precision = atoi(optarg);
                 break;
-            case 13:
+            case 14:
                 filename_par = optarg;
                 break;
             default:
@@ -133,8 +140,10 @@ int main(int argc, char **argv){
                      <<"Input data file format: each line: mass, x, y, z, vx, vy, vz\n"
                      <<"Options: (*) show defaulted values\n"
                      <<"          --time-start [Float]:  initial physical time ("<<time_zero<<")\n"
-                     <<"    -t [Float]:  ending physical time; if set, -n will be invalid (unset)\n"
+                     <<"    -t [Float]:  ending physical time ("<<time_end<<")\n"
                      <<"          --time-end (same as -t)\n"
+                     <<"          --dt-max       [Float]: maximum hermite time step ("<<dt_max<<")\n"
+                     <<"          --dt-min-power [int]  : power index to calculate mimimum hermite time step ("<<dt_min_power_index<<")\n"
                      <<"    -o [Float]:  output time interval ("<<dt_output<<")\n"
                      <<"    -k [int]:  Symplectic integrator order, should be even number ("<<sym_order<<")\n"
                      <<"    -e [Float]:  relative energy error limit for AR ("<<energy_error<<")\n"
@@ -191,12 +200,13 @@ int main(int argc, char **argv){
     manager.r_break_crit = r_break;
     manager.step.eta_4th = eta_4th;
     manager.step.eta_2nd = eta_2nd;
+    manager.step.setDtRange(dt_max, dt_min_power_index);
     manager.interaction.eps_sq = eps_sq;
     manager.interaction.G = G;
     AR::SymplecticManager<ARInteraction> ar_manager;
     ar_manager.interaction.eps_sq = eps_sq;
     ar_manager.interaction.G = G;
-    ar_manager.time_step_real_min = dt_min;
+    ar_manager.time_step_real_min = manager.step.getDtMin();
     ar_manager.time_error_relative_max_real = time_error;
     ar_manager.energy_error_relative_max = energy_error; 
     ar_manager.step_count_max = nstep_max;
@@ -218,11 +228,14 @@ int main(int argc, char **argv){
         h4_int.groups.setMode(COMM::ListMode::local);
         h4_int.groups.reserveMem(h4_int.particles.getSize());
         h4_int.reserveIntegratorMem();
+        // initial system 
+        h4_int.initialSystemSingle(time_zero);
         h4_int.readGroupConfigureAscii(fin);
     }
 
     // initialization 
-    h4_int.initialIntegration(time_zero, true);
+    h4_int.initialIntegration(true);
+    h4_int.sortDtAndSelectActParticle();
     h4_int.info.time = h4_int.getTime();
 
     // precision
@@ -258,6 +271,7 @@ int main(int argc, char **argv){
         }
     }
 
+    h4_int.printStepHist();
     //fpu_fix_end(&oldcw);
 
     return 0;

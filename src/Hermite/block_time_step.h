@@ -95,12 +95,39 @@ namespace H4{
 
     // Block time step class
     class BlockTimeStep4th: public TimeStep4th{
+    private:
+        Float dt_max_; // maximum time step
+        Float dt_min_; // minimum time step
     public:
-        Float dt_max;  // maximum time step
-        Float dt_min;  // minimum time step
-
         //! contructor
-        BlockTimeStep4th(): TimeStep4th(), dt_max(1.0), dt_min(1e-24) {}
+        BlockTimeStep4th(): TimeStep4th(), dt_max_(-1.0), dt_min_(-1.0) {}
+
+        //! set dt limit (max and min)
+        /*! 
+          @param[in] _dt_max: maximum step size
+          @param[in] _pow_index_min: the power index (k) to set the minimum step size: _dt_max*(0.5^k)
+         */
+        void setDtRange(const Float _dt_max, const int _pow_index_min) {
+            dt_max_ = _dt_max;
+            dt_min_ = _dt_max;
+            for (int i=0; i<_pow_index_min; i++) {
+                dt_min_ *= Float(0.5);
+            }
+        }
+
+        //! get maximum time step
+        /*! \return maximum time step
+         */
+        Float getDtMax() const {
+            return dt_max_;
+        }
+
+        //! get minimum time step
+        /*! \return miniimum time step
+         */
+        Float getDtMin() const {
+            return dt_min_;
+        }
 
         //! calculate the maximum time step limit for next block step based on the input (current) time
         /*! 
@@ -108,13 +135,13 @@ namespace H4{
           @param[in] _time: current time
         */
         Float calcNextDtLimit(const Float _time) {
-            ASSERT(dt_max>dt_min);
-            ASSERT(dt_min>0.0);
+            ASSERT(dt_max_>dt_min_);
+            ASSERT(dt_min_>0.0);
             // for first step, the maximum time step is OK
-            if(_time==0.0) return dt_max;
+            if(_time==0.0) return dt_max_;
             else {
                 // the binary tree for current time position in block step 
-                unsigned long long int bitmap = to_double(_time/dt_min);
+                unsigned long long int bitmap = to_int(_time/dt_min_);
                 //#ifdef __GNUC__ 
                 //        PS::S64 dts = __builtin_ctz(bitmap) ;
                 //        PS::U64 c = (1<<dts);
@@ -131,7 +158,7 @@ namespace H4{
                 //#endif
             
                 // return the maximum step allown
-                return std::min(c*dt_min,dt_max);
+                return std::min(c*dt_min_,dt_max_);
             }
         }
 
@@ -145,16 +172,16 @@ namespace H4{
         Float calcBlockDt2nd(const Float* _acc0, 
                              const Float* _acc1,
                              const Float _dt_limit) const{
-            ASSERT(dt_max>dt_min);
-            ASSERT(_dt_limit<=dt_max);
-            ASSERT(_dt_limit>=dt_min);
+            ASSERT(dt_max_>dt_min_);
+            ASSERT(_dt_limit<=dt_max_);
+            ASSERT(_dt_limit>=dt_min_);
 
             const Float dt_ref = TimeStep4th::calcDt2nd(_acc0, _acc1);
             Float dt = _dt_limit;
             while(dt > dt_ref) dt *= 0.5;
 
-            if(dt<dt_min) {
-                std::cerr<<"Error: time step size too small: ("<<dt<<") < dt_min ("<<dt_min<<")!"<<std::endl;
+            if(dt<dt_min_) {
+                std::cerr<<"Error: time step size too small: ("<<dt<<") < dt_min ("<<dt_min_<<")!"<<std::endl;
                 DATADUMP();
                 abort();
             }
@@ -174,16 +201,16 @@ namespace H4{
                              const Float* acc2,
                              const Float* acc3,
                              const Float _dt_limit) const {
-            ASSERT(dt_max>dt_min);
-            ASSERT(_dt_limit<=dt_max);
-            ASSERT(_dt_limit>=dt_min);
+            ASSERT(dt_max_>dt_min_);
+            ASSERT(_dt_limit<=dt_max_);
+            ASSERT(_dt_limit>=dt_min_);
 
             const Float dt_ref = TimeStep4th::calcDt4th(acc0, acc1, acc2, acc3);
             Float dt = _dt_limit;
             while(dt > dt_ref) dt *= 0.5;
 
-            if(dt<dt_min) {
-                std::cerr<<"Error: time step size too small: ("<<dt<<") < dt_min ("<<dt_min<<")!"<<std::endl;
+            if(dt<dt_min_) {
+                std::cerr<<"Error: time step size too small: ("<<dt<<") < dt_min ("<<dt_min_<<")!"<<std::endl;
                 DATADUMP();
                 abort();
             }
@@ -192,8 +219,8 @@ namespace H4{
 
         void print(std::ostream & _fout) const{
             TimeStep4th::print(_fout);
-            _fout<<" dt_max="<<dt_max
-                 <<" dt_min="<<dt_min;
+            _fout<<" dt_max="<<dt_max_
+                 <<" dt_min="<<dt_min_;
         }
 
         //! print titles of class members using column style
@@ -214,8 +241,8 @@ namespace H4{
         */
         void printColumn(std::ostream & _fout, const int _width=20){
             TimeStep4th::printColumn(_fout, _width);
-            _fout<<std::setw(_width)<<dt_max
-                 <<std::setw(_width)<<dt_min;
+            _fout<<std::setw(_width)<<dt_max_
+                 <<std::setw(_width)<<dt_min_;
         }
 
         //! write class data to file with binary format

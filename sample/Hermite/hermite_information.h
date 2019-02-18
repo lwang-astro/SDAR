@@ -21,11 +21,12 @@ public:
             auto& pi = _particles[i];
             ekin += pi.mass* (pi.vel[0]*pi.vel[0] + pi.vel[1]*pi.vel[1] + pi.vel[2]*pi.vel[2]);
             Float poti = 0.0;
-            for (int j=0; j<i; i++) {
+            for (int j=0; j<i; j++) {
                 poti +=_interaction.calcPotPair(pi, _particles[j]);
             }
             epot += poti*pi.mass;
         }
+        ekin *= 0.5;
         etot = ekin + epot;
 
         if (_initial_flag) {

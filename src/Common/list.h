@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cassert>
 #include "Float.h"
 
 namespace COMM {
@@ -38,7 +37,7 @@ namespace COMM {
         /*! Only set once, to set new mode, clear must be done first
          */
         void setMode(const ListMode _mode) {
-            assert(mode_==ListMode::none);
+            ASSERT(mode_==ListMode::none);
             mode_ = _mode;
         }
         
@@ -47,10 +46,11 @@ namespace COMM {
           @param[in] _nmax: maximum number of members for memory allocation
          */
         void reserveMem(const int _nmax) {
-            assert(nmax_==0);
-            assert(_nmax>0);
-            assert(adr_==NULL);
-            assert(data_==NULL);
+            ASSERT(nmax_==0);
+            ASSERT(_nmax>0);
+            ASSERT(adr_==NULL);
+            ASSERT(data_==NULL);
+            ASSERT(mode_!=ListMode::none);
 
             switch(mode_) {
             case ListMode::copy: 
@@ -76,8 +76,8 @@ namespace COMM {
         void clear() {
             switch(mode_) {
             case ListMode::copy:
-                assert(data_!=NULL);
-                assert(adr_!=NULL);
+                ASSERT(data_!=NULL);
+                ASSERT(adr_!=NULL);
                 delete[] data_;
                 delete[] adr_;
                 num_ = 0;
@@ -86,24 +86,24 @@ namespace COMM {
                 adr_ = NULL;
                 break;
             case ListMode::local:
-                assert(data_!=NULL);
-                assert(adr_==NULL);
+                ASSERT(data_!=NULL);
+                ASSERT(adr_==NULL);
                 delete[] data_;
                 num_ = 0;
                 nmax_ =0;
                 data_=NULL;
                 break;
             case ListMode::link:
-                assert(adr_==NULL);
+                ASSERT(adr_==NULL);
                 num_ = 0;
                 nmax_ = 0;
                 data_=NULL;
                 break;
             case ListMode::none:
-                assert(num_==0);
-                assert(nmax_==0);
-                assert(data_==NULL);
-                assert(adr_==NULL);
+                ASSERT(num_==0);
+                ASSERT(nmax_==0);
+                ASSERT(data_==NULL);
+                ASSERT(adr_==NULL);
                 break;
             }
             mode_ = ListMode::none;
@@ -161,8 +161,8 @@ namespace COMM {
           @param [in] _index: index of member in group
          */
         Ttype& getMember(const int _index) {
-            assert(_index<num_);
-            assert(_index>=0);
+            ASSERT(_index<num_);
+            ASSERT(_index>=0);
             return data_[_index];
         }
 
@@ -186,8 +186,8 @@ namespace COMM {
           @param [in] _index: index of member in group
         */
         Ttype& operator [](const int _index) const {
-            assert(_index<num_);
-            assert(_index>=0);
+            ASSERT(_index<num_);
+            ASSERT(_index>=0);
             return data_[_index];
         }
 
@@ -196,10 +196,10 @@ namespace COMM {
           \return: one member original address array 
         */
         Ttype* getMemberOriginAddress(const int _index) const{
-            assert(mode_==ListMode::copy);
-            assert(_index<num_);
-            assert(_index<nmax_);
-            assert(_index>=0);
+            ASSERT(mode_==ListMode::copy);
+            ASSERT(_index<num_);
+            ASSERT(_index<nmax_);
+            ASSERT(_index>=0);
             return adr_[_index];
         }
 
@@ -217,8 +217,8 @@ namespace COMM {
         */
         template <class T>
         void addMemberAndAddress(T &_member) {
-            assert(mode_==ListMode::copy);
-            assert(num_<nmax_);
+            ASSERT(mode_==ListMode::copy);
+            ASSERT(num_<nmax_);
             data_[num_] = _member;
             adr_[num_]  = (Ttype*)&_member;
             num_++;
@@ -232,8 +232,8 @@ namespace COMM {
         */
         template <class T>
         void addMember(const T &_member) {
-            assert(mode_==ListMode::local);
-            assert(num_<nmax_);
+            ASSERT(mode_==ListMode::local);
+            ASSERT(num_<nmax_);
             data_[num_] = _member;
             num_++;
             modified_flag_ = true;
@@ -244,8 +244,8 @@ namespace COMM {
           Require the memory size is big enough to contain the new number of members.
          */
         void increaseSizeNoInitialize(const int _n) {
-            assert(mode_==ListMode::local||mode_==ListMode::link);
-            assert(num_+_n<=nmax_);
+            ASSERT(mode_==ListMode::local||mode_==ListMode::link);
+            ASSERT(num_+_n<=nmax_);
             num_ += _n;
             modified_flag_ = true;
         }
@@ -255,8 +255,8 @@ namespace COMM {
           Require the memory size is big enough to contain the new number of members.
          */
         void decreaseSizeNoInitialize(const int _n) {
-            assert(mode_==ListMode::local||mode_==ListMode::link);
-            assert(num_-_n>=0);
+            ASSERT(mode_==ListMode::local||mode_==ListMode::link);
+            ASSERT(num_-_n>=0);
             num_ -= _n;
             modified_flag_ = true;
         }
@@ -266,8 +266,8 @@ namespace COMM {
           Require the memory size is big enough to contain the new number of members.
          */
         void resizeNoInitialize(const int _n) {
-            assert(mode_==ListMode::local||mode_==ListMode::link);
-            assert(_n<=nmax_);
+            ASSERT(mode_==ListMode::local||mode_==ListMode::link);
+            ASSERT(_n<=nmax_);
             num_ = _n;
             modified_flag_ = true;
         }
@@ -278,10 +278,10 @@ namespace COMM {
           @param [in] _n_member: number of members
         */
         void linkMemberArray(Ttype _member[], const int _n_member) {
-            assert(mode_==ListMode::link);
-            assert(nmax_==0);
-            assert(num_==0);
-            assert(data_==NULL);
+            ASSERT(mode_==ListMode::link);
+            ASSERT(nmax_==0);
+            ASSERT(num_==0);
+            ASSERT(data_==NULL);
             data_= _member;
             num_ = _n_member;
             nmax_= _n_member;
@@ -296,8 +296,8 @@ namespace COMM {
           @param[out] _remove_table: remove_table generated, the size should be at least number of members to avoid overflow. for index i in table, value <0: no remove; <\a _number_member: new position; = \a _number_member: delete
          */
         static void createRemoveTable(const int* _index, const int _n_index, const int _n_member, int* _remove_table) {
-            assert(_n_index>0);
-            assert(_n_member>=_n_index);
+            ASSERT(_n_index>0);
+            ASSERT(_n_member>=_n_index);
             
             // last member index 
             int ilast = _n_member-1;
@@ -319,8 +319,8 @@ namespace COMM {
                     _remove_table[k]=_n_member;
                 }
 
-                assert(k<_n_member);
-                assert(idel<_n_member);
+                ASSERT(k<_n_member);
+                ASSERT(idel<_n_member);
                 
                 // check the last avaiable member that can be moved to idel
                 // If the ilast is already moved, check whether the new moved position _remove_table[ilast] is before the current idel.
@@ -348,8 +348,8 @@ namespace COMM {
           @param [in] _shift_last_only_flag: true: shift last member to current position (defaulted); false: shift all right member to left by one
         */
         void removeMember(const int _index, const bool _shift_last_only_flag) {
-            assert(_index>=0);
-            assert(_index<num_);
+            ASSERT(_index>=0);
+            ASSERT(_index<num_);
 
             int ilast = num_-1;
             if (_index<ilast) {
@@ -382,7 +382,7 @@ namespace COMM {
             const int num_org = num_;
             if (mode_==ListMode::copy) {
                 for (int i=0; i<num_org; i++) {
-                    assert(remove_table[i]<=num_org);
+                    ASSERT(remove_table[i]<=num_org);
                     // no change case
                     if(remove_table[i]<0) continue;
                     // move case
@@ -397,7 +397,7 @@ namespace COMM {
             }
             else {
                 for (int i=0; i<num_org; i++) {
-                    assert(remove_table[i]<=num_org);
+                    ASSERT(remove_table[i]<=num_org);
                     // no change case
                     if(remove_table[i]<0) continue;
                     // move case
@@ -418,20 +418,20 @@ namespace COMM {
           @param[in] _n_list: number of removing members
          */
         void removeMemberList(const int* _index, const int _n_index) {
-            assert(_n_index<=num_);
+            ASSERT(_n_index<=num_);
             const int num_org = num_;
             int remove_table[num_];
             createRemoveTable(_index, _n_index, num_, remove_table);
             removeMemberTable(remove_table);
-            assert(num_+_n_index==num_org);
+            ASSERT(num_+_n_index==num_org);
         }
 
         //! copy all member data back to original address
         /*! work for #ListMode::copy
          */
         void writeBackMemberAll() {
-            assert(mode_==ListMode::copy);
-            assert(nmax_>0);
+            ASSERT(mode_==ListMode::copy);
+            ASSERT(nmax_>0);
             for (int i=0; i<num_; i++) {
                 if(adr_[i]!=NULL) *adr_[i] = data_[i];
             }
@@ -443,8 +443,8 @@ namespace COMM {
           @param[in] _n:  number of members
          */
         void writeBackMemberList(const int* _index, const int _n) {
-            assert(mode_==ListMode::copy);
-            assert(nmax_>0);
+            ASSERT(mode_==ListMode::copy);
+            ASSERT(nmax_>0);
             for (int i=0; i<_n; i++) {
                 int k=_index[i];
                 if(adr_[k]!=NULL) *adr_[k] = data_[k];

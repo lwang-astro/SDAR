@@ -34,7 +34,7 @@ public:
         const Float rinv3 = rinv2*rinv;
 
         const Float mor3 = G*_pj.mass*rinv3;
-        const Float acc0[3] = {mor3*dr[0], mor3*dr[1], mor3*dr[3]};
+        const Float acc0[3] = {mor3*dr[0], mor3*dr[1], mor3*dr[2]};
         const Float acc1[3] = {mor3*dv[0] - 3.0*drdv*rinv2*acc0[0],
                                mor3*dv[1] - 3.0*drdv*rinv2*acc0[1],
                                mor3*dv[2] - 3.0*drdv*rinv2*acc0[2]};
@@ -63,7 +63,7 @@ public:
         const Float r = sqrt(dr2_eps);
         const Float rinv = 1.0/r;
         
-        return G*_pj.mass*rinv;
+        return -G*_pj.mass*rinv;
     }
     
 };

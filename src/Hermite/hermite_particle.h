@@ -87,6 +87,7 @@ namespace H4{
           @param[in] _width: print width (defaulted 20)
         */
         void printColumn(std::ostream & _fout, const int _width=20){
+            Tparticle::printColumn(_fout, _width);
             _fout<<std::setw(_width)<<dt
                  <<std::setw(_width)<<time
                  <<std::setw(_width)<<acc0[0]
@@ -105,23 +106,23 @@ namespace H4{
 #endif
         }
 
-        //! write class data to file with binary format
-        /*! @param[in] _fp: FILE type file for output
-         */
-        void writeBinary(FILE *_fp) const {
-            fwrite(this, sizeof(*this),1,_fp);
-        }
-
-        //! read class data to file with binary format
-        /*! @param[in] _fp: FILE type file for reading
-         */
-        void readBinary(FILE *_fin) {
-            size_t rcount = fread(this, sizeof(*this),1,_fin);
-            if (rcount<1) {
-                std::cerr<<"Error: Data reading fails! requiring data number is 1, only obtain "<<rcount<<".\n";
-                abort();
-            }
-        }
+        ////! write class data to file with binary format
+        ///*! @param[in] _fp: FILE type file for output
+        // */
+        //void writeBinary(FILE *_fp) const {
+        //    fwrite(this, sizeof(*this),1,_fp);
+        //}
+        // 
+        ////! read class data to file with binary format
+        ///*! @param[in] _fp: FILE type file for reading
+        // */
+        //void readBinary(FILE *_fin) {
+        //    size_t rcount = fread(this, sizeof(*this),1,_fin);
+        //    if (rcount<1) {
+        //        std::cerr<<"Error: Data reading fails! requiring data number is 1, only obtain "<<rcount<<".\n";
+        //        abort();
+        //    }
+        //}
 
     };
 
@@ -133,8 +134,8 @@ namespace H4{
 
         //! clear function
         void clear() {
-            acc0[0] = acc0[1] = acc0[2] = 0.0;
-            acc1[0] = acc1[1] = acc1[2] = 0.0;
+            acc0[0] = acc0[1] = acc0[2] = Float(0.0);
+            acc1[0] = acc1[1] = acc1[2] = Float(0.0);
         }
     };
 

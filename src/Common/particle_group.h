@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cassert>
 #include <iomanip>
 #include "Float.h"
 #include "list.h"
@@ -148,9 +147,9 @@ namespace COMM {
           @param [in] _fin: FILE IO for reading.
         */
         void readBinary(FILE* _fin) {
-            assert(TList::mode_==ListMode::local);
-            assert(TList::num_==0);
-            assert(TList::nmax_==0);
+            ASSERT(TList::mode_==ListMode::local);
+            ASSERT(TList::num_==0);
+            ASSERT(TList::nmax_==0);
             int n_new;
             int rn = fread(&n_new, sizeof(int),1, _fin);
             if(rn<1) {
@@ -172,9 +171,9 @@ namespace COMM {
           @param [in] _fin: std::istream IO for reading.
         */
         void readAscii(std::istream& _fin) {
-            assert(TList::mode_==ListMode::local);
-            assert(TList::num_==0);
-            assert(TList::nmax_==0);
+            ASSERT(TList::mode_==ListMode::local);
+            ASSERT(TList::num_==0);
+            ASSERT(TList::nmax_==0);
             int n_new;
             _fin>>n_new;
             ASSERT(!_fin.eof());
