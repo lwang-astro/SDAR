@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cassert>
 #include "Common/Float.h"
 
 namespace AR{
@@ -34,8 +33,8 @@ namespace AR{
           @param[in] _kappa_max: maximum slow-down factor
         */
         void initialSlowDownReference(const Float _kappa_ref, const Float _kappa_max) {
-            assert(_kappa_ref>0.0);
-            assert(_kappa_max>1.0);
+            ASSERT(_kappa_ref>0.0);
+            ASSERT(_kappa_max>1.0);
             kappa_ref_ = _kappa_ref;
             kappa_max_ = _kappa_max;
         }
@@ -165,8 +164,8 @@ namespace AR{
           @param[in] width: printing width for one variable
         */
         void print(std::ostream & fout, const int precision=15, const int width=23) {
-            assert(width>0);
-            assert(precision>0);
+            ASSERT(width>0);
+            ASSERT(precision>0);
             fout<<"time_real= "<<std::setw(width)<<time_real_
                 <<"kappa= "<<std::setw(width)<<kappa_
                 <<"kappa_org= "<<std::setw(width)<<kappa_org_

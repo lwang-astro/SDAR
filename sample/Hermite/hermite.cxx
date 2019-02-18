@@ -215,18 +215,15 @@ int main(int argc, char **argv){
         h4_int.particles.setMode(COMM::ListMode::local);
         h4_int.particles.readAscii(fin);
         for (int i=0; i<h4_int.particles.getSize(); i++) h4_int.particles[i].id = i+1;
-        h4_int.reserveMem(h4_int.particles.getSize());
+        h4_int.groups.setMode(COMM::ListMode::local);
+        h4_int.groups.reserveMem(h4_int.particles.getSize());
+        h4_int.reserveIntegratorMem();
+        h4_int.readGroupConfigureAscii(fin);
     }
 
     // initialization 
-    h4_int.initialSystem(time_zero);
+    h4_int.initialIntegration(time_zero, true);
     h4_int.info.time = h4_int.getTime();
-
-    // add primordial groups
-    h4_int.addGroupsAscii(fin);
-
-    // initial integrator
-    h4_int.adjustSystemAfterModify();
 
     // precision
     std::cout<<std::setprecision(print_precision);

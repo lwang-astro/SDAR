@@ -1,9 +1,8 @@
 #include <iostream>
 
-#include "particle.h"
-#include "particle_group.h"
+#include "Common/particle_group.h"
 
-using namespace AR;
+using namespace COMM;
 
 struct PtclTest{
     int id;

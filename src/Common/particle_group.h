@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cassert>
+#include <iomanip>
 #include "Float.h"
 #include "list.h"
 
@@ -176,12 +177,16 @@ namespace COMM {
             assert(TList::nmax_==0);
             int n_new;
             _fin>>n_new;
+            ASSERT(!_fin.eof());
             if(n_new<=0) {
                 std::cerr<<"Error: reading particle number "<<n_new<<"<=0!\n";
                 abort();
             }
             TList::reserveMem(n_new);
-            for (int i=0; i<n_new; i++) TList::data_[i].readAscii(_fin);
+            for (int i=0; i<n_new; i++) {
+                TList::data_[i].readAscii(_fin);
+                ASSERT(!_fin.eof());
+            }
             TList::num_ = n_new;
         }
 

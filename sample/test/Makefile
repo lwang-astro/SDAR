@@ -1,4 +1,5 @@
-TARGET: ar.logh ar.ttl
+## TARGET
+TARGET=ptclgrouptest
 
 VPATH=../../src 
 
@@ -28,9 +29,6 @@ CXXFLAGS += -DFAPP_PROFILE
 endif
 
 ## for debug------------------------------------------#
-#CXXFLAGS += -D DEBUG 
-#CXXFLAGS += -D AR_DEBUG
-CXXFLAGS += -D AR_DEEP_DEBUG
 
 ## Flag ----------------------------------------------#
 CXXFLAGS += -I../../src -I./
@@ -38,9 +36,6 @@ CXXFLAGS += -std=c++11
 
 ## OpenMP flag----------------------------------------#
 #CXXFLAGS += -fopenmp -D USE_OMP
-
-## profile---------------------------------------#
-CXXFLAGS += -D AR_PROFILE
 
 ## gperf----------------------------------------------#
 ifneq (x$(GPERF_PATH),x)
@@ -56,11 +51,8 @@ endif
 
 ## Target --------------------------------------------#
 
-ar.logh: ar.cxx 
+$(TARGET): %: %.cxx 
 	$(CXX) $(CXXFLAGS) $< -o $@ $(CXXLIBS)
-
-ar.ttl: ar.cxx 
-	$(CXX) $(CXXFLAGS) -D AR_TTL $< -o $@ $(CXXLIBS)
 
 clean:
 	rm -f $(TARGET)

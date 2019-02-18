@@ -7,14 +7,15 @@
 #include <iomanip>
 #include <cmath>
 
-#include "symplectic_integrator.h"
+#define ASSERT(x) assert(x)
+
+#include "AR/symplectic_integrator.h"
 #include "particle.h"
 #include "perturber.h"
 #include "interaction.h"
 #include "information.h"
 
 using namespace AR;
-
 
 int main(int argc, char **argv){
 
@@ -188,13 +189,13 @@ int main(int argc, char **argv){
         
     }
     else {
-        sym_int.particles.setMode(ListMode::local);
+        sym_int.particles.setMode(COMM::ListMode::local);
         sym_int.particles.readAscii(fin);
-        sym_int.reserveForceMem();
+        sym_int.reserveIntegratorMem();
     }
 
     // initialization 
-    sym_int.initial(time_zero);
+    sym_int.initialIntegration(time_zero);
 
     // precision
     std::cout<<std::setprecision(print_precision);

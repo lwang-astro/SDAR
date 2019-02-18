@@ -79,11 +79,11 @@ namespace AR {
         //! reserve memory for force
         /*! The size of force depends on the particle data size.Thus particles should be added first before call this function
         */
-        void reserveForceMem() {
+        void reserveIntegratorMem() {
             // force array always allocated local memory
             force_.setMode(COMM::ListMode::local);
             int nmax = particles.getSizeMax();
-            assert(nmax>0);
+            ASSERT(nmax>0);
             force_.reserveMem(nmax);
         }
 
@@ -304,8 +304,8 @@ namespace AR {
         /*! initialize the system. Acceleration, energy and time transformation factors are updated. If the center-of-mass is not yet calculated, the system will be shifted to center-of-mass frame.
           @param[in] _time_real: real physical time to initialize
         */
-        void initial(const Float _time_real) {
-            assert(manager!=NULL);
+        void initialIntegration(const Float _time_real) {
+            ASSERT(manager!=NULL);
 
             // Initial intgrt value t (avoid confusion of real time when slowdown is used)
             time_ = Float(0.0);
@@ -314,7 +314,7 @@ namespace AR {
             slowdown.setRealTime(_time_real);
 
             // check particle number
-            assert(particles.getSize()>=2);
+            ASSERT(particles.getSize()>=2);
 
             // reset particle modification flag
             particles.setModifiedFalse();
@@ -383,9 +383,9 @@ namespace AR {
           @param[out] _time_table: for high order symplectic integration, store the substep integrated (real) time, used for estimate the step for time synchronization, size should be consistent with step.getCDPairSize().
         */
         void integrateOneStep(const Float _ds, Float _time_table[]) {
-            assert(manager!=NULL);
-            assert(!particles.isModified());
-            assert(_ds>0);
+            ASSERT(manager!=NULL);
+            ASSERT(!particles.isModified());
+            ASSERT(_ds>0);
 
             // symplectic step coefficent group n_particleber
             const int nloop = manager->step.getCDPairSize();
@@ -451,15 +451,15 @@ namespace AR {
           @param[out] _time_table: for high order symplectic integration, store the substep integrated (real) time, used for estimate the step for time synchronization, size should be consistent with step.getCDPairSize().         
         */
         void integrateTwoOneStep(const Float _ds, Float _time_table[]) {
-            assert(manager!=NULL);
-            assert(!particles.isModified());
-            assert(_ds>0);
+            ASSERT(manager!=NULL);
+            ASSERT(!particles.isModified());
+            ASSERT(_ds>0);
 
             // symplectic step coefficent group number
             const int nloop = manager->step.getCDPairSize();
             
             const int n_particle = particles.getSize();
-            assert(n_particle==2);
+            ASSERT(n_particle==2);
 
             Tparticle* particle_data = particles.getDataAddress();
             Float mass1 = particle_data[0].mass;
@@ -593,13 +593,13 @@ namespace AR {
           \return if integration is fail, return true
          */
         bool integrateToTime(const Float _ds, const Float _time_end_real, const FixStepOption _fix_step_option) {
-            assert(manager!=NULL);
+            ASSERT(manager!=NULL);
 
             // real full time step
             const Float dt_real_full = _time_end_real - slowdown.getRealTime();
 
             // time error 
-            assert(manager->time_error_relative_max_real>0.0);
+            ASSERT(manager->time_error_relative_max_real>0.0);
             const Float time_error_real = manager->time_error_relative_max_real*dt_real_full;
 
             // energy error limit
@@ -641,7 +641,7 @@ namespace AR {
 #ifdef AR_DEBUG
             Float ekin_check = ekin_;
             calcEkin();
-            assert(abs(ekin_check-ekin_)<1e-10);
+            ASSERT(abs(ekin_check-ekin_)<1e-10);
             ekin_ = ekin_check;
 #endif
 
@@ -655,11 +655,11 @@ namespace AR {
                 // backup data
                 if(backup_flag) {
                     int bk_return_size = backupIntData(backup_data);
-                    assert(bk_return_size == bk_data_size);
+                    ASSERT(bk_return_size == bk_data_size);
                 }
                 else { //restore data
                     int bk_return_size = restoreIntData(backup_data);
-                    assert(bk_return_size == bk_data_size);
+                    ASSERT(bk_return_size == bk_data_size);
                 }
                 
                 // get real time 
@@ -905,8 +905,8 @@ namespace AR {
          */
         template <class Tptcl>
         void writeBackSlowDownParticles(const Tptcl& _particle_cm) {
-            assert(particles.getMode()==COMM::ListMode::copy);
-            assert(!particles.isOriginFrame());
+            ASSERT(particles.getMode()==COMM::ListMode::copy);
+            ASSERT(!particles.isOriginFrame());
             auto* particle_adr = particles.getOriginAddressArray();
             auto* particle_data= particles.getDataAddress();
             const Float kappa_inv = 1.0/slowdown.getSlowDownFactor();
@@ -927,7 +927,7 @@ namespace AR {
         /*! If particles are in center-off-mass frame, write back the particle in original frame but not modify local copies to avoid roundoff error
          */
         void writeBackParticlesOriginFrame() {
-            assert(particles.getMode()==COMM::ListMode::copy);
+            ASSERT(particles.getMode()==COMM::ListMode::copy);
             auto* particle_adr = particles.getOriginAddressArray();
             auto* particle_data= particles.getDataAddress();
             if (particles.isOriginFrame()) {

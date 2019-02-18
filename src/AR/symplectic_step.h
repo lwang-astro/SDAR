@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cassert>
 #include <algorithm>
 #include "Common/Float.h"
 
@@ -240,10 +239,10 @@ namespace AR {
         //! clear function
         void clear() {
             if (cd_pair_array_size_>0) {
-                assert(cd_pair_!=NULL);
+                ASSERT(cd_pair_!=NULL);
                 delete [] cd_pair_;
                 cd_pair_ = NULL;
-                assert(sorted_cumsum_ck_index_!=NULL);
+                ASSERT(sorted_cumsum_ck_index_!=NULL);
                 delete [] sorted_cumsum_ck_index_;
                 sorted_cumsum_ck_index_ = NULL;
                 cd_pair_array_size_ = 0;
@@ -285,13 +284,13 @@ namespace AR {
 
         //! get coefficient c_k
         Float getCK(const int _k) const {
-            assert(_k<cd_pair_array_size_);
+            ASSERT(_k<cd_pair_array_size_);
             return cd_pair_[_k][0];
         }
 
         //! get coefficient d_k
         Float getDK(const int _k) const {
-            assert(_k<cd_pair_array_size_);
+            ASSERT(_k<cd_pair_array_size_);
             return cd_pair_[_k][1];
         }
 
