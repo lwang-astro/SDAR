@@ -613,6 +613,7 @@ namespace H4{
             // for single
             for (int i=0; i<_n_single; i++){
                 const int k = _index_single[i];
+                ASSERT(k<time_next_.getSize());
                 time_next_[k] = particles[k].time + particles[k].dt;
             }
 
@@ -620,6 +621,7 @@ namespace H4{
             for (int i=0; i<_n_group; i++) {
                 const int k = _index_group[i];
                 const int kf = k + index_offset_group_;
+                ASSERT(kf<time_next_.getSize());
                 auto& pcm = groups[k].particles.cm;
                 time_next_[kf] = pcm.time + pcm.dt;
             }
@@ -1640,13 +1642,35 @@ namespace H4{
             // find active singles
             const int n_singles = index_dt_sorted_single_.getSize();
             for(n_act_single_=0; n_act_single_<n_singles; n_act_single_++){
-                if (time_next_min_ < time_next_[index_dt_sorted_single_[0]]) break;
+                if (time_next_min_ < time_next_[index_dt_sorted_single_[n_act_single_]]) break;
             }
+
+#ifdef HERMITE_DEBUG
+            for (int i=0; i<n_singles-1; i++) {
+                const int k= index_dt_sorted_single_[i];
+                const int k1= index_dt_sorted_single_[i+1];
+                ASSERT(particles[k].dt<=particles[k1].dt);
+                ASSERT(time_next_[k]<=time_next_[k1]);
+            }
+#endif
+
             // find active groups
             const int n_groups = index_dt_sorted_group_.getSize();
             for(n_act_group_=0; n_act_group_<n_groups; n_act_group_++){
-                if (time_next_min_ < time_next_[index_dt_sorted_group_[0] + index_offset_group_]) break;
+                if (time_next_min_ < time_next_[index_dt_sorted_group_[n_act_group_] + index_offset_group_]) break;
             }
+
+#ifdef HERMITE_DEBUG
+            for (int i=0; i<n_groups-1; i++) {
+                const int k= index_dt_sorted_group_[i];
+                const int k1= index_dt_sorted_group_[i+1];
+                ASSERT(groups[k].particles.cm.dt<=groups[k1].particles.cm.dt);
+                ASSERT(k+index_offset_group_<n_singles + n_groups);
+                ASSERT(k1+index_offset_group_<n_singles + n_groups);
+                ASSERT(time_next_[k+index_offset_group_]<=time_next_[k1+index_offset_group_]);
+            }
+#endif
+
             ASSERT(!(n_act_single_==0&&n_act_group_==0));
 
             first_step_flag_ = false;
