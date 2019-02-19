@@ -34,7 +34,7 @@ namespace AR{
         */
         void initialSlowDownReference(const Float _kappa_ref, const Float _kappa_max) {
             ASSERT(_kappa_ref>0.0);
-            ASSERT(_kappa_max>1.0);
+            ASSERT(_kappa_max>=1.0);
             kappa_ref_ = _kappa_ref;
             kappa_max_ = _kappa_max;
         }

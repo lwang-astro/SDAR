@@ -362,14 +362,13 @@ namespace H4{
                 int insert_n = 1;
                 if (insert_index>=index_offset_group_) insert_n = groups[insert_index-index_offset_group_].particles.getSize();
                 
-                // shift the first index in last group to last 
+                // shift the first insert_n index in last group to last 
                 int last_group_offset = _new_n_group_offset[_new_n_group-1];
                 for (int j=0; j<insert_n; j++) 
                     _new_group_particle_index_origin[_new_n_particle++] = _new_group_particle_index_origin[last_group_offset+j];
 
-                // in the case insert_group is not the last group
+                // in the case insert_group is not the last group, shift the offset and also the first insert_n index of each group into right group.
                 if(insert_group<_new_n_group-1) {
-                    // shift first index in each group to the end to allow to insert j in i_group
                     for (int k=_new_n_group-1; k>insert_group; k--) {
                         int k0_group_offset = _new_n_group_offset[k-1];
                         for (int j=0; j<insert_n; j++) 
@@ -416,7 +415,7 @@ namespace H4{
                 else _new_group_particle_index_origin[_new_n_particle++] = _j;
                 // used mask regist the current staying group of particle _j
                 _used_mask[_j] = _new_n_group;
-
+  
                 _new_n_group++;
             }
         }
@@ -1031,7 +1030,8 @@ namespace H4{
             int new_index_single[particles.getSize()];
             int n_single_new=0;
 
-            for (int i=0; i<_n_break; i++) {
+            for (int k=0; k<_n_break; k++) {
+                const int i = _break_group_index[k];
                 auto& groupi = groups[i];
                 const int n_member =groupi.particles.getSize();
                 int particle_index_origin[n_member];
@@ -1041,6 +1041,7 @@ namespace H4{
                 groupi.particles.writeBackMemberAll();
                 groupi.clear();
                 table_group_mask_[i] = true;
+                index_group_mask_.addMember(i);
                 
                 // check single case
                 // left side
@@ -1051,11 +1052,13 @@ namespace H4{
                     new_index_single[n_single_new++] = particle_index_origin[0];
                 }
                 else {
+                    int offset = _new_n_group_offset[_new_n_group];
                     for (int j=0; j<ibreak; j++) {
-                        int& offset = _new_n_group_offset[_new_n_group];
+                        ASSERT(table_single_mask_[particle_index_origin[j]]==true);
+                        table_single_mask_[particle_index_origin[j]] = false;
                         _new_group_particle_index_origin[offset++] = particle_index_origin[j];
                     }
-                    _new_n_group++;
+                    _new_n_group_offset[++_new_n_group] = offset;
                 }
                 // right side
                 if (n_member-ibreak==1) {
@@ -1065,11 +1068,13 @@ namespace H4{
                     new_index_single[n_single_new++] = particle_index_origin[ibreak];
                 }
                 else {
+                    int offset = _new_n_group_offset[_new_n_group];
                     for (int j=ibreak; j<n_member; j++) {
-                        int& offset = _new_n_group_offset[_new_n_group];
+                        ASSERT(table_single_mask_[particle_index_origin[j]]==true);
+                        table_single_mask_[particle_index_origin[j]] = false;
                         _new_group_particle_index_origin[offset++] = particle_index_origin[j];
                     }
-                    _new_n_group++;
+                    _new_n_group_offset[++_new_n_group] = offset;
                 }
             }
 
@@ -1129,9 +1134,9 @@ namespace H4{
                 // check distance criterion and outcome (ecca>0) or income (ecca<0)
                 if (bin_root.r > manager->r_break_crit && bin_root.ecca>0.0) {
 #ifdef ADJUST_GROUP_DEBUG
-                    std::cout<<"Break group: escape, i_group: "<<i<<" N_member: "<<n_member<<" ecca: "<<bin_root.ecca<<" separation : "<<bin_root.r<<" r_crit: "<<manager->r_break_crit<<std::endl;
+                    std::cout<<"Break group: escape, i_group: "<<k<<" N_member: "<<n_member<<" ecca: "<<bin_root.ecca<<" separation : "<<bin_root.r<<" r_crit: "<<manager->r_break_crit<<std::endl;
 #endif
-                    _break_group_index[_n_break++] = i;
+                    _break_group_index[_n_break++] = k;
                     continue;
                 }
                     
@@ -1139,9 +1144,9 @@ namespace H4{
                 Float kappa_org = groupk.slowdown.getSlowDownFactorOrigin();
                 if (kappa_org<0.01 && bin_root.semi>0) {
 #ifdef ADJUST_GROUP_DEBUG
-                    std::cout<<"Break group: strong perturbed, i_group: "<<i<<" N_member: "<<n_member<<" kappa_org: "<<kappa_org<<" semi: "<<bin_root.semi<<std::endl;
+                    std::cout<<"Break group: strong perturbed, i_group: "<<k<<" N_member: "<<n_member<<" kappa_org: "<<kappa_org<<" semi: "<<bin_root.semi<<std::endl;
 #endif
-                    _break_group_index[_n_break++] = i;
+                    _break_group_index[_n_break++] = k;
                     continue;
                 }
 
@@ -1149,27 +1154,27 @@ namespace H4{
                 if (n_member>2 && bin_root.ecca>0.0) {
                     AR::SlowDown sd;
                     sd.initialSlowDownReference(groupk.slowdown.getSlowDownFactorReference(),groupk.slowdown.getSlowDownFactorMax());
-                    for (int k=0; k<2; k++) {
-                        if (bin_root.getMember(k)->id<0) {
-                            auto* bin_sub = (COMM::BinaryTree<Tparticle>*) bin_root.getMember(k);
+                    for (int j=0; j<2; j++) {
+                        if (bin_root.getMember(j)->id<0) {
+                            auto* bin_sub = (COMM::BinaryTree<Tparticle>*) bin_root.getMember(j);
                             Float semi_db = 2.0*bin_sub->semi;
                             // inner hyperbolic case
                             if(semi_db<0.0) {
 #ifdef ADJUST_GROUP_DEBUG
-                                std::cout<<"Break group: inner member hyperbolic, i_group: "<<i<<" i_member: "<<k<<" semi: "<<semi_db<<std::endl;
+                                std::cout<<"Break group: inner member hyperbolic, i_group: "<<k<<" i_member: "<<j<<" semi: "<<semi_db<<std::endl;
 #endif
-                                _break_group_index[_n_break++] = i;
+                                _break_group_index[_n_break++] = k;
                                 break;
                             }
                             // if slowdown factor is large, break the group
                             Float f_in = bin_sub->m1*bin_sub->m2/(semi_db*semi_db*semi_db);
-                            Float f_out = bin_sub->mass*bin_root.getMember(k-1)->mass/(bin_root.r*bin_root.r*bin_root.r);
+                            Float f_out = bin_sub->mass*bin_root.getMember(1-j)->mass/(bin_root.r*bin_root.r*bin_root.r);
                             Float kappa_in = sd.calcSlowDownFactor(f_in, f_out);
                             if (kappa_in>1.0) {
 #ifdef ADJUST_GROUP_DEBUG
-                                std::cout<<"Break group: inner kappa large, i_group: "<<i<<" i_member: "<<k<<" kappa_in:"<<kappa_in<<std::endl;
+                                std::cout<<"Break group: inner kappa large, i_group: "<<k<<" i_member: "<<j<<" kappa_in:"<<kappa_in<<std::endl;
 #endif
-                                _break_group_index[_n_break++] = i;
+                                _break_group_index[_n_break++] = k;
                                 break;
                             }
                         }
