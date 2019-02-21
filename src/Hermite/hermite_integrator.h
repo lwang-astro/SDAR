@@ -161,6 +161,8 @@ namespace H4{
             for (int k=0; k<n_single; k++){
                 const int i = index_dt_sorted_single_[k];
                 const Float dt = _time_pred - ptcl[i].time;
+                ASSERT(i<particles.getSize());
+                ASSERT(i>=0);
                 pred[i].pos[0] = ptcl[i].pos[0] + dt*(ptcl[i].vel[0]  + 0.5*dt*(ptcl[i].acc0[0] + inv3*dt*ptcl[i].acc1[0]));
                 pred[i].pos[1] = ptcl[i].pos[1] + dt*(ptcl[i].vel[1]  + 0.5*dt*(ptcl[i].acc0[1] + inv3*dt*ptcl[i].acc1[1]));
                 pred[i].pos[2] = ptcl[i].pos[2] + dt*(ptcl[i].vel[2]  + 0.5*dt*(ptcl[i].acc0[2] + inv3*dt*ptcl[i].acc1[2]));
@@ -177,8 +179,11 @@ namespace H4{
             auto* group_ptr = groups.getDataAddress();
             for (int k=0; k<n_group; k++) {
                 const int i = index_dt_sorted_group_[k];
+                ASSERT(i<groups.getSize());
+                ASSERT(i>=0);
                 const auto& pcm = group_ptr[i].particles.cm;
-                const Float dt = _time_pred - pcm.dt;
+                const Float dt = _time_pred - pcm.time;
+                ASSERT(dt>=0.0);
                 // group predictor is after single predictor with offset n_single
                 auto& predcm = pred[i+index_offset_group_];
                 predcm.pos[0] = pcm.pos[0] + dt*(pcm.vel[0]  + 0.5*dt*(pcm.acc0[0] + inv3*dt*pcm.acc1[0]));
@@ -313,6 +318,8 @@ namespace H4{
             auto* ptcl = pred_.getDataAddress();
             for (int i=0; i<n_group_org; i++) {
                 int k = index_dt_sorted_group_[i];
+                ASSERT(k<groups.getSize());
+                ASSERT(k>=0);
                 auto& group_k = group_ptr[k];
                 if (group_k.perturber.need_resolve_flag) {
                     group_k.writeBackSlowDownParticles(ptcl[k+index_offset_group_]);
@@ -569,11 +576,17 @@ namespace H4{
                     auto* member_adr = groupi.particles.getOriginAddressArray();
                     const int n_member = groupi.particles.getSize();
                     fi.clear();
+#ifdef HERMITE_DEBUG
+                    Float mcm = 0.0;
+#endif
                     for (int j=0; j<n_member; j++) {
                         // get particle index from memory address offset
                         //const int kj = int((Tparticle*)member_adr[j]-ptcl);
                         const int kj = groupi.info.particle_index[j];
+                        ASSERT(kj<particles.getSize());
+                        ASSERT(kj>=0);
                         auto& pkj = *(Tparticle*)member_adr[j];
+                        ASSERT((void*)member_adr[j]==(void*)&particles[kj]);
                         auto& fkj = force_ptr[kj];
                         auto& nbkj = neighbor_ptr[kj];
                         calcOneSingleAccJerkNB(fkj, nbkj, pkj, pi.id);
@@ -585,7 +598,13 @@ namespace H4{
                         fi.acc1[0] += pkj.mass * fkj.acc1[0]; 
                         fi.acc1[1] += pkj.mass * fkj.acc1[1]; 
                         fi.acc1[2] += pkj.mass * fkj.acc1[2]; 
+#ifdef HERMITE_DEBUG
+                        mcm += pkj.mass;
+#endif
                     }
+#ifdef HERMITE_DEBUG
+                    ASSERT(abs(mcm-pi.mass)<1e-10);
+#endif
                     fi.acc0[0] /= pi.mass;
                     fi.acc0[1] /= pi.mass;
                     fi.acc0[2] /= pi.mass;

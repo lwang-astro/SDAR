@@ -969,6 +969,7 @@ namespace AR {
             auto* particle_data= particles.getDataAddress();
             const Float kappa_inv = 1.0/slowdown.getSlowDownFactor();
             for (int i=0; i<particles.getSize(); i++) {
+                ASSERT(particle_adr[i]->mass == particle_data[i].mass);
                 particle_adr[i]->mass = particle_data[i].mass;
 
                 particle_adr[i]->pos[0] = particle_data[i].pos[0] + _particle_cm.pos[0];
