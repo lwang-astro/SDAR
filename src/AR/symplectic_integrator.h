@@ -25,7 +25,7 @@ namespace AR {
     template <class Tmethod>
     class SymplecticManager {
     public:
-        Float time_error_relative_max_real; ///> maximum fraction of the time error over the integrated (real) time step, should be positive value
+        Float time_error_max_real; ///> maximum time error (absolute), should be positive and larger than round-off error 
         Float energy_error_relative_max; ///> maximum energy error requirement 
         Float time_step_real_min;        ///> minimum real time step allown
         long long int step_count_max; ///> maximum step counts
@@ -347,6 +347,12 @@ namespace AR {
                 manager->interaction.calcAccPotAndGTKickTwo(force_data, epot_, particle_data, n_particle); 
 #endif
 
+                // calculate kinetic energy
+                calcEKin();
+
+                // initial total energy
+                etot_ = ekin_ + epot_;
+
                 // two-body case, also initialslowdown
                 // calcualte perturbation force (cumulative to acc) and slowdown perturbation estimation
                 Float sd_pert = manager->interaction.calcAccAndSlowDownPert(force_data, particle_data, n_particle, particles.cm, perturber, _time_real);
@@ -367,13 +373,13 @@ namespace AR {
                 // calculate acceleration, potential and time transformation factor 
                 manager->interaction.calcAccPotAndGTKick(force_data, epot_, particle_data, n_particle); 
 #endif
+
+                // calculate kinetic energy
+                calcEKin();
+
+                // initial total energy
+                etot_ = ekin_ + epot_;
             }
-
-            // calculate kinetic energy
-            calcEKin();
-
-            // initial total energy
-            etot_ = ekin_ + epot_;
 
         }
 
@@ -491,6 +497,7 @@ namespace AR {
 #endif
                 // drift
                 Float dt = ds*gt;
+                ASSERT(!std::isnan(dt));
                 
                 // drift time 
                 time_ += dt;
@@ -514,6 +521,7 @@ namespace AR {
                 // calculate acceleration, potential, and time transformation factor for kick
                 // Notice in TTL method, time transformation function gradient is also updated 
                 gt = manager->interaction.calcAccPotAndGTKickTwo(force_data, epot_, particle_data, n_particle); 
+                ASSERT(!std::isnan(epot_));
 
                 // time step for kick
                 dt = 0.5*ds*gt;
@@ -599,8 +607,8 @@ namespace AR {
             const Float dt_real_full = _time_end_real - slowdown.getRealTime();
 
             // time error 
-            ASSERT(manager->time_error_relative_max_real>0.0);
-            const Float time_error_real = manager->time_error_relative_max_real*dt_real_full;
+            ASSERT(manager->time_error_max_real>0.0);
+            const Float time_error_real = manager->time_error_max_real;
 
             // energy error limit
             const Float energy_error_rel_max = manager->energy_error_relative_max;
@@ -640,7 +648,7 @@ namespace AR {
 
 #ifdef AR_DEBUG
             Float ekin_check = ekin_;
-            calcEkin();
+            calcEKin();
             ASSERT(abs(ekin_check-ekin_)<1e-10);
             ekin_ = ekin_check;
 #endif
@@ -672,6 +680,7 @@ namespace AR {
                 // real step size
                 Float time_real = slowdown.getRealTime();
                 dt_real =  time_real - dt_real;
+                ASSERT(dt_real>0.0);
                 
                 step_count++;
 
@@ -748,10 +757,14 @@ namespace AR {
                 if(energy_error_rel_abs>energy_error_rel_max) {
                     if(_fix_step_option!=FixStepOption::always) {
 
+                        // energy error zero case, continue to avoid problem
+                        if (energy_error_rel_abs==0.0) continue;
+
                         // estimate the modification factor based on the symplectic order
                         Float energy_error_ratio = energy_error_rel_max/energy_error_rel_abs;
                         // limit modify_factor to 0.125
                         Float modify_factor = std::max(manager->step.calcStepModifyFactorFromErrorRatio(energy_error_ratio), Float(0.125));
+                        ASSERT(modify_factor>0.0);
 
                         // for initial steps
                         if(step_count<3) {
@@ -778,7 +791,7 @@ namespace AR {
                         }
                     }
                 }
-#ifdef ARC_WARN
+#ifdef AR_WARN
                 if(energy_error_rel_abs>100.0*energy_error_rel_max) {
                     std::cerr<<"Warning: symplectic integrator error > 100*criterion:"<<energy_error_rel_abs<<std::endl;
                 }
@@ -798,7 +811,7 @@ namespace AR {
                              <<" Step_count: "<<step_count
                              <<std::endl;
 
-#ifdef ARC_DEBUG_DUMP
+#ifdef AR_DEBUG_DUMP
                     restoreIntData(backup_data_init);
 #endif
                     return true;
@@ -815,13 +828,15 @@ namespace AR {
 #endif
                             ds[1-ds_switch] = ds_backup;
                         }
+                        // increase step size if energy error is small
                         else if(energy_error_rel_abs<energy_error_rel_max_half_step) {
                             Float energy_error_ratio = energy_error_rel_max/energy_error_rel_abs;
                             Float modify_factor = manager->step.calcStepModifyFactorFromErrorRatio(energy_error_ratio);
+                            ASSERT(modify_factor>0.0);
                             ds[1-ds_switch] *= modify_factor;
-#ifdef ARC_DEEP_DEBUG
-                            std::cerr<<"Energy error is small enought for increase step, energy_error_rel_abs="<<Energy_error_rel_abs
-                                     <<" energy_error_rel_max="<<energy_error_rel_max<<" step_modify_factor="<<modify_factor<<" new ds="<<ds[1-dsk]<<std::endl;
+#ifdef AR_DEEP_DEBUG
+                            std::cerr<<"Energy error is small enought for increase step, energy_error_rel_abs="<<energy_error_rel_abs
+                                     <<" energy_error_rel_max="<<energy_error_rel_max<<" step_modify_factor="<<modify_factor<<" new ds="<<ds[1-ds_switch]<<std::endl;
 #endif
                         }
                         n_step_wait--;
@@ -833,6 +848,7 @@ namespace AR {
 
                         Float dt_real_end = _time_end_real - time_real;
                         if(n_step_end>1 && dt_real<0.3*dt_real_end) {
+                            // dt_real should be >0.0
                             ds[1-ds_switch] = ds[ds_switch] * dt_real_end/dt_real;
 #ifdef AR_DEEP_DEBUG
                             std::cerr<<"Time step dt(real) "<<dt_real<<" <0.3*(time_end-time)(real) "<<dt_real_end<<" enlarge step factor: "<<dt_real_end/dt_real<<" new ds: "<<ds[1-ds_switch]<<std::endl;
@@ -899,6 +915,48 @@ namespace AR {
             return false;
         }
 
+        //! correct CM drift
+        /*! calculate c.m. and correct the member data to the c.m. frame.
+          This is used after the perturbation, in case the c.m. drift when members are in c.m. frame
+         */
+        void correctCenterOfMassDrift() {
+            ASSERT(!particles.isOriginFrame());
+            Float mcm=0.0, pos_cm[3]={0.0,0.0,0.0}, vel_cm[3]={0.0,0.0,0.0};
+            auto* particle_data= particles.getDataAddress();
+            for (int i=0; i<particles.getSize(); i++) {
+                const Float *ri = particle_data[i].pos;
+                const Float *vi = particle_data[i].vel;
+                const Float mi  = particle_data[i].mass;
+
+                pos_cm[0] += ri[0] * mi;
+                pos_cm[1] += ri[1] * mi;
+                pos_cm[2] += ri[2] * mi;
+
+                vel_cm[0] += vi[0] * mi;
+                vel_cm[1] += vi[1] * mi;
+                vel_cm[2] += vi[2] * mi;
+                mcm += mi;
+            }
+            pos_cm[0] /= mcm; 
+            pos_cm[1] /= mcm; 
+            pos_cm[2] /= mcm; 
+            vel_cm[0] /= mcm; 
+            vel_cm[1] /= mcm; 
+            vel_cm[2] /= mcm;
+
+            for (int i=0; i<particles.getSize(); i++) {
+                Float *ri = particle_data[i].pos;
+                Float *vi = particle_data[i].vel;
+
+                ri[0] -= pos_cm[0]; 
+                ri[1] -= pos_cm[1]; 
+                ri[2] -= pos_cm[2]; 
+                vi[0] -= vel_cm[0]; 
+                vi[1] -= vel_cm[1]; 
+                vi[2] -= vel_cm[2]; 
+            }
+        }
+
         //! write back particles with slowdown velocity
         /*! write back particles with slowdown velocity to original address
           @param[in] _particle_cm: center of mass particle to calculate the original frame, different from the particles.cm
@@ -926,18 +984,19 @@ namespace AR {
         //! write back particles to original address
         /*! If particles are in center-off-mass frame, write back the particle in original frame but not modify local copies to avoid roundoff error
          */
+        template <class Tptcl>
         void writeBackParticlesOriginFrame() {
             ASSERT(particles.getMode()==COMM::ListMode::copy);
             auto* particle_adr = particles.getOriginAddressArray();
             auto* particle_data= particles.getDataAddress();
             if (particles.isOriginFrame()) {
                 for (int i=0; i<particles.getSize(); i++) {
-                    *particle_adr[i] = particle_data[i];
+                    *(Tptcl*)particle_adr[i] = particle_data[i];
                 }
             }
             else {
                 for (int i=0; i<particles.getSize(); i++) {
-                    Tparticle pc = particle_data[i];
+                    Tptcl pc = particle_data[i];
 
                     pc.pos[0] = particle_data[i].pos[0] + particles.cm.pos[0];
                     pc.pos[1] = particle_data[i].pos[1] + particles.cm.pos[1];
@@ -947,7 +1006,7 @@ namespace AR {
                     pc.vel[1] = particle_data[i].vel[1] + particles.cm.vel[1];
                     pc.vel[2] = particle_data[i].vel[2] + particles.cm.vel[2];
                     
-                    *particle_adr[i] = pc;
+                    *(Tptcl*)particle_adr[i] = pc;
                 }
             }
         }

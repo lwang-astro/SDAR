@@ -519,7 +519,7 @@ namespace COMM{
             ASSERT(member[1]!=NULL);
             T dat_new = _f(_dat, *this);
             for (int k=0; k<2; k++) 
-                if (member[k]->id<0) dat_new = ((BinaryTree<Tptcl>*)member[0])->processRootIter(dat_new, _f);
+                if (member[k]->id<0) dat_new = ((BinaryTree<Tptcl>*)member[k])->processRootIter(dat_new, _f);
             return dat_new;
         }
 

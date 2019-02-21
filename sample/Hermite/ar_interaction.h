@@ -29,66 +29,78 @@ public:
         static const Float inv3 = 1.0 / 3.0;
 
         const int n_pert = _perturber.neighbor_address.getSize();
-        auto* pert_adr = _perturber.neighbor_address.getDataAddress();
 
-        Float xp[n_pert][3], xcm[3], m[n_pert];
+        if (n_pert>0) {
 
-        for (int j=0; j<n_pert; j++) {
-            auto& pertj = *pert_adr[j].adr;
-            Float dt = _time - pertj.time;
-            xp[j][0] = pertj.pos[0] + dt*(pertj.vel[0] + 0.5*dt*(pertj.acc0[0] + inv3*dt*pertj.acc1[0]));
-            xp[j][1] = pertj.pos[1] + dt*(pertj.vel[1] + 0.5*dt*(pertj.acc0[1] + inv3*dt*pertj.acc1[1]));
-            xp[j][2] = pertj.pos[2] + dt*(pertj.vel[2] + 0.5*dt*(pertj.acc0[2] + inv3*dt*pertj.acc1[2]));
-            m[j] = pertj.mass;
-        }
+            auto* pert_adr = _perturber.neighbor_address.getDataAddress();
 
-        Float dt = _time - _particle_cm.time;
-        xcm[0] = _particle_cm.pos[0] + dt*(_particle_cm.vel[0] + 0.5*dt*(_particle_cm.acc0[0] + inv3*dt*_particle_cm.acc1[0]));
-        xcm[1] = _particle_cm.pos[1] + dt*(_particle_cm.vel[1] + 0.5*dt*(_particle_cm.acc0[1] + inv3*dt*_particle_cm.acc1[1]));
-        xcm[2] = _particle_cm.pos[2] + dt*(_particle_cm.vel[2] + 0.5*dt*(_particle_cm.acc0[2] + inv3*dt*_particle_cm.acc1[2]));
-
-        for (int i=0; i<_n_particle; i++) {
-            Float* acc_pert = _force[i].acc_pert;
-            const Particle& pi = _particles[i];
-            acc_pert[0] = acc_pert[1] = acc_pert[2] = Float(0.0);
-
-            Float xi[3];
-            xi[0] = pi.pos[0] + xcm[0];
-            xi[1] = pi.pos[1] + xcm[1];
-            xi[2] = pi.pos[2] + xcm[2];
-
-            acc_pert[0] = -_particle_cm.acc0[0]; 
-            acc_pert[1] = -_particle_cm.acc0[1];        
-            acc_pert[2] = -_particle_cm.acc0[2]; 
+            Float xp[n_pert][3], xcm[3], m[n_pert];
 
             for (int j=0; j<n_pert; j++) {
-                Float dr[3] = {xp[j][0] - xi[0],
-                               xp[j][1] - xi[1],
-                               xp[j][2] - xi[2]};
+                auto& pertj = *pert_adr[j].adr;
+                Float dt = _time - pertj.time;
+                xp[j][0] = pertj.pos[0] + dt*(pertj.vel[0] + 0.5*dt*(pertj.acc0[0] + inv3*dt*pertj.acc1[0]));
+                xp[j][1] = pertj.pos[1] + dt*(pertj.vel[1] + 0.5*dt*(pertj.acc0[1] + inv3*dt*pertj.acc1[1]));
+                xp[j][2] = pertj.pos[2] + dt*(pertj.vel[2] + 0.5*dt*(pertj.acc0[2] + inv3*dt*pertj.acc1[2]));
+                m[j] = pertj.mass;
+            }
+
+            Float dt = _time - _particle_cm.time;
+            xcm[0] = _particle_cm.pos[0] + dt*(_particle_cm.vel[0] + 0.5*dt*(_particle_cm.acc0[0] + inv3*dt*_particle_cm.acc1[0]));
+            xcm[1] = _particle_cm.pos[1] + dt*(_particle_cm.vel[1] + 0.5*dt*(_particle_cm.acc0[1] + inv3*dt*_particle_cm.acc1[1]));
+            xcm[2] = _particle_cm.pos[2] + dt*(_particle_cm.vel[2] + 0.5*dt*(_particle_cm.acc0[2] + inv3*dt*_particle_cm.acc1[2]));
+
+            // first calculate c.m. acceleration and tidal perturbation
+            Float pert_cm = 0.0, acc_pert_cm[3]={0.0, 0.0, 0.0};
+            for (int j=0; j<n_pert; j++) {
+                Float dr[3] = {xp[j][0] - xcm[0],
+                               xp[j][1] - xcm[1],
+                               xp[j][2] - xcm[2]};
                 Float r2 = dr[0]*dr[0] + dr[1]*dr[1] + dr[2]*dr[2] + eps_sq;
                 Float r  = sqrt(r2);
                 Float r3 = r*r2;
                 Float mor3 = G*m[j]/r3;
+                pert_cm += mor3;
 
-                acc_pert[0] += mor3 * dr[0];
-                acc_pert[1] += mor3 * dr[1];
-                acc_pert[2] += mor3 * dr[2];
+                acc_pert_cm[0] += mor3 * dr[0];
+                acc_pert_cm[1] += mor3 * dr[1];
+                acc_pert_cm[2] += mor3 * dr[2];
             }
-        }   
 
-        Float pert_cm = 0.0;
-        for (int j=0; j<n_pert; j++) {
-            Float dr[3] = {xp[j][0] - xcm[0],
-                           xp[j][1] - xcm[1],
-                           xp[j][2] - xcm[2]};
-            Float r2 = dr[0]*dr[0] + dr[1]*dr[1] + dr[2]*dr[2] + eps_sq;
-            Float r  = sqrt(r2);
-            Float r3 = r*r2;
-            Float mor3 = G*m[j]/r3;
-            pert_cm += mor3;
+            // calculate component perturbation
+            for (int i=0; i<_n_particle; i++) {
+                Float* acc_pert = _force[i].acc_pert;
+                const Particle& pi = _particles[i];
+                acc_pert[0] = acc_pert[1] = acc_pert[2] = Float(0.0);
+
+                Float xi[3];
+                xi[0] = pi.pos[0] + xcm[0];
+                xi[1] = pi.pos[1] + xcm[1];
+                xi[2] = pi.pos[2] + xcm[2];
+
+                // remove c.m. perturbation acc
+                acc_pert[0] = -acc_pert_cm[0]; 
+                acc_pert[1] = -acc_pert_cm[1];        
+                acc_pert[2] = -acc_pert_cm[2]; 
+
+                for (int j=0; j<n_pert; j++) {
+                    Float dr[3] = {xp[j][0] - xi[0],
+                                   xp[j][1] - xi[1],
+                                   xp[j][2] - xi[2]};
+                    Float r2 = dr[0]*dr[0] + dr[1]*dr[1] + dr[2]*dr[2] + eps_sq;
+                    Float r  = sqrt(r2);
+                    Float r3 = r*r2;
+                    Float mor3 = G*m[j]/r3;
+
+                    acc_pert[0] += mor3 * dr[0];
+                    acc_pert[1] += mor3 * dr[1];
+                    acc_pert[2] += mor3 * dr[2];
+                }
+            }   
+
+            return _particle_cm.mass*pert_cm;
         }
-        
-        return _particle_cm.mass*pert_cm;
+        else return 0.0;
     }
 
     //! (Necessary) calculate inner member acceleration, potential and time transformation function gradient and factor for kick (two-body case)
@@ -100,7 +112,7 @@ public:
       \return the time transformation factor (gt_kick) for kick step
     */
     Float calcAccPotAndGTKickTwo(AR::Force* _force, Float& _epot, const ARPtcl* _particles, const int _n_particle) {
-        assert(_n_particle==2);
+        ASSERT(_n_particle==2);
 
         // acceleration
         const Float mass1 = _particles[0].mass;
@@ -113,6 +125,7 @@ public:
                        pos2[1] -pos1[1],
                        pos2[2] -pos1[2]};
         Float r2 = dr[0]*dr[0] + dr[1]*dr[1] + dr[2]*dr[2] + eps_sq;
+        ASSERT(r2>0.0);
         Float inv_r = 1.0/sqrt(r2);
         Float inv_r3 = inv_r*inv_r*inv_r;
 

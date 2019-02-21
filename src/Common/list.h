@@ -429,11 +429,12 @@ namespace COMM {
         //! copy all member data back to original address
         /*! work for #ListMode::copy
          */
+        template <class T>
         void writeBackMemberAll() {
             ASSERT(mode_==ListMode::copy);
             ASSERT(nmax_>0);
             for (int i=0; i<num_; i++) {
-                if(adr_[i]!=NULL) *adr_[i] = data_[i];
+                if(adr_[i]!=NULL) *(T*)adr_[i] = data_[i];
             }
         }
 
@@ -442,12 +443,13 @@ namespace COMM {
           @param[in] _index: list of member index
           @param[in] _n:  number of members
          */
+        template <class T>
         void writeBackMemberList(const int* _index, const int _n) {
             ASSERT(mode_==ListMode::copy);
             ASSERT(nmax_>0);
             for (int i=0; i<_n; i++) {
                 int k=_index[i];
-                if(adr_[k]!=NULL) *adr_[k] = data_[k];
+                if(adr_[k]!=NULL) *(T*)adr_[k] = data_[k];
             }
         }
 

@@ -87,7 +87,8 @@ public:
       @param[in] _width: print width (defaulted 20)
     */
     void printColumnTitle(std::ostream & _fout, const int _width=20) {
-        _fout<<std::setw(_width)<<"mass"
+        _fout<<std::setw(_width)<<"id"
+             <<std::setw(_width)<<"mass"
              <<std::setw(_width)<<"pos.x"
              <<std::setw(_width)<<"pos.y"
              <<std::setw(_width)<<"pos.z"
@@ -102,7 +103,8 @@ public:
       @param[in] _width: print width (defaulted 20)
     */
     void printColumn(std::ostream & _fout, const int _width=20){
-        _fout<<std::setw(_width)<<mass
+        _fout<<std::setw(_width)<<id
+             <<std::setw(_width)<<mass
              <<std::setw(_width)<<pos[0]
              <<std::setw(_width)<<pos[1]
              <<std::setw(_width)<<pos[2]

@@ -33,12 +33,13 @@ int main(int argc, char **argv){
     int sym_order=-6; // symplectic integrator order
     int dt_min_power_index = 40; // power index to calculate minimum physical time step
     Float energy_error=1e-10; // phase error requirement
-    Float time_error=1e-6; // time synchronization error
+    Float time_error=0;; // time synchronization error
     Float time_zero=0.0;    // initial physical time
     Float time_end=1.0; // ending physical time
     Float dt_output = 0.25; // output time interval
     Float dt_max = 0.25; // maximum physical time step
     Float r_break = 1e-3; // binary break criterion
+    Float r_search = 5.0; // neighbor search radius for AR
     Float eta_4th = 0.1; // time step coefficient 
     Float eta_2nd = 0.001; // time step coefficient for 2nd order
     Float eps_sq = 0.0;    // softening parameter
@@ -69,7 +70,7 @@ int main(int argc, char **argv){
     };
   
     int option_index;
-    while ((copt = getopt_long(argc, argv, "t:r:k:G:e:o:lh", long_options, &option_index)) != -1)
+    while ((copt = getopt_long(argc, argv, "t:R:r:k:G:e:o:lh", long_options, &option_index)) != -1)
         switch (copt) {
         case 0:
 #ifdef DEBUG
@@ -120,6 +121,9 @@ int main(int argc, char **argv){
         case 'r':
             r_break = atof(optarg);
             break;
+        case 'R':
+            r_search = atof(optarg);
+            break;
         case 'k':
             sym_order = atoi(optarg);
             break;
@@ -146,11 +150,12 @@ int main(int argc, char **argv){
                      <<"          --dt-min-power [int]  : power index to calculate mimimum hermite time step ("<<dt_min_power_index<<")\n"
                      <<"    -r [Float]:  distance criterion for switching AR and Hermite ("<<r_break<<")\n"
                      <<"          --r-break             : same as -r\n"
+                     <<"    -R [Float]:  neighbor search radius ("<<r_search<<")\n"
                      <<"    -o [Float]:  output time interval ("<<dt_output<<")\n"
                      <<"    -k [int]:  Symplectic integrator order, should be even number ("<<sym_order<<")\n"
                      <<"    -e [Float]:  relative energy error limit for AR ("<<energy_error<<")\n"
                      <<"          --energy-error (same as -e)\n"
-                     <<"          --time-error [Float]:    time synchronization relative error limit for AR ("<<time_error<<")\n"
+                     <<"          --time-error [Float]:    time synchronization absolute error limit for AR, default is 0.25*dt-min ("<<time_error<<")\n"
                      <<"          --n-step-max [int]  :    number of maximum step for AR integration ("<<nstep_max<<")\n"
                      <<"    -G [Float]: gravitational constant ("<<G<<")\n"
                      <<"          --eta-4th:   time step coefficient for 4th order ("<<eta_4th<<")\n"
@@ -201,6 +206,7 @@ int main(int argc, char **argv){
     // manager
     HermiteManager<HermiteInteraction> manager;
     manager.r_break_crit = r_break;
+    manager.r_neighbor_crit = r_search;
     manager.step.eta_4th = eta_4th;
     manager.step.eta_2nd = eta_2nd;
     manager.step.setDtRange(dt_max, dt_min_power_index);
@@ -210,7 +216,10 @@ int main(int argc, char **argv){
     ar_manager.interaction.eps_sq = eps_sq;
     ar_manager.interaction.G = G;
     ar_manager.time_step_real_min = manager.step.getDtMin();
-    ar_manager.time_error_relative_max_real = time_error;
+    if (time_error == 0.0) time_error = 0.25*ar_manager.time_step_real_min;
+    ASSERT(time_error>1e-14);
+    ar_manager.time_error_max_real = time_error;
+    // time error cannot be smaller than round-off error
     ar_manager.energy_error_relative_max = energy_error; 
     ar_manager.step_count_max = nstep_max;
     // set symplectic order
@@ -228,6 +237,13 @@ int main(int argc, char **argv){
         h4_int.particles.setMode(COMM::ListMode::local);
         h4_int.particles.readAscii(fin);
         for (int i=0; i<h4_int.particles.getSize(); i++) h4_int.particles[i].id = i+1;
+        h4_int.particles.calcCenterOfMass();
+        h4_int.particles.shiftToCenterOfMassFrame();
+        h4_int.particles.calcCenterOfMass();
+        std::cerr<<"CM: after shift ";
+        h4_int.particles.cm.printColumn(std::cerr, print_width);
+        std::cerr<<std::endl;
+
         h4_int.groups.setMode(COMM::ListMode::local);
         h4_int.groups.reserveMem(h4_int.particles.getSize());
         h4_int.reserveIntegratorMem();
@@ -241,11 +257,18 @@ int main(int argc, char **argv){
     h4_int.sortDtAndSelectActParticle();
     h4_int.info.time = h4_int.getTime();
 
+
     // precision
     std::cout<<std::setprecision(print_precision);
 
     // get initial energy
+    h4_int.writeBackGroupMembers();
     h4_int.info.calcEnergy(h4_int.particles, manager.interaction, true);
+    // cm
+    h4_int.particles.calcCenterOfMass();
+    std::cerr<<"CM:";
+    h4_int.particles.cm.printColumn(std::cerr, print_width);
+    std::cerr<<std::endl;
 
     //print column title
     h4_int.info.printColumnTitle(std::cout, print_width);
@@ -264,17 +287,22 @@ int main(int argc, char **argv){
         h4_int.sortDtAndSelectActParticle();
         h4_int.info.time = h4_int.getTime();
 
-        if (fmod(h4_int.info.time, dt_output)==0.0) {
+        if (dt_output==0.0||fmod(h4_int.info.time, dt_output)==0.0) {
             h4_int.writeBackGroupMembers();
             h4_int.info.calcEnergy(h4_int.particles, manager.interaction, false);
             
+            h4_int.particles.calcCenterOfMass();
+            std::cerr<<"CM:";
+            h4_int.particles.cm.printColumn(std::cerr, print_width);
+            std::cerr<<std::endl;
+
             h4_int.info.printColumn(std::cout, print_width);
             h4_int.particles.printColumn(std::cout, print_width);
             std::cout<<std::endl;
+            h4_int.printStepHist();
         }
     }
 
-    h4_int.printStepHist();
     //fpu_fix_end(&oldcw);
 
     return 0;
