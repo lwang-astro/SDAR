@@ -276,6 +276,7 @@ namespace H4{
             for(int i=0; i<_n_single; i++){
                 const int k = _index_single[i];
                 correctAndCalcDt4thOne(ptcl[k], force[k], _dt_limit, neighbors[k].initial_step_flag);
+                neighbors[k].initial_step_flag = false;
             }
             // group
             auto* group_ptr = groups.getDataAddress();
@@ -283,7 +284,8 @@ namespace H4{
                 const int k = _index_group[i];
                 auto& groupi = group_ptr[k];
                 correctAndCalcDt4thOne(groupi.particles.cm, force[k+index_offset_group_], _dt_limit, groupi.perturber.initial_step_flag);
-                groupi.correctCenterOfMassDrift();
+                groupi.perturber.initial_step_flag = false;
+                //groupi.correctCenterOfMassDrift();
             }
         }
 
@@ -296,14 +298,7 @@ namespace H4{
                 const int k = index_dt_sorted_group_[i];
                 auto& groupk = groups[k];
                 const Float kappa = groupk.slowdown.getSlowDownFactor();
-                if (kappa==1.0 && !groupk.info.need_resolve_flag) {
-                    groupk.info.need_resolve_flag = true;
-                    groupk.perturber.initial_step_flag = true;
-                }
-                if (kappa>3.0 && groupk.info.need_resolve_flag) {
-                    groupk.info.need_resolve_flag = false;
-                    groupk.perturber.initial_step_flag = true;
-                }
+                groupk.perturber.checkGroupResolve(kappa);
             }
         }
 
@@ -319,7 +314,7 @@ namespace H4{
             for (int i=0; i<n_group_org; i++) {
                 int k = index_dt_sorted_group_[i];
                 auto& group_k = group_ptr[k];
-                if (group_k.info.need_resolve_flag) {
+                if (group_k.perturber.need_resolve_flag) {
                     group_k.writeBackSlowDownParticles(ptcl[k+index_offset_group_]);
                     index_group_resolve_.addMember(k);
                 }
@@ -570,7 +565,7 @@ namespace H4{
                 calcOneSingleAccJerkNB(fi, nbi, pi, pi.id);
 
                 // for resolved case
-                if(groupi.info.need_resolve_flag) {
+                if(groupi.perturber.need_resolve_flag) {
                     auto* member_adr = groupi.particles.getOriginAddressArray();
                     const int n_member = groupi.particles.getSize();
                     fi.clear();
@@ -959,7 +954,7 @@ namespace H4{
                 group_new.info.generateBinaryTree(group_new.particles);
 
                 // initial perturber
-                group_new.info.need_resolve_flag = false;
+                group_new.perturber.need_resolve_flag = false;
             }
                 
             // modify the sorted_dt array 

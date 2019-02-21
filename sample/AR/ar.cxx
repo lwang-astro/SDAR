@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <iomanip>
 #include <cmath>
+#include <cassert>
 
 #define ASSERT(x) assert(x)
 
@@ -28,11 +29,11 @@ int main(int argc, char **argv){
     int nstep_max=1000000; // maximum time step allown for tsyn integration
     int sym_order=-6; // symplectic integrator order
     Float energy_error=1e-10; // phase error requirement
-    Float time_error=1e-6; // time synchronization error
+    Float time_error=5e-14; // time synchronization error
     Float s=0.5;    // step size
     Float time_zero=0.0;    // initial physical time
     Float time_end=-1.0; // ending physical time
-    Float dt_min = 1e-24; // minimum physical time step
+    Float dt_min = 1e-13; // minimum physical time step
     char* filename_par=NULL; // par dumped filename
     FixStepOption fix_step_option=FixStepOption::none; // fix step option
     bool load_flag=false; // if true; load dumped data
@@ -128,7 +129,7 @@ int main(int argc, char **argv){
                      <<"    -k [int]:  Symplectic integrator order,should be even number ("<<sym_order<<")\n"
                      <<"    -e [Float]:  relative energy error limit ("<<energy_error<<")\n"
                      <<"          --energy-error (same as -e)\n"
-                     <<"          --time-error [Float]:    time synchronization relative error limit ("<<time_error<<")\n"
+                     <<"          --time-error [Float]:    time synchronization absolute error limit ("<<time_error<<")\n"
                      <<"          --print-width [int]:     print width of value ("<<print_width<<")\n"
                      <<"          --print-precision [int]: print digital precision ("<<print_precision<<")\n"
                      <<"    -l :          load dumped data for restart (if used, the input file is dumped data)\n"
@@ -174,7 +175,7 @@ int main(int argc, char **argv){
     // manager
     SymplecticManager<Interaction> manager;
     manager.time_step_real_min = dt_min;
-    manager.time_error_relative_max_real = time_error;
+    manager.time_error_max_real = time_error;
     manager.energy_error_relative_max = energy_error; 
     manager.step_count_max = nstep_max;
     

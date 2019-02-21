@@ -39,6 +39,7 @@ public:
             for (int j=0; j<n_pert; j++) {
                 auto& pertj = *pert_adr[j].adr;
                 Float dt = _time - pertj.time;
+                ASSERT(dt>=0.0);
                 xp[j][0] = pertj.pos[0] + dt*(pertj.vel[0] + 0.5*dt*(pertj.acc0[0] + inv3*dt*pertj.acc1[0]));
                 xp[j][1] = pertj.pos[1] + dt*(pertj.vel[1] + 0.5*dt*(pertj.acc0[1] + inv3*dt*pertj.acc1[1]));
                 xp[j][2] = pertj.pos[2] + dt*(pertj.vel[2] + 0.5*dt*(pertj.acc0[2] + inv3*dt*pertj.acc1[2]));
@@ -46,58 +47,115 @@ public:
             }
 
             Float dt = _time - _particle_cm.time;
+            ASSERT(dt>=0.0);
             xcm[0] = _particle_cm.pos[0] + dt*(_particle_cm.vel[0] + 0.5*dt*(_particle_cm.acc0[0] + inv3*dt*_particle_cm.acc1[0]));
             xcm[1] = _particle_cm.pos[1] + dt*(_particle_cm.vel[1] + 0.5*dt*(_particle_cm.acc0[1] + inv3*dt*_particle_cm.acc1[1]));
             xcm[2] = _particle_cm.pos[2] + dt*(_particle_cm.vel[2] + 0.5*dt*(_particle_cm.acc0[2] + inv3*dt*_particle_cm.acc1[2]));
 
-            // first calculate c.m. acceleration and tidal perturbation
+
             Float pert_cm = 0.0, acc_pert_cm[3]={0.0, 0.0, 0.0};
-            for (int j=0; j<n_pert; j++) {
-                Float dr[3] = {xp[j][0] - xcm[0],
-                               xp[j][1] - xcm[1],
-                               xp[j][2] - xcm[2]};
-                Float r2 = dr[0]*dr[0] + dr[1]*dr[1] + dr[2]*dr[2] + eps_sq;
-                Float r  = sqrt(r2);
-                Float r3 = r*r2;
-                Float mor3 = G*m[j]/r3;
-                pert_cm += mor3;
+            Float mcm = _particle_cm.mass;
+            if (_perturber.need_resolve_flag) {
+                // calculate component perturbation
+                for (int i=0; i<_n_particle; i++) {
+                    Float* acc_pert = _force[i].acc_pert;
+                    const Particle& pi = _particles[i];
+                    acc_pert[0] = acc_pert[1] = acc_pert[2] = Float(0.0);
 
-                acc_pert_cm[0] += mor3 * dr[0];
-                acc_pert_cm[1] += mor3 * dr[1];
-                acc_pert_cm[2] += mor3 * dr[2];
+                    Float xi[3];
+                    xi[0] = pi.pos[0] + xcm[0];
+                    xi[1] = pi.pos[1] + xcm[1];
+                    xi[2] = pi.pos[2] + xcm[2];
+
+                    for (int j=0; j<n_pert; j++) {
+                        Float dr[3] = {xp[j][0] - xi[0],
+                                       xp[j][1] - xi[1],
+                                       xp[j][2] - xi[2]};
+                        Float r2 = dr[0]*dr[0] + dr[1]*dr[1] + dr[2]*dr[2] + eps_sq;
+                        Float r  = sqrt(r2);
+                        Float r3 = r*r2;
+                        Float mor3 = G*m[j]/r3;
+
+                        acc_pert[0] += mor3 * dr[0];
+                        acc_pert[1] += mor3 * dr[1];
+                        acc_pert[2] += mor3 * dr[2];
+                    }
+
+                    acc_pert_cm[0] += pi.mass *acc_pert[0];
+                    acc_pert_cm[1] += pi.mass *acc_pert[1];
+                    acc_pert_cm[2] += pi.mass *acc_pert[2];
+
+#ifdef ARC_DEBUG
+                    mcm += pi.mass;
+#endif
+                }
+#ifdef ARC_DEBUG
+                ASSERT(abs(mcm-_particles_cm.mass)<1e-10);
+#endif
+                
+                // get cm perturbation
+                acc_pert_cm[0] /= mcm;
+                acc_pert_cm[1] /= mcm;
+                acc_pert_cm[2] /= mcm;
+
+                // remove cm. perturbation
+                for (int i=0; i<_n_particle; i++) {
+                    Float* acc_pert = _force[i].acc_pert;
+                    acc_pert[0] -= acc_pert_cm[0]; 
+                    acc_pert[1] -= acc_pert_cm[1];        
+                    acc_pert[2] -= acc_pert_cm[2]; 
+                }
+                
+                
             }
-
-            // calculate component perturbation
-            for (int i=0; i<_n_particle; i++) {
-                Float* acc_pert = _force[i].acc_pert;
-                const Particle& pi = _particles[i];
-                acc_pert[0] = acc_pert[1] = acc_pert[2] = Float(0.0);
-
-                Float xi[3];
-                xi[0] = pi.pos[0] + xcm[0];
-                xi[1] = pi.pos[1] + xcm[1];
-                xi[2] = pi.pos[2] + xcm[2];
-
-                // remove c.m. perturbation acc
-                acc_pert[0] = -acc_pert_cm[0]; 
-                acc_pert[1] = -acc_pert_cm[1];        
-                acc_pert[2] = -acc_pert_cm[2]; 
-
+            else {
+                // first calculate c.m. acceleration and tidal perturbation
                 for (int j=0; j<n_pert; j++) {
-                    Float dr[3] = {xp[j][0] - xi[0],
-                                   xp[j][1] - xi[1],
-                                   xp[j][2] - xi[2]};
+                    Float dr[3] = {xp[j][0] - xcm[0],
+                                   xp[j][1] - xcm[1],
+                                   xp[j][2] - xcm[2]};
                     Float r2 = dr[0]*dr[0] + dr[1]*dr[1] + dr[2]*dr[2] + eps_sq;
                     Float r  = sqrt(r2);
                     Float r3 = r*r2;
                     Float mor3 = G*m[j]/r3;
+                    pert_cm += mor3;
 
-                    acc_pert[0] += mor3 * dr[0];
-                    acc_pert[1] += mor3 * dr[1];
-                    acc_pert[2] += mor3 * dr[2];
+                    acc_pert_cm[0] += mor3 * dr[0];
+                    acc_pert_cm[1] += mor3 * dr[1];
+                    acc_pert_cm[2] += mor3 * dr[2];
                 }
-            }   
 
+                // calculate component perturbation
+                for (int i=0; i<_n_particle; i++) {
+                    Float* acc_pert = _force[i].acc_pert;
+                    const Particle& pi = _particles[i];
+                    acc_pert[0] = acc_pert[1] = acc_pert[2] = Float(0.0);
+
+                    Float xi[3];
+                    xi[0] = pi.pos[0] + xcm[0];
+                    xi[1] = pi.pos[1] + xcm[1];
+                    xi[2] = pi.pos[2] + xcm[2];
+
+                    // remove c.m. perturbation acc
+                    acc_pert[0] = -acc_pert_cm[0]; 
+                    acc_pert[1] = -acc_pert_cm[1];        
+                    acc_pert[2] = -acc_pert_cm[2]; 
+
+                    for (int j=0; j<n_pert; j++) {
+                        Float dr[3] = {xp[j][0] - xi[0],
+                                       xp[j][1] - xi[1],
+                                       xp[j][2] - xi[2]};
+                        Float r2 = dr[0]*dr[0] + dr[1]*dr[1] + dr[2]*dr[2] + eps_sq;
+                        Float r  = sqrt(r2);
+                        Float r3 = r*r2;
+                        Float mor3 = G*m[j]/r3;
+
+                        acc_pert[0] += mor3 * dr[0];
+                        acc_pert[1] += mor3 * dr[1];
+                        acc_pert[2] += mor3 * dr[2];
+                    }
+                }   
+            }
             return _particle_cm.mass*pert_cm;
         }
         else return 0.0;
