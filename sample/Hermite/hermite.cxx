@@ -253,7 +253,8 @@ int main(int argc, char **argv){
     }
 
     // initialization 
-    h4_int.initialIntegration();
+    h4_int.initialIntegration(); // get neighbors and min particles
+    h4_int.adjustGroups(true);
     h4_int.sortDtAndSelectActParticle();
     h4_int.info.time = h4_int.getTime();
 
@@ -283,7 +284,7 @@ int main(int argc, char **argv){
     // integration loop
     while (h4_int.info.time<time_end) {
         h4_int.integrateOneStepAct();
-        h4_int.adjustGroups();
+        h4_int.adjustGroups(false);
         h4_int.sortDtAndSelectActParticle();
         h4_int.info.time = h4_int.getTime();
 

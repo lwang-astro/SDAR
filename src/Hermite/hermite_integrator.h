@@ -82,7 +82,6 @@ namespace H4{
         // flags
         bool initial_system_flag_; /// flag to indicate whether the system is initialized with all array size defined (reest in initialSystem)
         bool modify_system_flag_;  /// flag to indicate whether the system (group/single) is added/removed (reset in adjustSystemAfterModify)
-        bool first_step_flag_;   /// flag to indicate the first integration step
 
         // arrays
         // sorted time index list for select active particles
@@ -770,7 +769,7 @@ namespace H4{
                              n_act_single_(0), n_act_group_(0), 
                              n_init_single_(0), n_init_group_(0), 
                              index_offset_group_(0), 
-                             initial_system_flag_(false), modify_system_flag_(false), first_step_flag_(true),
+                             initial_system_flag_(false), modify_system_flag_(false),
                              index_dt_sorted_single_(), index_dt_sorted_group_(), 
                              index_group_resolve_(), index_group_cm_(), 
                              pred_(), force_(), time_next_(), 
@@ -785,7 +784,6 @@ namespace H4{
             index_offset_group_ = 0;
             initial_system_flag_ = false;
             modify_system_flag_ = false;
-            first_step_flag_ = true;
 
             particles.clear();
             groups.clear();
@@ -1221,13 +1219,15 @@ namespace H4{
           @param[in,out] _break_group_index:   break group index in groups
           @param[out] _n_break_no_add: number of break groups without adding new particles
           @param[in] _n_break:   number of break groups
+          @param[in] _start_flag: indicate this is the first adjust of the groups in the integration
         */
         void checkNewGroup(int* _new_group_particle_index_origin,
                            int* _new_n_group_offset, 
                            int& _new_n_group, 
                            int* _break_group_index,
                            int& _n_break_no_add,
-                           const int _n_break) {
+                           const int _n_break, 
+                           const bool _start_flag) {
             const int n_particle = particles.getSize();
             const int n_group = groups.getSize();
             ASSERT(index_offset_group_==n_particle);
@@ -1283,7 +1283,7 @@ namespace H4{
                     }
                     // only inwards or first step case
                     Float drdv = calcDrDv(pi, *pj);
-                    if(drdv<0.0||first_step_flag_) {
+                    if(drdv<0.0||_start_flag) {
                             
                         Float fratiosq = calcPertInnerRatioSq(dr2, pi, *pj);
 
@@ -1364,7 +1364,7 @@ namespace H4{
                     }
                     // only inwards or first step case
                     Float drdv = calcDrDv(pi, *pj);
-                    if(drdv<0.0||first_step_flag_) {
+                    if(drdv<0.0||_start_flag) {
 
                         Float fratiosq = calcPertInnerRatioSq(dr2, pi, *pj);
 
@@ -1410,8 +1410,9 @@ namespace H4{
 
         //! adjust groups
         /* check break and new groups and modify the groups
+           @param[in] _start_flag: indicate this is the first adjust of the groups in the integration
          */
-        void adjustGroups() {
+        void adjustGroups(const bool _start_flag) {
             ASSERT(!particles.isModified());
             ASSERT(initial_system_flag_);
             modify_system_flag_=true;
@@ -1427,7 +1428,7 @@ namespace H4{
             int new_n_group = 0;
 
             checkBreak(break_group_index, n_break);
-            checkNewGroup(new_group_particle_index, new_n_group_offset, new_n_group, break_group_index, n_break_no_add, n_break);
+            checkNewGroup(new_group_particle_index, new_n_group_offset, new_n_group, break_group_index, n_break_no_add, n_break, _start_flag);
 
             // integrate modified single/groups to current time
             integrateToTimeList(time_, new_group_particle_index, new_n_group_offset[new_n_group]);
@@ -1709,7 +1710,6 @@ namespace H4{
 
             ASSERT(!(n_act_single_==0&&n_act_group_==0));
 
-            first_step_flag_ = false;
         }
 
         //! write back group members to particles
