@@ -58,10 +58,10 @@ namespace H4{
     };
 
     //!Hermite integrator class
-    template <class Tparticle, class Tpcm, class Tpert, class Tmethod, class Tarmethod, class Tinfo>
+    template <class Tparticle, class Tpcm, class Tpert, class TARpert, class Tacc, class TARacc, class Tinfo>
     class HermiteIntegrator{
     private:
-        typedef AR::SymplecticIntegrator<ParticleAR<Tparticle>, ParticleH4<Tparticle>, Neighbor<Tparticle>, Tarmethod, ARInformation<Tparticle>> ARSym;
+        typedef AR::SymplecticIntegrator<ParticleAR<Tparticle>, ParticleH4<Tparticle>, TARpert, TARacc, ARInformation<Tparticle>> ARSym;
 
         // time 
         Float time_;   ///< integrated time (not real physical time if slowdown is on)
@@ -103,8 +103,8 @@ namespace H4{
         COMM::List<bool> table_single_mask_; // bool mask to indicate whether the particle of index (single) (same index of table) is masked (true) or used (false)
 
     public:
-        HermiteManager<Tmethod>* manager; ///< integration manager
-        AR::SymplecticManager<Tarmethod>* ar_manager; ///< integration manager
+        HermiteManager<Tacc>* manager; ///< integration manager
+        AR::SymplecticManager<TARacc>* ar_manager; ///< integration manager
         COMM::ParticleGroup<ParticleH4<Tparticle>, Tpcm> particles; // particles
         COMM::List<ARSym> groups; // integrator for sub-groups
         COMM::List<Neighbor<Tparticle>> neighbors; // neighbor information of particles

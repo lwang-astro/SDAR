@@ -222,11 +222,7 @@ int main(int argc, char **argv){
         }
     }
     else {
-        bool fail_flag = sym_int.integrateToTime(s, time_end, fix_step_option);
-        if (fail_flag) {
-            std::cerr<<"Integration fail!\n";
-            abort();
-        }
+        sym_int.integrateToTime(s, time_end, fix_step_option);
         sym_int.printColumn(std::cout, print_width);
         std::cout<<std::endl;
     }

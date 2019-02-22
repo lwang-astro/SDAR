@@ -226,7 +226,7 @@ int main(int argc, char **argv){
     ar_manager.step.initialSymplecticCofficients(sym_order);
 
     // integrator
-    HermiteIntegrator<Particle, Particle, HermitePerturber, HermiteInteraction, ARInteraction, HermiteInformation> h4_int;
+    HermiteIntegrator<Particle, Particle, HermitePerturber, Neighbor<Particle>, HermiteInteraction, ARInteraction, HermiteInformation> h4_int;
     h4_int.manager = &manager;
     h4_int.ar_manager = &ar_manager;
 

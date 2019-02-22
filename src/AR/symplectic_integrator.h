@@ -598,9 +598,8 @@ namespace AR {
           @param[in] _ds: the integration step size
           @param[in] _time_end_real: the expected finishing real time 
           @param[in] _fix_step_option: FixStepOption for controlling the auto-adjust step size
-          \return if integration is fail, return true
          */
-        bool integrateToTime(const Float _ds, const Float _time_end_real, const FixStepOption _fix_step_option) {
+        void integrateToTime(const Float _ds, const Float _time_end_real, const FixStepOption _fix_step_option) {
             ASSERT(manager!=NULL);
 
             // real full time step
@@ -732,8 +731,9 @@ namespace AR {
                     std::cerr<<std::endl;
 #ifdef AR_DEBUG_DUMP
                     restoreIntData(backup_data_init);
+                    DATADUMP();
 #endif
-                    return true;
+                    abort();
                 }
 
 
@@ -813,8 +813,9 @@ namespace AR {
 
 #ifdef AR_DEBUG_DUMP
                     restoreIntData(backup_data_init);
+                    DATADUMP();
 #endif
-                    return true;
+                    abort();
                 }
           
                 // check integration time
@@ -911,8 +912,6 @@ namespace AR {
             // cumulative step count 
             profile.step_count += step_count;
             profile.step_count_tsyn += step_count_tsyn;
-
-            return false;
         }
 
         //! correct CM drift
