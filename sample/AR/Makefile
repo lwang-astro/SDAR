@@ -2,6 +2,8 @@ TARGET: ar.logh ar.ttl
 
 VPATH=../../src 
 
+SOURCE=${shell ls ../../src/AR/*.h} ${shell ls ../../src/Common/*.h} ${shell ls ./*.h}
+
 use_x86=yes
 #use_k_computer=yes
 #QD_PATH=/opt/qd
@@ -30,7 +32,7 @@ endif
 ## for debug------------------------------------------#
 #CXXFLAGS += -D DEBUG 
 #CXXFLAGS += -D AR_DEBUG
-CXXFLAGS += -D AR_DEEP_DEBUG
+#CXXFLAGS += -D AR_DEEP_DEBUG
 
 ## Flag ----------------------------------------------#
 CXXFLAGS += -I../../src -I./
@@ -56,10 +58,10 @@ endif
 
 ## Target --------------------------------------------#
 
-ar.logh: ar.cxx 
+ar.logh: ar.cxx  ${SOURCE}
 	$(CXX) $(CXXFLAGS) $< -o $@ $(CXXLIBS)
 
-ar.ttl: ar.cxx 
+ar.ttl: ar.cxx ${SOURCE}
 	$(CXX) $(CXXFLAGS) -D AR_TTL $< -o $@ $(CXXLIBS)
 
 clean:

@@ -1702,8 +1702,8 @@ namespace H4{
                 const int k= index_dt_sorted_group_[i];
                 const int k1= index_dt_sorted_group_[i+1];
                 ASSERT(groups[k].particles.cm.dt<=groups[k1].particles.cm.dt);
-                ASSERT(k+index_offset_group_<n_singles + n_groups);
-                ASSERT(k1+index_offset_group_<n_singles + n_groups);
+                ASSERT(k<n_groups);
+                ASSERT(k1<n_groups);
                 ASSERT(time_next_[k+index_offset_group_]<=time_next_[k1+index_offset_group_]);
             }
 #endif

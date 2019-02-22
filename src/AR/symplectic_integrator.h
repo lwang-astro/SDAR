@@ -1072,6 +1072,7 @@ namespace AR {
 #ifdef AR_TTL
             _fout<<std::setw(_width)<<"Gt_inv";
 #endif
+            profile.printColumnTitle(_fout, _width);
             slowdown.printColumnTitle(_fout, _width);
             particles.printColumnTitle(_fout, _width);
         }
