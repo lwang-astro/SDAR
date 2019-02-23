@@ -3,6 +3,7 @@
 //#include <unistd.h>
 #include <getopt.h>
 #include <string.h>
+#include <string>
 #include <stdlib.h>
 #include <iomanip>
 #include <cmath>
@@ -43,9 +44,9 @@ int main(int argc, char **argv){
     Float eta_4th = 0.1; // time step coefficient 
     Float eta_2nd = 0.001; // time step coefficient for 2nd order
     Float eps_sq = 0.0;    // softening parameter
+    Float slowdown_ref =1e-6; // slowdown reference factor
+    Float slowdown_max =1e4; // slowdown reference factor
     Float G = 1.0;      // gravitational constant
-    bool load_flag=false; // if true; load dumped data
-
     char* filename_par=NULL; // par dumped filename
 
     int copt;
@@ -61,9 +62,10 @@ int main(int argc, char **argv){
         {"eta-4th",required_argument, 0, 0},
         {"eta-2nd",required_argument, 0, 0},
         {"eps",required_argument, 0, 0},
+        {"slowdown-ref",required_argument, 0, 0},
+        {"slowdown-max",required_argument, 0, 0},
         {"print-width",required_argument, 0, 0},
         {"print-precision",required_argument, 0, 0},
-        {"load-data",no_argument, 0, 'l'},
         {"load-par",required_argument, 0, 0},    
         {"help",no_argument, 0, 'h'},
         {0,0,0,0}
@@ -102,12 +104,18 @@ int main(int argc, char **argv){
                 eps_sq = atof(optarg);
                 break;
             case 11:
-                print_width = atof(optarg);
+                slowdown_ref = atof(optarg);
                 break;
             case 12:
-                print_precision = atoi(optarg);
+                slowdown_max = atof(optarg);
+                break;
+            case 13:
+                print_width = atof(optarg);
                 break;
             case 14:
+                print_precision = atoi(optarg);
+                break;
+            case 15:
                 filename_par = optarg;
                 break;
             default:
@@ -136,9 +144,6 @@ int main(int argc, char **argv){
         case 'o':
             dt_output = atof(optarg);
             break;
-        case 'l':
-            load_flag = true;
-            break;
         case 'h':
             std::cout<<"chain [option] data_filename\n"
                      <<"Input data file format: each line: mass, x, y, z, vx, vy, vz\n"
@@ -161,10 +166,10 @@ int main(int argc, char **argv){
                      <<"          --eta-4th:   time step coefficient for 4th order ("<<eta_4th<<")\n"
                      <<"          --eta-2nd:   time step coefficient for 2nd order ("<<eta_2nd<<")\n"
                      <<"          --eps:       softerning parameter ("<<eps_sq<<")\n"
+                     <<"          --slowdown-ref:  slowdown perturbation ratio reference ("<<slowdown_ref<<")\n"
+                     <<"          --slowdown-max:  slowdown maximum factor ("<<slowdown_max<<")\n"
                      <<"          --print-width [int]:     print width of value ("<<print_width<<")\n"
                      <<"          --print-precision [int]: print digital precision ("<<print_precision<<")\n"
-                     <<"    -l :          load dumped data for restart (if used, the input file is dumped data)\n"
-                     <<"          --load-data (same as -l)\n"
                      <<"          --load-par    [char]:    filename to load manager parameters\n"
                      <<"    -h :          print option information\n"
                      <<"          --help (same as -h)\n";
@@ -195,69 +200,81 @@ int main(int argc, char **argv){
     // data file name
     char* filename = argv[argc-1];
 
-    // open data file
-    std::fstream fin;
-    fin.open(filename,std::fstream::in);
-    if(!fin.is_open()) {
-        std::cerr<<"Error: Filename "<<filename<<" not found\n";
-        abort();
-    }
 
     // manager
     HermiteManager<HermiteInteraction> manager;
-    manager.r_break_crit = r_break;
-    manager.r_neighbor_crit = r_search;
-    manager.step.eta_4th = eta_4th;
-    manager.step.eta_2nd = eta_2nd;
-    manager.step.setDtRange(dt_max, dt_min_power_index);
-    manager.interaction.eps_sq = eps_sq;
-    manager.interaction.G = G;
     AR::SymplecticManager<ARInteraction> ar_manager;
-    ar_manager.interaction.eps_sq = eps_sq;
-    ar_manager.interaction.G = G;
-    ar_manager.time_step_real_min = manager.step.getDtMin();
-    if (time_error == 0.0) time_error = 0.25*ar_manager.time_step_real_min;
-    ASSERT(time_error>1e-14);
-    ar_manager.time_error_max_real = time_error;
-    // time error cannot be smaller than round-off error
-    ar_manager.energy_error_relative_max = energy_error; 
-    ar_manager.step_count_max = nstep_max;
-    // set symplectic order
-    ar_manager.step.initialSymplecticCofficients(sym_order);
+
+    if (filename_par!=NULL) {
+        std::FILE* fp = std::fopen(filename_par,"r");
+        if (fp==NULL) {
+            std::cerr<<"Error: parameter file "<<filename_par<<" cannot be open!\n";
+            abort();
+        }
+        manager.readBinary(fp);
+        ar_manager.readBinary(fp);
+        fclose(fp);
+    }
+    else {
+        manager.r_break_crit = r_break;
+        manager.r_neighbor_crit = r_search;
+        manager.step.eta_4th = eta_4th;
+        manager.step.eta_2nd = eta_2nd;
+        manager.step.setDtRange(dt_max, dt_min_power_index);
+        manager.interaction.eps_sq = eps_sq;
+        manager.interaction.G = G;
+        ar_manager.interaction.eps_sq = eps_sq;
+        ar_manager.interaction.G = G;
+        ar_manager.time_step_real_min = manager.step.getDtMin();
+        if (time_error == 0.0) time_error = 0.25*ar_manager.time_step_real_min;
+        ASSERT(time_error>1e-14);
+        ar_manager.time_error_max_real = time_error;
+        // time error cannot be smaller than round-off error
+        ar_manager.energy_error_relative_max = energy_error; 
+        ar_manager.slowdown_pert_ratio_ref = slowdown_ref;
+        ar_manager.slowdown_factor_max = slowdown_max;
+        ar_manager.step_count_max = nstep_max;
+        // set symplectic order
+        ar_manager.step.initialSymplecticCofficients(sym_order);
+    }
 
     // integrator
     HermiteIntegrator<Particle, Particle, HermitePerturber, Neighbor<Particle>, HermiteInteraction, ARInteraction, HermiteInformation> h4_int;
     h4_int.manager = &manager;
     h4_int.ar_manager = &ar_manager;
 
-    if(load_flag) {
+    std::fstream fin;
+    fin.open(filename,std::fstream::in);
+    if(!fin.is_open()) {
+        std::cerr<<"Error: data file "<<filename<<" cannot be open!\n";
+        abort();
+    }
+    h4_int.particles.setMode(COMM::ListMode::local);
+    h4_int.particles.readMemberAscii(fin);
+    for (int i=0; i<h4_int.particles.getSize(); i++) h4_int.particles[i].id = i+1;
+    h4_int.particles.calcCenterOfMass();
+    h4_int.particles.shiftToCenterOfMassFrame();
+    h4_int.particles.calcCenterOfMass();
         
-    }
-    else {
-        h4_int.particles.setMode(COMM::ListMode::local);
-        h4_int.particles.readAscii(fin);
-        for (int i=0; i<h4_int.particles.getSize(); i++) h4_int.particles[i].id = i+1;
-        h4_int.particles.calcCenterOfMass();
-        h4_int.particles.shiftToCenterOfMassFrame();
-        h4_int.particles.calcCenterOfMass();
-        std::cerr<<"CM: after shift ";
-        h4_int.particles.cm.printColumn(std::cerr, print_width);
-        std::cerr<<std::endl;
+    ar_manager.slowdown_mass_ref = h4_int.particles.cm.mass/h4_int.particles.getSize();
 
-        h4_int.groups.setMode(COMM::ListMode::local);
-        h4_int.groups.reserveMem(h4_int.particles.getSize());
-        h4_int.reserveIntegratorMem();
-        // initial system 
-        h4_int.initialSystemSingle(time_zero);
-        h4_int.readGroupConfigureAscii(fin);
-    }
+    std::cerr<<"CM: after shift ";
+    h4_int.particles.cm.printColumn(std::cerr, print_width);
+    std::cerr<<std::endl;
 
+    h4_int.groups.setMode(COMM::ListMode::local);
+    h4_int.groups.reserveMem(h4_int.particles.getSize());
+    h4_int.reserveIntegratorMem();
+    // initial system 
+    h4_int.initialSystemSingle(time_zero);
+    h4_int.readGroupConfigureAscii(fin);
+
+    // no initial when both parameters and data are load
     // initialization 
     h4_int.initialIntegration(); // get neighbors and min particles
     h4_int.adjustGroups(true);
     h4_int.sortDtAndSelectActParticle();
     h4_int.info.time = h4_int.getTime();
-
 
     // precision
     std::cout<<std::setprecision(print_precision);
@@ -303,6 +320,16 @@ int main(int argc, char **argv){
             h4_int.printStepHist();
         }
     }
+
+    std::string fpar_out = std::string(filename) + ".par";
+    std::FILE* fout = std::fopen(fpar_out.c_str(),"w");
+    if (fout==NULL) {
+        std::cerr<<"Error: data file "<<fpar_out<<" cannot be open!\n";
+        abort();
+    }
+    manager.writeBinary(fout);
+    ar_manager.writeBinary(fout);
+    fclose(fout);
 
     //fpu_fix_end(&oldcw);
 

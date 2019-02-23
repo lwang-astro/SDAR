@@ -58,5 +58,23 @@ namespace AR{
             _fout<<std::setw(_width)<<step_count
                  <<std::setw(_width)<<step_count_tsyn;
         }
+
+        //! write class data with BINARY format
+        /*! @param[in] _fout: file IO for write
+         */
+        void writeBinary(FILE *_fout) {
+            fwrite(this, sizeof(*this),1,_fout);
+        }
+
+        //! read class data with BINARY format and initial the array
+        /*! @param[in] _fin: file IO for read
+         */
+        void readBinary(FILE *_fin) {
+            size_t rcount = fread(this, sizeof(*this), 1, _fin);
+            if (rcount<1) {
+                std::cerr<<"Error: Data reading fails! requiring data number is 1, only obtain "<<rcount<<".\n";
+                abort();
+            }
+        }
     };
 }

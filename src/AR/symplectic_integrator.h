@@ -28,10 +28,56 @@ namespace AR {
         Float time_error_max_real; ///> maximum time error (absolute), should be positive and larger than round-off error 
         Float energy_error_relative_max; ///> maximum energy error requirement 
         Float time_step_real_min;        ///> minimum real time step allown
+        Float slowdown_pert_ratio_ref;   ///> slowdown perturbation /inner ratio reference factor
+        Float slowdown_mass_ref;         ///> slowdown mass factor reference
+        Float slowdown_factor_max;       ///> slowdown factor maximum
         long long int step_count_max; ///> maximum step counts
         
         Tmethod interaction; ///> class contain interaction function
         SymplecticStep step;  ///> class to manager kick drift step
+
+        //! constructor
+        SymplecticManager(): time_error_max_real(Float(-1.0)), energy_error_relative_max(Float(-1.0)), time_step_real_min(Float(-1.0)), slowdown_pert_ratio_ref(Float(-1.0)), slowdown_mass_ref(Float(-1.0)), step_count_max(-1), interaction(), step() {}
+
+        //! check whether parameters values are correct
+        /*! \return true: all correct
+         */
+        bool checkParams() {
+            ASSERT(time_error_max_real>ROUND_OFF_ERROR_LIMIT);
+            ASSERT(energy_error_relative_max>ROUND_OFF_ERROR_LIMIT);
+            ASSERT(time_step_real_min>ROUND_OFF_ERROR_LIMIT);
+            ASSERT(slowdown_pert_ratio_ref>0.0);
+            ASSERT(slowdown_mass_ref>0.0);
+            ASSERT(slowdown_factor_max>0);
+            ASSERT(step_count_max>0);
+            ASSERT(step.getOrder()>0);
+            ASSERT(interaction.checkParams());
+            return true;
+        }
+
+        //! write class data with BINARY format
+        /*! @param[in] _fout: file IO for write
+         */
+        void writeBinary(FILE *_fout) {
+            size_t size = sizeof(*this) - sizeof(interaction) - sizeof(step);
+            fwrite(this, size, 1,_fout);
+            interaction.writeBinary(_fout);
+            step.writeBinary(_fout);
+        }
+
+        //! read class data with BINARY format and initial the array
+        /*! @param[in] _fin: file IO for read
+         */
+        void readBinary(FILE *_fin) {
+            size_t size = sizeof(*this) - sizeof(interaction) - sizeof(step);
+            size_t rcount = fread(this, size, 1, _fin);
+            if (rcount<1) {
+                std::cerr<<"Error: Data reading fails! requiring data number is 1, only obtain "<<rcount<<".\n";
+                abort();
+            }
+            interaction.readBinary(_fin);
+            step.readBinary(_fin);
+        }
     };
     
     //! Symplectic integrator class for a group of particles
@@ -75,6 +121,17 @@ namespace AR {
 #else
         SymplecticIntegrator(): time_(0), etot_(0), ekin_(0), epot_(0), force_(), manager(NULL), perturber(), slowdown(), particles(), info(), profile() {}
 #endif
+
+        //! check whether parameters values are correct
+        /*! \return true: all correct
+         */
+        bool checkParams() {
+            ASSERT(manager!=NULL);
+            ASSERT(manager->checkParams());
+            ASSERT(perturber.checkParams());
+            ASSERT(info.checkParams());
+            return true;
+        }
 
         //! reserve memory for force
         /*! The size of force depends on the particle data size.Thus particles should be added first before call this function
@@ -305,7 +362,7 @@ namespace AR {
           @param[in] _time_real: real physical time to initialize
         */
         void initialIntegration(const Float _time_real) {
-            ASSERT(manager!=NULL);
+            ASSERT(checkParams());
 
             // Initial intgrt value t (avoid confusion of real time when slowdown is used)
             time_ = Float(0.0);
@@ -325,6 +382,10 @@ namespace AR {
                 particles.calcCenterOfMass();
                 particles.shiftToCenterOfMassFrame();
             }
+
+            // set slowdown reference
+            const Float mass_ratio = particles.cm.mass/manager->slowdown_mass_ref;
+            slowdown.initialSlowDownReference(mass_ratio*manager->slowdown_pert_ratio_ref, manager->slowdown_factor_max);
 
             // particle number and data address
             const int n_particle = particles.getSize();
@@ -389,7 +450,8 @@ namespace AR {
           @param[out] _time_table: for high order symplectic integration, store the substep integrated (real) time, used for estimate the step for time synchronization, size should be consistent with step.getCDPairSize().
         */
         void integrateOneStep(const Float _ds, Float _time_table[]) {
-            ASSERT(manager!=NULL);
+            ASSERT(checkParams());
+
             ASSERT(!particles.isModified());
             ASSERT(_ds>0);
 
@@ -457,7 +519,8 @@ namespace AR {
           @param[out] _time_table: for high order symplectic integration, store the substep integrated (real) time, used for estimate the step for time synchronization, size should be consistent with step.getCDPairSize().         
         */
         void integrateTwoOneStep(const Float _ds, Float _time_table[]) {
-            ASSERT(manager!=NULL);
+            ASSERT(checkParams());
+
             ASSERT(!particles.isModified());
             ASSERT(_ds>0);
 
@@ -600,13 +663,12 @@ namespace AR {
           @param[in] _fix_step_option: FixStepOption for controlling the auto-adjust step size
          */
         void integrateToTime(const Float _ds, const Float _time_end_real, const FixStepOption _fix_step_option) {
-            ASSERT(manager!=NULL);
+            ASSERT(checkParams());
 
             // real full time step
             const Float dt_real_full = _time_end_real - slowdown.getRealTime();
 
             // time error 
-            ASSERT(manager->time_error_max_real>0.0);
             const Float time_error_real = manager->time_error_max_real;
 
             // energy error limit
@@ -1094,5 +1156,72 @@ namespace AR {
             slowdown.printColumn(_fout, _width);
             particles.printColumn(_fout, _width);
         }
+
+        //! write class data with BINARY format
+        /*! @param[in] _fout: file IO for write
+         */
+        void writeBinary(FILE *_fout) {
+            fwrite(&time_, sizeof(Float), 1, _fout);
+            fwrite(&etot_, sizeof(Float), 1, _fout);
+            fwrite(&ekin_, sizeof(Float), 1, _fout);
+            fwrite(&epot_, sizeof(Float), 1, _fout);
+#ifdef AR_TTL
+            fwrite(&gt_inv_, sizeof(Float), 1, _fout);
+#endif
+            int size = force_.getSize();
+            fwrite(&size, sizeof(int), 1, _fout);
+            for (int i=0; i<size; i++) force_[i].writeBinary(_fout);
+            
+            perturber.writeBinary(_fout);
+            slowdown.writeBinary(_fout);
+            particles.writeBinary(_fout);
+            info.writeBinary(_fout);
+            profile.writeBinary(_fout);
+        }
+
+        //! read class data with BINARY format and initial the array
+        /*! @param[in] _fin: file IO for read
+         */
+        void readBinary(FILE *_fin) {
+            size_t rcount = fread(&time_, sizeof(Float), 1, _fin);
+            rcount += fread(&etot_, sizeof(Float), 1, _fin);
+            rcount += fread(&ekin_, sizeof(Float), 1, _fin);
+            rcount += fread(&epot_, sizeof(Float), 1, _fin);
+            if (rcount<4) {
+                std::cerr<<"Error: Data reading fails! requiring data number is 4, only obtain "<<rcount<<".\n";
+                abort();
+            }
+#ifdef AR_TTL
+            rcount = fread(&gt_inv_, sizeof(Float), 1, _fin);
+            if (rcount<1) {
+                std::cerr<<"Error: Data reading fails! requiring data number is 1, only obtain "<<rcount<<".\n";
+                abort();
+            }
+#endif
+            int size;
+            rcount = fread(&size, sizeof(int),1, _fin);
+            if(rcount<1) {
+                std::cerr<<"Error: Data reading fails! requiring data number is 1, only obtain "<<rcount<<".\n";
+                abort();
+            }
+            if(size<0) {
+                std::cerr<<"Error: array size <0 "<<size<<"<=0!\n";
+                abort();
+            }
+            if (size>0) {
+                force_.setMode(COMM::ListMode::local);
+                force_.reserveMem(size);
+                force_.resizeNoInitialize(size);
+                for (int i=0; i<size; i++) force_[i].readBinary(_fin);
+            }
+            
+            perturber.readBinary(_fin);
+            slowdown.readBinary(_fin);
+            particles.setMode(COMM::ListMode::local);
+            particles.readBinary(_fin);
+            info.readBinary(_fin);
+            profile.readBinary(_fin);
+        }
+
     };
 }

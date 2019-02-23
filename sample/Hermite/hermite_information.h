@@ -12,6 +12,13 @@ public:
     Float ekin; // kinetic energy
     Float epot; // potential energy
 
+    //! check whether parameters values are correct
+    /*! \return true: all correct
+     */
+    bool checkParams() {
+        return true;
+    }        
+
     //! calculate energy of particle group
     template <class TList>
     void calcEnergy(TList& _particles, HermiteInteraction& _interaction, const bool _initial_flag) {

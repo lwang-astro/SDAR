@@ -14,7 +14,16 @@ public:
     Float eps_sq;
     Float G;
 
-    ARInteraction(): eps_sq(Float(0.0)), G(Float(1.0)) {}
+    ARInteraction(): eps_sq(Float(-1.0)), G(Float(-1.0)) {}
+
+    //! check whether parameters values are correct
+    /*! \return true: all correct
+     */
+    bool checkParams() {
+        ASSERT(eps_sq>=0.0);
+        ASSERT(G>0.0);
+        return true;
+    }        
 
     //! (Necessary) calculate acceleration from perturber and the perturbation factor for slowdown calculation
     /*! The Force class acc_pert should be updated
@@ -59,7 +68,7 @@ public:
                 // calculate component perturbation
                 for (int i=0; i<_n_particle; i++) {
                     Float* acc_pert = _force[i].acc_pert;
-                    const Particle& pi = _particles[i];
+                    const auto& pi = _particles[i];
                     acc_pert[0] = acc_pert[1] = acc_pert[2] = Float(0.0);
 
                     Float xi[3];
@@ -128,7 +137,7 @@ public:
                 // calculate component perturbation
                 for (int i=0; i<_n_particle; i++) {
                     Float* acc_pert = _force[i].acc_pert;
-                    const Particle& pi = _particles[i];
+                    const auto& pi = _particles[i];
                     acc_pert[0] = acc_pert[1] = acc_pert[2] = Float(0.0);
 
                     Float xi[3];
@@ -297,5 +306,23 @@ public:
         return 1.0/_ekin_minus_etot;
     }
 #endif   
+
+    //! write class data to file with binary format
+    /*! @param[in] _fp: FILE type file for output
+     */
+    void writeBinary(FILE *_fp) const {
+        fwrite(this, sizeof(*this),1,_fp);
+    }
+
+    //! read class data to file with binary format
+    /*! @param[in] _fp: FILE type file for reading
+     */
+    void readBinary(FILE *_fin) {
+        size_t rcount = fread(this, sizeof(*this), 1, _fin);
+        if (rcount<1) {
+            std::cerr<<"Error: Data reading fails! requiring data number is 1, only obtain "<<rcount<<".\n";
+            abort();
+        }
+    }    
 };
 

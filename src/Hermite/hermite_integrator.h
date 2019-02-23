@@ -19,6 +19,17 @@ namespace H4{
         Tmethod interaction; ///> class contain interaction function
         BlockTimeStep4th step; ///> time step calculator
 
+        //! check whether parameters values are correct
+        /*! \return true: all correct
+         */
+        bool checkParams() {
+            ASSERT(r_break_crit>=0.0);
+            ASSERT(r_neighbor_crit>=0.0);
+            ASSERT(interaction.checkParams());
+            ASSERT(step.checkParams());
+            return true;
+        }
+
         //! print titles of class members using column style
         /*! print titles of class members in one line for column style
           @param[out] _fout: std::ostream output object
@@ -43,6 +54,8 @@ namespace H4{
         /*! @param[in] _fp: FILE type file for output
          */
         void writeBinary(FILE *_fp) const {
+            size_t size = sizeof(*this) - sizeof(interaction) - sizeof(step);
+            fwrite(this, size, 1, _fp);
             interaction.writeBinary(_fp);
             step.writeBinary(_fp);
         }
@@ -51,6 +64,12 @@ namespace H4{
         /*! @param[in] _fp: FILE type file for reading
          */
         void readBinary(FILE *_fin) {
+            size_t size = sizeof(*this) - sizeof(interaction) - sizeof(step);
+            size_t rcount = fread(this, size, 1, _fin);
+            if (rcount<1) {
+                std::cerr<<"Error: Data reading fails! requiring data number is 1, only obtain "<<rcount<<".\n";
+                abort();
+            }
             interaction.readBinary(_fin);
             step.readBinary(_fin);
         }
@@ -110,6 +129,19 @@ namespace H4{
         COMM::List<Neighbor<Tparticle>> neighbors; // neighbor information of particles
         Tpert perturber; // external perturberx
         Tinfo info; ///< information of the system
+
+        //! check whether parameters values are correct
+        /*! \return true: all correct
+         */
+        bool checkParams() {
+            ASSERT(manager!=NULL);
+            ASSERT(manager->checkParams());
+            ASSERT(ar_manager!=NULL);
+            ASSERT(ar_manager->checkParams());
+            ASSERT(perturber.checkParams());
+            ASSERT(info.checkParams());
+            return true;
+        }
 
     private:
         //! Calculate 2nd order time step for lists particles 
@@ -853,6 +885,7 @@ namespace H4{
         /*!@param[in] _time_sys: current set time
          */
         void initialSystemSingle(const Float _time_sys) {
+            ASSERT(checkParams());
             particles.setModifiedFalse();
 
             initial_system_flag_ = true;
@@ -898,6 +931,7 @@ namespace H4{
            set single mask to true for added particles
          */
         void addGroups(const int* _particle_index, const int* _n_group_offset, const int _n_group) {
+            ASSERT(checkParams());
             ASSERT(!particles.isModified());
             ASSERT(initial_system_flag_);
 
@@ -1039,6 +1073,7 @@ namespace H4{
                          const int* _break_group_index, 
                          const int _n_break_no_add,
                          const int _n_break) {
+            ASSERT(checkParams());
             ASSERT(!particles.isModified());
             ASSERT(initial_system_flag_);
             ASSERT(_n_break<=index_dt_sorted_group_.getSize());
@@ -1413,6 +1448,7 @@ namespace H4{
            @param[in] _start_flag: indicate this is the first adjust of the groups in the integration
          */
         void adjustGroups(const bool _start_flag) {
+            ASSERT(checkParams());
             ASSERT(!particles.isModified());
             ASSERT(initial_system_flag_);
             modify_system_flag_=true;
@@ -1573,6 +1609,7 @@ namespace H4{
         /*! Integrated to time_sys
         */
         void integrateOneStepAct() {
+            ASSERT(checkParams());
             ASSERT(!particles.isModified());
             ASSERT(initial_system_flag_);
             ASSERT(!modify_system_flag_);
@@ -1621,6 +1658,7 @@ namespace H4{
         void integrateToTimeList(const Float _time_next,
                                  const int* _particle_index,
                                  const int _n_particle) {
+            ASSERT(checkParams());
             ASSERT(!particles.isModified());
             ASSERT(initial_system_flag_);
 
@@ -1752,6 +1790,8 @@ namespace H4{
             return index_dt_sorted_group_.getDataAddress();
         }
 
+        
+
         //! print step histogram
         void printStepHist(){
             std::map<Float, int> stephist;
@@ -1779,5 +1819,6 @@ namespace H4{
             }
             std::cerr<<std::endl;
         }
+
     };
 }

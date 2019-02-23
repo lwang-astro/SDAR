@@ -11,6 +11,12 @@
 //! a sample interaction class with newtonian acceleration
 class Interaction{
 public:
+    //! (Necessary) check whether publicly initialized parameters are correctly set
+    /*! \return true: all parmeters are correct. In this case no parameters, return true;
+     */
+    bool checkParams() {
+        return true;
+    }
 
     //! (Necessary) calculate acceleration from perturber and the perturbation factor for slowdown calculation
     /*! The AR::Force class acc_pert should be updated
@@ -164,5 +170,17 @@ public:
         return 1.0/_ekin_minus_etot;
     }
 #endif   
+
+    //! write class data to file with binary format
+    /*! @param[in] _fp: FILE type file for output
+     */
+    void writeBinary(FILE *_fp) const {
+    }
+
+    //! read class data to file with binary format
+    /*! @param[in] _fp: FILE type file for reading
+     */
+    void readBinary(FILE *_fin) {
+    }    
 };
 

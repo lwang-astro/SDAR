@@ -119,8 +119,11 @@ namespace COMM {
           @param [in] _fout: FILE IO for writing
         */
         void writeBinary(FILE* _fout) {
-            fwrite(&TList::num_,sizeof(int), 1, _fout);
+            int num = TList::num_;
+            fwrite(&num,sizeof(int), 1, _fout);
             for (int i=0; i<TList::num_; i++) TList::data_[i].writeBinary(_fout);
+            fwrite(&origin_frame_flag, sizeof(bool), 1, _fout);
+            cm.writeBinary(_fout);
         }
 
         ////! write particle data to files (notice original address is lost)
@@ -136,7 +139,7 @@ namespace COMM {
         /*! write particle data into file with ASCII format. Number of particles is written first, then the data of particles 
           @param [in] _fout: std::ostream IO for writing
         */
-        void writeAscii(std::ostream& _fout) const{
+        void writeMemberAscii(std::ostream& _fout) const{
             _fout<<TList::num_<<" ";
             for (int i=0; i<TList::num_; i++) TList::data_[i].writeAscii(_fout);
         }
@@ -163,6 +166,12 @@ namespace COMM {
             TList::reserveMem(n_new);
             for (int i=0; i<n_new; i++) TList::data_[i].readBinary(_fin);
             TList::num_ = n_new;
+            rn = fread(&origin_frame_flag, sizeof(bool), 1, _fin);
+            if(rn<1) {
+                std::cerr<<"Error: cannot read origin_frame_flag!\n";
+                abort();
+            }
+            cm.readBinary(_fin);
         }
 
         //! Read particle data from file 
@@ -170,7 +179,7 @@ namespace COMM {
           Notice the memory should be allocated first, and the free space is enough to save the reading particles
           @param [in] _fin: std::istream IO for reading.
         */
-        void readAscii(std::istream& _fin) {
+        void readMemberAscii(std::istream& _fin) {
             ASSERT(TList::mode_==ListMode::local);
             ASSERT(TList::num_==0);
             ASSERT(TList::nmax_==0);

@@ -3,6 +3,7 @@
 //#include <unistd.h>
 #include <getopt.h>
 #include <string.h>
+#include <string>
 #include <stdlib.h>
 #include <iomanip>
 #include <cmath>
@@ -164,39 +165,61 @@ int main(int argc, char **argv){
     // data file name
     char* filename = argv[argc-1];
 
-    // open data file
-    std::fstream fin;
-    fin.open(filename,std::fstream::in);
-    if(!fin.is_open()) {
-        std::cerr<<"Error: Filename "<<filename<<" not found\n";
-        abort();
-    }
-
     // manager
     SymplecticManager<Interaction> manager;
-    manager.time_step_real_min = dt_min;
-    manager.time_error_max_real = time_error;
-    manager.energy_error_relative_max = energy_error; 
-    manager.step_count_max = nstep_max;
+    if (filename_par!=NULL) {
+        std::FILE* fp = std::fopen(filename_par,"r");
+        if (fp==NULL) {
+            std::cerr<<"Error: parameter file "<<filename_par<<" cannot be open!\n";
+            abort();
+        }
+        manager.readBinary(fp);
+        fclose(fp);
+    }
+    else {
+        manager.time_step_real_min = dt_min;
+        manager.time_error_max_real = time_error;
+        manager.energy_error_relative_max = energy_error; 
+        manager.slowdown_factor_max = 1.0;
+        manager.slowdown_mass_ref = 1.0;
+        manager.slowdown_pert_ratio_ref = 1e-6;
+        manager.step_count_max = nstep_max;
+        // set symplectic order
+        manager.step.initialSymplecticCofficients(sym_order);
+    }
     
-    // set symplectic order
-    manager.step.initialSymplecticCofficients(sym_order);
-
     // integrator
     SymplecticIntegrator<Particle, Particle, Perturber, Interaction, Information> sym_int;
     sym_int.manager = &manager;
 
     if(load_flag) {
-        
+        std::FILE* fin = std::fopen(filename,"r");
+        if (fin==NULL) {
+            std::cerr<<"Error: data file "<<filename<<" cannot be open!\n";
+            abort();
+        }
+        sym_int.readBinary(fin);
+        fclose(fin);
     }
     else {
+        std::fstream fin;
+        fin.open(filename,std::fstream::in);
+        if(!fin.is_open()) {
+            std::cerr<<"Error: data file "<<filename<<" cannot be open!\n";
+            abort();
+        }
         sym_int.particles.setMode(COMM::ListMode::local);
-        sym_int.particles.readAscii(fin);
+        sym_int.particles.readMemberAscii(fin);
         sym_int.reserveIntegratorMem();
+        fin.close();
+
     }
 
-    // initialization 
-    sym_int.initialIntegration(time_zero);
+    // no initial when both parameters and data are load
+    if(!(load_flag&&filename_par!=NULL)) {
+        // initialization 
+        sym_int.initialIntegration(time_zero);
+    }
 
     // precision
     std::cout<<std::setprecision(print_precision);
@@ -226,6 +249,26 @@ int main(int argc, char **argv){
         sym_int.printColumn(std::cout, print_width);
         std::cout<<std::endl;
     }
+
+
+    // dump final data
+    std::string fdata_out = std::string(filename) + ".last";
+    std::FILE* fout = std::fopen(fdata_out.c_str(),"w");
+    if (fout==NULL) {
+        std::cerr<<"Error: data file "<<fdata_out<<" cannot be open!\n";
+        abort();
+    }
+    sym_int.writeBinary(fout);
+    fclose(fout);
+
+    std::string fpar_out = std::string(filename) + ".par";
+    fout = std::fopen(fpar_out.c_str(),"w");
+    if (fout==NULL) {
+        std::cerr<<"Error: data file "<<fpar_out<<" cannot be open!\n";
+        abort();
+    }
+    manager.writeBinary(fout);
+    fclose(fout);
 
     //fpu_fix_end(&oldcw);
 

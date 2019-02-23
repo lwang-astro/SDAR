@@ -9,7 +9,17 @@ public:
     Float G;      // gravitational constant
 
     // constructor
-    HermiteInteraction(): eps_sq(Float(0.0)), G(Float(1.0)) {}
+    HermiteInteraction(): eps_sq(Float(-1.0)), G(Float(-1.0)) {}
+
+    //! check whether parameters values are correct
+    /*! \return true: all correct
+     */
+    bool checkParams() {
+        ASSERT(eps_sq>=0.0);
+        ASSERT(G>0.0);
+        return true;
+    }        
+    
 
     //! calculate acceleration and jerk of one pair
     /*! \return the distance square of the pair
@@ -66,5 +76,22 @@ public:
         return -G*_pj.mass*rinv;
     }
     
+    //! write class data to file with binary format
+    /*! @param[in] _fp: FILE type file for output
+     */
+    void writeBinary(FILE *_fp) const {
+        fwrite(this, sizeof(*this),1,_fp);
+    }
+
+    //! read class data to file with binary format
+    /*! @param[in] _fp: FILE type file for reading
+     */
+    void readBinary(FILE *_fin) {
+        size_t rcount = fread(this, sizeof(*this), 1, _fin);
+        if (rcount<1) {
+            std::cerr<<"Error: Data reading fails! requiring data number is 1, only obtain "<<rcount<<".\n";
+            abort();
+        }
+    }    
 };
 

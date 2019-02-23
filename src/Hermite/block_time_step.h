@@ -9,7 +9,16 @@ namespace H4{
         Float eta_4th;  ///> time step coefficient (outside sqrt) for forth order
         Float eta_2nd;  ///> time step coefficient (outside sqrt) for second order
 
-        TimeStep4th(): eta_4th(0.02), eta_2nd(0.005) {}
+        TimeStep4th(): eta_4th(Float(-1.0)), eta_2nd(Float(-1.0)) {}
+
+        //! check whether parameters values are correct
+        /*! \return true: all correct
+         */
+        bool checkParams() {
+            ASSERT(eta_4th>0.0);
+            ASSERT(eta_2nd>0.0);
+            return true;
+        }        
 
         //! calculate 2nd order time step 
         /*! calculate time step based on Acc and its derivatives

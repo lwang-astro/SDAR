@@ -50,6 +50,13 @@ namespace H4{
         COMM::List<COMM::BinaryTree<ARPtcl>> binarytree;
 
         ARInformation(): ds(Float(0.0)), fix_step_option(AR::FixStepOption::none), need_resolve_flag(false), particle_index(), binarytree() {}
+
+        //! check whether parameters values are correct
+        /*! \return true: all correct
+         */
+        bool checkParams() {
+            return true;
+        }        
     
         //! reserve memory
         void reserveMem(const int _nmax) {

@@ -329,6 +329,30 @@ namespace AR {
         int getOrder() const {
             return sym_order_;
         }
-    };
 
+        //! write class data with BINARY format
+        /*! @param[in] _fout: file IO for write
+         */
+        void writeBinary(FILE *_fout) {
+            fwrite(this, sizeof(*this),1,_fout);
+        }
+
+        //! read class data with BINARY format and initial the array
+        /*! @param[in] _fin: file IO for read
+         */
+        void readBinary(FILE *_fin) {
+            size_t rcount = fread(this, sizeof(*this), 1, _fin);
+            if (rcount<1) {
+                std::cerr<<"Error: Data reading fails! requiring data number is 1, only obtain "<<rcount<<".\n";
+                abort();
+            }
+
+            ASSERT(sym_type_==1||sym_type_==2);
+            ASSERT(sym_order_>=0);
+            cd_pair_array_size_ = 0;            
+        
+            int sym_n = (sym_type_==2)?-sym_order_:sym_order_;
+            if (sym_order_>0) initialSymplecticCofficients(sym_n);
+        }
+    };
 }

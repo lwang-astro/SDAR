@@ -4,12 +4,14 @@
 #include <qd/dd_real.h>
 #include <qd/dd_inline.h>
 typedef dd_real Float;
+const int ROUND_OFF_ERROR_LIMIT=1e-28;
 
 #else
 #include <limits>
 typedef double Float;
 #define to_int(x)     int(x)
 #define to_double(x)  double(x)
+const int ROUND_OFF_ERROR_LIMIT=1e-14;
 
 using std::sqrt;
 using std::abs;

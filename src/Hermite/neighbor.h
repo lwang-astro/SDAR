@@ -39,7 +39,15 @@ namespace H4 {
         COMM::List<NBAdr<Tparticle>> neighbor_address; // neighbor perturber address
 
         //! constructor
-        Neighbor(): r_min_index(-1), mass_min_index(-1), r_min_sq(NUMERIC_FLOAT_MAX), mass_min(NUMERIC_FLOAT_MAX), r_crit_sq(0.0), need_resolve_flag(false), initial_step_flag(false), neighbor_address() {}
+        Neighbor(): r_min_index(-1), mass_min_index(-1), r_min_sq(NUMERIC_FLOAT_MAX), mass_min(NUMERIC_FLOAT_MAX), r_crit_sq(-1.0), need_resolve_flag(false), initial_step_flag(false), neighbor_address() {}
+
+        //! check whether parameters values are correct
+        /*! \return true: all correct
+         */
+        bool checkParams() {
+            ASSERT(r_crit_sq>0.0);
+            return true;
+        }        
 
         //! reserve memory for neighbor lists
         /*! 
