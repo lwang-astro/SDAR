@@ -384,7 +384,7 @@ namespace AR {
             }
 
             // set slowdown reference
-            const Float mass_ratio = particles.cm.mass/manager->slowdown_mass_ref;
+            const Float mass_ratio = manager->slowdown_mass_ref/particles.cm.mass;
             slowdown.initialSlowDownReference(mass_ratio*manager->slowdown_pert_ratio_ref, manager->slowdown_factor_max);
 
             // particle number and data address
@@ -758,7 +758,7 @@ namespace AR {
 #ifdef AR_WARN
                 // warning for large number of steps
                 if(step_count>=manager->step_count_max) {
-                    std::cerr<<"Warning: step count is signficiant large "<<stepcount<<std::endl;
+                    std::cerr<<"Warning: step count is signficiant large "<<step_count<<std::endl;
                     std::cerr<<"Time(int): "<<time_
                              <<" Time(real): "<<time_real
                              <<" Time_end(real): "<<_time_end_real

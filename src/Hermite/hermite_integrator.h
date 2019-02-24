@@ -1470,8 +1470,8 @@ namespace H4{
             breakGroups(new_group_particle_index, new_n_group_offset, new_n_group, break_group_index, n_break_no_add, n_break);
             addGroups(new_group_particle_index, new_n_group_offset, new_n_group);
 
-            // initial integration
-            initialIntegration();
+            // initial integration (cannot do it here, in the case AR perturber need initialization first)
+            // initialIntegration();
         }
 
         //! Initial Hermite integrator
