@@ -16,6 +16,20 @@ public:
     Float pos[3];
     Float vel[3];
 
+    //! Get position (required for \ref ARC::chain)
+    /*! \return position vector (Float[3])
+     */
+    Float* getPos() {
+        return pos;
+    }
+
+    //! Get velocity (required for \ref ARC::chain)
+    /*! \return velocity vector (Float[3])
+     */
+    Float* getVel() {
+        return vel;
+    }
+
     //! write class data to file with binary format
     /*! @param[in] _fp: FILE type file for output
      */

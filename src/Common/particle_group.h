@@ -63,8 +63,8 @@ namespace COMM {
         int backupParticlePosVel(Float* _bk) {
             for (int i=0; i<TList::num_; i++) {
                 const int k=6*i;
-                Float* pos = TList::data_[i].pos;
-                Float* vel = TList::data_[i].vel;
+                Float* pos = TList::data_[i].getPos();
+                Float* vel = TList::data_[i].getVel();
                 _bk[k  ] = pos[0];
                 _bk[k+1] = pos[1];
                 _bk[k+2] = pos[2];
@@ -82,8 +82,8 @@ namespace COMM {
         int restoreParticlePosVel(Float* _bk) {
             for (int i=0; i<TList::num_; i++) {
                 const int k=6*i;
-                Float* pos = TList::data_[i].pos;
-                Float* vel = TList::data_[i].vel;
+                Float* pos = TList::data_[i].getPos();
+                Float* vel = TList::data_[i].getVel();
                 pos[0] = _bk[k  ];
                 pos[1] = _bk[k+1];
                 pos[2] = _bk[k+2];
@@ -204,11 +204,11 @@ namespace COMM {
         */
         void shiftToCenterOfMassFrame() {
             if (origin_frame_flag) {
-                const Float *rc = cm.pos;
-                const Float *vc = cm.vel;
+                const Float *rc = cm.getPos();
+                const Float *vc = cm.getVel();
                 for (int i=0;i<TList::num_;i++) {
-                    Float *ri = TList::data_[i].pos;
-                    Float *vi = TList::data_[i].vel;
+                    Float *ri = TList::data_[i].getPos();
+                    Float *vi = TList::data_[i].getVel();
                     ri[0] -= rc[0];
                     ri[1] -= rc[1];
                     ri[2] -= rc[2];
@@ -232,11 +232,11 @@ namespace COMM {
                 std::cerr<<"Warning: particles are already in original frame!\n";
             }
             else {
-                const Float *rc = cm.pos;
-                const Float *vc = cm.vel;
+                const Float *rc = cm.getPos();
+                const Float *vc = cm.getVel();
                 for (int i=0;i<TList::num_;i++) {
-                    Float *ri = TList::data_[i].pos;
-                    Float *vi = TList::data_[i].vel;
+                    Float *ri = TList::data_[i].getPos();
+                    Float *vi = TList::data_[i].getVel();
                     ri[0] += rc[0];
                     ri[1] += rc[1];
                     ri[2] += rc[2];
@@ -250,29 +250,31 @@ namespace COMM {
 
         //! calculate center-of-mass
         void calcCenterOfMass() {
-            cm.pos[0] = cm.pos[1] = cm.pos[2] = 0.0;
-            cm.vel[0] = cm.vel[1] = cm.vel[2] = 0.0;
+            Float *rc = cm.getPos();
+            Float *vc = cm.getVel();
+            rc[0] = rc[1] = rc[2] = 0.0;
+            vc[0] = vc[1] = vc[2] = 0.0;
             cm.mass = 0.0;
             for (int i=0;i<TList::num_;i++) {
-                const Float *ri = TList::data_[i].pos;
-                const Float *vi = TList::data_[i].vel;
+                const Float *ri = TList::data_[i].getPos();
+                const Float *vi = TList::data_[i].getVel();
                 const Float mi = TList::data_[i].mass;
-                cm.pos[0] += ri[0] * mi;
-                cm.pos[1] += ri[1] * mi;
-                cm.pos[2] += ri[2] * mi;
+                rc[0] += ri[0] * mi;
+                rc[1] += ri[1] * mi;
+                rc[2] += ri[2] * mi;
 
-                cm.vel[0] += vi[0] * mi;
-                cm.vel[1] += vi[1] * mi;
-                cm.vel[2] += vi[2] * mi;
+                vc[0] += vi[0] * mi;
+                vc[1] += vi[1] * mi;
+                vc[2] += vi[2] * mi;
 
                 cm.mass += mi;
             }
-            cm.pos[0] /= cm.mass; 
-            cm.pos[1] /= cm.mass; 
-            cm.pos[2] /= cm.mass; 
-            cm.vel[0] /= cm.mass; 
-            cm.vel[1] /= cm.mass; 
-            cm.vel[2] /= cm.mass;
+            rc[0] /= cm.mass; 
+            rc[1] /= cm.mass; 
+            rc[2] /= cm.mass; 
+            vc[0] /= cm.mass; 
+            vc[1] /= cm.mass; 
+            vc[2] /= cm.mass;
         }
         
         //! return true if the system is the in their origin frame

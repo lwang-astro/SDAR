@@ -191,7 +191,7 @@ namespace AR {
             const int num = particles.getSize();
             Tparticle* pdat = particles.getDataAddress();
             for (int i=0; i<num; i++) {
-                const Float *vi=pdat[i].vel;
+                const Float *vi=pdat[i].getVel();
                 ekin_ += 0.5 * pdat[i].mass * (vi[0]*vi[0]+vi[1]*vi[1]+vi[2]*vi[2]);
             }
         }
@@ -207,7 +207,7 @@ namespace AR {
             const Float kappa = slowdown.getSlowDownFactor();
             for (int i=0; i<num; i++) {
                 // kick velocity
-                Float* vel = pdat[i].vel;
+                Float* vel = pdat[i].getVel();
                 Float* acc = force[i].acc_in;
                 Float* pert= force[i].acc_pert;
                 // half dv 
@@ -232,8 +232,8 @@ namespace AR {
             const int num = particles.getSize();
             Tparticle* pdat = particles.getDataAddress();
             for (int i=0; i<num; i++) {
-                Float* pos = pdat[i].pos;
-                Float* vel = pdat[i].vel;
+                Float* pos = pdat[i].getPos();
+                Float* vel = pdat[i].getVel();
                 pos[0] += _dt * vel[0];
                 pos[1] += _dt * vel[1];
                 pos[2] += _dt * vel[2];
@@ -256,7 +256,7 @@ namespace AR {
             Force* force = force_.getDataAddress();
             for (int i=0;i<num;i++) {
                 Float  mass= pdat[i].mass;
-                Float* vel = pdat[i].vel;
+                Float* vel = pdat[i].getVel();
                 Float* pert= force[i].acc_pert;
                 Float* gtgrad=force[i].gtgrad;
                 de += mass * (vel[0] * kappa*pert[0] +
@@ -283,7 +283,7 @@ namespace AR {
             Force* force = force_.getDataAddress();
             for (int i=0;i<num;i++) {
                 Float  mass= pdat[i].mass;
-                Float* vel = pdat[i].vel;
+                Float* vel = pdat[i].getVel();
                 Float* pert= force[i].acc_pert;
                 de += mass * (vel[0] * kappa*pert[0] +
                               vel[1] * kappa*pert[1] +
@@ -532,12 +532,12 @@ namespace AR {
 
             Tparticle* particle_data = particles.getDataAddress();
             Float mass1 = particle_data[0].mass;
-            Float* pos1 = particle_data[0].pos;
-            Float* vel1 = particle_data[0].vel;
+            Float* pos1 = particle_data[0].getPos();
+            Float* vel1 = particle_data[0].getVel();
 
             Float mass2 = particle_data[1].mass;
-            Float* pos2 = particle_data[1].pos;
-            Float* vel2 = particle_data[1].vel;
+            Float* pos2 = particle_data[1].getPos();
+            Float* vel2 = particle_data[1].getVel();
 
             Force* force_data = force_.getDataAddress();
             Float* acc1 = force_data[0].acc_in;
@@ -986,7 +986,7 @@ namespace AR {
             auto* particle_data= particles.getDataAddress();
             for (int i=0; i<particles.getSize(); i++) {
                 const Float *ri = particle_data[i].pos;
-                const Float *vi = particle_data[i].vel;
+                const Float *vi = particle_data[i].getVel();
                 const Float mi  = particle_data[i].mass;
 
                 pos_cm[0] += ri[0] * mi;
@@ -1007,7 +1007,7 @@ namespace AR {
 
             for (int i=0; i<particles.getSize(); i++) {
                 Float *ri = particle_data[i].pos;
-                Float *vi = particle_data[i].vel;
+                Float *vi = particle_data[i].getVel();
 
                 ri[0] -= pos_cm[0]; 
                 ri[1] -= pos_cm[1]; 

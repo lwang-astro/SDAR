@@ -121,7 +121,7 @@ namespace H4{
             // relink the original address based on the Particle local copy (adr_org) in ParticleAR type
             auto* padr_org = _particles.getMemberOriginAddress();
             for (int i=0; i<n_members; i++) {
-                padr_org[i] = _particles[i].adr_org;
+                padr_org[i] = _particles[i].ARPtcl::adr;
             }
         }
 

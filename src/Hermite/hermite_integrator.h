@@ -682,17 +682,13 @@ namespace H4{
          */
         Float calcDrDv(const ParticleH4<Tparticle>& _p1, const ParticleH4<Tparticle>& _p2) {
             Float dx[3],dv[3];
-            const Float* pos1 = _p1.pos;
-            const Float* pos2 = _p2.pos;
-            const Float* vel1 = _p1.vel;
-            const Float* vel2 = _p2.vel;
-            dx[0] = pos1[0] - pos2[0];
-            dx[1] = pos1[1] - pos2[1];
-            dx[2] = pos1[2] - pos2[2];
+            dx[0] = _p1.pos[0] - _p2.pos[0];
+            dx[1] = _p1.pos[1] - _p2.pos[1];
+            dx[2] = _p1.pos[2] - _p2.pos[2];
 
-            dv[0] = vel1[0] - vel2[0];
-            dv[1] = vel1[1] - vel2[1];
-            dv[2] = vel1[2] - vel2[2];
+            dv[0] = _p1.vel[0] - _p2.vel[0];
+            dv[1] = _p1.vel[1] - _p2.vel[1];
+            dv[2] = _p1.vel[2] - _p2.vel[2];
         
             Float drdv= dx[0]*dv[0] + dx[1]*dv[1] + dx[2]*dv[2];
 
@@ -1778,6 +1774,16 @@ namespace H4{
         //! get active number of particles of groups
         int getNActGroup() const{
             return n_act_group_;
+        }
+
+        //! get initial number of particles of groups
+        int getNInitGroup() const{
+            return n_act_group_;
+        }
+
+        //! get initial number of particles of singles
+        int getNInitSingle() const{
+            return n_act_single_;
         }
 
         //! get sorted dt index of singles

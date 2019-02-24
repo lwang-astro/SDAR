@@ -9,23 +9,23 @@ namespace H4{
     template <class Tparticle>
     class ParticleAR: public Tparticle{
     public:
-        Tparticle* adr_org; // original particle address
+        Tparticle* adr; // original particle address
 
         ParticleAR& operator = (Tparticle & _p) {
             *(Tparticle*)this = _p;
-            adr_org = &_p;
+            adr = &_p;
             return *this;
         }
 
         ParticleAR& operator = (ParticleH4<Tparticle> & _p) {
             *(Tparticle*)this = *(Tparticle*)&_p;
-            adr_org = &_p;
+            adr = &_p;
             return *this;
         }
         
         ParticleAR& operator = (ParticleAR & _p) {
             *(Tparticle*)this = *(Tparticle*)&_p;
-            adr_org = _p.adr_org;
+            adr = _p.adr;
             return *this;
         }
     };
@@ -42,6 +42,58 @@ namespace H4{
         Float acc2[3]; // for debug
         Float acc3[3]; // for debug
 #endif
+
+        ParticleH4() {}
+
+        ParticleH4(const Tparticle & _p) {
+            *(Tparticle*)this = *(Tparticle*)&_p;
+        }
+
+        ParticleH4(const ParticleH4<Tparticle> & _p) {
+            *(Tparticle*)this = *(Tparticle*)&_p;
+            dt = _p.dt;
+            time = _p.time;
+            acc0[0] = _p.acc0[0];
+            acc0[1] = _p.acc0[1];
+            acc0[2] = _p.acc0[2];
+            acc1[0] = _p.acc1[0];
+            acc1[1] = _p.acc1[1];
+            acc1[2] = _p.acc1[2];
+#ifdef HERMITE_DEBUG_ACC
+            acc2[0] = _p.acc2[0];
+            acc2[1] = _p.acc2[1];
+            acc2[2] = _p.acc2[2];
+            acc3[0] = _p.acc3[0];
+            acc3[1] = _p.acc3[1];
+            acc3[2] = _p.acc3[2];
+#endif
+        }
+
+        ParticleH4& operator = (const Tparticle & _p) {
+            *(Tparticle*)this = *(Tparticle*)&_p;
+            return *this;
+        }
+
+        ParticleH4& operator = (const ParticleH4<Tparticle> & _p) {
+            *(Tparticle*)this = *(Tparticle*)&_p;
+            dt = _p.dt;
+            time = _p.time;
+            acc0[0] = _p.acc0[0];
+            acc0[1] = _p.acc0[1];
+            acc0[2] = _p.acc0[2];
+            acc1[0] = _p.acc1[0];
+            acc1[1] = _p.acc1[1];
+            acc1[2] = _p.acc1[2];
+#ifdef HERMITE_DEBUG_ACC
+            acc2[0] = _p.acc2[0];
+            acc2[1] = _p.acc2[1];
+            acc2[2] = _p.acc2[2];
+            acc3[0] = _p.acc3[0];
+            acc3[1] = _p.acc3[1];
+            acc3[2] = _p.acc3[2];
+#endif
+            return *this;
+        }
 
         //! print function for one line
         void print(std::ostream & _fout) const{
