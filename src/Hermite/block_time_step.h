@@ -8,8 +8,9 @@ namespace H4{
     public:
         Float eta_4th;  ///> time step coefficient (outside sqrt) for forth order
         Float eta_2nd;  ///> time step coefficient (outside sqrt) for second order
+        Float acc0_offset_sq; ///> acceleration offset to avoid too small step when weak acceleration exist
 
-        TimeStep4th(): eta_4th(Float(-1.0)), eta_2nd(Float(-1.0)) {}
+        TimeStep4th(): eta_4th(Float(-1.0)), eta_2nd(Float(-1.0)), acc0_offset_sq(Float(-1.0)) {}
 
         //! check whether parameters values are correct
         /*! \return true: all correct
@@ -17,8 +18,19 @@ namespace H4{
         bool checkParams() {
             ASSERT(eta_4th>0.0);
             ASSERT(eta_2nd>0.0);
+            ASSERT(acc0_offset_sq>=0.0);
             return true;
         }        
+
+        //! calculate a0_offset_sq
+        /*! calculate a0_offset_sq for timestep determination: 0.1*_mass/_r^2
+          @param[in] _mass: mass criterion 
+          @param[in] _r_crit: distance criterion
+        */
+        void calcAcc0OffsetSq(const Float _mass, const Float _r) {
+            acc0_offset_sq = 0.1 * _mass / (_r*_r);
+        }
+
 
         //! calculate 2nd order time step 
         /*! calculate time step based on Acc and its derivatives
@@ -28,9 +40,9 @@ namespace H4{
         */
         Float calcDt2nd(const Float* acc0, 
                         const Float* acc1) const {
-            const Float s0 = acc0[0] * acc0[0] + acc0[1] * acc0[1] + acc0[2] * acc0[2];
+            const Float s0 = acc0[0] * acc0[0] + acc0[1] * acc0[1] + acc0[2] * acc0[2] + acc0_offset_sq;
             const Float s1 = acc1[0] * acc1[0] + acc1[1] * acc1[1] + acc1[2] * acc1[2];
-            if(s0 == 0.0 || s1 == 0.0)
+            if(s0 == acc0_offset_sq || s1 == 0.0)
                 return NUMERIC_FLOAT_MAX;
             else 
                 return eta_2nd * sqrt( s0 / s1 );
@@ -48,19 +60,19 @@ namespace H4{
                         const Float* acc1,
                         const Float* acc2,
                         const Float* acc3) const {
-            const Float s0 = acc0[0] * acc0[0] + acc0[1] * acc0[1] + acc0[2] * acc0[2];
+            const Float s0 = acc0[0] * acc0[0] + acc0[1] * acc0[1] + acc0[2] * acc0[2] + acc0_offset_sq;
             const Float s1 = acc1[0] * acc1[0] + acc1[1] * acc1[1] + acc1[2] * acc1[2];
             const Float s2 = acc2[0] * acc2[0] + acc2[1] * acc2[1] + acc2[2] * acc2[2];
             const Float s3 = acc3[0] * acc3[0] + acc3[1] * acc3[1] + acc3[2] * acc3[2];
-            if(!(s1==0.0||s3==0.0)&&s2==0.0)
+            if(s0 == acc0_offset_sq || s1 == 0.0) 
                 return NUMERIC_FLOAT_MAX;
             else 
                 return eta_4th * sqrt( (sqrt(s0*s2) + s1) / (sqrt(s1*s3) + s2) );
         }
 
         void print(std::ostream & _fout) const{
-            _fout<<" eta_4th="<<eta_4th
-                 <<" eta_2nd="<<eta_2nd;
+            _fout<<"eta_4th : "<<eta_4th<<std::endl
+                 <<"eta_2nd : "<<eta_2nd<<std::endl;
         }
 
         //! print titles of class members using column style
@@ -228,8 +240,8 @@ namespace H4{
 
         void print(std::ostream & _fout) const{
             TimeStep4th::print(_fout);
-            _fout<<" dt_max="<<dt_max_
-                 <<" dt_min="<<dt_min_;
+            _fout<<"dt_max: "<<dt_max_<<std::endl
+                 <<"dt_min: "<<dt_min_<<std::endl;
         }
 
         //! print titles of class members using column style

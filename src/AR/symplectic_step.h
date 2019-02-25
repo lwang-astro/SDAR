@@ -354,5 +354,12 @@ namespace AR {
             int sym_n = (sym_type_==2)?-sym_order_:sym_order_;
             if (sym_order_>0) initialSymplecticCofficients(sym_n);
         }
+
+        //! print parameters
+        void print(std::ostream & _fout) const{
+            _fout<<"sym_order    : "<<sym_order_<<std::endl
+                 <<"sym_type     : "<<(sym_type_==1?"Yoshida method 1":"Yoshida method 2")<<std::endl
+                 <<"CD_pair_size : "<<cd_pair_array_size_<<std::endl;
+        }
     };
 }

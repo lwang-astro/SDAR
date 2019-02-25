@@ -15,6 +15,8 @@ namespace AR{
         Float kappa_org_;      // original slow-down factor without kappa limit (1.0, kappa_max)
         Float kappa_max_;      // maximum kappa factor
         Float kappa_ref_;      ///< reference kappa factor; slow-down factor kappa = max(1,kref/perturbation_factor)
+        Float pert_in_;           // inner strength
+        Float pert_out_;          // perturbation strength
 
     public:
         //! defaulted constructor
@@ -75,12 +77,14 @@ namespace AR{
          */
         Float calcSlowDownFactor(const Float _acc_in, const Float _acc_pert) {
             // hyberbolic case or no perturbation
+            pert_in_  = _acc_in;
+            pert_out_ = _acc_pert;
             if(_acc_in<0.0||_acc_pert==0.0) {
                 kappa_org_ = kappa_ = Float(1.0);
             }
             else { 
-                kappa_org_ = - kappa_ref_*_acc_in/_acc_pert;
-                kappa_ = std::min(kappa_, kappa_max_);
+                kappa_org_ = kappa_ref_*_acc_in/_acc_pert;
+                kappa_ = std::min(kappa_org_, kappa_max_);
                 kappa_ = std::max(Float(1.0), kappa_);
             }
             return kappa_;
@@ -110,6 +114,14 @@ namespace AR{
         //! Get slow-down fact maximum
         Float getSlowDownFactorMax() const {
             return kappa_max_;
+        }
+
+        Float getPertIn() const {
+            return pert_in_;
+        }
+
+        Float getPertOut() const {
+            return pert_out_;
         }
 
         //! write class data with BINARY format

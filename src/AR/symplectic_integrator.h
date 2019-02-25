@@ -78,6 +78,19 @@ namespace AR {
             interaction.readBinary(_fin);
             step.readBinary(_fin);
         }
+
+        //! print parameters
+        void print(std::ostream & _fout) const{
+            _fout<<"time_error_max_real       : "<<time_error_max_real<<std::endl
+                 <<"energy_error_relative_max : "<<energy_error_relative_max<<std::endl 
+                 <<"time_step_real_min        : "<<time_step_real_min<<std::endl
+                 <<"slowdown_pert_ratio_ref   : "<<slowdown_pert_ratio_ref<<std::endl
+                 <<"slowdown_mass_ref         : "<<slowdown_mass_ref<<std::endl
+                 <<"slowdown_factor_max       : "<<slowdown_factor_max<<std::endl
+                 <<"step_count_max            : "<<step_count_max<<std::endl;
+            interaction.print(_fout);
+            step.print(_fout);
+        }
     };
     
     //! Symplectic integrator class for a group of particles
@@ -419,7 +432,7 @@ namespace AR {
                 Float sd_pert = manager->interaction.calcAccAndSlowDownPert(force_data, particle_data, n_particle, particles.cm, perturber, _time_real);
                 // slowdown factor, for inner perturbation, m1*m2/(2.0*semi)^3 is used
                 Float m1m2 = particle_data[0].mass*particle_data[1].mass;
-                Float sd_in = etot_*etot_*etot_/(m1m2*m1m2);
+                Float sd_in = - etot_*etot_*etot_/(m1m2*m1m2);
                 slowdown.calcSlowDownFactor(sd_in, sd_pert);
 
             }
@@ -594,7 +607,7 @@ namespace AR {
 
                 // slowdown factor
                 const Float m1m2  = mass1*mass2;
-                const Float sd_in = etot_*etot_*etot_/(m1m2*m1m2);
+                const Float sd_in = - etot_*etot_*etot_/(m1m2*m1m2);
                 const Float kappa = slowdown.calcSlowDownFactor(sd_in, sd_pert);
 
                 // kick half step for velocity
@@ -725,10 +738,12 @@ namespace AR {
                 if(backup_flag) {
                     int bk_return_size = backupIntData(backup_data);
                     ASSERT(bk_return_size == bk_data_size);
+                    (void)bk_return_size;
                 }
                 else { //restore data
                     int bk_return_size = restoreIntData(backup_data);
                     ASSERT(bk_return_size == bk_data_size);
+                    (void)bk_return_size;
                 }
                 
                 // get real time 
@@ -758,19 +773,21 @@ namespace AR {
 #ifdef AR_WARN
                 // warning for large number of steps
                 if(step_count>=manager->step_count_max) {
-                    std::cerr<<"Warning: step count is signficiant large "<<step_count<<std::endl;
-                    std::cerr<<"Time(int): "<<time_
-                             <<" Time(real): "<<time_real
-                             <<" Time_end(real): "<<_time_end_real
-                             <<" Time_diff_rel(real): "<<time_diff_real_rel
-                             <<" ds(used): "<<ds[ds_switch]
-                             <<" ds(next): "<<ds[1-ds_switch]
-                             <<" Energy_error_rel_abs: "<<energy_error_rel_abs
-                             <<std::endl;
-                    printColumnTitle(std::cerr);
-                    std::cerr<<std::endl;
-                    printColumn(std::cerr);
-                    std::cerr<<std::endl;
+                    if(step_count%manager->step_count_max==0) {
+                        std::cerr<<"Warning: step count is signficiant large "<<step_count<<std::endl;
+                        std::cerr<<"Time(int): "<<time_
+                                 <<" Time(real): "<<time_real
+                                 <<" Time_end(real): "<<_time_end_real
+                                 <<" Time_diff_rel(real): "<<time_diff_real_rel
+                                 <<" ds(used): "<<ds[ds_switch]
+                                 <<" ds(next): "<<ds[1-ds_switch]
+                                 <<" Energy_error_rel_abs: "<<energy_error_rel_abs
+                                 <<std::endl;
+                        printColumnTitle(std::cerr);
+                        std::cerr<<std::endl;
+                        printColumn(std::cerr);
+                        std::cerr<<std::endl;
+                    }
                 }
 #endif
           

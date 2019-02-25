@@ -256,7 +256,9 @@ int main(int argc, char **argv){
     h4_int.particles.shiftToCenterOfMassFrame();
     h4_int.particles.calcCenterOfMass();
         
-    ar_manager.slowdown_mass_ref = h4_int.particles.cm.mass/h4_int.particles.getSize();
+    Float m_ave = h4_int.particles.cm.mass/h4_int.particles.getSize();
+    manager.step.calcAcc0OffsetSq(m_ave, r_search);
+    ar_manager.slowdown_mass_ref = m_ave;
 
     std::cerr<<"CM: after shift ";
     h4_int.particles.cm.printColumn(std::cerr, print_width);

@@ -30,11 +30,11 @@ namespace COMM{
           @param[in]: _bin: binary parameter
         */
         template <class Tptcl>
-        void orbitToParticle(Tptcl& _p1, Tptcl& _p2, const Binary& _bin) {
-            Float m_tot = _p1.mass + _p2.mass;
+        void orbitToParticle(Tptcl& _p1, Tptcl& _p2, const Binary& _bin, const Float& _ecca) const {
+            Float m_tot = _bin.m1 + _bin.m2;
             Float n = sqrt( m_tot / (_bin.semi*_bin.semi*_bin.semi) );
-            Float cosu = cos(_bin.ecca);
-            Float sinu = sin(_bin.ecca);
+            Float cosu = cos(_ecca);
+            Float sinu = sin(_ecca);
             Float c0 = sqrt(1.0 - _bin.ecc*_bin.ecc);
             Vector3<Float> pos_star(_bin.semi*(cosu - _bin.ecc), _bin.semi*c0*sinu, 0.0);
             Vector3<Float> vel_star(-_bin.semi*n*sinu/(1.0-_bin.ecc*cosu), _bin.semi*n*c0*cosu/(1.0-_bin.ecc*cosu), 0.0);
@@ -179,7 +179,18 @@ namespace COMM{
         */    
         template <class Tptcl>
         void calcParticles(Tptcl& _p1, Tptcl& _p2) {
-            orbitToParticle(_p1, _p2, *this);
+            orbitToParticle(_p1, _p2, *this, this->ecca);
+        }
+
+        //! calculate two components from kepler Orbit with input eccentricity anomaly
+        /*! 
+          @param[out]: _p1: particle 1
+          @param[out]: _p2: particle 2
+          @param[in]: _ecca: eccentricity anomaly
+        */    
+        template <class Tptcl>
+        void calcParticlesEcca(Tptcl& _p1, Tptcl& _p2, const Float _ecca) const {
+            orbitToParticle(_p1, _p2, *this, _ecca);
         }
 
         //! Solve kepler motion for dt 

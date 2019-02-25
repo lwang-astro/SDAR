@@ -19,7 +19,12 @@ public:
         ASSERT(G>0.0);
         return true;
     }        
-    
+
+    //! print parameters
+    void print(std::ostream & _fout) const{
+        _fout<<"eps_sq: "<<eps_sq<<std::endl
+             <<"G     : "<<G<<std::endl;
+    }    
 
     //! calculate acceleration and jerk of one pair
     /*! \return the distance square of the pair

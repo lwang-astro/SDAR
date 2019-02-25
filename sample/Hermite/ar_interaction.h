@@ -25,6 +25,12 @@ public:
         return true;
     }        
 
+    //! print parameters
+    void print(std::ostream & _fout) const{
+        _fout<<"eps_sq: "<<eps_sq<<std::endl
+             <<"G     : "<<G<<std::endl;
+    }    
+
     //! (Necessary) calculate acceleration from perturber and the perturbation factor for slowdown calculation
     /*! The Force class acc_pert should be updated
       @param[out] _force: force array to store the calculation results (in acc_pert[3], notice acc_pert may need to reset zero to avoid accummulating old values)

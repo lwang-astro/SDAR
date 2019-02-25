@@ -7,6 +7,7 @@
 #include "Hermite/hermite_particle.h"
 #include "Hermite/block_time_step.h"
 #include "Hermite/neighbor.h"
+#include "Hermite/profile.h"
 #include <map>
 
 namespace H4{
@@ -29,6 +30,15 @@ namespace H4{
             ASSERT(step.checkParams());
             return true;
         }
+
+        //! print parameters
+        void print(std::ostream & _fout) const{
+            _fout<<"r_break_crit    : "<<r_break_crit<<std::endl
+                 <<"r_neighbor_crit : "<<r_neighbor_crit<<std::endl;
+            interaction.print(_fout);
+            step.print(_fout);
+        }
+
 
         //! print titles of class members using column style
         /*! print titles of class members in one line for column style
@@ -129,6 +139,7 @@ namespace H4{
         COMM::List<Neighbor<Tparticle>> neighbors; // neighbor information of particles
         Tpert perturber; // external perturberx
         Tinfo info; ///< information of the system
+        Profile profile; // profile to measure the status
 
         //! check whether parameters values are correct
         /*! \return true: all correct
@@ -165,6 +176,7 @@ namespace H4{
                 const Float* acc1 = force_[k].acc1;
                 const Float dt =manager->step.calcBlockDt2nd(acc0, acc1, _dt_limit);
                 particles[k].dt = dt;
+                neighbors[k].initial_step_flag = false;
             }
             // for group
             for (int i=0; i<_n_group; i++) {
@@ -174,6 +186,7 @@ namespace H4{
                 const Float* acc1 = force_[kf].acc1;
                 const Float dt =manager->step.calcBlockDt2nd(acc0, acc1, _dt_limit);
                 groups[k].particles.cm.dt = dt;
+                groups[k].perturber.initial_step_flag = false;
             }
         }
 
@@ -284,10 +297,16 @@ namespace H4{
             _pi.acc3[2] = acc3[2];
 #endif
             const Float dt_old = _pi.dt;
-            if(_init_step_flag) _pi.dt = manager->step.calcBlockDt2nd(_pi.acc0, _pi.acc1, _dt_limit);
+            if(_init_step_flag) {
+                _pi.dt = manager->step.calcBlockDt2nd(_pi.acc0, _pi.acc1, _dt_limit);
+#ifdef HERMITE_DEBUG
+                std::cerr<<"Initial step flag on: pi.id: "<<_pi.id<<" step size: "<<_pi.dt<<std::endl;
+#endif                
+            }
             else _pi.dt = manager->step.calcBlockDt4th(_pi.acc0, _pi.acc1, acc2, acc3, _dt_limit);
 
             ASSERT((dt_old > 0.0 && _pi.dt >0.0));
+            (void)dt_old;
         }
 
         //! correct particle and calculate step 
@@ -329,10 +348,18 @@ namespace H4{
         /*! @param[in] _n_group: number of groups in index_dt_sorted_group_ to check
          */
         void checkGroupResolve(const int _n_group) {
+            if(_n_group==0) return;
+            //AR::SlowDown sd;
             ASSERT(_n_group<=index_dt_sorted_group_.getSize());
             for (int i=0; i<_n_group; i++) {
                 const int k = index_dt_sorted_group_[i];
                 auto& groupk = groups[k];
+                // remove soft perturbation 
+                //sd.initialSlowDownReference(groupk.slowdown.getSlowDownFactorReference(), groupk.slowdown.getSlowDownFactorMax());
+                //const Float pert_out = std::max(0.0, groupk.slowdown.getPertOut()-groupk.perturber.soft_pert_min);
+                //const Float pert_in= groupk.slowdown.getPertIn();
+                //const Float kappa = sd.calcSlowDownFactor(pert_in, pert_out);
+                // calculate non soft perturbation
                 const Float kappa = groupk.slowdown.getSlowDownFactor();
                 groupk.perturber.checkGroupResolve(kappa);
             }
@@ -802,7 +829,7 @@ namespace H4{
                              index_group_resolve_(), index_group_cm_(), 
                              pred_(), force_(), time_next_(), 
                              index_group_mask_(), table_group_mask_(), table_single_mask_(), 
-                             manager(NULL), ar_manager(NULL), particles(), groups(), neighbors(), perturber(), info() {}
+                             manager(NULL), ar_manager(NULL), particles(), groups(), neighbors(), perturber(), info(), profile() {}
 
         //! clear function
         void clear() {
@@ -828,6 +855,7 @@ namespace H4{
             neighbors.clear();
             perturber.clear();
             info.clear();
+            profile.clear();
         }
 
         //! reserve memory for system
@@ -999,6 +1027,14 @@ namespace H4{
 
                 // get binarytree
                 group_new.info.generateBinaryTree(group_new.particles);
+#ifdef ADJUST_GROUP_DEBUG
+                std::cerr<<"Add new group, index: "<<group_index[i]<<std::endl;
+                COMM::Binary& bin = group_new.info.getBinaryTreeRoot();
+                bin.printColumnTitle(std::cerr);
+                std::cerr<<std::endl;
+                bin.printColumn(std::cerr);
+                std::cerr<<std::endl;
+#endif
 
                 // initial perturber
                 group_new.perturber.need_resolve_flag = false;
@@ -1200,9 +1236,9 @@ namespace H4{
                     
                 // check strong perturbed binary case
                 Float kappa_org = groupk.slowdown.getSlowDownFactorOrigin();
-                if (kappa_org<0.01 && bin_root.semi>0) {
+                if (kappa_org<0.01 && bin_root.semi>0 && bin_root.ecca>0.0) {
 #ifdef ADJUST_GROUP_DEBUG
-                    std::cerr<<"Break group: strong perturbed, i_group: "<<k<<" N_member: "<<n_member<<" kappa_org: "<<kappa_org<<" semi: "<<bin_root.semi<<std::endl;
+                    std::cerr<<"Break group: strong perturbed, i_group: "<<k<<" N_member: "<<n_member<<" kappa_org: "<<kappa_org<<" semi: "<<bin_root.semi<<" ecca: "<<bin_root.ecca<<std::endl;
 #endif
                     _break_group_index[_n_break++] = k;
                     continue;
@@ -1324,7 +1360,7 @@ namespace H4{
 
 #ifdef ADJUST_GROUP_DEBUG
                         if (j<index_offset_group_) {
-                            std::cerr<<"Find new group   index: "<<i<<" "<<j<<"  ftid_sq: "<<fratiosq<<"\n";
+                            std::cerr<<"Find new group   index: "<<i<<" "<<j<<" dr2: "<<dr2<<"  ftid_sq: "<<fratiosq<<"\n";
                         }
                         else {
                             auto& bin_root = groups[j-index_offset_group_].info.binarytree.getLastMember();
@@ -1461,6 +1497,8 @@ namespace H4{
 
             checkBreak(break_group_index, n_break);
             checkNewGroup(new_group_particle_index, new_n_group_offset, new_n_group, break_group_index, n_break_no_add, n_break, _start_flag);
+            profile.break_group_count += n_break;
+            profile.new_group_count += new_n_group;
 
             // integrate modified single/groups to current time
             integrateToTimeList(time_, new_group_particle_index, new_n_group_offset[new_n_group]);
@@ -1623,6 +1661,10 @@ namespace H4{
                 ASSERT(table_group_mask_[k]==false);
                 const Float ds = groups[k].info.ds;
                 groups[k].integrateToTime(ds, time_next, groups[k].info.fix_step_option);
+                // profile
+                profile.ar_step_count += groups[k].profile.step_count;
+                profile.ar_step_count_tsyn += groups[k].profile.step_count_tsyn;
+                groups[k].profile.clear();
             }
 
             // prediction positions
@@ -1643,6 +1685,10 @@ namespace H4{
 
             // update time
             time_ = time_next;
+
+            // profile
+            profile.hermite_single_step_count += n_act_single_;
+            profile.hermite_group_step_count += n_act_group_;
         }
 
         //! Integration a list of particle to current time (ingore dt)
@@ -1784,6 +1830,16 @@ namespace H4{
         //! get initial number of particles of singles
         int getNInitSingle() const{
             return n_act_single_;
+        }
+
+        //! get N groups
+        int getNGroup() const {
+            return index_dt_sorted_group_.getSize();
+        }
+
+        //! get N single
+        int getNSingle() const {
+            return index_dt_sorted_single_.getSize();
         }
 
         //! get sorted dt index of singles
