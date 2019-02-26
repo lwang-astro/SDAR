@@ -989,8 +989,10 @@ namespace AR {
             }
 
             // cumulative step count 
-            profile.step_count += step_count;
-            profile.step_count_tsyn += step_count_tsyn;
+            profile.step_count = step_count;
+            profile.step_count_tsyn = step_count_tsyn;
+            profile.step_count_sum += step_count;
+            profile.step_count_tsyn_sum += step_count_tsyn;
         }
 
         //! correct CM drift

@@ -28,15 +28,18 @@ namespace AR{
     class Profile {
     public:
         typedef long long unsigned int UInt64;
-        UInt64 step_count; // number of integration steps
-        UInt64 step_count_tsyn; // number of integration steps during time synchronization
+        UInt64 step_count_sum; // number of integration steps summation
+        UInt64 step_count_tsyn_sum; // number of integration steps during time synchronization summation
+        UInt64 step_count; // number of integration steps from last step 
+        UInt64 step_count_tsyn; // number of integration steps during time synchronization from last step
 
         // constructor
-        Profile(): step_count(0), step_count_tsyn(0) {}
+        Profile(): step_count_sum(0), step_count_tsyn_sum(0), step_count(0), step_count_tsyn(0) {}
 
         // clear function
         void clear() {
             step_count = step_count_tsyn = 0;
+            step_count_sum = step_count_tsyn_sum = 0;
         }
 
         //! print titles of class members using column style
@@ -45,7 +48,9 @@ namespace AR{
           @param[in] _width: print width (defaulted 20)
         */
         void printColumnTitle(std::ostream & _fout, const int _width=20) {
-            _fout<<std::setw(_width)<<"Nstep"
+            _fout<<std::setw(_width)<<"Nstep(sum)"
+                 <<std::setw(_width)<<"Nstep_tsyn(sum)"
+                 <<std::setw(_width)<<"Nstep"
                  <<std::setw(_width)<<"Nstep_tsyn";
         }
 
@@ -55,7 +60,9 @@ namespace AR{
           @param[in] _width: print width (defaulted 20)
         */
         void printColumn(std::ostream & _fout, const int _width=20){
-            _fout<<std::setw(_width)<<step_count
+            _fout<<std::setw(_width)<<step_count_sum
+                 <<std::setw(_width)<<step_count_tsyn_sum
+                 <<std::setw(_width)<<step_count
                  <<std::setw(_width)<<step_count_tsyn;
         }
 

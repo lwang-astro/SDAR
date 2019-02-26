@@ -396,7 +396,7 @@ namespace H4{
           @param[in,out] _new_n_group_offset:  group member boundary, first value is defined already 
           @param[in,out] _new_n_particle: total number of new member particles 
           @param[in,out] _new_n_group:    number of new group
-          @param[in,out] _break_group_index:   break group index in groups
+          @param[in,out] _break_group_index_with_offset:   break group index in groups
           @param[out] _n_break_no_add: number of break groups without adding new particles
           @param[in] _n_break:   number of break groups
          */
@@ -407,7 +407,7 @@ namespace H4{
                                         int* _new_n_group_offset, 
                                         int& _new_n_particle,
                                         int& _new_n_group,
-                                        int* _break_group_index,
+                                        int* _break_group_index_with_offset,
                                         int& _n_break_no_add,
                                         const int _n_break) {
             int insert_group=-1, insert_index=-1;
@@ -445,7 +445,7 @@ namespace H4{
                     for (int j=0; j<insert_n; j++) 
                         _new_group_particle_index_origin[insert_group_offset++] = group.info.particle_index[j];
                     // add group index to break list
-                    _break_group_index[_n_break+_n_break_no_add] = insert_index - index_offset_group_;
+                    _break_group_index_with_offset[_n_break+_n_break_no_add] = insert_index;
                     _n_break_no_add++;
                 }
                 else _new_group_particle_index_origin[insert_group_offset] = insert_index;
@@ -459,7 +459,7 @@ namespace H4{
                     for (int j=0; j<insert_n; j++)
                         _new_group_particle_index_origin[_new_n_particle++] = group.info.particle_index[j];
                     // add group index to break list
-                    _break_group_index[_n_break+_n_break_no_add] = _i - index_offset_group_;
+                    _break_group_index_with_offset[_n_break+_n_break_no_add] = _i;
                     _n_break_no_add++;
                 }
                 else _new_group_particle_index_origin[_new_n_particle++] = _i;
@@ -472,7 +472,7 @@ namespace H4{
                     for (int j=0; j<insert_n; j++)
                         _new_group_particle_index_origin[_new_n_particle++] = group.info.particle_index[j];
                     // add group index to break list
-                    _break_group_index[_n_break+_n_break_no_add] = _j - index_offset_group_;
+                    _break_group_index_with_offset[_n_break+_n_break_no_add] = _j;
                     _n_break_no_add++;
                 }
                 else _new_group_particle_index_origin[_new_n_particle++] = _j;
@@ -795,6 +795,7 @@ namespace H4{
                         _adr[k] = _adr[k_last];
                         k_last--;
                     }
+                    else k++;
                 }
                 else k++;
             }
@@ -811,6 +812,7 @@ namespace H4{
                         _adr[k] = _adr[k_last];
                         k_last--;
                     }
+                    else k++;
                 }
                 else k++;
             }
@@ -1095,14 +1097,14 @@ namespace H4{
            @param[out] _new_group_particle_index_origin: particle index (for hermite particle data) of new group members
            @param[out] _new_n_group_offset:  group member boundary, first value is defined already 
            @param[out] _new_n_group:    number of new group
-           @param[in] _break_group_index:   break group index in groups
+           @param[in] _break_group_index_with_offset:   break group index in groups
            @param[in] _n_break_no_add: number of break groups without adding new particles
            @param[in] _n_break:   number of break groups
          */
         void breakGroups(int* _new_group_particle_index_origin, 
                          int* _new_n_group_offset, 
                          int& _new_n_group,
-                         const int* _break_group_index, 
+                         const int* _break_group_index_with_offset, 
                          const int _n_break_no_add,
                          const int _n_break) {
             ASSERT(checkParams());
@@ -1117,7 +1119,7 @@ namespace H4{
             int n_single_new=0;
 
             for (int k=0; k<_n_break; k++) {
-                const int i = _break_group_index[k];
+                const int i = _break_group_index_with_offset[k] - index_offset_group_;
                 ASSERT(i>=0&&i<groups.getSize());
                 auto& groupi = groups[i];
                 const int n_member =groupi.particles.getSize();
@@ -1209,10 +1211,10 @@ namespace H4{
           If r>r_break_crit, and ecca>0.0, break.\n
           2. Perturbation criterion for closed orbit:
           If inner slowdown factor >1.0 break.\n
-          @param[out] _break_group_list: group index list to break
+          @param[out] _break_group_index_with_offset: group index list to break (with index_offset_group_ added)
           @parma[out] _n_break: number of groups need to break
         */
-        void checkBreak(int* _break_group_index, int& _n_break) {
+        void checkBreak(int* _break_group_index_with_offset, int& _n_break) {
             const int n_group_tot = index_dt_sorted_group_.getSize();
             for (int i=0; i<n_group_tot; i++) {
                 const int k = index_dt_sorted_group_[i];
@@ -1230,17 +1232,19 @@ namespace H4{
 #ifdef ADJUST_GROUP_DEBUG
                     std::cerr<<"Break group: escape, i_group: "<<k<<" N_member: "<<n_member<<" ecca: "<<bin_root.ecca<<" separation : "<<bin_root.r<<" r_crit: "<<manager->r_break_crit<<std::endl;
 #endif
-                    _break_group_index[_n_break++] = k;
+                    _break_group_index_with_offset[_n_break++] = k + index_offset_group_;
                     continue;
                 }
                     
                 // check strong perturbed binary case
-                Float kappa_org = groupk.slowdown.getSlowDownFactorOrigin();
-                if (kappa_org<0.01 && bin_root.semi>0 && bin_root.ecca>0.0) {
+                //Float kappa_org = groupk.slowdown.getSlowDownFactorOrigin();
+                //if (kappa_org<0.01 && bin_root.semi>0 && bin_root.ecca>0.0) {
+                Float fratio = groupk.slowdown.getPertOut()/groupk.slowdown.getPertIn();
+                if (fratio>2.0 && bin_root.semi>0 && bin_root.ecca>0.0) {
 #ifdef ADJUST_GROUP_DEBUG
-                    std::cerr<<"Break group: strong perturbed, i_group: "<<k<<" N_member: "<<n_member<<" kappa_org: "<<kappa_org<<" semi: "<<bin_root.semi<<" ecca: "<<bin_root.ecca<<std::endl;
+                    std::cerr<<"Break group: strong perturbed, i_group: "<<k<<" N_member: "<<n_member<<" fratio: "<<fratio<<" semi: "<<bin_root.semi<<" ecca: "<<bin_root.ecca<<std::endl;
 #endif
-                    _break_group_index[_n_break++] = k;
+                    _break_group_index_with_offset[_n_break++] = k + index_offset_group_;
                     continue;
                 }
 
@@ -1257,7 +1261,7 @@ namespace H4{
 #ifdef ADJUST_GROUP_DEBUG
                                 std::cerr<<"Break group: inner member hyperbolic, i_group: "<<k<<" i_member: "<<j<<" semi: "<<semi_db<<std::endl;
 #endif
-                                _break_group_index[_n_break++] = k;
+                                _break_group_index_with_offset[_n_break++] = k + index_offset_group_;
                                 break;
                             }
                             // if slowdown factor is large, break the group
@@ -1268,7 +1272,7 @@ namespace H4{
 #ifdef ADJUST_GROUP_DEBUG
                                 std::cerr<<"Break group: inner kappa large, i_group: "<<k<<" i_member: "<<j<<" kappa_in:"<<kappa_in<<std::endl;
 #endif
-                                _break_group_index[_n_break++] = k;
+                                _break_group_index_with_offset[_n_break++] = k + index_offset_group_;
                                 break;
                             }
                         }
@@ -1283,7 +1287,7 @@ namespace H4{
           @param[out] _new_group_particle_index_origin: particle index (for hermite particle data) of new group members
           @param[out] _new_n_group_offset:  group member boundary, first value is defined already 
           @param[out] _new_n_group:    number of new group
-          @param[in,out] _break_group_index:   break group index in groups
+          @param[in,out] _break_group_index_with_offset:   break group index in groups
           @param[out] _n_break_no_add: number of break groups without adding new particles
           @param[in] _n_break:   number of break groups
           @param[in] _start_flag: indicate this is the first adjust of the groups in the integration
@@ -1291,7 +1295,7 @@ namespace H4{
         void checkNewGroup(int* _new_group_particle_index_origin,
                            int* _new_n_group_offset, 
                            int& _new_n_group, 
-                           int* _break_group_index,
+                           int* _break_group_index_with_offset,
                            int& _n_break_no_add,
                            const int _n_break, 
                            const bool _start_flag) {
@@ -1306,7 +1310,7 @@ namespace H4{
             for (int k=0; k<n_particle; k++) used_mask[k] = -1;
             for (int k=index_offset_group_; k<n_group+index_offset_group_; k++) used_mask[k] = -1;
             // -2 means break groups
-            for (int k=0; k<_n_break; k++) used_mask[_break_group_index[k]+index_offset_group_] = -2;
+            for (int k=0; k<_n_break; k++) used_mask[_break_group_index_with_offset[k]] = -2;
             
             const Float r_crit_sq = manager->r_break_crit*manager->r_break_crit;
 
@@ -1378,7 +1382,7 @@ namespace H4{
                             std::cerr<<std::endl;
                         }
 #endif
-                        insertParticleIndexToGroup(i, j, used_mask, _new_group_particle_index_origin, _new_n_group_offset, new_n_particle, _new_n_group, _break_group_index, _n_break_no_add,  _n_break);
+                        insertParticleIndexToGroup(i, j, used_mask, _new_group_particle_index_origin, _new_n_group_offset, new_n_particle, _new_n_group, _break_group_index_with_offset, _n_break_no_add,  _n_break);
                     }
                 }
             }
@@ -1465,7 +1469,7 @@ namespace H4{
                         }
                         std::cerr<<std::endl;
 #endif
-                        insertParticleIndexToGroup(i, j, used_mask, _new_group_particle_index_origin, _new_n_group_offset, new_n_particle, _new_n_group, _break_group_index, _n_break_no_add,  _n_break);
+                        insertParticleIndexToGroup(i, j, used_mask, _new_group_particle_index_origin, _new_n_group_offset, new_n_particle, _new_n_group, _break_group_index_with_offset, _n_break_no_add,  _n_break);
                     }
                 }
             }
@@ -1486,8 +1490,8 @@ namespace H4{
             modify_system_flag_=true;
 
             // check
-            // break index
-            int break_group_index[groups.getSize()+1];
+            // break index (with index_offset_group)
+            int break_group_index_with_offset[groups.getSize()+1];
             int n_break = 0;
             int n_break_no_add = 0;
             // new index
@@ -1495,17 +1499,17 @@ namespace H4{
             int new_n_group_offset[groups.getSize()+1];
             int new_n_group = 0;
 
-            checkBreak(break_group_index, n_break);
-            checkNewGroup(new_group_particle_index, new_n_group_offset, new_n_group, break_group_index, n_break_no_add, n_break, _start_flag);
+            checkBreak(break_group_index_with_offset, n_break);
+            checkNewGroup(new_group_particle_index, new_n_group_offset, new_n_group, break_group_index_with_offset, n_break_no_add, n_break, _start_flag);
             profile.break_group_count += n_break;
             profile.new_group_count += new_n_group;
 
             // integrate modified single/groups to current time
             integrateToTimeList(time_, new_group_particle_index, new_n_group_offset[new_n_group]);
-            integrateToTimeList(time_, break_group_index, n_break);
+            integrateToTimeList(time_, break_group_index_with_offset, n_break);
 
             // break groups
-            breakGroups(new_group_particle_index, new_n_group_offset, new_n_group, break_group_index, n_break_no_add, n_break);
+            breakGroups(new_group_particle_index, new_n_group_offset, new_n_group, break_group_index_with_offset, n_break_no_add, n_break);
             addGroups(new_group_particle_index, new_n_group_offset, new_n_group);
 
             // initial integration (cannot do it here, in the case AR perturber need initialization first)
@@ -1664,14 +1668,13 @@ namespace H4{
                 // profile
                 profile.ar_step_count += groups[k].profile.step_count;
                 profile.ar_step_count_tsyn += groups[k].profile.step_count_tsyn;
-                groups[k].profile.clear();
             }
 
             // prediction positions
             predictAll(time_next);
 
             // check resolve status
-            checkGroupResolve(n_group_tot);
+            checkGroupResolve(n_act_group_);
             writeBackResolvedGroupAndCreateJParticleList();
 
             int* index_single = index_dt_sorted_single_.getDataAddress();
@@ -1782,8 +1785,8 @@ namespace H4{
                 const int k= index_dt_sorted_group_[i];
                 const int k1= index_dt_sorted_group_[i+1];
                 ASSERT(groups[k].particles.cm.dt<=groups[k1].particles.cm.dt);
-                ASSERT(k<n_groups);
-                ASSERT(k1<n_groups);
+                ASSERT(k<groups.getSize());
+                ASSERT(k1<groups.getSize());
                 ASSERT(time_next_[k+index_offset_group_]<=time_next_[k1+index_offset_group_]);
             }
 #endif
