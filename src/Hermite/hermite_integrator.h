@@ -1125,6 +1125,27 @@ namespace H4{
                 const int n_member =groupi.particles.getSize();
                 int particle_index_origin[n_member];
                 int ibreak = groupi.info.getTwoBranchParticleIndexOriginFromBinaryTree(particle_index_origin, groupi.particles.getDataAddress());
+
+#ifdef AR_DEBUG_PRINT
+                std::cerr<<"Break Group:  "
+                         <<" k:"<<std::setw(2)<<i
+                         <<" N_member: "<<std::setw(4)<<groupi.particles.getSize()
+                         <<" step: "<<std::setw(12)<<groupi.profile.step_count_sum
+                         <<" step(tsyn): "<<std::setw(10)<<groupi.profile.step_count_tsyn_sum
+//                         <<" step(sum): "<<std::setw(12)<<profile.ar_step_count
+//                         <<" step_tsyn(sum): "<<std::setw(12)<<profile.ar_step_count_tsyn
+                         <<" Soft_Pert: "<<std::setw(20)<<groupi.perturber.soft_pert_min
+                         <<" Pert_In: "<<std::setw(20)<<groupi.slowdown.getPertIn()
+                         <<" Pert_Out: "<<std::setw(20)<<groupi.slowdown.getPertOut()
+                         <<" SD: "<<std::setw(20)<<groupi.slowdown.getSlowDownFactor()
+                         <<" SD(org): "<<std::setw(20)<<groupi.slowdown.getSlowDownFactorOrigin();
+                auto& bin = groupi.info.getBinaryTreeRoot();
+                std::cerr<<" semi: "<<std::setw(20)<<bin.semi
+                         <<" ecc: "<<std::setw(20)<<bin.ecc
+                         <<" NB: "<<std::setw(4)<<groupi.perturber.neighbor_address.getSize()
+                         <<std::endl;
+#endif
+
                 // clear group
                 groupi.particles.shiftToOriginFrame();
                 groupi.particles.template writeBackMemberAll<Tparticle>();
