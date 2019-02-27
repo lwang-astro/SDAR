@@ -1263,7 +1263,7 @@ namespace H4{
                 auto* acc = groupk.particles.cm.acc0;
                 Float fin= (bin_root.m1*bin_root.m2)/(bin_root.r*bin_root.r);
                 Float fratiosq = bin_root.mass*bin_root.mass*(acc[0]*acc[0]+acc[1]*acc[1]+acc[2]*acc[2])/(fin*fin);
-                if (fratiosq>2.0 && bin_root.semi>0 && bin_root.ecca>0.0) {
+                if (fratiosq>0.01 && bin_root.semi>0 && bin_root.ecca>0.0) {
 #ifdef ADJUST_GROUP_DEBUG
                     std::cerr<<"Break group: strong perturbed, i_group: "<<k<<" N_member: "<<n_member<<" fratio_sq: "<<fratiosq<<" semi: "<<bin_root.semi<<" ecca: "<<bin_root.ecca<<std::endl;
 #endif
@@ -1330,9 +1330,9 @@ namespace H4{
             // used_mask store the current group index of particle i if it is already in new group
             int used_mask[n_particle+n_group];
             // -1 means not yet used 
-            for (int k=0; k<n_particle; k++) used_mask[k] = -1;
-            for (int k=index_offset_group_; k<n_group+index_offset_group_; k++) used_mask[k] = -1;
-            // -2 means break groups
+            for (int k=0; k<n_particle; k++) used_mask[k] = table_single_mask_[k]?-2:-1;
+            for (int k=0; k<n_group; k++) used_mask[k+index_offset_group_] = table_group_mask_[k]?-2:-1;
+            // -2 means break groups/masked groups
             for (int k=0; k<_n_break; k++) used_mask[_break_group_index_with_offset[k]] = -2;
             
             const Float r_crit_sq = manager->r_break_crit*manager->r_break_crit;
@@ -1357,7 +1357,7 @@ namespace H4{
                 // distance criterion
                 if (dr2 < r_crit_sq) {
 
-                    // avoid break member
+                    // avoid break/masked member
                     if(used_mask[j]==-2) continue;
                     
                     // avoid double count
@@ -1383,7 +1383,7 @@ namespace H4{
 
                         // avoid strong perturbed case, estimate perturbation
                         // if fratiosq >1.5, avoid to form new group, should be consistent as checkbreak
-                        if(fratiosq>1.5) continue;
+                        if(fratiosq>0.005) continue;
 
 #ifdef ADJUST_GROUP_DEBUG
                         if (j<index_offset_group_) {
@@ -1464,7 +1464,7 @@ namespace H4{
 
                         // avoid strong (outside) perturbed case, estimate perturbation
                         // if fratiosq >1.5, avoid to form new group, should be consistent as checkbreak
-                        if(fratiosq>1.5) continue;
+                        if(fratiosq>0.005) continue;
 
 #ifdef ADJUST_GROUP_DEBUG
                         auto& bini = groupi.info.binarytree.getLastMember();
