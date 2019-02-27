@@ -71,7 +71,8 @@ namespace H4 {
                 need_resolve_flag = true;
                 initial_step_flag = true;
             }
-            if (_kappa>3.0 && need_resolve_flag) {
+            // _kappa>3.0 seems cause oscillation 
+            if (_kappa>10.0 && need_resolve_flag) {
                 need_resolve_flag = false;
                 initial_step_flag = true;
             }

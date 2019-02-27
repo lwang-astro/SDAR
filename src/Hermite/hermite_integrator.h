@@ -300,7 +300,7 @@ namespace H4{
             if(_init_step_flag) {
                 _pi.dt = manager->step.calcBlockDt2nd(_pi.acc0, _pi.acc1, _dt_limit);
 #ifdef HERMITE_DEBUG
-                std::cerr<<"Initial step flag on: pi.id: "<<_pi.id<<" step size: "<<_pi.dt<<std::endl;
+                std::cerr<<"Initial step flag on: pi.id: "<<_pi.id<<" step size: "<<_pi.dt<<" time: "<<_pi.time<<std::endl;
 #endif                
             }
             else _pi.dt = manager->step.calcBlockDt4th(_pi.acc0, _pi.acc1, acc2, acc3, _dt_limit);
@@ -1134,7 +1134,6 @@ namespace H4{
                          <<" step(tsyn): "<<std::setw(10)<<groupi.profile.step_count_tsyn_sum
 //                         <<" step(sum): "<<std::setw(12)<<profile.ar_step_count
 //                         <<" step_tsyn(sum): "<<std::setw(12)<<profile.ar_step_count_tsyn
-                         <<" Soft_Pert: "<<std::setw(20)<<groupi.perturber.soft_pert_min
                          <<" Pert_In: "<<std::setw(20)<<groupi.slowdown.getPertIn()
                          <<" Pert_Out: "<<std::setw(20)<<groupi.slowdown.getPertOut()
                          <<" SD: "<<std::setw(20)<<groupi.slowdown.getSlowDownFactor()
@@ -1688,7 +1687,9 @@ namespace H4{
                 const int k = index_dt_sorted_group_[i];
                 ASSERT(table_group_mask_[k]==false);
                 const Float ds = groups[k].info.ds;
+                ASSERT(abs(groups[k].slowdown.getRealTime()-time_)<=ar_manager->time_error_max_real);
                 groups[k].integrateToTime(ds, time_next, groups[k].info.fix_step_option);
+                ASSERT(abs(groups[k].slowdown.getRealTime()-time_next)<=ar_manager->time_error_max_real);
                 // profile
                 profile.ar_step_count += groups[k].profile.step_count;
                 profile.ar_step_count_tsyn += groups[k].profile.step_count_tsyn;
@@ -1851,12 +1852,12 @@ namespace H4{
 
         //! get initial number of particles of groups
         int getNInitGroup() const{
-            return n_act_group_;
+            return n_init_group_;
         }
 
         //! get initial number of particles of singles
         int getNInitSingle() const{
-            return n_act_single_;
+            return n_init_single_;
         }
 
         //! get N groups
