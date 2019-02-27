@@ -733,8 +733,8 @@ namespace H4{
                             _p1.mass*_p1.acc0[1] + _p2.mass*_p2.acc0[1], 
                             _p1.mass*_p1.acc0[2] + _p2.mass*_p2.acc0[2]};
             Float fcm2 = fcm[0]*fcm[0] + fcm[1]*fcm[1] + fcm[2]*fcm[2];
-            Float fin2 = _p1.mass*_p2.mass/_dr2;
-            Float fratiosq = fcm2/fin2;
+            Float fin = _p1.mass*_p2.mass/_dr2;
+            Float fratiosq = fcm2/(fin*fin);
             return fratiosq;
         }
 
@@ -1239,10 +1239,12 @@ namespace H4{
                 // check strong perturbed binary case
                 //Float kappa_org = groupk.slowdown.getSlowDownFactorOrigin();
                 //if (kappa_org<0.01 && bin_root.semi>0 && bin_root.ecca>0.0) {
-                Float fratio = groupk.slowdown.getPertOut()/groupk.slowdown.getPertIn();
-                if (fratio>2.0 && bin_root.semi>0 && bin_root.ecca>0.0) {
+                auto* acc = groupk.particles.cm.acc0;
+                Float fin= (bin_root.m1*bin_root.m2)/(bin_root.r*bin_root.r);
+                Float fratiosq = bin_root.mass*bin_root.mass*(acc[0]*acc[0]+acc[1]*acc[1]+acc[2]*acc[2])/(fin*fin);
+                if (fratiosq>2.0 && bin_root.semi>0 && bin_root.ecca>0.0) {
 #ifdef ADJUST_GROUP_DEBUG
-                    std::cerr<<"Break group: strong perturbed, i_group: "<<k<<" N_member: "<<n_member<<" fratio: "<<fratio<<" semi: "<<bin_root.semi<<" ecca: "<<bin_root.ecca<<std::endl;
+                    std::cerr<<"Break group: strong perturbed, i_group: "<<k<<" N_member: "<<n_member<<" fratio_sq: "<<fratiosq<<" semi: "<<bin_root.semi<<" ecca: "<<bin_root.ecca<<std::endl;
 #endif
                     _break_group_index_with_offset[_n_break++] = k + index_offset_group_;
                     continue;
