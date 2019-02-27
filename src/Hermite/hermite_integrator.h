@@ -1180,16 +1180,17 @@ namespace H4{
             n_act_single_  += n_single_new;
 
             // only clear case
-            for (int i=_n_break; i<_n_break+_n_break_no_add; i++) {
+            for (int k=_n_break; k<_n_break+_n_break_no_add; k++) {
+                const int i = _break_group_index_with_offset[k] - index_offset_group_;
                 auto& groupi = groups[i];
                 groupi.particles.shiftToOriginFrame();
                 groupi.particles.template writeBackMemberAll<Tparticle>();
                 const int n_member = groupi.particles.getSize();
                 ASSERT(n_member==groupi.info.particle_index.getSize());
                 for (int j=0; j<n_member; j++) {
-                    const int k = groupi.info.particle_index[j];
-                    ASSERT(k<particles.getSize());
-                    table_single_mask_[k] = false;
+                    const int kj = groupi.info.particle_index[j];
+                    ASSERT(kj<particles.getSize());
+                    table_single_mask_[kj] = false;
                 }
                 groupi.clear();
                 table_group_mask_[i] = true;
