@@ -274,6 +274,7 @@ int main(int argc, char **argv){
     // no initial when both parameters and data are load
     // initialization 
     h4_int.initialIntegration(); // get neighbors and min particles
+    const int n_group_init = h4_int.getNGroup();
     h4_int.adjustGroups(true);
     h4_int.initialIntegration();
     h4_int.sortDtAndSelectActParticle();
@@ -293,6 +294,8 @@ int main(int argc, char **argv){
 
     //print column title
     h4_int.info.printColumnTitle(std::cout, print_width);
+    std::cout<<std::setw(print_width)<<"Ngroup";
+    for (int i=0; i<n_group_init; i++) h4_int.groups[i].slowdown.printColumnTitle(std::cout, print_width);
     h4_int.particles.printColumnTitle(std::cout, print_width);
     std::cout<<std::endl;
 
@@ -319,6 +322,8 @@ int main(int argc, char **argv){
             std::cerr<<std::endl;
 
             h4_int.info.printColumn(std::cout, print_width);
+            std::cout<<std::setw(print_width)<<n_group_init;
+            for (int i=0; i<n_group_init; i++) h4_int.groups[i].slowdown.printColumn(std::cout, print_width);
             h4_int.particles.printColumn(std::cout, print_width);
             std::cout<<std::endl;
             h4_int.printStepHist();
