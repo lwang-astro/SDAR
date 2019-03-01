@@ -909,7 +909,7 @@ namespace AR {
                             ASSERT(!std::isinf(ds[1-ds_switch]));
                         }
                         // increase step size if energy error is small
-                        else if(energy_error_rel_abs<energy_error_rel_max_half_step&&energy_error_rel_max) {
+                        else if(energy_error_rel_abs<energy_error_rel_max_half_step&&energy_error_rel_abs>0.0) {
                             Float energy_error_ratio = energy_error_rel_max/energy_error_rel_abs;
                             Float modify_factor = manager->step.calcStepModifyFactorFromErrorRatio(energy_error_ratio);
                             ASSERT(modify_factor>0.0);
