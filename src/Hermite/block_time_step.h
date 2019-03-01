@@ -203,7 +203,7 @@ namespace H4{
 
             if(dt<dt_min_) {
                 std::cerr<<"Error: time step size too small: ("<<dt<<") < dt_min ("<<dt_min_<<")!"<<std::endl;
-                DATADUMP();
+                DATADUMP("hard_dump");
                 abort();
             }
             else return dt;
@@ -232,7 +232,7 @@ namespace H4{
 
             if(dt<dt_min_) {
                 std::cerr<<"Error: time step size too small: ("<<dt<<") < dt_min ("<<dt_min_<<")!"<<std::endl;
-                DATADUMP();
+                DATADUMP("hard_dump");
                 abort();
             }
             else return dt;
