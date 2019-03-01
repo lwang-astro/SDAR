@@ -1234,8 +1234,9 @@ namespace H4{
           If inner slowdown factor >1.0 break.\n
           @param[out] _break_group_index_with_offset: group index list to break (with index_offset_group_ added)
           @parma[out] _n_break: number of groups need to break
+          @param[in] _start_flag: indicate this is the first adjust of the groups in the integration
         */
-        void checkBreak(int* _break_group_index_with_offset, int& _n_break) {
+        void checkBreak(int* _break_group_index_with_offset, int& _n_break, const bool _start_flag) {
             const int n_group_tot = index_dt_sorted_group_.getSize();
             for (int i=0; i<n_group_tot; i++) {
                 const int k = index_dt_sorted_group_[i];
@@ -1263,9 +1264,13 @@ namespace H4{
                 auto* acc = groupk.particles.cm.acc0;
                 Float fin= (bin_root.m1*bin_root.m2)/(bin_root.r*bin_root.r);
                 Float fratiosq = bin_root.mass*bin_root.mass*(acc[0]*acc[0]+acc[1]*acc[1]+acc[2]*acc[2])/(fin*fin);
-                if (fratiosq>0.01 && bin_root.semi>0 && bin_root.ecca>0.0) {
+                if (fratiosq>0.01 && bin_root.semi>0 && bin_root.ecca>0.0 && !_start_flag) {
 #ifdef ADJUST_GROUP_DEBUG
-                    std::cerr<<"Break group: strong perturbed, i_group: "<<k<<" N_member: "<<n_member<<" fratio_sq: "<<fratiosq<<" semi: "<<bin_root.semi<<" ecca: "<<bin_root.ecca<<std::endl;
+                    std::cerr<<"Break group: strong perturbed, time: "<<time_<<" i_group: "<<k<<" N_member: "<<n_member;
+                    std::cerr<<" index: ";
+                    for (int i=0; i<n_member; i++) 
+                        std::cerr<<groupk.info.particle_index[i]<<" ";
+                    std::cerr<<" fratio_sq: "<<fratiosq<<" semi: "<<bin_root.semi<<" ecca: "<<bin_root.ecca<<std::endl;
 #endif
                     _break_group_index_with_offset[_n_break++] = k + index_offset_group_;
                     continue;
@@ -1282,18 +1287,18 @@ namespace H4{
                             // inner hyperbolic case
                             if(semi_db<0.0) {
 #ifdef ADJUST_GROUP_DEBUG
-                                std::cerr<<"Break group: inner member hyperbolic, i_group: "<<k<<" i_member: "<<j<<" semi: "<<semi_db<<std::endl;
+                                std::cerr<<"Break group: inner member hyperbolic, time: "<<time_<<" i_group: "<<k<<" i_member: "<<j<<" semi: "<<semi_db<<std::endl;
 #endif
                                 _break_group_index_with_offset[_n_break++] = k + index_offset_group_;
                                 break;
                             }
                             // if slowdown factor is large, break the group
-                            Float f_in = bin_sub->m1*bin_sub->m2/(semi_db*semi_db*semi_db);
-                            Float f_out = bin_sub->mass*bin_root.getMember(1-j)->mass/(bin_root.r*bin_root.r*bin_root.r);
-                            Float kappa_in = sd.calcSlowDownFactor(f_in, f_out);
+                            sd.pert_in = bin_sub->m1*bin_sub->m2/(semi_db*semi_db*semi_db);
+                            sd.pert_out = bin_sub->mass*bin_root.getMember(1-j)->mass/(bin_root.r*bin_root.r*bin_root.r);
+                            Float kappa_in = sd.calcSlowDownFactor();
                             if (kappa_in>1.0) {
 #ifdef ADJUST_GROUP_DEBUG
-                                std::cerr<<"Break group: inner kappa large, i_group: "<<k<<" i_member: "<<j<<" kappa_in:"<<kappa_in<<std::endl;
+                                std::cerr<<"Break group: inner kappa large, time: "<<time_<<" i_group: "<<k<<" i_member: "<<j<<" kappa_in:"<<kappa_in<<std::endl;
 #endif
                                 _break_group_index_with_offset[_n_break++] = k + index_offset_group_;
                                 break;
@@ -1387,17 +1392,18 @@ namespace H4{
 
 #ifdef ADJUST_GROUP_DEBUG
                         if (j<index_offset_group_) {
-                            std::cerr<<"Find new group   index: "<<i<<" "<<j<<" dr2: "<<dr2<<"  ftid_sq: "<<fratiosq<<"\n";
+                            std::cerr<<"Find new group: time: "<<time_<<" index: "<<i<<" "<<j<<" dr2: "<<dr2<<"  ftid_sq: "<<fratiosq<<"\n";
                         }
                         else {
                             auto& bin_root = groups[j-index_offset_group_].info.binarytree.getLastMember();
-                            std::cerr<<"Find new group      index      slowdown      apo      ftid_sq \n"
-                                     <<"i1              "
+                            std::cerr<<"Find new group: time: "<<time_
+                                     <<"\n       index      slowdown      apo      ftid_sq \n"
+                                     <<"i1 "
                                      <<std::setw(8)<<i
                                      <<std::setw(16)<<0
                                      <<std::setw(16)<<0
                                      <<std::setw(16)<<fratiosq;
-                            std::cerr<<"\ni2              "
+                            std::cerr<<"\ni2 "
                                      <<std::setw(8)<<j
                                      <<std::setw(16)<<groups[j-index_offset_group_].slowdown.getSlowDownFactorOrigin()
                                      <<std::setw(16)<<bin_root.semi*(1.0+bin_root.ecc)
@@ -1468,14 +1474,15 @@ namespace H4{
 
 #ifdef ADJUST_GROUP_DEBUG
                         auto& bini = groupi.info.binarytree.getLastMember();
-                        std::cerr<<"Find new group      index      slowdown       apo      ftid_sq \n"
-                                 <<"i1              "
+                        std::cerr<<"Find new group: time: "<<time_
+                                 <<"\n       index      slowdown       apo      ftid_sq \n"
+                                 <<"i1 "
                                  <<std::setw(8)<<i
                                  <<std::setw(16)<<kappa_org_i
                                  <<std::setw(16)<<bini.semi*(1.0+bini.ecc)
                                  <<std::setw(16)<<fratiosq;
                         if(j<index_offset_group_) {
-                            std::cerr<<"\ni2              "
+                            std::cerr<<"\ni2 "
                                      <<std::setw(8)<<j
                                      <<std::setw(16)<<0
                                      <<std::setw(16)<<0
@@ -1484,7 +1491,7 @@ namespace H4{
                         else {
                             auto& binj = groups[j-index_offset_group_].info.binarytree.getLastMember();
                             Float kappaj = groups[j-index_offset_group_].slowdown.getSlowDownFactorOrigin();
-                            std::cerr<<"\ni2              "
+                            std::cerr<<"\ni2 "
                                      <<std::setw(8)<<j
                                      <<std::setw(16)<<kappaj
                                      <<std::setw(16)<<binj.semi*(1.0+binj.ecc)
@@ -1522,7 +1529,7 @@ namespace H4{
             int new_n_group_offset[groups.getSize()+1];
             int new_n_group = 0;
 
-            checkBreak(break_group_index_with_offset, n_break);
+            checkBreak(break_group_index_with_offset, n_break, _start_flag);
             checkNewGroup(new_group_particle_index, new_n_group_offset, new_n_group, break_group_index_with_offset, n_break_no_add, n_break, _start_flag);
             profile.break_group_count += n_break;
             profile.new_group_count += new_n_group;

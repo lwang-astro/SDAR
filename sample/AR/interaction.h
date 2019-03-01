@@ -27,12 +27,13 @@ public:
       @param[in] _perturber: pertuber container
       @param[in] _time: time to integrate
     */
-    Float calcAccAndSlowDownPert(AR::Force* _force, const Particle* _particles, const int _n_particle, const Particle& _particle_cm, const Perturber& _perturber, const Float _time) {
+    void calcAccAndSlowDownPert(AR::SlowDown& _slowdown, AR::Force* _force, const Particle* _particles, const int _n_particle, const Particle& _particle_cm, const Perturber& _perturber) {
         for (int i=0; i<_n_particle; i++) {
             Float* acc_pert = _force[i].acc_pert;
             acc_pert[0] = acc_pert[1] = acc_pert[2] = Float(0.0);
         }            
-        return 0.0;
+        _slowdown.pert_out = 0;
+        _slowdown.timescale = _slowdown.getTimescaleMax();
     }
 
     //! (Necessary) calculate inner member acceleration, potential and time transformation function gradient and factor for kick (two-body case)

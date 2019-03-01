@@ -180,7 +180,7 @@ int main(int argc, char **argv){
         manager.time_step_real_min = dt_min;
         manager.time_error_max_real = time_error;
         manager.energy_error_relative_max = energy_error; 
-        manager.slowdown_factor_max = 1.0;
+        manager.slowdown_timescale_max = 1.0;
         manager.slowdown_mass_ref = 1.0;
         manager.slowdown_pert_ratio_ref = 1e-6;
         manager.step_count_max = nstep_max;

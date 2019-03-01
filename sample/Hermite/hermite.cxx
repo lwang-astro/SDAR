@@ -45,7 +45,7 @@ int main(int argc, char **argv){
     Float eta_2nd = 0.001; // time step coefficient for 2nd order
     Float eps_sq = 0.0;    // softening parameter
     Float slowdown_ref =1e-6; // slowdown reference factor
-    Float slowdown_max =1e4; // slowdown reference factor
+    Float slowdown_timescale_max = time_end; // slowdown timescale
     Float G = 1.0;      // gravitational constant
     char* filename_par=NULL; // par dumped filename
 
@@ -63,7 +63,7 @@ int main(int argc, char **argv){
         {"eta-2nd",required_argument, 0, 0},
         {"eps",required_argument, 0, 0},
         {"slowdown-ref",required_argument, 0, 0},
-        {"slowdown-max",required_argument, 0, 0},
+        {"slowdown-timescale-max",required_argument, 0, 0},
         {"print-width",required_argument, 0, 0},
         {"print-precision",required_argument, 0, 0},
         {"load-par",required_argument, 0, 0},    
@@ -107,7 +107,7 @@ int main(int argc, char **argv){
                 slowdown_ref = atof(optarg);
                 break;
             case 12:
-                slowdown_max = atof(optarg);
+                slowdown_timescale_max = atof(optarg);
                 break;
             case 13:
                 print_width = atof(optarg);
@@ -167,7 +167,7 @@ int main(int argc, char **argv){
                      <<"          --eta-2nd:   time step coefficient for 2nd order ("<<eta_2nd<<")\n"
                      <<"          --eps:       softerning parameter ("<<eps_sq<<")\n"
                      <<"          --slowdown-ref:  slowdown perturbation ratio reference ("<<slowdown_ref<<")\n"
-                     <<"          --slowdown-max:  slowdown maximum factor ("<<slowdown_max<<")\n"
+                     <<"          --slowdown-timescale-max:  maximum timescale for maximum slowdown factor("<<slowdown_timescale_max<<")\n"
                      <<"          --print-width [int]:     print width of value ("<<print_width<<")\n"
                      <<"          --print-precision [int]: print digital precision ("<<print_precision<<")\n"
                      <<"          --load-par    [char]:    filename to load manager parameters\n"
@@ -232,7 +232,7 @@ int main(int argc, char **argv){
         // time error cannot be smaller than round-off error
         ar_manager.energy_error_relative_max = energy_error; 
         ar_manager.slowdown_pert_ratio_ref = slowdown_ref;
-        ar_manager.slowdown_factor_max = slowdown_max;
+        ar_manager.slowdown_timescale_max = slowdown_timescale_max;
         ar_manager.step_count_max = nstep_max;
         // set symplectic order
         ar_manager.step.initialSymplecticCofficients(sym_order);
@@ -301,6 +301,8 @@ int main(int argc, char **argv){
 
     //print initial data
     h4_int.info.printColumn(std::cout, print_width);
+    std::cout<<std::setw(print_width)<<n_group_init;
+    for (int i=0; i<n_group_init; i++) h4_int.groups[i].slowdown.printColumn(std::cout, print_width);
     h4_int.particles.printColumn(std::cout, print_width);
     std::cout<<std::endl;
     

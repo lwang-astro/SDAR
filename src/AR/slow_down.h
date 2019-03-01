@@ -15,30 +15,34 @@ namespace AR{
         Float kappa_org_;      // original slow-down factor without kappa limit (1.0, kappa_max)
         Float kappa_max_;      // maximum kappa factor
         Float kappa_ref_;      ///< reference kappa factor; slow-down factor kappa = max(1,kref/perturbation_factor)
-        Float pert_in_;           // inner strength
-        Float pert_out_;          // perturbation strength
-
+        Float timescale_max_;  ///< maximum timescale 
     public:
+        Float pert_in;           // inner strength
+        Float pert_out;          // perturbation strength
+        Float timescale;         // perturbation strength change timescale
+
         //! defaulted constructor
-        SlowDown(): time_real_(Float(0.0)), kappa_(Float(1.0)), kappa_org_(Float(1.0)), kappa_max_(Float(1.0)), kappa_ref_(Float(1.0e-6)) {}
+        SlowDown(): time_real_(Float(0.0)), kappa_(Float(1.0)), kappa_org_(Float(1.0)), kappa_max_(Float(1.0)), kappa_ref_(Float(1.0e-6)), timescale_max_(NUMERIC_FLOAT_MAX), pert_in(0.0), pert_out(0.0), timescale(NUMERIC_FLOAT_MAX) {}
     
         //! clear function
         void clear(){
             time_real_ = Float(0.0);
             kappa_ = kappa_org_ = kappa_max_ = Float(1.0);
             kappa_ref_ = Float(1.0e-6);
+            pert_in = pert_out = Float(0.0);
+            timescale_max_ = timescale = NUMERIC_FLOAT_MAX;
         }
 
         //! initialize slow-down parameters
         /*! Set slow-down parameters, slow-down method will be switched on
           @param[in] _kappa_ref: reference kappa factor; slow-down factor kappa = max(1,kref/perturbation_factor)
-          @param[in] _kappa_max: maximum slow-down factor
+          @param[in] _timescale_max: maximum timescale 
         */
-        void initialSlowDownReference(const Float _kappa_ref, const Float _kappa_max) {
+        void initialSlowDownReference(const Float _kappa_ref, const Float _timescale_max) {
             ASSERT(_kappa_ref>0.0);
-            ASSERT(_kappa_max>=1.0);
+            ASSERT(_timescale_max>0.0);
             kappa_ref_ = _kappa_ref;
-            kappa_max_ = _kappa_max;
+            timescale_max_ = _timescale_max;
         }
 
         //! set real time value
@@ -60,31 +64,51 @@ namespace AR{
         }
 
         //! manually set kappa
-        /* auto-adjust in the range (1.0, kappa_max)
-         */
         void setSlowDownFactor(const Float _kappa) {
             kappa_ = _kappa;
             kappa_org_ = _kappa;
-            kappa_ = std::min(kappa_, kappa_max_);
-            kappa_ = std::max(Float(1.0), kappa_);
+        }
+
+        //! calculate slowdown factor based on perturbation and inner acceleration and timescale
+        /* if it is a hyperbolic encounter, (ebin_>0), set slowdown factor to 1.0
+           @param[in] _etot: total energy of binary
+           @param[in] _m1: mass 1
+           @param[in] _m2: mass 2
+          \return slowdown factor
+         */
+        Float calcSlowDownFactorBinary(const Float _etot, const Float _m1, const Float _m2) {
+            // hyberbolic case no slowdown
+            if(_etot>=0.0) {
+                kappa_org_ = kappa_ = Float(1.0);
+            }
+            else { 
+                ASSERT(pert_out>=0.0);
+                Float m1m2 = _m1*_m2;
+                Float semi_db = - m1m2/_etot;
+                Float semi3 = semi_db*semi_db*semi_db;
+                Float period = std::sqrt(semi3/(_m1+_m2)); // miss 2*pi, extra 2\sqrt(2)
+                // at least about 100 orbits per timescale
+                kappa_max_ = std::max(Float(1.0), 0.1*timescale/period);
+                pert_in = m1m2/semi3;
+                if (pert_out==0.0) kappa_org_ = kappa_max_;
+                else kappa_org_ = kappa_ref_*pert_in/pert_out;
+                kappa_ = std::min(kappa_org_, kappa_max_);
+                kappa_ = std::max(Float(1.0), kappa_);
+            }
+            return kappa_;
         }
 
         //! calculate slowdown factor based on perturbation and inner acceleration
         /* if it is a hyperbolic encounter, (ebin_>0), set slowdown factor to 1.0
-          @param[in] _acc_in: binary inner acceleration (negative means hyperbolic case)
-          @param[in] _acc_pert: perturbation acceleration (if zero, slowdown factor is 1.0)
           \return slowdown factor
          */
-        Float calcSlowDownFactor(const Float _acc_in, const Float _acc_pert) {
+        Float calcSlowDownFactor() {
             // hyberbolic case or no perturbation
-            pert_in_  = _acc_in;
-            pert_out_ = _acc_pert;
-            if(_acc_in<0.0||_acc_pert==0.0) {
+            if(pert_in<0.0||pert_out==0.0) {
                 kappa_org_ = kappa_ = Float(1.0);
             }
             else { 
-                kappa_org_ = kappa_ref_*_acc_in/_acc_pert;
-                kappa_ = std::min(kappa_org_, kappa_max_);
+                kappa_org_ = kappa_ref_*pert_in/pert_out;
                 kappa_ = std::max(Float(1.0), kappa_);
             }
             return kappa_;
@@ -117,11 +141,15 @@ namespace AR{
         }
 
         Float getPertIn() const {
-            return pert_in_;
+            return pert_in;
         }
 
         Float getPertOut() const {
-            return pert_out_;
+            return pert_out;
+        }
+
+        Float getTimescaleMax() const {
+            return timescale_max_;
         }
 
         //! write class data with BINARY format

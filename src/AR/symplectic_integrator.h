@@ -30,7 +30,7 @@ namespace AR {
         Float time_step_real_min;        ///> minimum real time step allown
         Float slowdown_pert_ratio_ref;   ///> slowdown perturbation /inner ratio reference factor
         Float slowdown_mass_ref;         ///> slowdown mass factor reference
-        Float slowdown_factor_max;       ///> slowdown factor maximum
+        Float slowdown_timescale_max;       ///> slowdown maximum timescale to calculate maximum slowdown factor
         long long int step_count_max; ///> maximum step counts
         
         Tmethod interaction; ///> class contain interaction function
@@ -48,7 +48,7 @@ namespace AR {
             ASSERT(time_step_real_min>ROUND_OFF_ERROR_LIMIT);
             ASSERT(slowdown_pert_ratio_ref>0.0);
             ASSERT(slowdown_mass_ref>0.0);
-            ASSERT(slowdown_factor_max>0);
+            ASSERT(slowdown_timescale_max>0);
             ASSERT(step_count_max>0);
             ASSERT(step.getOrder()>0);
             ASSERT(interaction.checkParams());
@@ -86,7 +86,7 @@ namespace AR {
                  <<"time_step_real_min        : "<<time_step_real_min<<std::endl
                  <<"slowdown_pert_ratio_ref   : "<<slowdown_pert_ratio_ref<<std::endl
                  <<"slowdown_mass_ref         : "<<slowdown_mass_ref<<std::endl
-                 <<"slowdown_factor_max       : "<<slowdown_factor_max<<std::endl
+                 <<"slowdown_timescale_max    : "<<slowdown_timescale_max<<std::endl
                  <<"step_count_max            : "<<step_count_max<<std::endl;
             interaction.print(_fout);
             step.print(_fout);
@@ -398,7 +398,7 @@ namespace AR {
 
             // set slowdown reference
             const Float mass_ratio = manager->slowdown_mass_ref/particles.cm.mass;
-            slowdown.initialSlowDownReference(mass_ratio*manager->slowdown_pert_ratio_ref, manager->slowdown_factor_max);
+            slowdown.initialSlowDownReference(mass_ratio*manager->slowdown_pert_ratio_ref, manager->slowdown_timescale_max);
 
             // particle number and data address
             const int n_particle = particles.getSize();
@@ -429,11 +429,9 @@ namespace AR {
 
                 // two-body case, also initialslowdown
                 // calcualte perturbation force (cumulative to acc) and slowdown perturbation estimation
-                Float sd_pert = manager->interaction.calcAccAndSlowDownPert(force_data, particle_data, n_particle, particles.cm, perturber, _time_real);
+                manager->interaction.calcAccAndSlowDownPert(slowdown, force_data, particle_data, n_particle, particles.cm, perturber);
                 // slowdown factor, for inner perturbation, m1*m2/(2.0*semi)^3 is used
-                Float m1m2 = particle_data[0].mass*particle_data[1].mass;
-                Float sd_in = - etot_*etot_*etot_/(m1m2*m1m2);
-                slowdown.calcSlowDownFactor(sd_in, sd_pert);
+                slowdown.calcSlowDownFactorBinary(etot_, particle_data[0].mass, particle_data[1].mass);
 
             }
             else {
@@ -502,7 +500,7 @@ namespace AR {
                 Float gt_kick = manager->interaction.calcAccPotAndGTKick(force_data, epot_, particle_data, n_particle); 
 
                 // calcualte perturbation force (cumulative to acc)
-                manager->interaction.calcAccAndSlowDownPert(force_data, particle_data, n_particle, particles.cm, perturber, slowdown.getRealTime());
+                manager->interaction.calcAccAndSlowDownPert(slowdown, force_data, particle_data, n_particle, particles.cm, perturber);
 
                 // time step for kick
                 Float dt_kick = ds_kick* gt_kick;
@@ -603,12 +601,10 @@ namespace AR {
                 dt = 0.5*ds*gt;
 
                 // calcualte perturbation force (cumulative to acc) and slowdown perturbation estimation
-                Float sd_pert = manager->interaction.calcAccAndSlowDownPert(force_data, particle_data, n_particle, particles.cm, perturber, slowdown.getRealTime());
+                manager->interaction.calcAccAndSlowDownPert(slowdown, force_data, particle_data, n_particle, particles.cm, perturber);
 
                 // slowdown factor
-                const Float m1m2  = mass1*mass2;
-                const Float sd_in = - etot_*etot_*etot_/(m1m2*m1m2);
-                const Float kappa = slowdown.calcSlowDownFactor(sd_in, sd_pert);
+                const Float kappa = slowdown.calcSlowDownFactorBinary(etot_, mass1, mass2);
 
                 // kick half step for velocity
                 Float dvel1[3], dvel2[3];
@@ -750,6 +746,7 @@ namespace AR {
                 Float dt_real = slowdown.getRealTime();
 
                 // integrate one step
+                ASSERT(!std::isinf(ds[ds_switch]));
                 if(n_particle==2) integrateTwoOneStep(ds[ds_switch], time_table);
                 else integrateOneStep(ds[ds_switch], time_table);
 
@@ -850,6 +847,7 @@ namespace AR {
                             n_step_wait=-1;
                             ds[ds_switch] *= modify_factor;
                             ds[1-ds_switch] = ds[ds_switch];
+                            ASSERT(!std::isinf(ds[ds_switch]));
                             backup_flag = false;
 #ifdef AR_DEEP_DEBUG
                             std::cerr<<"Detected energy error too large, energy_error/max ="<<1.0/energy_error_ratio<<" energy_error_rel_abs ="<<energy_error_rel_abs<<" modify_factor ="<<modify_factor<<std::endl;
@@ -861,6 +859,7 @@ namespace AR {
                             if(backup_flag) ds_backup = ds[ds_switch];
                             ds[ds_switch] *= modify_factor;
                             ds[1-ds_switch] = ds[ds_switch];
+                            ASSERT(!std::isinf(ds[ds_switch]));
                             backup_flag = false;
                             n_step_wait = 2*to_int(1.0/modify_factor);
 #ifdef AR_DEEP_DEBUG
@@ -907,13 +906,15 @@ namespace AR {
                             std::cerr<<"Recover to backup step ds_current="<<ds[ds_switch]<<" ds_next="<<ds[1-ds_switch]<<" ds_backup="<<ds_backup<<std::endl;
 #endif
                             ds[1-ds_switch] = ds_backup;
+                            ASSERT(!std::isinf(ds[1-ds_switch]));
                         }
                         // increase step size if energy error is small
-                        else if(energy_error_rel_abs<energy_error_rel_max_half_step) {
+                        else if(energy_error_rel_abs<energy_error_rel_max_half_step&&energy_error_rel_max) {
                             Float energy_error_ratio = energy_error_rel_max/energy_error_rel_abs;
                             Float modify_factor = manager->step.calcStepModifyFactorFromErrorRatio(energy_error_ratio);
                             ASSERT(modify_factor>0.0);
                             ds[1-ds_switch] *= modify_factor;
+                            ASSERT(!std::isinf(ds[1-ds_switch]));
 #ifdef AR_DEEP_DEBUG
                             std::cerr<<"Energy error is small enought for increase step, energy_error_rel_abs="<<energy_error_rel_abs
                                      <<" energy_error_rel_max="<<energy_error_rel_max<<" step_modify_factor="<<modify_factor<<" new ds="<<ds[1-ds_switch]<<std::endl;
@@ -929,7 +930,9 @@ namespace AR {
                         Float dt_real_end = _time_end_real - time_real;
                         if(n_step_end>1 && dt_real<0.3*dt_real_end) {
                             // dt_real should be >0.0
+                            ASSERT(dt_real>0.0);
                             ds[1-ds_switch] = ds[ds_switch] * dt_real_end/dt_real;
+                            ASSERT(!std::isinf(ds[1-ds_switch]));
 #ifdef AR_DEEP_DEBUG
                             std::cerr<<"Time step dt(real) "<<dt_real<<" <0.3*(time_end-time)(real) "<<dt_real_end<<" enlarge step factor: "<<dt_real_end/dt_real<<" new ds: "<<ds[1-ds_switch]<<std::endl;
 #endif
@@ -939,6 +942,7 @@ namespace AR {
 
                     // when used once, update to the new step
                     ds[ds_switch] = ds[1-ds_switch]; 
+                    ASSERT(!std::isinf(ds[ds_switch]));
                     ds_switch = 1-ds_switch;
 
                     backup_flag = true;
@@ -957,8 +961,10 @@ namespace AR {
                         if(_time_end_real<time_table[k]) break;
                     }
                     if (i==0) { // first step case
+                        ASSERT(time_table[k]>0.0);
                         ds[ds_switch] *= manager->step.getSortCumSumCK(i)*_time_end_real/time_table[k];
                         ds[1-ds_switch] = ds[ds_switch];
+                        ASSERT(!std::isinf(ds[ds_switch]));
 #ifdef AR_DEEP_DEBUG
                         std::cerr<<"Time_end_real reach, time[k](real)= "<<time_table[k]<<" time(real)= "<<time_real<<" time_end/time[k](real)="<<_time_end_real/time_table[k]<<" CumSum_CK="<<manager->step.getSortCumSumCK(i)<<" ds(next) = "<<ds[ds_switch]<<" ds(next_next) = "<<ds[1-ds_switch]<<"\n";
 #endif
@@ -972,9 +978,14 @@ namespace AR {
                         Float cck_prev = manager->step.getSortCumSumCK(i-1);
                         Float cck = manager->step.getSortCumSumCK(i);
                         // in case the time is between two sub step, first scale the next step with the previous step CumSum CK cck(i-1)
+                        ASSERT(!std::isinf(cck_prev));
                         ds[ds_switch] *= cck_prev;  
+                        ASSERT(!std::isinf(ds[ds_switch]));
                         // then next next step, scale with the CumSum CK between two step: cck(i) - cck(i-1) 
+                        ASSERT(dt_real_k>0.0);
                         ds[1-ds_switch] = ds_tmp*(cck-cck_prev)*std::min(Float(1.0),(_time_end_real-time_real_prev+time_error_real)/dt_real_k); 
+                        ASSERT(!std::isinf(ds[1-ds_switch]));
+
 #ifdef AR_DEEP_DEBUG
                         std::cerr<<"Time_end_real reach, time_prev(real)= "<<time_real_prev<<" time[k](real)= "<<time_table[k]<<" time(real)= "<<time_real<<" (time_end-time_prev)/dt(real)="<<(_time_end_real-time_real_prev)/dt_real<<" CumSum_CK="<<cck<<" CumSum_CK(prev)="<<cck_prev<<" ds(next) = "<<ds[ds_switch]<<" ds(next_next) = "<<ds[1-ds_switch]<<" \n";
 #endif
