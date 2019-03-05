@@ -1214,6 +1214,7 @@ namespace H4{
                 }
                 groupi.clear();
                 table_group_mask_[i] = true;
+                index_group_mask_.addMember(i);
             }
             
             // clear index_dt_sorted_
