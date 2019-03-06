@@ -108,7 +108,7 @@ namespace COMM{
             Float sinu = r*sin(f) / (_bin.semi*sqrt(1.0 - _bin.ecc*_bin.ecc));
             Float cosu = (r*cos(f) / _bin.semi) + _bin.ecc;
             _bin.ecca = atan2(sinu, cosu); // eccentric anomaly
-            Float n = sqrt(m_tot/(_bin.semi*_bin.semi*_bin.semi)); // mean mortion
+            Float n = sqrt(m_tot/(_bin.semi*_bin.semi*_bin.semi)); // mean motion
             _bin.period = 8.0*std::atan(1.0)/n;
             Float l = _bin.ecca - _bin.ecc*sin(_bin.ecca);  // mean anomaly
             _bin.t_peri = l / n; 
@@ -563,10 +563,20 @@ namespace COMM{
             calcMemberN();
         }
 
-        //! get member first
+        //! get member
         Tptcl* getMember(const size_t i) const {
             ASSERT(i<2);
             return member[i];
+        }
+
+        //! get left member
+        Tptcl* getLeftMember() const {
+            return member[0];
+        }
+
+        //! get right member
+        Tptcl* getRightMember() const {
+            return member[1];
         }
 
         ////! copy operator = 

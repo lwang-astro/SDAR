@@ -150,12 +150,12 @@ namespace H4{
           @param[in] _p1: particle 1
           @param[in] _p2: particle 2
         */
-        void getDrDv(Float& _dr2, Float& _drdv, const ARPtcl& _p1, const ARPtcl& _p2) {
+        void getDrDv(Float& _dr2, Float& _drdv, ARPtcl& _p1, ARPtcl& _p2) {
             Float dx[3],dv[3];
-            Float* pos1 = _p1.pos;
-            Float* pos2 = _p2.pos;
-            Float* vel1 = _p1.vel;
-            Float* vel2 = _p2.vel;
+            const Float* pos1 = _p1.getPos();
+            const Float* pos2 = _p2.getPos();
+            const Float* vel1 = _p1.getVel();
+            const Float* vel2 = _p2.getVel();
             dx[0] = pos1[0] - pos2[0];
             dx[1] = pos1[1] - pos2[1];
             dx[2] = pos1[2] - pos2[2];

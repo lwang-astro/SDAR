@@ -1251,12 +1251,26 @@ namespace H4{
                 auto& bin_root = groupk.info.binarytree.getLastMember();
 
                 // check distance criterion and outcome (ecca>0) or income (ecca<0)
-                if (bin_root.r > manager->r_break_crit && bin_root.ecca>0.0) {
+                if (bin_root.r > manager->r_break_crit) {
+                    // close orbit
+                    if (bin_root.semi>0.0 && bin_root.ecca>0.0) {
 #ifdef ADJUST_GROUP_DEBUG
-                    std::cerr<<"Break group: escape, i_group: "<<k<<" N_member: "<<n_member<<" ecca: "<<bin_root.ecca<<" separation : "<<bin_root.r<<" r_crit: "<<manager->r_break_crit<<std::endl;
+                        std::cerr<<"Break group: binary escape, i_group: "<<k<<" N_member: "<<n_member<<" ecca: "<<bin_root.ecca<<" separation : "<<bin_root.r<<" r_crit: "<<manager->r_break_crit<<std::endl;
 #endif
-                    _break_group_index_with_offset[_n_break++] = k + index_offset_group_;
-                    continue;
+                        _break_group_index_with_offset[_n_break++] = k + index_offset_group_;
+                        continue;
+                    }
+                    else { // hyperbolic case, ecca is not correctly calculated
+                        Float dr2, drdv;
+                        groupk.info.getDrDv(dr2, drdv, *bin_root.getLeftMember(), *bin_root.getRightMember());
+                        if (drdv>0.0) {
+#ifdef ADJUST_GROUP_DEBUG
+                            std::cerr<<"Break group: hyperbolic escape, i_group: "<<k<<" N_member: "<<n_member<<" drdv: "<<drdv<<" separation : "<<bin_root.r<<" r_crit: "<<manager->r_break_crit<<std::endl;
+#endif
+                            _break_group_index_with_offset[_n_break++] = k + index_offset_group_;
+                            continue;
+                        }
+                    }
                 }
                     
                 // check strong perturbed binary case
