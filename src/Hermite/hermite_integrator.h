@@ -1056,11 +1056,18 @@ namespace H4{
 
             // remove single from index_dt_sorted
             removeDtIndexFromTable(index_dt_sorted_single_, n_act_single_, n_init_single_, table_single_mask_);
-            // clear neighbor lists
+            // clear neighbor lists and add group index
             int n_group = index_dt_sorted_group_.getSize();
             for (int i=0; i<n_group; i++) {
                 const int k = index_dt_sorted_group_[i];
+                // remove single index 
                 removeNBSingleAddressFromTable(groups[k].perturber.neighbor_address);
+                // add new group index
+                for (int j=0; j<_n_group; j++) {
+                    const int jk = group_index[j];
+                    if (k==jk) continue;
+                    groups[k].perturber.neighbor_address.addMember(NBAdr<Tparticle>(&groups[jk].particles.cm, jk+index_offset_group_));
+                }
             }
         }
 
@@ -1219,11 +1226,15 @@ namespace H4{
             
             // clear index_dt_sorted_
             removeDtIndexFromTable(index_dt_sorted_group_, n_act_group_, n_init_group_, table_group_mask_);
-            // clear neighbor lists
+            // clear neighbor lists and add single index
             int n_group = index_dt_sorted_group_.getSize();
             for (int i=0; i<n_group; i++) {
                 const int k = index_dt_sorted_group_[i];
+                // remove group index
                 removeNBGroupAddressFromTable(groups[k].perturber.neighbor_address);
+                // add single index
+                for (int j=0; j<n_single_new; j++) 
+                    groups[k].perturber.neighbor_address.addMember(NBAdr<Tparticle>(&particles[new_index_single[j]],j));
             }
         }
 
