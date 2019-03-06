@@ -870,11 +870,12 @@ namespace AR {
                         }
                     }
                 }
-#ifdef AR_WARN
-                if(energy_error_rel_abs>100.0*energy_error_rel_max) {
-                    std::cerr<<"Warning: symplectic integrator error > 100*criterion:"<<energy_error_rel_abs<<std::endl;
-                }
-#endif
+// too much output
+//#ifdef AR_WARN
+//                if(energy_error_rel_abs>100.0*energy_error_rel_max) {
+//                    std::cerr<<"Warning: symplectic integrator error > 100*criterion:"<<energy_error_rel_abs<<std::endl;
+//                }
+//#endif
 
                 // abort when too small step found
                 if(!time_end_flag&&dt_real<dt_real_min) {
