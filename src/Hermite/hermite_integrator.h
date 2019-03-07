@@ -1030,7 +1030,10 @@ namespace H4{
                 // get binarytree
                 group_new.info.generateBinaryTree(group_new.particles);
 #ifdef ADJUST_GROUP_DEBUG
-                std::cerr<<"Add new group, index: "<<group_index[i]<<std::endl;
+                std::cerr<<"Add new group, index: "<<group_index[i]<<" Member_index: ";
+                for (int k=0; k<group_new.particles.getSize(); k++) 
+                    std::cerr<<group_new.info.particle_index[k]<<" ";
+                std::cerr<<std::endl;
                 COMM::Binary& bin = group_new.info.getBinaryTreeRoot();
                 bin.printColumnTitle(std::cerr);
                 std::cerr<<std::endl;
