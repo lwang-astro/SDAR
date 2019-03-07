@@ -458,6 +458,12 @@ namespace COMM{
             this->vel[1] = m1*member[0]->vel[1] + m2*member[1]->vel[1];
             this->vel[2] = m1*member[0]->vel[2] + m2*member[1]->vel[2];
             this->mass = m1+m2;
+            this->pos[0] /=this->mass;
+            this->pos[1] /=this->mass;
+            this->pos[2] /=this->mass;
+            this->vel[0] /=this->mass;
+            this->vel[1] /=this->mass;
+            this->vel[2] /=this->mass;
             this->id = - std::abs(member[0]->id);
         }
 

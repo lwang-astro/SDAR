@@ -1283,7 +1283,8 @@ namespace H4{
                         }
                     }
                 }
-                    
+                ASSERT(bin_root.r<2.0*manager->r_break_crit);
+   
                 // check strong perturbed binary case
                 //Float kappa_org = groupk.slowdown.getSlowDownFactorOrigin();
                 //if (kappa_org<0.01 && bin_root.semi>0 && bin_root.ecca>0.0) {
