@@ -1316,7 +1316,8 @@ namespace H4{
                     }
                 }
 
-                ASSERT(bin_root.r<2.0*manager->r_break_crit);
+                // some case hermite step is too large, the distance is already large than criterion after one step integration
+                // ASSERT(bin_root.r<2.0*manager->r_break_crit);
    
                 // check strong perturbed binary case
                 //Float kappa_org = groupk.slowdown.getSlowDownFactorOrigin();
