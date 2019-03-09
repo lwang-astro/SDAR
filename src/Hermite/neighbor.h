@@ -60,7 +60,19 @@ namespace H4 {
 
         //! clear function
         void clear() {
+            clearNoFreeMem();
             neighbor_address.clear();
+        }
+
+        //! clear no release memory
+        void clearNoFreeMem() {
+            r_min_index = -1;
+            mass_min_index = -1;
+            r_min_sq = NUMERIC_FLOAT_MAX;
+            mass_min = NUMERIC_FLOAT_MAX;
+            r_crit_sq = -1.0;
+            need_resolve_flag = false;
+            initial_step_flag = false;
         }
 
         //! check whether members should be resolved for outside

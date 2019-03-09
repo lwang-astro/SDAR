@@ -935,8 +935,6 @@ namespace H4{
                 // initial index_dt_sorted_single_ first to allow initialIntegration work
                 index_dt_sorted_single_[i] = i;
                 table_single_mask_[i] = false;
-                // set neighbor radius
-                neighbors[i].r_crit_sq = manager->r_neighbor_crit*manager->r_neighbor_crit;
             }
             // set initial time
             time_ = _time_sys;
@@ -1006,7 +1004,6 @@ namespace H4{
                 const int nmax_tot = particles.getSizeMax() + groups.getSizeMax();
                 group_new.perturber.neighbor_address.setMode(COMM::ListMode::local);
                 group_new.perturber.neighbor_address.reserveMem(nmax_tot);
-                group_new.perturber.r_crit_sq = manager->r_neighbor_crit*manager->r_neighbor_crit;
                 group_new.info.reserveMem(n_particle);
             
                 // Add members to AR 
@@ -1269,7 +1266,7 @@ namespace H4{
                     // check distance criterion and outcome (ecca>0) or income (ecca<0)
                     if (bin_root.r > manager->r_break_crit) {
 #ifdef ADJUST_GROUP_DEBUG
-                        std::cerr<<"Break group: binary escape, i_group: "<<k<<" N_member: "<<n_member<<" ecca: "<<bin_root.ecca<<" separation : "<<bin_root.r<<" r_crit: "<<manager->r_break_crit<<std::endl;
+                        std::cerr<<"Break group: binary escape, time: "<<time_<<" i_group: "<<k<<" N_member: "<<n_member<<" ecca: "<<bin_root.ecca<<" separation : "<<bin_root.r<<" r_crit: "<<manager->r_break_crit<<std::endl;
 #endif
                         _break_group_index_with_offset[_n_break++] = k + index_offset_group_;
                         continue;
@@ -1282,14 +1279,15 @@ namespace H4{
                         ASSERT(drdv>=0.0);
 
                         // check next step the radial distance
-                        Float rp = drdv/bin_root.r*groups[k].particles.cm.dt + bin_root.r;
-                        if (rp >manager->r_break_crit) {
-#ifdef ADJUST_GROUP_DEBUG
-                            std::cerr<<"Break group: binary will escape, i_group: "<<k<<" N_member: "<<n_member<<" ecca: "<<bin_root.ecca<<" separation : "<<bin_root.r<<" r_pred: "<<rp<<" drdv: "<<drdv<<" dt: "<<groups[k].particles.cm.dt<<" r_crit: "<<manager->r_break_crit<<std::endl;
-#endif
-                            _break_group_index_with_offset[_n_break++] = k + index_offset_group_;
-                            continue;
-                        }
+                        // Not sure whether it can work correctly or not
+//                        Float rp = drdv/bin_root.r*groups[k].particles.cm.dt + bin_root.r;
+//                        if (rp >manager->r_break_crit) {
+//#ifdef ADJUST_GROUP_DEBUG
+//                            std::cerr<<"Break group: binary will escape, i_group: "<<k<<" N_member: "<<n_member<<" ecca: "<<bin_root.ecca<<" separation : "<<bin_root.r<<" r_pred: "<<rp<<" drdv: "<<drdv<<" dt: "<<groups[k].particles.cm.dt<<" r_crit: "<<manager->r_break_crit<<std::endl;
+//#endif
+//                            _break_group_index_with_offset[_n_break++] = k + index_offset_group_;
+//                            continue;
+//                        }
                     }
                 }
 
@@ -1302,7 +1300,7 @@ namespace H4{
                         // check distance criterion
                         if (bin_root.r > manager->r_break_crit) {
 #ifdef ADJUST_GROUP_DEBUG
-                            std::cerr<<"Break group: hyperbolic escape, i_group: "<<k<<" N_member: "<<n_member<<" drdv: "<<drdv<<" separation : "<<bin_root.r<<" r_crit: "<<manager->r_break_crit<<std::endl;
+                            std::cerr<<"Break group: hyperbolic escape, time: "<<time_<<" i_group: "<<k<<" N_member: "<<n_member<<" drdv: "<<drdv<<" separation : "<<bin_root.r<<" r_crit: "<<manager->r_break_crit<<std::endl;
 #endif
                             _break_group_index_with_offset[_n_break++] = k + index_offset_group_;
                             continue;
@@ -1311,7 +1309,7 @@ namespace H4{
                         Float rp = drdv/bin_root.r*groups[k].particles.cm.dt + bin_root.r;
                         if (rp > manager->r_break_crit) {
 #ifdef ADJUST_GROUP_DEBUG
-                            std::cerr<<"Break group: hyperbolic will escape, i_group: "<<k<<" N_member: "<<n_member<<" drdv: "<<drdv<<" separation : "<<bin_root.r<<" r_pred: "<<rp<<" drdv: "<<drdv<<" dt: "<<groups[k].particles.cm.dt<<" r_crit: "<<manager->r_break_crit<<std::endl;
+                            std::cerr<<"Break group: hyperbolic will escape, time: "<<time_<<" i_group: "<<k<<" N_member: "<<n_member<<" drdv: "<<drdv<<" separation : "<<bin_root.r<<" r_pred: "<<rp<<" drdv: "<<drdv<<" dt: "<<groups[k].particles.cm.dt<<" r_crit: "<<manager->r_break_crit<<std::endl;
 #endif
                             _break_group_index_with_offset[_n_break++] = k + index_offset_group_;
                             continue;
@@ -1456,11 +1454,11 @@ namespace H4{
 
 #ifdef ADJUST_GROUP_DEBUG
                         if (j<index_offset_group_) {
-                            std::cerr<<"Find new group: time: "<<time_<<" index: "<<i<<" "<<j<<" dr2: "<<dr2<<"  ftid_sq: "<<fratiosq<<"\n";
+                            std::cerr<<"Find new group: time: "<<time_<<" index: "<<i<<" "<<j<<" dr: "<<std::sqrt(dr2)<<"  ftid_sq: "<<fratiosq<<"\n";
                         }
                         else {
                             auto& bin_root = groups[j-index_offset_group_].info.binarytree.getLastMember();
-                            std::cerr<<"Find new group: time: "<<time_
+                            std::cerr<<"Find new group: time: "<<time_<<" dr: "<<std::sqrt(dr2)
                                      <<"\n       index      slowdown      apo      ftid_sq \n"
                                      <<"i1 "
                                      <<std::setw(8)<<i
@@ -1538,7 +1536,7 @@ namespace H4{
 
 #ifdef ADJUST_GROUP_DEBUG
                         auto& bini = groupi.info.binarytree.getLastMember();
-                        std::cerr<<"Find new group: time: "<<time_
+                        std::cerr<<"Find new group: time: "<<time_<<" dr: "<<std::sqrt(dr2)
                                  <<"\n       index      slowdown       apo      ftid_sq \n"
                                  <<"i1 "
                                  <<std::setw(8)<<i
@@ -1671,6 +1669,10 @@ namespace H4{
                 ptcl[k].time = time_;
                 ptcl[k].dt   = 0.0;
                 pred_[k] = ptcl[k];
+                // set neighbor radius
+                neighbors[k].clearNoFreeMem();
+                neighbors[k].neighbor_address.resizeNoInitialize(0);
+                neighbors[k].r_crit_sq = manager->r_neighbor_crit*manager->r_neighbor_crit;
             }
 
             //group
@@ -1688,6 +1690,7 @@ namespace H4{
                 pcm.dt   = 0.0;
                 ASSERT(k+index_offset_group_<pred_.getSize());
                 pred_[k+index_offset_group_] = pcm;
+                group_ptr[k].perturber.r_crit_sq = manager->r_neighbor_crit*manager->r_neighbor_crit;
             }
 
             dt_limit_ = manager->step.calcNextDtLimit(time_);
