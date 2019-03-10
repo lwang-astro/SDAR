@@ -1280,14 +1280,14 @@ namespace H4{
 
                         // check next step the radial distance
                         // Not sure whether it can work correctly or not
-//                        Float rp = drdv/bin_root.r*groups[k].particles.cm.dt + bin_root.r;
-//                        if (rp >manager->r_break_crit) {
-//#ifdef ADJUST_GROUP_DEBUG
-//                            std::cerr<<"Break group: binary will escape, i_group: "<<k<<" N_member: "<<n_member<<" ecca: "<<bin_root.ecca<<" separation : "<<bin_root.r<<" r_pred: "<<rp<<" drdv: "<<drdv<<" dt: "<<groups[k].particles.cm.dt<<" r_crit: "<<manager->r_break_crit<<std::endl;
-//#endif
-//                            _break_group_index_with_offset[_n_break++] = k + index_offset_group_;
-//                            continue;
-//                        }
+                        Float rp = drdv/bin_root.r*groups[k].particles.cm.dt + bin_root.r;
+                        if (rp >manager->r_break_crit) {
+#ifdef ADJUST_GROUP_DEBUG
+                            std::cerr<<"Break group: binary will escape, i_group: "<<k<<" N_member: "<<n_member<<" ecca: "<<bin_root.ecca<<" separation : "<<bin_root.r<<" r_pred: "<<rp<<" drdv: "<<drdv<<" dt: "<<groups[k].particles.cm.dt<<" r_crit: "<<manager->r_break_crit<<std::endl;
+#endif
+                            _break_group_index_with_offset[_n_break++] = k + index_offset_group_;
+                            continue;
+                        }
                     }
                 }
 
@@ -1325,14 +1325,19 @@ namespace H4{
                 //if (kappa_org<0.01 && bin_root.semi>0 && bin_root.ecca>0.0) {
                 auto* acc = groupk.particles.cm.acc0;
                 Float fin= (bin_root.m1*bin_root.m2)/(bin_root.r*bin_root.r);
-                Float fratiosq = bin_root.mass*bin_root.mass*(acc[0]*acc[0]+acc[1]*acc[1]+acc[2]*acc[2])/(fin*fin);
-                if (fratiosq>0.01 && bin_root.semi>0 && bin_root.ecca>0.0 && !_start_flag) {
+                Float fout2  = bin_root.mass*bin_root.mass*(acc[0]*acc[0]+acc[1]*acc[1]+acc[2]*acc[2]);
+                Float fratiosq = fout2/(fin*fin);
+                if (fratiosq>0.1 && bin_root.semi>0 && bin_root.ecca>0.0 && !_start_flag) {
 #ifdef ADJUST_GROUP_DEBUG
                     std::cerr<<"Break group: strong perturbed, time: "<<time_<<" i_group: "<<k<<" N_member: "<<n_member;
                     std::cerr<<" index: ";
                     for (int i=0; i<n_member; i++) 
                         std::cerr<<groupk.info.particle_index[i]<<" ";
-                    std::cerr<<" fratio_sq: "<<fratiosq<<" semi: "<<bin_root.semi<<" ecca: "<<bin_root.ecca<<std::endl;
+                    std::cerr<<" fratio_sq: "<<fratiosq
+                             <<" fin: "<<fin
+                             <<" fout: "<<std::sqrt(fout2)
+                             <<" dr: "<<bin_root.r
+                             <<" semi: "<<bin_root.semi<<" ecca: "<<bin_root.ecca<<std::endl;
 #endif
                     _break_group_index_with_offset[_n_break++] = k + index_offset_group_;
                     continue;
@@ -1450,7 +1455,7 @@ namespace H4{
 
                         // avoid strong perturbed case, estimate perturbation
                         // if fratiosq >1.5, avoid to form new group, should be consistent as checkbreak
-                        if(fratiosq>0.005) continue;
+                        if(fratiosq>0.01) continue;
 
 #ifdef ADJUST_GROUP_DEBUG
                         if (j<index_offset_group_) {
@@ -1532,7 +1537,7 @@ namespace H4{
 
                         // avoid strong (outside) perturbed case, estimate perturbation
                         // if fratiosq >1.5, avoid to form new group, should be consistent as checkbreak
-                        if(fratiosq>0.005) continue;
+                        if(fratiosq>0.01) continue;
 
 #ifdef ADJUST_GROUP_DEBUG
                         auto& bini = groupi.info.binarytree.getLastMember();
