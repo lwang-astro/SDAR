@@ -31,7 +31,7 @@ namespace AR {
         Float slowdown_pert_ratio_ref;   ///> slowdown perturbation /inner ratio reference factor
         Float slowdown_mass_ref;         ///> slowdown mass factor reference
         Float slowdown_timescale_max;       ///> slowdown maximum timescale to calculate maximum slowdown factor
-        long long int step_count_max; ///> maximum step counts
+        long long unsigned int step_count_max; ///> maximum step counts
         
         Tmethod interaction; ///> class contain interaction function
         SymplecticStep step;  ///> class to manager kick drift step
@@ -710,8 +710,8 @@ namespace AR {
             bool time_end_flag=false; // indicate whether time reach the end
 
             // step count
-            int step_count=0; // integration step 
-            int step_count_tsyn=0; // time synchronization step
+            long long unsigned int step_count=0; // integration step 
+            long long unsigned int step_count_tsyn=0; // time synchronization step
             
             // particle data
             const int n_particle = particles.getSize();
