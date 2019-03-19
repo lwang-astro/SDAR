@@ -1028,6 +1028,7 @@ namespace H4{
                 group_new.info.generateBinaryTree(group_new.particles);
 
                 // set hermite time limit
+                group_new.info.dt_limit = manager->step.getDtMax();
                 // in the case of wide binary, make sure the next time step not exceed r_in
                 auto& bin_root = group_new.info.binarytree.getLastMember();
                 if (bin_root.semi*(1.0+bin_root.ecc)>manager->r_break_crit) {
@@ -1035,9 +1036,11 @@ namespace H4{
                     // In the initial step, ecca can >0.0 
                     //ASSERT(bin_root.ecca<0.0);
                     //ASSERT(bin_root.t_peri<0.0);
-                    group_new.info.dt_limit = abs(2.0*bin_root.t_peri);
+                    Float t_peri2 = abs(2.0*bin_root.t_peri);
+                    Float dt_limit = group_new.info.dt_limit;
+                    while(dt_limit > t_peri2) dt_limit *= 0.5;
+                    group_new.info.dt_limit = dt_limit;
                 }
-                else group_new.info.dt_limit = manager->step.getDtMax();
 
 #ifdef ADJUST_GROUP_DEBUG
                 std::cerr<<"Add new group, index: "<<group_index[i]<<" Member_index: ";
