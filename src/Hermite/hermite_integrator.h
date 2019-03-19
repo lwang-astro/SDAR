@@ -184,7 +184,7 @@ namespace H4{
                 const int kf = k + index_offset_group_;
                 const Float* acc0 = force_[kf].acc0;
                 const Float* acc1 = force_[kf].acc1;
-                const Float dt =manager->step.calcBlockDt2nd(acc0, acc1, _dt_limit);
+                const Float dt =manager->step.calcBlockDt2nd(acc0, acc1, std::min(_dt_limit, groups[k].info.dt_limit));
                 groups[k].particles.cm.dt = dt;
                 groups[k].perturber.initial_step_flag = false;
             }
@@ -338,7 +338,7 @@ namespace H4{
             for(int i=0; i<_n_group; i++) {
                 const int k = _index_group[i];
                 auto& groupi = group_ptr[k];
-                correctAndCalcDt4thOne(groupi.particles.cm, force[k+index_offset_group_], _dt_limit, groupi.perturber.initial_step_flag);
+                correctAndCalcDt4thOne(groupi.particles.cm, force[k+index_offset_group_], std::min(_dt_limit, groupi.info.dt_limit), groupi.perturber.initial_step_flag);
                 groupi.perturber.initial_step_flag = false;
                 //groupi.correctCenterOfMassDrift();
             }
@@ -1026,6 +1026,19 @@ namespace H4{
 
                 // get binarytree
                 group_new.info.generateBinaryTree(group_new.particles);
+
+                // set hermite time limit
+                // in the case of wide binary, make sure the next time step not exceed r_in
+                auto& bin_root = group_new.info.binarytree.getLastMember();
+                if (bin_root.semi*(1.0+bin_root.ecc)>manager->r_break_crit) {
+                    // ecca <0 indicate binary go to peri-center, ecca=0.0 indicate peri-center, 0-t_peri indicate the time to peri-center
+                    // In the initial step, ecca can >0.0 
+                    //ASSERT(bin_root.ecca<0.0);
+                    //ASSERT(bin_root.t_peri<0.0);
+                    group_new.info.dt_limit = abs(2.0*bin_root.t_peri);
+                }
+                else group_new.info.dt_limit = manager->step.getDtMax();
+
 #ifdef ADJUST_GROUP_DEBUG
                 std::cerr<<"Add new group, index: "<<group_index[i]<<" Member_index: ";
                 for (int k=0; k<group_new.particles.getSize(); k++) 
