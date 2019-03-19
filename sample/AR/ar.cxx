@@ -245,9 +245,12 @@ int main(int argc, char **argv){
         }
     }
     else {
-        sym_int.integrateToTime(s, time_end, fix_step_option);
-        sym_int.printColumn(std::cout, print_width);
-        std::cout<<std::endl;
+        Float time_step = time_end/nstep;
+        for (int i=1; i<=nstep; i++) {
+            sym_int.integrateToTime(s, time_step*i, fix_step_option);
+            sym_int.printColumn(std::cout, print_width);
+            std::cout<<std::endl;
+        }
     }
 
 

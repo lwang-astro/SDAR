@@ -1,6 +1,7 @@
 #pragma once
 
 #include<cmath>
+#include<algorithm>
 #include"Common/matrix.h"
 
 namespace COMM{
@@ -30,9 +31,9 @@ namespace COMM{
           @param[in]: _bin: binary parameter
         */
         template <class Tptcl>
-        void orbitToParticle(Tptcl& _p1, Tptcl& _p2, const Binary& _bin, const Float& _ecca) const {
+        void orbitToParticle(Tptcl& _p1, Tptcl& _p2, const Binary& _bin, const Float& _ecca, const Float _G) const {
             Float m_tot = _bin.m1 + _bin.m2;
-            Float n = sqrt( m_tot / (_bin.semi*_bin.semi*_bin.semi) );
+            Float n = sqrt(_G*m_tot / (_bin.semi*_bin.semi*_bin.semi) );
             Float cosu = cos(_ecca);
             Float sinu = sin(_ecca);
             Float c0 = sqrt(1.0 - _bin.ecc*_bin.ecc);
@@ -71,17 +72,18 @@ namespace COMM{
            @param[in]:  _p2: particle 2
         */
         template <class Tptcl>
-        void particleToOrbit(Binary& _bin, const Tptcl& _p1, const Tptcl& _p2){
+        void particleToOrbit(Binary& _bin, const Tptcl& _p1, const Tptcl& _p2, const Float _G){
             _bin.m1 = _p1.mass;
             _bin.m2 = _p2.mass;
             Float m_tot = _p1.mass + _p2.mass;
+            Float Gm_tot = _G*m_tot;
             Vector3<Float> pos_red(_p2.pos[0] - _p1.pos[0], _p2.pos[1] - _p1.pos[1], _p2.pos[2] - _p1.pos[2]);
             Vector3<Float> vel_red(_p2.vel[0] - _p1.vel[0], _p2.vel[1] - _p1.vel[1], _p2.vel[2] - _p1.vel[2]);
             Float r_sq = pos_red * pos_red;
             r = sqrt(r_sq);
             Float inv_dr = 1.0 / r;
             Float v_sq = vel_red * vel_red;
-            _bin.semi = 1.0 / (2.0*inv_dr - v_sq / m_tot);
+            _bin.semi = 1.0 / (2.0*inv_dr - v_sq /  Gm_tot);
             //    ASSERT(semi > 0.0);
             _bin.am = pos_red ^ vel_red;
             _bin.incline = atan2( sqrt(_bin.am.x*_bin.am.x+_bin.am.y*_bin.am.y), _bin.am.z);
@@ -99,8 +101,8 @@ namespace COMM{
             vel_bar.y = (-vel_red.x*sinOMG + vel_red.y*cosOMG)*cosinc + vel_red.z*sininc;
             vel_bar.z = 0.0;
             Float h = sqrt(_bin.am*_bin.am);
-            Float ecccosomg =  h/m_tot*vel_bar.y - pos_bar.x*inv_dr;
-            Float eccsinomg = -h/m_tot*vel_bar.x - pos_bar.y*inv_dr;
+            Float ecccosomg =  h/Gm_tot*vel_bar.y - pos_bar.x*inv_dr;
+            Float eccsinomg = -h/Gm_tot*vel_bar.x - pos_bar.y*inv_dr;
             _bin.ecc = sqrt( ecccosomg*ecccosomg + eccsinomg*eccsinomg );
             _bin.rot_self = atan2(eccsinomg, ecccosomg);
             Float phi = atan2(pos_bar.y, pos_bar.x); // f + omg (f: true anomaly)
@@ -108,7 +110,7 @@ namespace COMM{
             Float sinu = r*sin(f) / (_bin.semi*sqrt(1.0 - _bin.ecc*_bin.ecc));
             Float cosu = (r*cos(f) / _bin.semi) + _bin.ecc;
             _bin.ecca = atan2(sinu, cosu); // eccentric anomaly
-            Float n = sqrt(m_tot/(_bin.semi*_bin.semi*_bin.semi)); // mean motion
+            Float n = sqrt(Gm_tot/(_bin.semi*_bin.semi*_bin.semi)); // mean motion
             _bin.period = 8.0*std::atan(1.0)/n;
             Float l = _bin.ecca - _bin.ecc*sin(_bin.ecca);  // mean anomaly
             _bin.t_peri = l / n; 
@@ -168,8 +170,8 @@ namespace COMM{
           @param[out]: _p2: particle 2
         */    
         template <class Tptcl>
-        void calcOrbit(const Tptcl& _p1, const Tptcl& _p2) {
-            particleToOrbit(*this, _p1, _p2);
+        void calcOrbit(const Tptcl& _p1, const Tptcl& _p2, const Float _G=1.0) {
+            particleToOrbit(*this, _p1, _p2, _G);
         }
 
         //! calculate two components from kepler Orbit
@@ -178,8 +180,8 @@ namespace COMM{
           @param[out]: _p2: particle 2
         */    
         template <class Tptcl>
-        void calcParticles(Tptcl& _p1, Tptcl& _p2) {
-            orbitToParticle(_p1, _p2, *this, this->ecca);
+        void calcParticles(Tptcl& _p1, Tptcl& _p2, const Float _G=1.0) {
+            orbitToParticle(_p1, _p2, *this, this->ecca, _G);
         }
 
         //! calculate two components from kepler Orbit with input eccentricity anomaly
@@ -189,8 +191,8 @@ namespace COMM{
           @param[in]: _ecca: eccentricity anomaly
         */    
         template <class Tptcl>
-        void calcParticlesEcca(Tptcl& _p1, Tptcl& _p2, const Float _ecca) const {
-            orbitToParticle(_p1, _p2, *this, _ecca);
+        void calcParticlesEcca(Tptcl& _p1, Tptcl& _p2, const Float _ecca, const Float _G=1.0) const {
+            orbitToParticle(_p1, _p2, *this, _ecca, _G);
         }
 
         //! Solve kepler motion for dt 
@@ -221,7 +223,7 @@ namespace COMM{
           @param[out] _fout: std::ostream output object
           @param[in] _width: print width (defaulted 20)
         */
-        void printColumnTitle(std::ostream & _fout, const int _width=20) {
+        static void printColumnTitle(std::ostream & _fout, const int _width=20) {
             _fout<<std::setw(_width)<<"semi"
                  <<std::setw(_width)<<"ecc"
                  <<std::setw(_width)<<"incline"
@@ -232,7 +234,10 @@ namespace COMM{
                  <<std::setw(_width)<<"ecca"
                  <<std::setw(_width)<<"m1"
                  <<std::setw(_width)<<"m2"
-                 <<std::setw(_width)<<"r";
+                 <<std::setw(_width)<<"r"
+                 <<std::setw(_width)<<"L.x"
+                 <<std::setw(_width)<<"L.y"
+                 <<std::setw(_width)<<"L.z";
         }
 
         //! print data of class members using column style
@@ -251,7 +256,10 @@ namespace COMM{
                  <<std::setw(_width)<<ecca
                  <<std::setw(_width)<<m1
                  <<std::setw(_width)<<m2
-                 <<std::setw(_width)<<r;
+                 <<std::setw(_width)<<r
+                 <<std::setw(_width)<<am.x
+                 <<std::setw(_width)<<am.y
+                 <<std::setw(_width)<<am.z;
         }
 
 
@@ -271,6 +279,33 @@ namespace COMM{
                 std::cerr<<"Error: Data reading fails! requiring data number is 1, only obtain "<<rcount<<".\n";
                 abort();
             }
+        }
+
+        //! write class data to file with ASCII format
+        /*! @param[in] _fout: std:osteram file for output
+         */
+        void writeAscii(std::ostream& _fout) const {
+            _fout<<semi<<" "
+                 <<ecc<<" "  
+                 <<incline<<" "   
+                 <<rot_horizon<<" "
+                 <<rot_self<<" "
+                 <<t_peri<<" "
+                 <<period<<" "
+                 <<ecca<<" "
+                 <<m1<<" "  
+                 <<m2<<" "    
+                 <<r<<" "    
+                 <<am.x<<" "
+                 <<am.y<<" "  
+                 <<am.z<<" ";      
+        }
+
+        //! read class data to file with ASCII format
+        /*! @param[in] _fin: std::istream file for input
+         */
+        void readAscii(std::istream&  _fin) {
+            _fin>>semi>>ecc>>incline>>rot_horizon>>rot_self>>t_peri>>period>>ecca>>m1>>m2>>r>>am.x>>am.y>>am.z;
         }
 
         //void PosVel2SemiEcc(Float & semi,
@@ -468,8 +503,8 @@ namespace COMM{
         }
 
         //! calculate Kepler orbit from members
-        void calcOrbit() {
-            Binary::calcOrbit(*member[0], *member[1]);
+        void calcOrbit(const Float _G=1.0) {
+            Binary::calcOrbit(*member[0], *member[1], _G);
         }
 
         //! calc total number of members
@@ -611,9 +646,9 @@ namespace COMM{
           @param[out] _fout: std::ostream output object
           @param[in] _width: print width (defaulted 20)
         */
-        void printColumnTitle(std::ostream & _fout, const int _width=20) {
-            Binary::printColumnTitle(_fout, _width);
+        static void printColumnTitle(std::ostream & _fout, const int _width=20) {
             Tptcl::printColumnTitle(_fout, _width);
+            Binary::printColumnTitle(_fout, _width);
         }
 
         //! print data of class members using column style
@@ -622,9 +657,25 @@ namespace COMM{
           @param[in] _width: print width (defaulted 20)
         */
         void printColumn(std::ostream & _fout, const int _width=20){
-            Binary::printColumn(_fout, _width);
             Tptcl::printColumn(_fout, _width);
+            Binary::printColumn(_fout, _width);
         }
+
+        //! write class data to file with ASCII format
+        /*! @param[in] _fout: std:osteram file for output
+         */
+        void writeAscii(std::ostream& _fout) const {
+            Tptcl::writeAscii(_fout);
+            Binary::writeAscii(_fout);
+        }
+
+        //! read class data to file with ASCII format
+        /*! @param[in] _fin: std::istream file for input
+         */
+        void readAscii(std::istream&  _fin) { 
+            Tptcl::readAscii(_fin);
+            Binary::readAscii(_fin);
+        }       
 
         //! print function
         void printColumnIter(std::ostream & _fout, const int _width=20){
