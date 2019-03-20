@@ -54,18 +54,20 @@ public:
             Float vp[n_pert][3], vcm[3];
 
             for (int j=0; j<n_pert; j++) {
-                auto& pertj = *pert_adr[j].adr;
-                Float dt = time - pertj.time;
+                H4::NBAdr<Particle>::Single* pertj;
+                if (pert_adr[j].type==H4::NBType::group) pertj = &(((H4::NBAdr<Particle>::Group*)pert_adr[j].adr)->cm);
+                else pertj = (H4::NBAdr<Particle>::Single*)pert_adr[j].adr;
+                Float dt = time - pertj->time;
                 ASSERT(dt>=0.0);
-                xp[j][0] = pertj.pos[0] + dt*(pertj.vel[0] + 0.5*dt*(pertj.acc0[0] + inv3*dt*pertj.acc1[0]));
-                xp[j][1] = pertj.pos[1] + dt*(pertj.vel[1] + 0.5*dt*(pertj.acc0[1] + inv3*dt*pertj.acc1[1]));
-                xp[j][2] = pertj.pos[2] + dt*(pertj.vel[2] + 0.5*dt*(pertj.acc0[2] + inv3*dt*pertj.acc1[2]));
+                xp[j][0] = pertj->pos[0] + dt*(pertj->vel[0] + 0.5*dt*(pertj->acc0[0] + inv3*dt*pertj->acc1[0]));
+                xp[j][1] = pertj->pos[1] + dt*(pertj->vel[1] + 0.5*dt*(pertj->acc0[1] + inv3*dt*pertj->acc1[1]));
+                xp[j][2] = pertj->pos[2] + dt*(pertj->vel[2] + 0.5*dt*(pertj->acc0[2] + inv3*dt*pertj->acc1[2]));
 
-                vp[j][0] = pertj.vel[0] + dt*(pertj.acc0[0] + 0.5*dt*pertj.acc1[0]);
-                vp[j][1] = pertj.vel[1] + dt*(pertj.acc0[1] + 0.5*dt*pertj.acc1[1]);
-                vp[j][2] = pertj.vel[2] + dt*(pertj.acc0[2] + 0.5*dt*pertj.acc1[2]);
+                vp[j][0] = pertj->vel[0] + dt*(pertj->acc0[0] + 0.5*dt*pertj->acc1[0]);
+                vp[j][1] = pertj->vel[1] + dt*(pertj->acc0[1] + 0.5*dt*pertj->acc1[1]);
+                vp[j][2] = pertj->vel[2] + dt*(pertj->acc0[2] + 0.5*dt*pertj->acc1[2]);
 
-                m[j] = pertj.mass;
+                m[j] = pertj->mass;
             }
 
             Float dt = time - _particle_cm.time;

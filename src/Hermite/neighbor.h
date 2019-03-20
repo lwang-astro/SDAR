@@ -1,25 +1,37 @@
 #pragma once
 
 #include "Common/Float.h"
+#include "Common/particle_group.h"
 #include "Hermite/hermite_particle.h"
 #include <limits>
 
 namespace H4 {
+    //! type of neighbor address
+    enum class NBType {single, group, none};
+
     // neighbor address 
     template <class Tparticle>
     struct NBAdr{ 
-        ParticleH4<Tparticle>* adr;
+        typedef ParticleH4<Tparticle> Single;
+        typedef COMM::ParticleGroup<ParticleAR<Tparticle>, ParticleH4<Tparticle>> Group;
+        // adr;
+        void* adr;
         int index;
+        NBType type; // -1: undefine; 0: H4particle; 1: ParticleGroup
             
-        NBAdr(): adr(NULL), index(-1) {}
-        NBAdr(ParticleH4<Tparticle>* _adr, const int _index): adr(_adr), index(_index) {}
+        NBAdr(): adr(NULL), index(-1), type(NBType::none) {}
+
+        NBAdr(Single* _adr, const int _index): adr((void*)_adr), index(_index), type(NBType::single) {}
+
+        NBAdr(Group* _adr, const int _index): adr((void*)_adr), index(_index), type(NBType::group) {}
 
         NBAdr& operator = (const NBAdr& _nb) {
             adr = _nb.adr;
             index =_nb.index;
+            type = _nb.type;
             return *this;
         }
-
+        
     };
 
     

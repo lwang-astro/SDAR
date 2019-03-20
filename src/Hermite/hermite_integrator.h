@@ -546,7 +546,7 @@ namespace H4{
                     if (r2<_nbi.r_crit_sq) nb_flag = true;
                     r2_min = std::min(r2_min, r2);
                 }
-                if (nb_flag) _nbi.neighbor_address.addMember(NBAdr<Tparticle>(&groupj.particles.cm, j+index_offset_group_));
+                if (nb_flag) _nbi.neighbor_address.addMember(NBAdr<Tparticle>(&groupj.particles, j+index_offset_group_));
                 // mass weighted nearest neigbor
                 const Float cm_mass = groupj.particles.cm.mass;
                 if (r2_min*_nbi.r_min_mass < _nbi.r_min_sq*cm_mass) {
@@ -575,7 +575,7 @@ namespace H4{
                 ASSERT(_pi.id!=pj.id);
                 Float r2 = manager->interaction.calcAccJerkPair(_fi, _pi, pj);
                 ASSERT(r2>0.0);
-                if (r2<_nbi.r_crit_sq) _nbi.neighbor_address.addMember(NBAdr<Tparticle>(&groupj.particles.cm,j+index_offset_group_));
+                if (r2<_nbi.r_crit_sq) _nbi.neighbor_address.addMember(NBAdr<Tparticle>(&groupj.particles,j+index_offset_group_));
                 // mass weighted nearest neigbor
                 if (r2*_nbi.r_min_mass < _nbi.r_min_sq*pj.mass) {
                     _nbi.r_min_sq = r2;
@@ -1082,7 +1082,7 @@ namespace H4{
                 for (int j=0; j<_n_group; j++) {
                     const int jk = group_index[j];
                     if (k==jk) continue;
-                    groups[k].perturber.neighbor_address.addMember(NBAdr<Tparticle>(&groups[jk].particles.cm, jk+index_offset_group_));
+                    groups[k].perturber.neighbor_address.addMember(NBAdr<Tparticle>(&groups[jk].particles, jk+index_offset_group_));
                 }
             }
         }
