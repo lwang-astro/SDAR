@@ -497,6 +497,7 @@ namespace H4{
                                            const int _pid) {
             // clear force
             _fi.clear();
+            _nbi.n_neighbor_group = _nbi.n_neighbor_single = 0;
             _nbi.neighbor_address.resizeNoInitialize(0);
 
             // single list
@@ -510,7 +511,10 @@ namespace H4{
                 if (_pid==pj.id) continue;
                 Float r2 = manager->interaction.calcAccJerkPair(_fi, _pi, pj);
                 ASSERT(r2>0.0);
-                if (r2<_nbi.r_crit_sq) _nbi.neighbor_address.addMember(NBAdr<Tparticle>(&particles[j],j));
+                if (r2<_nbi.r_crit_sq) {
+                    _nbi.neighbor_address.addMember(NBAdr<Tparticle>(&particles[j],j));
+                    _nbi.n_neighbor_single++;
+                }
                 // mass weighted nearest neigbor
                 if (r2*_nbi.r_min_mass < _nbi.r_min_sq*pj.mass) {
                     _nbi.r_min_sq = r2;
@@ -546,7 +550,10 @@ namespace H4{
                     if (r2<_nbi.r_crit_sq) nb_flag = true;
                     r2_min = std::min(r2_min, r2);
                 }
-                if (nb_flag) _nbi.neighbor_address.addMember(NBAdr<Tparticle>(&groupj.particles, j+index_offset_group_));
+                if (nb_flag) {
+                    _nbi.neighbor_address.addMember(NBAdr<Tparticle>(&groupj.particles, j+index_offset_group_));
+                    _nbi.n_neighbor_group++;
+                }
                 // mass weighted nearest neigbor
                 const Float cm_mass = groupj.particles.cm.mass;
                 if (r2_min*_nbi.r_min_mass < _nbi.r_min_sq*cm_mass) {
@@ -575,7 +582,10 @@ namespace H4{
                 ASSERT(_pi.id!=pj.id);
                 Float r2 = manager->interaction.calcAccJerkPair(_fi, _pi, pj);
                 ASSERT(r2>0.0);
-                if (r2<_nbi.r_crit_sq) _nbi.neighbor_address.addMember(NBAdr<Tparticle>(&groupj.particles,j+index_offset_group_));
+                if (r2<_nbi.r_crit_sq) {
+                    _nbi.neighbor_address.addMember(NBAdr<Tparticle>(&groupj.particles,j+index_offset_group_));
+                    _nbi.n_neighbor_group++;
+                }
                 // mass weighted nearest neigbor
                 if (r2*_nbi.r_min_mass < _nbi.r_min_sq*pj.mass) {
                     _nbi.r_min_sq = r2;
@@ -590,6 +600,7 @@ namespace H4{
                 // if neighbor step need update, also set update flag for i particle
                 if(groupj.perturber.initial_step_flag) _nbi.initial_step_flag = true;
             }
+            ASSERT(_nbi.n_neighbor_group + _nbi.n_neighbor_single == _nbi.neighbor_address.getSize());
         }
         
         //! Calculate acc and jerk for lists of particles from all particles and update neighbor lists
@@ -1692,7 +1703,6 @@ namespace H4{
                 pred_[k] = ptcl[k];
                 // set neighbor radius
                 neighbors[k].clearNoFreeMem();
-                neighbors[k].neighbor_address.resizeNoInitialize(0);
                 neighbors[k].r_crit_sq = manager->r_neighbor_crit*manager->r_neighbor_crit;
             }
 

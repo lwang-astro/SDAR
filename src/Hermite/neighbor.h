@@ -48,10 +48,12 @@ namespace H4 {
         Float r_crit_sq;   // neighbor radius criterion
         bool need_resolve_flag; // for group
         bool initial_step_flag; // indicate whether the time step need to be initialized due to the change of neighbors
+        int n_neighbor_group; // number of group neighbor
+        int n_neighbor_single; // number of single neighbor
         COMM::List<NBAdr<Tparticle>> neighbor_address; // neighbor perturber address
 
         //! constructor
-        Neighbor(): r_min_index(-1), mass_min_index(-1), r_min_sq(NUMERIC_FLOAT_MAX), mass_min(NUMERIC_FLOAT_MAX), r_crit_sq(-1.0), need_resolve_flag(false), initial_step_flag(false), neighbor_address() {}
+        Neighbor(): r_min_index(-1), mass_min_index(-1), r_min_sq(NUMERIC_FLOAT_MAX), mass_min(NUMERIC_FLOAT_MAX), r_crit_sq(-1.0), need_resolve_flag(false), initial_step_flag(false), n_neighbor_group(0), n_neighbor_single(0), neighbor_address() {}
 
         //! check whether parameters values are correct
         /*! \return true: all correct
@@ -71,13 +73,7 @@ namespace H4 {
         }
 
         //! clear function
-        void clear() {
-            clearNoFreeMem();
-            neighbor_address.clear();
-        }
-
-        //! clear no release memory
-        void clearNoFreeMem() {
+        void clearNoFreeMemNoResizeNeighborAdress() {
             r_min_index = -1;
             mass_min_index = -1;
             r_min_sq = NUMERIC_FLOAT_MAX;
@@ -85,6 +81,22 @@ namespace H4 {
             r_crit_sq = -1.0;
             need_resolve_flag = false;
             initial_step_flag = false;
+        }
+
+        //! clear function
+        void clear() {
+            clearNoFreeMemNoResizeNeighborAdress();
+            n_neighbor_group = 0;
+            n_neighbor_single = 0;
+            neighbor_address.clear();
+        }
+
+        //! clear no release memory
+        void clearNoFreeMem() {
+            clearNoFreeMemNoResizeNeighborAdress();
+            n_neighbor_group = 0;
+            n_neighbor_single = 0;
+            neighbor_address.resizeNoInitialize(0);            
         }
 
         //! check whether members should be resolved for outside
