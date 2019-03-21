@@ -99,6 +99,53 @@ namespace H4 {
             neighbor_address.resizeNoInitialize(0);            
         }
 
+        //! check and add neighbor of single
+        template <class Tp>
+        void checkAndAddNeighborSingle(const Float _r2, Tp& _particle, const Neighbor<Tparticle>& _nbp, const Float _index) {
+            if (_r2<r_crit_sq) {
+                neighbor_address.addMember(NBAdr<Tparticle>(&_particle, _index));
+                n_neighbor_single++;
+            }
+            // mass weighted nearest neigbor
+            Float mass = _particle.mass;
+            if (_r2*r_min_mass < r_min_sq*mass) {
+                r_min_sq = _r2;
+                r_min_index = _index;
+                r_min_mass = mass;
+            }
+            // minimum mass
+            if(mass_min>mass) {
+                mass_min = mass;
+                mass_min_index = _index;
+            }
+            // if neighbor step need update, also set update flag for i particle
+            if(_nbp.initial_step_flag) initial_step_flag = true;
+        }
+
+        //! check and add neighbor of group
+        template <class Tgroup>
+        void checkAndAddNeighborGroup(const Float _r2, Tgroup& _group, const Float _index) {
+            ASSERT(_r2>0.0);
+            if (_r2<r_crit_sq) {
+                neighbor_address.addMember(NBAdr<Tparticle>(&_group.particles,_index));
+                n_neighbor_group++;
+            }
+            // mass weighted nearest neigbor
+            Float mass_cm = _group.particles.cm.mass;
+            if (_r2*r_min_mass < r_min_sq*mass_cm) {
+                r_min_sq = _r2;
+                r_min_index = _index;
+                r_min_mass = mass_cm;
+            }
+            // minimum mass
+            if(mass_min>mass_cm) {
+                mass_min = mass_cm;
+                mass_min_index = _index;
+            }
+            // if neighbor step need update, also set update flag for i particle
+            if(_group.perturber.initial_step_flag) initial_step_flag = true;
+        }
+
         //! check whether members should be resolved for outside
         /*! @param[in] _kappa: slowdown factor
          */

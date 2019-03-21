@@ -488,7 +488,7 @@ namespace H4{
           @param[out] _fi: acc and jerk of particle i
           @param[out] _nbi: neighbor information of i
           @param[in] _pi: i particle
-          @param[in] _pid: particle id (used to avoid self-interaction)
+          @param[in] _pid: i particle id
         */
         template <class Tpi>
         inline void calcOneSingleAccJerkNB(ForceH4 &_fi, 
@@ -509,25 +509,9 @@ namespace H4{
                 ASSERT(j<pred_.getSize());
                 const auto& pj = ptcl[j];
                 if (_pid==pj.id) continue;
-                Float r2 = manager->interaction.calcAccJerkPair(_fi, _pi, pj);
+                Float r2 = manager->interaction.calcAccJerkPairSingleSingle(_fi, _pi, pj);
                 ASSERT(r2>0.0);
-                if (r2<_nbi.r_crit_sq) {
-                    _nbi.neighbor_address.addMember(NBAdr<Tparticle>(&particles[j],j));
-                    _nbi.n_neighbor_single++;
-                }
-                // mass weighted nearest neigbor
-                if (r2*_nbi.r_min_mass < _nbi.r_min_sq*pj.mass) {
-                    _nbi.r_min_sq = r2;
-                    _nbi.r_min_index = j;
-                    _nbi.r_min_mass = pj.mass;
-                }
-                // minimum mass
-                if(_nbi.mass_min>pj.mass) {
-                    _nbi.mass_min = pj.mass;
-                    _nbi.mass_min_index = j;
-                }
-                // if neighbor step need update, also set update flag for i particle
-                if(neighbors[j].initial_step_flag) _nbi.initial_step_flag = true;
+                _nbi.checkAndAddNeighborSingle(r2, particles[j], neighbors[j], j);
             }
 
             auto* group_ptr = groups.getDataAddress();
@@ -538,36 +522,9 @@ namespace H4{
                 const int j =index_group_resolve_[i];
                 auto& groupj = group_ptr[j];
                 if (_pid==groupj.particles.cm.id) continue;
-                const int n_member = groupj.particles.getSize();
-                auto* member_adr = groupj.particles.getOriginAddressArray();
-                bool nb_flag = false;
-                Float r2_min = NUMERIC_FLOAT_MAX;
-                for (int k=0; k<n_member; k++) {
-                    ASSERT(_pi.id!=member_adr[k]->id);
-                    const auto& pj = *member_adr[k];
-                    Float r2 = manager->interaction.calcAccJerkPair(_fi, _pi, pj);
-                    ASSERT(r2>0.0);
-                    if (r2<_nbi.r_crit_sq) nb_flag = true;
-                    r2_min = std::min(r2_min, r2);
-                }
-                if (nb_flag) {
-                    _nbi.neighbor_address.addMember(NBAdr<Tparticle>(&groupj.particles, j+index_offset_group_));
-                    _nbi.n_neighbor_group++;
-                }
-                // mass weighted nearest neigbor
-                const Float cm_mass = groupj.particles.cm.mass;
-                if (r2_min*_nbi.r_min_mass < _nbi.r_min_sq*cm_mass) {
-                    _nbi.r_min_sq = r2_min;
-                    _nbi.r_min_index = j+index_offset_group_;
-                    _nbi.r_min_mass = cm_mass;
-                }
-                // minimum mass
-                if(_nbi.mass_min > cm_mass) {
-                    _nbi.mass_min = cm_mass;
-                    _nbi.mass_min_index = j+index_offset_group_;
-                }
-                // if neighbor step need update, also set update flag for i particle
-                if(groupj.perturber.initial_step_flag) _nbi.initial_step_flag = true;
+                Float r2 = manager->interaction.calcAccJerkPairSingleGroupMember(_fi, _pi, groupj);
+                ASSERT(r2>0.0);
+                _nbi.checkAndAddNeighborGroup(r2, groupj, j+index_offset_group_);
             }
 
             // cm group list
@@ -580,27 +537,174 @@ namespace H4{
                 const auto& pj = ptcl[j+index_offset_group_];
                 ASSERT(j+index_offset_group_<pred_.getSize());
                 ASSERT(_pi.id!=pj.id);
-                Float r2 = manager->interaction.calcAccJerkPair(_fi, _pi, pj);
+                Float r2 = manager->interaction.calcAccJerkPairSingleGroupCM(_fi, _pi, groupj, pj);
                 ASSERT(r2>0.0);
-                if (r2<_nbi.r_crit_sq) {
-                    _nbi.neighbor_address.addMember(NBAdr<Tparticle>(&groupj.particles,j+index_offset_group_));
-                    _nbi.n_neighbor_group++;
-                }
-                // mass weighted nearest neigbor
-                if (r2*_nbi.r_min_mass < _nbi.r_min_sq*pj.mass) {
-                    _nbi.r_min_sq = r2;
-                    _nbi.r_min_index = j+index_offset_group_;
-                    _nbi.r_min_mass = pj.mass;
-                }
-                // minimum mass
-                if(_nbi.mass_min>pj.mass) {
-                    _nbi.mass_min = pj.mass;
-                    _nbi.mass_min_index = j+index_offset_group_;
-                }
-                // if neighbor step need update, also set update flag for i particle
-                if(groupj.perturber.initial_step_flag) _nbi.initial_step_flag = true;
+                _nbi.checkAndAddNeighborGroup(r2, groupj, j+index_offset_group_);
             }
             ASSERT(_nbi.n_neighbor_group + _nbi.n_neighbor_single == _nbi.neighbor_address.getSize());
+        }
+
+        //! calculate one cm group interaction from all singles and groups
+        /*! Neighbor information is also updated
+          @param[out] _fi: acc and jerk of particle i
+          @param[out] _groupi: group i 
+          @param[in] _pi: predicted group i cm 
+        */
+        template <class Tpi, class Tgroupi>
+        inline void calcOneGroupCMAccJerkNB(ForceH4 &_fi, 
+                                             Tgroupi &_groupi, 
+                                             const Tpi &_pi) {
+            // clear force
+            _fi.clear();
+            auto& nbi = _groupi.perturber;
+            nbi.n_neighbor_group = nbi.n_neighbor_single = 0;
+            nbi.neighbor_address.resizeNoInitialize(0);
+
+            // single list
+            const int* single_list = index_dt_sorted_single_.getDataAddress();
+            const int n_single = index_dt_sorted_single_.getSize();
+            auto* ptcl = pred_.getDataAddress();
+            for (int i=0; i<n_single; i++) {
+                const int j = single_list[i];
+                ASSERT(j<pred_.getSize());
+                const auto& pj = ptcl[j];
+                if (_pi.id==pj.id) continue;
+                Float r2 = manager->interaction.calcAccJerkPairGroupCMSingle(_fi, _groupi, _pi, pj);
+                ASSERT(r2>0.0);
+                nbi.checkAndAddNeighborSingle(r2, particles[j], neighbors[j], j);
+            }
+
+            auto* group_ptr = groups.getDataAddress();
+
+            // resolved group list
+            const int n_group_resolve = index_group_resolve_.getSize();
+            for (int i=0; i<n_group_resolve; i++) {
+                const int j =index_group_resolve_[i];
+                auto& groupj = group_ptr[j];
+                ASSERT(_pi.id!=groupj.particles.cm.id);
+                Float r2 = manager->interaction.calcAccJerkPairGroupCMGroupMember(_fi, _groupi, _pi, groupj);
+                ASSERT(r2>0.0);
+                nbi.checkAndAddNeighborGroup(r2, groupj, j+index_offset_group_);
+            }
+
+            // cm group list
+            const int n_group_cm = index_group_cm_.getSize();
+            for (int i=0; i<n_group_cm; i++) {
+                const int j = index_group_cm_[i];
+                auto& groupj = group_ptr[j];
+                if (_pi.id==groupj.particles.cm.id) continue;
+                // used predicted particle instead of original cm
+                const auto& pj = ptcl[j+index_offset_group_];
+                ASSERT(j+index_offset_group_<pred_.getSize());
+                Float r2 = manager->interaction.calcAccJerkPairGroupCMGroupCM(_fi, _groupi, _pi, groupj, pj);
+                ASSERT(r2>0.0);
+                nbi.checkAndAddNeighborGroup(r2, groupj, j+index_offset_group_);
+            }
+            ASSERT(nbi.n_neighbor_group + nbi.n_neighbor_single == nbi.neighbor_address.getSize());
+        }        
+
+        //! calculate one resolved group interaction from all singles and groups
+        /*! Neighbor information is also updated
+          @param[out] _fi: acc and jerk of particle i
+          @param[out] _groupi: group i 
+          @param[in] _pi: predicted group i cm 
+        */
+        template <class Tpi, class Tgroupi>
+        inline void calcOneGroupMemberAccJerkNB(ForceH4 &_fi, 
+                                                Tgroupi &_groupi, 
+                                                const Tpi &_pi) {
+            auto& nbi = _groupi.perturber;
+            nbi.n_neighbor_group = nbi.n_neighbor_single = 0;
+            nbi.neighbor_address.resizeNoInitialize(0);
+            
+            // only get neighbors
+            // single list
+            const int* single_list = index_dt_sorted_single_.getDataAddress();
+            const int n_single = index_dt_sorted_single_.getSize();
+            auto* ptcl = pred_.getDataAddress();
+            for (int i=0; i<n_single; i++) {
+                const int j = single_list[i];
+                ASSERT(j<pred_.getSize());
+                const auto& pj = ptcl[j];
+                ASSERT(_pi.id!=pj.id);
+                Float r2 = manager->interaction.calcR2Pair(_pi, pj);
+                ASSERT(r2>0.0);
+                nbi.checkAndAddNeighborSingle(r2, particles[j], neighbors[j], j);
+            }
+
+            auto* group_ptr = groups.getDataAddress();
+
+            // resolved group list
+            const int n_group_resolve = index_group_resolve_.getSize();
+            for (int i=0; i<n_group_resolve; i++) {
+                const int j =index_group_resolve_[i];
+                // used predicted particle instead of original cm
+                const auto& pj = ptcl[j+index_offset_group_];
+                auto& groupj = group_ptr[j];
+                if(_pi.id==pj.id) continue;
+                Float r2 = manager->interaction.calcR2Pair(_pi, pj);
+                ASSERT(r2>0.0);
+                nbi.checkAndAddNeighborGroup(r2, groupj, j+index_offset_group_);
+            }
+
+            // cm group list
+            const int n_group_cm = index_group_cm_.getSize();
+            for (int i=0; i<n_group_cm; i++) {
+                const int j = index_group_cm_[i];
+                auto& groupj = group_ptr[j];
+                // used predicted particle instead of original cm
+                const auto& pj = ptcl[j+index_offset_group_];
+                ASSERT(_pi.id!=pj.id);
+                ASSERT(j+index_offset_group_<pred_.getSize());
+                Float r2 = manager->interaction.calcR2Pair(_pi, pj);
+                ASSERT(r2>0.0);
+                nbi.checkAndAddNeighborGroup(r2, groupj, j+index_offset_group_);
+            }
+            ASSERT(nbi.n_neighbor_group + nbi.n_neighbor_single == nbi.neighbor_address.getSize());
+            
+            // clear force
+            _fi.clear();
+            auto* force_ptr = force_.getDataAddress();
+            auto* neighbor_ptr = neighbors.getDataAddress();
+            auto* member_adr = _groupi.particles.getOriginAddressArray();
+            const int n_member = _groupi.particles.getSize();
+#ifdef HERMITE_DEBUG
+            Float mcm = 0.0;
+#endif
+            for (int j=0; j<n_member; j++) {
+                // get particle index from memory address offset
+                //const int kj = int((Tparticle*)member_adr[j]-ptcl);
+                const int kj = _groupi.info.particle_index[j];
+                ASSERT(kj<particles.getSize());
+                ASSERT(kj>=0);
+                auto& pkj = *(Tparticle*)member_adr[j];
+                ASSERT((void*)member_adr[j]==(void*)&particles[kj]);
+                auto& fkj = force_ptr[kj];
+                auto& nbkj = neighbor_ptr[kj];
+                calcOneSingleAccJerkNB(fkj, nbkj, pkj, _pi.id);
+                // replace the cm. force with the summation of members
+                _fi.acc0[0] += pkj.mass * fkj.acc0[0]; 
+                _fi.acc0[1] += pkj.mass * fkj.acc0[1]; 
+                _fi.acc0[2] += pkj.mass * fkj.acc0[2]; 
+
+                _fi.acc1[0] += pkj.mass * fkj.acc1[0]; 
+                _fi.acc1[1] += pkj.mass * fkj.acc1[1]; 
+                _fi.acc1[2] += pkj.mass * fkj.acc1[2]; 
+#ifdef HERMITE_DEBUG
+                mcm += pkj.mass;
+#endif
+            }
+#ifdef HERMITE_DEBUG
+            ASSERT(abs(mcm-_pi.mass)<1e-10);
+#endif
+            _fi.acc0[0] /= _pi.mass;
+            _fi.acc0[1] /= _pi.mass;
+            _fi.acc0[2] /= _pi.mass;
+
+            _fi.acc1[0] /= _pi.mass;
+            _fi.acc1[1] /= _pi.mass;
+            _fi.acc1[2] /= _pi.mass;
+            
         }
         
         //! Calculate acc and jerk for lists of particles from all particles and update neighbor lists
@@ -637,51 +741,8 @@ namespace H4{
                 // use predictor of cm
                 auto& pi = pred_ptr[i+index_offset_group_];
                 auto& fi = force_ptr[i+index_offset_group_];
-                auto& nbi = groupi.perturber;
-                calcOneSingleAccJerkNB(fi, nbi, pi, pi.id);
-
-                // for resolved case
-                if(groupi.perturber.need_resolve_flag) {
-                    auto* member_adr = groupi.particles.getOriginAddressArray();
-                    const int n_member = groupi.particles.getSize();
-                    fi.clear();
-#ifdef HERMITE_DEBUG
-                    Float mcm = 0.0;
-#endif
-                    for (int j=0; j<n_member; j++) {
-                        // get particle index from memory address offset
-                        //const int kj = int((Tparticle*)member_adr[j]-ptcl);
-                        const int kj = groupi.info.particle_index[j];
-                        ASSERT(kj<particles.getSize());
-                        ASSERT(kj>=0);
-                        auto& pkj = *(Tparticle*)member_adr[j];
-                        ASSERT((void*)member_adr[j]==(void*)&particles[kj]);
-                        auto& fkj = force_ptr[kj];
-                        auto& nbkj = neighbor_ptr[kj];
-                        calcOneSingleAccJerkNB(fkj, nbkj, pkj, pi.id);
-                        // replace the cm. force with the summation of members
-                        fi.acc0[0] += pkj.mass * fkj.acc0[0]; 
-                        fi.acc0[1] += pkj.mass * fkj.acc0[1]; 
-                        fi.acc0[2] += pkj.mass * fkj.acc0[2]; 
-
-                        fi.acc1[0] += pkj.mass * fkj.acc1[0]; 
-                        fi.acc1[1] += pkj.mass * fkj.acc1[1]; 
-                        fi.acc1[2] += pkj.mass * fkj.acc1[2]; 
-#ifdef HERMITE_DEBUG
-                        mcm += pkj.mass;
-#endif
-                    }
-#ifdef HERMITE_DEBUG
-                    ASSERT(abs(mcm-pi.mass)<1e-10);
-#endif
-                    fi.acc0[0] /= pi.mass;
-                    fi.acc0[1] /= pi.mass;
-                    fi.acc0[2] /= pi.mass;
-
-                    fi.acc1[0] /= pi.mass;
-                    fi.acc1[1] /= pi.mass;
-                    fi.acc1[2] /= pi.mass;
-                }
+                if (groupi.perturber.need_resolve_flag) calcOneGroupMemberAccJerkNB(fi, groupi, pi);
+                else calcOneGroupCMAccJerkNB(fi, groupi, pi);
             }
         }
 
