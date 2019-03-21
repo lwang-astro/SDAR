@@ -285,7 +285,7 @@ public:
      */
     template<class Tpcmi, class Tgroup, class Tpcmj>
     inline Float calcAccJerkPairGroupCMGroupCM(H4::ForceH4& _fi,
-                                               const Tgroup _gi,
+                                               const Tgroup& _gi,
                                                const Tpcmi& _pi,
                                                const Tgroup& _gj,
                                                const Tpcmj& _pj) {
