@@ -857,38 +857,50 @@ namespace H4{
         }
 
         // ! remove group particle address of a list from table_group_mask_
-        void removeNBGroupAddressFromTable(COMM::List<NBAdr<Tparticle>> & _adr) {
+        /*!
+          \return remove number 
+         */
+        int removeNBGroupAddressFromTable(COMM::List<NBAdr<Tparticle>> & _adr) {
             int k = 0;
             int k_last = _adr.getSize()-1;
+            int n_rm = 0;
             while (k<=k_last) {
                 if (_adr[k].index>=index_offset_group_) {
                     const int kg = _adr[k].index-index_offset_group_;
                     if (table_group_mask_[kg]) {
                         _adr[k] = _adr[k_last];
                         k_last--;
+                        n_rm++;
                     }
                     else k++;
                 }
                 else k++;
             }
             _adr.resizeNoInitialize(k_last+1);
+            return n_rm;
         }
 
         // ! remove group particle address of a list from table_group_mask_
-        void removeNBSingleAddressFromTable(COMM::List<NBAdr<Tparticle>> & _adr) {
+        /*!
+          \return remove number 
+         */
+        int removeNBSingleAddressFromTable(COMM::List<NBAdr<Tparticle>> & _adr) {
             int k = 0;
             int k_last = _adr.getSize()-1;
+            int n_rm = 0;
             while (k<=k_last) {
                 if (_adr[k].index<index_offset_group_) {
                     if (table_single_mask_[k]) {
                         _adr[k] = _adr[k_last];
                         k_last--;
+                        n_rm++;
                     }
                     else k++;
                 }
                 else k++;
             }
             _adr.resizeNoInitialize(k_last+1);
+            return n_rm;
         }
         
 
@@ -1148,13 +1160,17 @@ namespace H4{
             int n_group = index_dt_sorted_group_.getSize();
             for (int i=0; i<n_group; i++) {
                 const int k = index_dt_sorted_group_[i];
+                auto& nbk = groups[k].perturber;
                 // remove single index 
-                removeNBSingleAddressFromTable(groups[k].perturber.neighbor_address);
+                int n_rm_single= removeNBSingleAddressFromTable(nbk.neighbor_address);
+                nbk.n_neighbor_single -= n_rm_single;
+                ASSERT(nbk.n_neighbor_single>=0);
                 // add new group index
                 for (int j=0; j<_n_group; j++) {
                     const int jk = group_index[j];
                     if (k==jk) continue;
-                    groups[k].perturber.neighbor_address.addMember(NBAdr<Tparticle>(&groups[jk].particles, jk+index_offset_group_));
+                    nbk.neighbor_address.addMember(NBAdr<Tparticle>(&groups[jk].particles, jk+index_offset_group_));
+                    nbk.n_neighbor_group++;
                 }
             }
         }
@@ -1318,11 +1334,16 @@ namespace H4{
             int n_group = index_dt_sorted_group_.getSize();
             for (int i=0; i<n_group; i++) {
                 const int k = index_dt_sorted_group_[i];
+                auto& nbk = groups[k].perturber;
                 // remove group index
-                removeNBGroupAddressFromTable(groups[k].perturber.neighbor_address);
+                int n_rm_group = removeNBGroupAddressFromTable(nbk.neighbor_address);
+                nbk.n_neighbor_group -= n_rm_group;
+                ASSERT(nbk.n_neighbor_group>=0);
                 // add single index
-                for (int j=0; j<n_single_new; j++) 
-                    groups[k].perturber.neighbor_address.addMember(NBAdr<Tparticle>(&particles[new_index_single[j]],j));
+                for (int j=0; j<n_single_new; j++) {
+                    nbk.neighbor_address.addMember(NBAdr<Tparticle>(&particles[new_index_single[j]],j));
+                    nbk.n_neighbor_single++;
+                }
             }
         }
 
