@@ -890,7 +890,7 @@ namespace H4{
             int n_rm = 0;
             while (k<=k_last) {
                 if (_adr[k].index<index_offset_group_) {
-                    if (table_single_mask_[k]) {
+                    if (table_single_mask_[_adr[k].index]) {
                         _adr[k] = _adr[k_last];
                         k_last--;
                         n_rm++;
