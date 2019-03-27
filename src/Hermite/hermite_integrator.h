@@ -1341,7 +1341,8 @@ namespace H4{
                 ASSERT(nbk.n_neighbor_group>=0);
                 // add single index
                 for (int j=0; j<n_single_new; j++) {
-                    nbk.neighbor_address.addMember(NBAdr<Tparticle>(&particles[new_index_single[j]],j));
+                    const int jk = new_index_single[j];
+                    nbk.neighbor_address.addMember(NBAdr<Tparticle>(&particles[jk],jk));
                     nbk.n_neighbor_single++;
                 }
             }
