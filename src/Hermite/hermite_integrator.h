@@ -15,8 +15,8 @@ namespace H4{
     template <class Tmethod>
     class HermiteManager{
     public:
-        Float r_break_crit; ///> the distance criterion to break the groups
-        Float r_neighbor_crit; ///> the distance for neighbor search
+        //Float r_break_crit; ///> the distance criterion to break the groups
+        //Float r_neighbor_crit; ///> the distance for neighbor search
         Tmethod interaction; ///> class contain interaction function
         BlockTimeStep4th step; ///> time step calculator
 
@@ -24,8 +24,8 @@ namespace H4{
         /*! \return true: all correct
          */
         bool checkParams() {
-            ASSERT(r_break_crit>=0.0);
-            ASSERT(r_neighbor_crit>=0.0);
+            //ASSERT(r_break_crit>=0.0);
+            //ASSERT(r_neighbor_crit>=0.0);
             ASSERT(interaction.checkParams());
             ASSERT(step.checkParams());
             return true;
@@ -33,8 +33,8 @@ namespace H4{
 
         //! print parameters
         void print(std::ostream & _fout) const{
-            _fout<<"r_break_crit    : "<<r_break_crit<<std::endl
-                 <<"r_neighbor_crit : "<<r_neighbor_crit<<std::endl;
+            //_fout<<"r_break_crit    : "<<r_break_crit<<std::endl
+            //<<"r_neighbor_crit : "<<r_neighbor_crit<<std::endl;
             interaction.print(_fout);
             step.print(_fout);
         }
@@ -64,8 +64,8 @@ namespace H4{
         /*! @param[in] _fp: FILE type file for output
          */
         void writeBinary(FILE *_fp) const {
-            size_t size = sizeof(*this) - sizeof(interaction) - sizeof(step);
-            fwrite(this, size, 1, _fp);
+            //size_t size = sizeof(*this) - sizeof(interaction) - sizeof(step);
+            //fwrite(this, size, 1, _fp);
             interaction.writeBinary(_fp);
             step.writeBinary(_fp);
         }
@@ -74,12 +74,12 @@ namespace H4{
         /*! @param[in] _fp: FILE type file for reading
          */
         void readBinary(FILE *_fin) {
-            size_t size = sizeof(*this) - sizeof(interaction) - sizeof(step);
-            size_t rcount = fread(this, size, 1, _fin);
-            if (rcount<1) {
-                std::cerr<<"Error: Data reading fails! requiring data number is 1, only obtain "<<rcount<<".\n";
-                abort();
-            }
+            //size_t size = sizeof(*this) - sizeof(interaction) - sizeof(step);
+            //size_t rcount = fread(this, size, 1, _fin);
+            //if (rcount<1) {
+            //    std::cerr<<"Error: Data reading fails! requiring data number is 1, only obtain "<<rcount<<".\n";
+            //    abort();
+            //}
             interaction.readBinary(_fin);
             step.readBinary(_fin);
         }
@@ -137,7 +137,7 @@ namespace H4{
         COMM::ParticleGroup<ParticleH4<Tparticle>, Tpcm> particles; // particles
         COMM::List<ARSym> groups; // integrator for sub-groups
         COMM::List<Neighbor<Tparticle>> neighbors; // neighbor information of particles
-        Tpert perturber; // external perturberx
+        Tpert perturber; // external perturber
         Tinfo info; ///< information of the system
         Profile profile; // profile to measure the status
 
@@ -497,8 +497,7 @@ namespace H4{
                                            const int _pid) {
             // clear force
             _fi.clear();
-            _nbi.n_neighbor_group = _nbi.n_neighbor_single = 0;
-            _nbi.neighbor_address.resizeNoInitialize(0);
+            _nbi.resetNeighbor();
 
             // single list
             const int* single_list = index_dt_sorted_single_.getDataAddress();
@@ -557,8 +556,7 @@ namespace H4{
             // clear force
             _fi.clear();
             auto& nbi = _groupi.perturber;
-            nbi.n_neighbor_group = nbi.n_neighbor_single = 0;
-            nbi.neighbor_address.resizeNoInitialize(0);
+            nbi.resetNeighbor();
 
             // single list
             const int* single_list = index_dt_sorted_single_.getDataAddress();
@@ -614,8 +612,7 @@ namespace H4{
                                                 Tgroupi &_groupi, 
                                                 const Tpi &_pi) {
             auto& nbi = _groupi.perturber;
-            nbi.n_neighbor_group = nbi.n_neighbor_single = 0;
-            nbi.neighbor_address.resizeNoInitialize(0);
+            nbi.resetNeighbor();
             
             // only get neighbors
             // single list
@@ -1096,6 +1093,9 @@ namespace H4{
                     ASSERT(p_index<particles.getSize());
                     group_new.particles.addMemberAndAddress(particles[p_index]);
                     group_new.info.particle_index.addMember(p_index);
+                    group_new.info.r_break_crit = std::max(group_new.info.r_break_crit, particles[p_index].getRBreak());
+                    Float r_neighbor_crit = particles[p_index].getRNeighbor();
+                    group_new.perturber.r_neighbor_crit_sq = std::max(group_new.perturber.r_neighbor_crit_sq, r_neighbor_crit*r_neighbor_crit);
                     // update single mask table 
                     ASSERT(table_single_mask_[p_index]==false);
                     table_single_mask_[p_index] = true;
@@ -1115,7 +1115,7 @@ namespace H4{
                 group_new.info.dt_limit = manager->step.getDtMax();
                 // in the case of wide binary, make sure the next time step not exceed r_in
                 auto& bin_root = group_new.info.binarytree.getLastMember();
-                if (bin_root.semi*(1.0+bin_root.ecc)>manager->r_break_crit) {
+                if (bin_root.semi*(1.0+bin_root.ecc)>group_new.info.r_break_crit) {
                     // ecca <0 indicate binary go to peri-center, ecca=0.0 indicate peri-center, 0-t_peri indicate the time to peri-center
                     // In the initial step, ecca can >0.0 
                     //ASSERT(bin_root.ecca<0.0);
@@ -1374,16 +1374,16 @@ namespace H4{
                 // check binary 
                 if (bin_root.semi>0.0 && bin_root.ecca>0.0) {
                     // check distance criterion and outcome (ecca>0) or income (ecca<0)
-                    if (bin_root.r > manager->r_break_crit) {
+                    if (bin_root.r > groupk.info.r_break_crit) {
 #ifdef ADJUST_GROUP_DEBUG
-                        std::cerr<<"Break group: binary escape, time: "<<time_<<" i_group: "<<k<<" N_member: "<<n_member<<" ecca: "<<bin_root.ecca<<" separation : "<<bin_root.r<<" r_crit: "<<manager->r_break_crit<<std::endl;
+                        std::cerr<<"Break group: binary escape, time: "<<time_<<" i_group: "<<k<<" N_member: "<<n_member<<" ecca: "<<bin_root.ecca<<" separation : "<<bin_root.r<<" r_crit: "<<groupk.info.r_break_crit<<std::endl;
 #endif
                         _break_group_index_with_offset[_n_break++] = k + index_offset_group_;
                         continue;
                     }
 
                     // check wide binary case for next step
-                    if (bin_root.semi*(1.0+bin_root.ecc)>manager->r_break_crit) {
+                    if (bin_root.semi*(1.0+bin_root.ecc)>groupk.info.r_break_crit) {
                         Float dr2, drdv;
                         groupk.info.getDrDv(dr2, drdv, *bin_root.getLeftMember(), *bin_root.getRightMember());
                         ASSERT(drdv>=0.0);
@@ -1391,9 +1391,9 @@ namespace H4{
                         // check next step the radial distance
                         // Not sure whether it can work correctly or not
                         Float rp = drdv/bin_root.r*groups[k].particles.cm.dt + bin_root.r;
-                        if (rp >manager->r_break_crit) {
+                        if (rp >groupk.info.r_break_crit) {
 #ifdef ADJUST_GROUP_DEBUG
-                            std::cerr<<"Break group: binary will escape, i_group: "<<k<<" N_member: "<<n_member<<" ecca: "<<bin_root.ecca<<" separation : "<<bin_root.r<<" r_pred: "<<rp<<" drdv: "<<drdv<<" dt: "<<groups[k].particles.cm.dt<<" r_crit: "<<manager->r_break_crit<<std::endl;
+                            std::cerr<<"Break group: binary will escape, i_group: "<<k<<" N_member: "<<n_member<<" ecca: "<<bin_root.ecca<<" separation : "<<bin_root.r<<" r_pred: "<<rp<<" drdv: "<<drdv<<" dt: "<<groups[k].particles.cm.dt<<" r_crit: "<<groupk.info.r_break_crit<<std::endl;
 #endif
                             _break_group_index_with_offset[_n_break++] = k + index_offset_group_;
                             continue;
@@ -1408,18 +1408,18 @@ namespace H4{
                     groupk.info.getDrDv(dr2, drdv, *bin_root.getLeftMember(), *bin_root.getRightMember());
                     if (drdv>0.0) {
                         // check distance criterion
-                        if (bin_root.r > manager->r_break_crit) {
+                        if (bin_root.r > groupk.info.r_break_crit) {
 #ifdef ADJUST_GROUP_DEBUG
-                            std::cerr<<"Break group: hyperbolic escape, time: "<<time_<<" i_group: "<<k<<" N_member: "<<n_member<<" drdv: "<<drdv<<" separation : "<<bin_root.r<<" r_crit: "<<manager->r_break_crit<<std::endl;
+                            std::cerr<<"Break group: hyperbolic escape, time: "<<time_<<" i_group: "<<k<<" N_member: "<<n_member<<" drdv: "<<drdv<<" separation : "<<bin_root.r<<" r_crit: "<<groupk.info.r_break_crit<<std::endl;
 #endif
                             _break_group_index_with_offset[_n_break++] = k + index_offset_group_;
                             continue;
                         }
                         // check for next step
                         Float rp = drdv/bin_root.r*groups[k].particles.cm.dt + bin_root.r;
-                        if (rp > manager->r_break_crit) {
+                        if (rp > groupk.info.r_break_crit) {
 #ifdef ADJUST_GROUP_DEBUG
-                            std::cerr<<"Break group: hyperbolic will escape, time: "<<time_<<" i_group: "<<k<<" N_member: "<<n_member<<" drdv: "<<drdv<<" separation : "<<bin_root.r<<" r_pred: "<<rp<<" drdv: "<<drdv<<" dt: "<<groups[k].particles.cm.dt<<" r_crit: "<<manager->r_break_crit<<std::endl;
+                            std::cerr<<"Break group: hyperbolic will escape, time: "<<time_<<" i_group: "<<k<<" N_member: "<<n_member<<" drdv: "<<drdv<<" separation : "<<bin_root.r<<" r_pred: "<<rp<<" drdv: "<<drdv<<" dt: "<<groups[k].particles.cm.dt<<" r_crit: "<<groupk.info.r_break_crit<<std::endl;
 #endif
                             _break_group_index_with_offset[_n_break++] = k + index_offset_group_;
                             continue;
@@ -1428,7 +1428,7 @@ namespace H4{
                 }
 
                 // some case hermite step is too large, the distance is already large than criterion after one step integration
-                // ASSERT(bin_root.r<2.0*manager->r_break_crit);
+                // ASSERT(bin_root.r<2.0*groupk.info.r_break_crit);
    
                 // check strong perturbed binary case
                 //Float kappa_org = groupk.slowdown.getSlowDownFactorOrigin();
@@ -1517,7 +1517,7 @@ namespace H4{
             // -2 means break groups/masked groups
             for (int k=0; k<_n_break; k++) used_mask[_break_group_index_with_offset[k]] = -2;
             
-            const Float r_crit_sq = manager->r_break_crit*manager->r_break_crit;
+            //const Float r_crit_sq = manager->r_break_crit*manager->r_break_crit;
 
             // gether list together
             //const int n_check = n_act_single_+n_act_group_;
@@ -1536,7 +1536,15 @@ namespace H4{
                 const Float dr2 = neighbors[i].r_min_sq;
                 ASSERT(dr2>0.0);
 
+                auto& pi = particles[i];
                 // distance criterion
+                Float r_crit = pi.getRBreak();
+                if (j<index_offset_group_) 
+                    r_crit = std::max(particles[j].getRBreak(), r_crit);
+                else
+                    r_crit = std::max(groups[j-index_offset_group_].info.r_break_crit, r_crit);
+                Float r_crit_sq = r_crit*r_crit;
+                
                 if (dr2 < r_crit_sq) {
 
                     // avoid break/masked member
@@ -1545,7 +1553,6 @@ namespace H4{
                     // avoid double count
                     if(used_mask[i]>=0 && used_mask[j]>=0) continue;
 
-                    auto& pi = particles[i];
                     ParticleH4<Tparticle>* pj;
                     // neighbor is single 
                     if (j<index_offset_group_) {
@@ -1606,6 +1613,13 @@ namespace H4{
                 
                 const Float dr2 = groupi.perturber.r_min_sq;
                 ASSERT(dr2>0.0);
+
+                Float r_crit = groupi.info.r_break_crit;
+                if (j<index_offset_group_) 
+                    r_crit = std::max(particles[j].getRBreak(), r_crit);
+                else
+                    r_crit = std::max(groups[j-index_offset_group_].info.r_break_crit, r_crit);
+                Float r_crit_sq = r_crit*r_crit;
 
                 // distance criterion
                 if (dr2 < r_crit_sq) {
@@ -1786,7 +1800,11 @@ namespace H4{
                 pred_[k] = ptcl[k];
                 // set neighbor radius
                 neighbors[k].clearNoFreeMem();
-                neighbors[k].r_crit_sq = manager->r_neighbor_crit*manager->r_neighbor_crit;
+                Float r_neighbor_crit = ptcl[k].getRNeighbor();
+                neighbors[k].r_neighbor_crit_sq = r_neighbor_crit*r_neighbor_crit;
+
+                // check parameters
+                ASSERT(neighbors[k].checkParams());
             }
 
             //group
@@ -1804,7 +1822,6 @@ namespace H4{
                 pcm.dt   = 0.0;
                 ASSERT(k+index_offset_group_<pred_.getSize());
                 pred_[k+index_offset_group_] = pcm;
-                group_ptr[k].perturber.r_crit_sq = manager->r_neighbor_crit*manager->r_neighbor_crit;
             }
 
             dt_limit_ = manager->step.calcNextDtLimit(time_);
@@ -1843,6 +1860,11 @@ namespace H4{
 
                 // get ds estimation
                 group_ptr[k].info.calcDsAndStepOption(group_ptr[k].slowdown.getSlowDownFactorOrigin(), ar_manager->step.getOrder());
+
+                // check parameters
+                ASSERT(group_ptr[k].info.checkParams());
+                ASSERT(group_ptr[k].perturber.checkParams());
+
             }
 
             calcDt2ndList(index_single, n_init_single_, index_group, n_init_group_, dt_limit_);

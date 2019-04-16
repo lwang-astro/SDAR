@@ -45,7 +45,7 @@ namespace H4 {
         Float r_min_sq;    // nearest neighbor distance square
         Float r_min_mass;   // nearest neighbor index for each ptcl
         Float mass_min;    // mimimum mass in neighbors
-        Float r_crit_sq;   // neighbor radius criterion
+        Float r_neighbor_crit_sq; // neighbor radius criterion
         bool need_resolve_flag; // for group
         bool initial_step_flag; // indicate whether the time step need to be initialized due to the change of neighbors
         int n_neighbor_group; // number of group neighbor
@@ -53,13 +53,13 @@ namespace H4 {
         COMM::List<NBAdr<Tparticle>> neighbor_address; // neighbor perturber address
 
         //! constructor
-        Neighbor(): r_min_index(-1), mass_min_index(-1), r_min_sq(NUMERIC_FLOAT_MAX), mass_min(NUMERIC_FLOAT_MAX), r_crit_sq(-1.0), need_resolve_flag(false), initial_step_flag(false), n_neighbor_group(0), n_neighbor_single(0), neighbor_address() {}
+        Neighbor(): r_min_index(-1), mass_min_index(-1), r_min_sq(NUMERIC_FLOAT_MAX), mass_min(NUMERIC_FLOAT_MAX), r_neighbor_crit_sq(-1.0), need_resolve_flag(false), initial_step_flag(false), n_neighbor_group(0), n_neighbor_single(0), neighbor_address() {}
 
         //! check whether parameters values are correct
         /*! \return true: all correct
          */
         bool checkParams() {
-            ASSERT(r_crit_sq>0.0);
+            ASSERT(r_neighbor_crit_sq>0.0);
             return true;
         }        
 
@@ -78,14 +78,25 @@ namespace H4 {
             mass_min_index = -1;
             r_min_sq = NUMERIC_FLOAT_MAX;
             mass_min = NUMERIC_FLOAT_MAX;
-            r_crit_sq = -1.0;
             need_resolve_flag = false;
             initial_step_flag = false;
+        }
+
+        //! reset neighbor information
+        void resetNeighbor() {
+            r_min_index = -1;
+            mass_min_index = -1;
+            r_min_sq = NUMERIC_FLOAT_MAX;
+            mass_min = NUMERIC_FLOAT_MAX;
+            n_neighbor_group = 0;
+            n_neighbor_single = 0;
+            neighbor_address.resizeNoInitialize(0);            
         }
 
         //! clear function
         void clear() {
             clearNoFreeMemNoResizeNeighborAdress();
+            r_neighbor_crit_sq = -1.0;
             n_neighbor_group = 0;
             n_neighbor_single = 0;
             neighbor_address.clear();
@@ -102,7 +113,7 @@ namespace H4 {
         //! check and add neighbor of single
         template <class Tp>
         void checkAndAddNeighborSingle(const Float _r2, Tp& _particle, const Neighbor<Tparticle>& _nbp, const Float _index) {
-            if (_r2<r_crit_sq) {
+            if (_r2<r_neighbor_crit_sq) {
                 neighbor_address.addMember(NBAdr<Tparticle>(&_particle, _index));
                 n_neighbor_single++;
             }
@@ -126,7 +137,7 @@ namespace H4 {
         template <class Tgroup>
         void checkAndAddNeighborGroup(const Float _r2, Tgroup& _group, const Float _index) {
             ASSERT(_r2>0.0);
-            if (_r2<r_crit_sq) {
+            if (_r2<r_neighbor_crit_sq) {
                 neighbor_address.addMember(NBAdr<Tparticle>(&_group.particles,_index));
                 n_neighbor_group++;
             }

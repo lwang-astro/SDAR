@@ -17,19 +17,31 @@ public:
     Float mass;
     Float pos[3];
     Float vel[3];
+    static Float r_neighbor_crit;
+    static Float r_break_crit;
 
-    //! Get position (required for \ref ARC::chain)
+    //! Get position 
     /*! \return position vector (Float[3])
      */
     Float* getPos() {
         return pos;
     }
 
-    //! Get velocity (required for \ref ARC::chain)
+    //! Get velocity 
     /*! \return velocity vector (Float[3])
      */
     Float* getVel() {
         return vel;
+    }
+
+    //! Get neighbor distance criterion 
+    Float getRNeighbor() {
+        return r_neighbor_crit;
+    }
+
+    //! Get neighbor distance criterion 
+    Float getRBreak() {
+        return r_break_crit;
     }
 
     //! write class data to file with binary format
@@ -129,5 +141,7 @@ public:
     
 };
 
+Float Particle::r_neighbor_crit = -1.0;
+Float Particle::r_break_crit = -1.0;
 
 

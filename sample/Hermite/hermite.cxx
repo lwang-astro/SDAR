@@ -216,8 +216,8 @@ int main(int argc, char **argv){
         fclose(fp);
     }
     else {
-        manager.r_break_crit = r_break;
-        manager.r_neighbor_crit = r_search;
+        Particle::r_break_crit = r_break;
+        Particle::r_neighbor_crit = r_search;
         manager.step.eta_4th = eta_4th;
         manager.step.eta_2nd = eta_2nd;
         manager.step.setDtRange(dt_max, dt_min_power_index);

@@ -45,17 +45,19 @@ namespace H4{
     public:
         Float ds;  ///> estimated step size for AR integration
         Float dt_limit; ///> hermite time step limit for this group
+        Float r_break_crit;    // group break radius criterion
         AR::FixStepOption fix_step_option; ///> fixt step option for integration
         bool need_resolve_flag; // indicate whether the members need to be resolved for outside
         COMM::List<int> particle_index; // particle index in original array (Hermite particles)
         COMM::List<COMM::BinaryTree<ARPtcl>> binarytree;
 
-        ARInformation(): ds(Float(0.0)), dt_limit(NUMERIC_FLOAT_MAX), fix_step_option(AR::FixStepOption::none), need_resolve_flag(false), particle_index(), binarytree() {}
+        ARInformation(): ds(Float(0.0)), dt_limit(NUMERIC_FLOAT_MAX), r_break_crit(-1.0), fix_step_option(AR::FixStepOption::none), need_resolve_flag(false), particle_index(), binarytree() {}
 
         //! check whether parameters values are correct
         /*! \return true: all correct
          */
         bool checkParams() {
+            ASSERT(r_break_crit>=0.0);
             return true;
         }        
     
@@ -68,6 +70,11 @@ namespace H4{
         }
     
         void clear() {
+            ds=0.0;
+            dt_limit = NUMERIC_FLOAT_MAX;
+            r_break_crit=-1.0;
+            fix_step_option = AR::FixStepOption::none;
+            need_resolve_flag=false;
             particle_index.clear();
             binarytree.clear();
         }
