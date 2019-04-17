@@ -113,7 +113,7 @@ namespace H4 {
         //! check and add neighbor of single
         template <class Tp>
         void checkAndAddNeighborSingle(const Float _r2, Tp& _particle, const Neighbor<Tparticle>& _nbp, const Float _index) {
-            if (_r2<r_neighbor_crit_sq) {
+            if (_r2<std::max(r_neighbor_crit_sq,_nbp.r_neighbor_crit_sq)) {
                 neighbor_address.addMember(NBAdr<Tparticle>(&_particle, _index));
                 n_neighbor_single++;
             }
@@ -137,7 +137,7 @@ namespace H4 {
         template <class Tgroup>
         void checkAndAddNeighborGroup(const Float _r2, Tgroup& _group, const Float _index) {
             ASSERT(_r2>0.0);
-            if (_r2<r_neighbor_crit_sq) {
+            if (_r2<std::max(r_neighbor_crit_sq, _group.perturber.r_neighbor_crit_sq)) {
                 neighbor_address.addMember(NBAdr<Tparticle>(&_group.particles,_index));
                 n_neighbor_group++;
             }
