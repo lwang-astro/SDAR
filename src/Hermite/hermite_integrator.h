@@ -1457,9 +1457,10 @@ namespace H4{
                 if (n_member>2 && bin_root.ecca>0.0) {
                     AR::SlowDown sd;
                     sd.initialSlowDownReference(groupk.slowdown.getSlowDownFactorReference(),groupk.slowdown.getSlowDownFactorMax());
+                    
                     for (int j=0; j<2; j++) {
                         if (bin_root.getMember(j)->id<0) {
-                            auto* bin_sub = (COMM::BinaryTree<Tparticle>*) bin_root.getMember(j);
+                            auto* bin_sub = (COMM::BinaryTree<ParticleAR<Tparticle>>*) bin_root.getMember(j);
                             Float semi_db = 2.0*bin_sub->semi;
                             // inner hyperbolic case
                             if(semi_db<0.0) {

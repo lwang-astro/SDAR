@@ -109,7 +109,7 @@ namespace AR{
             }
             else { 
                 kappa_org_ = kappa_ref_*pert_in/pert_out;
-                kappa_ = std::max(Float(1.0), kappa_);
+                kappa_ = std::max(Float(1.0), kappa_org_);
             }
             return kappa_;
         }
@@ -221,7 +221,8 @@ namespace AR{
         void printColumnTitle(std::ostream & _fout, const int _width=20) {
             _fout<<std::setw(_width)<<"Time_real"
                  <<std::setw(_width)<<"SD_factor"
-                 <<std::setw(_width)<<"SD_factor_org";
+                 <<std::setw(_width)<<"SD_factor_org"
+                 <<std::setw(_width)<<"SD_factor_max";
         }
 
         //! print data of class members using column style
@@ -232,7 +233,8 @@ namespace AR{
         void printColumn(std::ostream & _fout, const int _width=20){
             _fout<<std::setw(_width)<<time_real_
                  <<std::setw(_width)<<kappa_
-                 <<std::setw(_width)<<kappa_org_;
+                 <<std::setw(_width)<<kappa_org_
+                 <<std::setw(_width)<<kappa_max_;
         }
 
     };
