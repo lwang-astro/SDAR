@@ -88,7 +88,7 @@ namespace AR{
                 Float semi3 = semi_db*semi_db*semi_db;
                 Float period = std::sqrt(semi3/(_m1+_m2)); // miss 2*pi, extra 2\sqrt(2)
                 // at least about 100 orbits per timescale
-                kappa_max_ = std::max(Float(1.0), 0.2*timescale/period);
+                kappa_max_ = std::max(Float(1.0), timescale/period);
                 pert_in = m1m2/semi3;
                 if (pert_out==0.0) kappa_org_ = kappa_max_;
                 else kappa_org_ = kappa_ref_*pert_in/pert_out;

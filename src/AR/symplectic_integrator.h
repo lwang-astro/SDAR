@@ -397,6 +397,8 @@ namespace AR {
             }
 
             // set slowdown reference
+            //const Float mass_ratio = std::min(1.0,manager->slowdown_mass_ref/particles.cm.mass);
+            //slowdown.initialSlowDownReference(mass_ratio*mass_ratio*manager->slowdown_pert_ratio_ref, manager->slowdown_timescale_max);
             const Float mass_ratio = manager->slowdown_mass_ref/particles.cm.mass;
             slowdown.initialSlowDownReference(mass_ratio*manager->slowdown_pert_ratio_ref, manager->slowdown_timescale_max);
 
