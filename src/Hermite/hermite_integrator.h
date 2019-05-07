@@ -296,6 +296,9 @@ namespace H4{
             _pi.acc3[1] = acc3[1];
             _pi.acc3[2] = acc3[2];
 #endif
+
+            _pi.pot = _fi.pot;
+
             const Float dt_old = _pi.dt;
             if(_init_step_flag) {
                 _pi.dt = manager->step.calcBlockDt2nd(_pi.acc0, _pi.acc1, _dt_limit);
@@ -687,6 +690,8 @@ namespace H4{
                 _fi.acc1[0] += pkj.mass * fkj.acc1[0]; 
                 _fi.acc1[1] += pkj.mass * fkj.acc1[1]; 
                 _fi.acc1[2] += pkj.mass * fkj.acc1[2]; 
+
+                _fi.pot += pkj.mass * fkj.pot;
 #ifdef HERMITE_DEBUG
                 mcm += pkj.mass;
 #endif
@@ -701,6 +706,8 @@ namespace H4{
             _fi.acc1[0] /= _pi.mass;
             _fi.acc1[1] /= _pi.mass;
             _fi.acc1[2] /= _pi.mass;
+
+            _fi.pot /= _pi.mass;
             
         }
         

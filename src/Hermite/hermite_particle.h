@@ -42,6 +42,7 @@ namespace H4{
         Float acc2[3]; // for debug
         Float acc3[3]; // for debug
 #endif
+        Float pot;
 
         ParticleH4() {}
 
@@ -67,6 +68,7 @@ namespace H4{
             acc3[1] = _p.acc3[1];
             acc3[2] = _p.acc3[2];
 #endif
+            pot = _p.pot;
         }
 
         ParticleH4& operator = (const Tparticle & _p) {
@@ -92,6 +94,7 @@ namespace H4{
             acc3[1] = _p.acc3[1];
             acc3[2] = _p.acc3[2];
 #endif
+            pot = _p.pot;
             return *this;
         }
 
@@ -106,6 +109,7 @@ namespace H4{
             _fout<<" acc2="<<acc2
                  <<" acc3="<<acc3;
 #endif
+            _fout<<" pot="<<pot;
         }
 
         //! print titles of class members using column style
@@ -131,6 +135,7 @@ namespace H4{
                  <<std::setw(_width)<<"acc3.y"
                  <<std::setw(_width)<<"acc3.z";
 #endif
+            _fout<<std::setw(_width)<<"pot";
         }
 
         //! print data of class members using column style
@@ -156,6 +161,7 @@ namespace H4{
                  <<std::setw(_width)<<acc3[1]
                  <<std::setw(_width)<<acc3[2];
 #endif
+            _fout<<std::setw(_width)<<pot;
         }
 
         ////! write class data to file with binary format
@@ -183,11 +189,13 @@ namespace H4{
     public:
         Float acc0[3]; //
         Float acc1[3]; //
+        Float pot;
 
         //! clear function
         void clear() {
             acc0[0] = acc0[1] = acc0[2] = Float(0.0);
             acc1[0] = acc1[1] = acc1[2] = Float(0.0);
+            pot = 0.0;
         }
     };
 
