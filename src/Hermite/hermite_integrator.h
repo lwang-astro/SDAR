@@ -1481,12 +1481,15 @@ namespace H4{
                             sd.pert_in = bin_sub->m1*bin_sub->m2/(semi_db*semi_db*semi_db);
                             sd.pert_out = bin_sub->mass*bin_root.getMember(1-j)->mass/(bin_root.r*bin_root.r*bin_root.r);
                             Float kappa_in = sd.calcSlowDownFactor();
-                            if (kappa_in>1.0) {
+                            // avoid quit at high energy error phase
+                            if (abs(groupk.getEnergyError()/groupk.getEtot())<100.0/(1-std::min(bin_sub->ecc,bin_root.ecc))*groupk.manager->energy_error_relative_max) {
+                                if (kappa_in>1.0) {
 #ifdef ADJUST_GROUP_DEBUG
-                                std::cerr<<"Break group: inner kappa large, time: "<<time_<<" i_group: "<<k<<" i_member: "<<j<<" kappa_in:"<<kappa_in<<std::endl;
+                                    std::cerr<<"Break group: inner kappa large, time: "<<time_<<" i_group: "<<k<<" i_member: "<<j<<" kappa_in:"<<kappa_in<<std::endl;
 #endif
-                                _break_group_index_with_offset[_n_break++] = k + index_offset_group_;
-                                break;
+                                    _break_group_index_with_offset[_n_break++] = k + index_offset_group_;
+                                    break;
+                                }
                             }
                         }
                     }

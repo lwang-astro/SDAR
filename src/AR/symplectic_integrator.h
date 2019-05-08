@@ -999,6 +999,23 @@ namespace AR {
 #ifdef AR_DEEP_DEBUG
                     std::cerr<<"Finish, time_diff_real_rel = "<<time_diff_real_rel<<" energy_error_rel_abs = "<<energy_error_rel_abs<<std::endl;
 #endif
+#ifdef AR_WARN
+                    if (energy_error_rel_abs>energy_error_rel_max) {
+                        std::cerr<<"AR large energy error, error_rel: "<<energy_error_rel_abs
+                                 <<" N_members: "<<n_particle;
+#ifdef AR_DEBUG_DUMP
+                        Float etot_init = getEtotFromBackup(backup_data_init);
+                        Float error_init = getEnergyErrorFromBackup(backup_data_init);
+                        std::cerr<<" etot_init: "<<etot_init
+                                 <<" etot_end: "<<etot_
+                                 <<" etot_diff: "<<etot_- etot_init
+                                 <<" ekin+epot(init): "<<error_init+etot_init
+                                 <<" ekin+epot(end): "<<etot_ + energy_error
+                                 <<" ekin+epot(diff): "<<etot_ + energy_error - (error_init+etot_init);
+#endif
+                        std::cerr<<std::endl;
+                    }
+#endif
                     break;
                 }
             }
