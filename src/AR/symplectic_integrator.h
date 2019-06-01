@@ -453,6 +453,13 @@ namespace AR {
 
                 // initial total energy
                 etot_ = ekin_ + epot_;
+
+                // calcualte perturbation force (cumulative to acc) and slowdown perturbation estimation
+                manager->interaction.calcAccAndSlowDownPert(slowdown, force_data, particle_data, n_particle, particles.cm, perturber);
+
+                // slowdown factor, calculate inner force and slowdown factor
+                // slowdown.calcSlowDownFactorMultiply(particle_data, n_particle);
+
             }
 
         }
@@ -503,6 +510,9 @@ namespace AR {
 
                 // calcualte perturbation force (cumulative to acc)
                 manager->interaction.calcAccAndSlowDownPert(slowdown, force_data, particle_data, n_particle, particles.cm, perturber);
+
+                // slowdown factor
+                slowdown.calcSlowDownFactor();
 
                 // time step for kick
                 Float dt_kick = ds_kick* gt_kick;

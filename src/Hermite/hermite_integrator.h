@@ -1480,10 +1480,12 @@ namespace H4{
                             // if slowdown factor is large, break the group
                             sd.pert_in = bin_sub->m1*bin_sub->m2/(semi_db*semi_db*semi_db);
                             sd.pert_out = bin_sub->mass*bin_root.getMember(1-j)->mass/(bin_root.r*bin_root.r*bin_root.r);
+                            sd.period = bin_sub->period;
+                            sd.timescale = groupk.slowdown.timescale;
                             Float kappa_in = sd.calcSlowDownFactor();
                             // avoid quit at high energy error phase
                             if (abs(groupk.getEnergyError()/groupk.getEtot())<100.0/(1-std::min(bin_sub->ecc,bin_root.ecc))*groupk.manager->energy_error_relative_max) {
-                                if (kappa_in>1.0) {
+                                if (kappa_in>5.0) {
 #ifdef ADJUST_GROUP_DEBUG
                                     std::cerr<<"Break group: inner kappa large, time: "<<time_<<" i_group: "<<k<<" i_member: "<<j<<" kappa_in:"<<kappa_in<<std::endl;
 #endif
@@ -1868,6 +1870,13 @@ namespace H4{
 
                 // initial group integration
                 group_ptr[k].initialIntegration(time_);
+
+                // if >2 particles, initial slowdown perturbation and period
+                //if (group_ptr[k].particles.getSize()>2) {
+                //    auto& bin_root = group_ptr[k].info.binarytree.getLastMember();
+                //    group_ptr[k].slowdown.calcPertInBinary(bin_root.semi, bin_root.m1, bin_root.m2);
+                //    group_ptr[k].slowdown.calcSlowDownFactor();
+                //}
 
                 // get ds estimation
                 group_ptr[k].info.calcDsAndStepOption(group_ptr[k].slowdown.getSlowDownFactorOrigin(), ar_manager->step.getOrder());
