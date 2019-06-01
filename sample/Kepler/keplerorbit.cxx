@@ -41,7 +41,7 @@ int main(int argc, char **argv){
                     <<"    pariticle data (two lines): \n";
            Particle::printColumnTitle(std::cout, WIDTH);
            std::cout<<"\n    orbital data (one line): (period, r, L.(x/y/z) are not used)\n";
-           COMM::Binary::printColumnTitle(std::cout, WIDTH);
+           COMM::BinaryTree<Particle>::printColumnTitle(std::cout, WIDTH);
            std::cout<<"\nOptions: (*) show defaulted values\n"
                     <<"   -i:        read particle data, output kepler orbit data (one line)\n"
                     <<"   -n [int]:  number of pairs(1)\n"
@@ -80,13 +80,24 @@ int main(int argc, char **argv){
    Float G=1.0;
    Float twopi= 8.0*std::atan(1.0);
    Float pc2au = 206264.806;
-   if (unit>0) G = twopi*twopi;
+   Float kms2auyr = 0.210945021;
+   if (unit>0) G = twopi*twopi; // AU^3 yr^-2 M_sun^-1
+   //if (unit>0) G = 0.00449850214; // (km/s)^2 pc M_sun^-1
 
    if(iflag) {
        for(int i=0; i<num; i++) {
            p[0].readAscii(fs);
            p[1].readAscii(fs);
 
+           if (fs.eof()) {
+               std::cerr<<"Error: data file reach end when reading pairs (current loaded pair number is "<<i+1<<"; required pair number "<<num<<std::endl;
+               abort();
+           }
+
+           bin.setMembers(&p[0],&p[1]);
+           bin.calcCenterOfMass();
+
+           // pc ->AU
            if(unit==1) {
                for (int k=0; k<2; k++) {
                    for (int j=0; j<3; j++) {
@@ -95,14 +106,16 @@ int main(int argc, char **argv){
                }
            }
 
-           if (fs.eof()) {
-               std::cerr<<"Error: data file reach end when reading pairs (current loaded pair number is "<<i+1<<"; required pair number "<<num<<std::endl;
-               abort();
+           // km/s -> AU/yr
+           if(unit>0) {
+               for (int k=0; k<2; k++) {
+                   for (int j=0; j<3; j++) {
+                       p[k].vel[j] *= kms2auyr;
+                   }
+               }
            }
 
-           bin.setMembers(&p[0],&p[1]);
            bin.calcOrbit(G);
-           bin.calcCenterOfMass();
            bin.printColumn(std::cout, WIDTH);
            std::cout<<std::endl;
        }
@@ -128,7 +141,10 @@ int main(int argc, char **argv){
                for (int j=0; j<3; j++) {
                    p[k].pos[j] += bin.pos[j];
                    p[k].vel[j] += bin.vel[j];
+                   if (unit>0) p[k].vel[j] /= kms2auyr;
+                   if (unit==1) p[k].pos[j] /= pc2au;
                }
+
                p[k].printColumn(std::cout, WIDTH);
                std::cout<<std::endl;
            }
