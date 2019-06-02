@@ -1483,11 +1483,14 @@ namespace H4{
                             sd.period = bin_sub->period;
                             sd.timescale = groupk.slowdown.timescale;
                             Float kappa_in = sd.calcSlowDownFactor();
+                            // estimate kappa_in_max
+                            Float ecc_fac = 1+bin_root.ecc;
+                            Float kappa_in_max = kappa_in*ecc_fac*ecc_fac*ecc_fac;
                             // avoid quit at high energy error phase
                             if (abs(groupk.getEnergyError()/groupk.getEtot())<100.0/(1-std::min(bin_sub->ecc,bin_root.ecc))*groupk.manager->energy_error_relative_max) {
-                                if (kappa_in>5.0) {
+                                if (kappa_in>1.0 && kappa_in_max>5.0) {
 #ifdef ADJUST_GROUP_DEBUG
-                                    std::cerr<<"Break group: inner kappa large, time: "<<time_<<" i_group: "<<k<<" i_member: "<<j<<" kappa_in:"<<kappa_in<<std::endl;
+                                    std::cerr<<"Break group: inner kappa large, time: "<<time_<<" i_group: "<<k<<" i_member: "<<j<<" kappa_in:"<<kappa_in<<" kappa_in(max):"<<kappa_in_max<<std::endl;
 #endif
                                     _break_group_index_with_offset[_n_break++] = k + index_offset_group_;
                                     break;
