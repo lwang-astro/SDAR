@@ -23,15 +23,13 @@ namespace COMM{
         Float r;            // distance between too members
         Vector3<Float> am;        // angular momentum
 
-
-    private:
         //! Orbit to position and velocity
         /*! @param[out]: _p1: particle 1
           @param[out]: _p2: particle 2
           @param[in]: _bin: binary parameter
         */
         template <class Tptcl>
-        void orbitToParticle(Tptcl& _p1, Tptcl& _p2, const Binary& _bin, const Float& _ecca, const Float _G) const {
+        static void orbitToParticle(Tptcl& _p1, Tptcl& _p2, const Binary& _bin, const Float& _ecca, const Float _G) {
             Float m_tot = _bin.m1 + _bin.m2;
             Float n = sqrt(_G*m_tot / (_bin.semi*_bin.semi*_bin.semi) );
             Float cosu = cos(_ecca);
@@ -72,7 +70,7 @@ namespace COMM{
            @param[in]:  _p2: particle 2
         */
         template <class Tptcl>
-        void particleToOrbit(Binary& _bin, const Tptcl& _p1, const Tptcl& _p2, const Float _G){
+        static void particleToOrbit(Binary& _bin, const Tptcl& _p1, const Tptcl& _p2, const Float _G){
             _bin.m1 = _p1.mass;
             _bin.m2 = _p2.mass;
             Float m_tot = _p1.mass + _p2.mass;
@@ -80,8 +78,8 @@ namespace COMM{
             Vector3<Float> pos_red(_p2.pos[0] - _p1.pos[0], _p2.pos[1] - _p1.pos[1], _p2.pos[2] - _p1.pos[2]);
             Vector3<Float> vel_red(_p2.vel[0] - _p1.vel[0], _p2.vel[1] - _p1.vel[1], _p2.vel[2] - _p1.vel[2]);
             Float r_sq = pos_red * pos_red;
-            r = sqrt(r_sq);
-            Float inv_dr = 1.0 / r;
+            _bin.r = sqrt(r_sq);
+            Float inv_dr = 1.0 / _bin.r;
             Float v_sq = vel_red * vel_red;
             _bin.semi = 1.0 / (2.0*inv_dr - v_sq /  Gm_tot);
             //    ASSERT(semi > 0.0);
@@ -107,13 +105,35 @@ namespace COMM{
             _bin.rot_self = atan2(eccsinomg, ecccosomg);
             Float phi = atan2(pos_bar.y, pos_bar.x); // f + omg (f: true anomaly)
             Float f = phi - _bin.rot_self;
-            Float sinu = r*sin(f) / (_bin.semi*sqrt(1.0 - _bin.ecc*_bin.ecc));
-            Float cosu = (r*cos(f) / _bin.semi) + _bin.ecc;
+            Float sinu = _bin.r*sin(f) / (_bin.semi*sqrt(1.0 - _bin.ecc*_bin.ecc));
+            Float cosu = (_bin.r*cos(f) / _bin.semi) + _bin.ecc;
             _bin.ecca = atan2(sinu, cosu); // eccentric anomaly
             Float n = sqrt(Gm_tot/(_bin.semi*_bin.semi*_bin.semi)); // mean motion
             _bin.period = 8.0*std::atan(1.0)/n;
             Float l = _bin.ecca - _bin.ecc*sin(_bin.ecca);  // mean anomaly
             _bin.t_peri = l / n; 
+        }
+
+        //! position velocity to orbit semi-major axis and eccentricity
+        /* @param[out]: _semi: semi-major axis
+           @param[out]: _ecc:  eccentricity
+           @param[in]:  _p1: particle 1
+           @param[in]:  _p2: particle 2
+           @param[in]:  _G: gravitational constant
+        */
+        template <class Tpi, class Tpj>
+        static void particleToSemiEcc(Float& _semi, Float& _ecc, const Tpi& _p1, const Tpj& _p2, const Float _G){
+            Float m_tot = _p1.mass + _p2.mass;
+            Float Gm_tot = _G*m_tot;
+            Vector3<Float> pos_red(_p2.pos[0] - _p1.pos[0], _p2.pos[1] - _p1.pos[1], _p2.pos[2] - _p1.pos[2]);
+            Vector3<Float> vel_red(_p2.vel[0] - _p1.vel[0], _p2.vel[1] - _p1.vel[1], _p2.vel[2] - _p1.vel[2]);
+            Float r_sq = pos_red * pos_red;
+            Float r = sqrt(r_sq);
+            Float v_sq = vel_red * vel_red;
+            Float rv = pos_red * vel_red;
+            _semi = 1.0 / (2.0 / r - v_sq / Gm_tot);
+            Float p = 1.0 - r/_semi;
+            _ecc = sqrt(p*p + rv*rv/_semi/Gm_tot);
         }
 
         //! calculate eccentricy anomaly from mean anomaly
@@ -122,8 +142,8 @@ namespace COMM{
           @param[in] _ecc: eccentricity
           \return eccentric anomaly
         */
-        Float calcEccAnomaly(const Float _mean_anomaly,
-                               const Float _ecc){
+        static Float calcEccAnomaly(const Float _mean_anomaly,
+                             const Float _ecc){
             // a: semi-major axis
             // l: mean anomaly
             // e: eccentricity
@@ -153,8 +173,8 @@ namespace COMM{
           @param[in,out] _bin: binary orbit
           @param[in] _dt: evolution time
         */
-        void solveKepler(Binary& _bin,
-                         const Float _dt) {
+        static void solveKepler(Binary& _bin,
+                                const Float _dt) {
             Float freq = sqrt( (_bin.m1+_bin.m2) / (_bin.semi*_bin.semi*_bin.semi) );
             Float mean_anomaly_old = _bin.ecca - _bin.ecc * sin(_bin.ecca);
             Float dt_tmp = _dt - to_int(_dt/_bin.period)*_bin.period;
@@ -162,8 +182,6 @@ namespace COMM{
             _bin.ecca = calcEccAnomaly(mean_anomaly_new, _bin.ecc); // eccentric anomaly
         }
     
-    public:
-
         //! calculate kepler Orbit from particles
         /*! 
           @param[out]: _p1: particle 1
