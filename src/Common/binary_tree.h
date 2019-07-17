@@ -117,23 +117,25 @@ namespace COMM{
         //! position velocity to orbit semi-major axis and eccentricity
         /* @param[out]: _semi: semi-major axis
            @param[out]: _ecc:  eccentricity
+           @param[out]: _r: distance between two particles
+           @param[out]: _rv: relative position dot velocity
            @param[in]:  _p1: particle 1
            @param[in]:  _p2: particle 2
            @param[in]:  _G: gravitational constant
         */
         template <class Tpi, class Tpj>
-        static void particleToSemiEcc(Float& _semi, Float& _ecc, const Tpi& _p1, const Tpj& _p2, const Float _G){
+        static void particleToSemiEcc(Float& _semi, Float& _ecc, Float& _r, Float& _rv, const Tpi& _p1, const Tpj& _p2, const Float _G){
             Float m_tot = _p1.mass + _p2.mass;
             Float Gm_tot = _G*m_tot;
             Vector3<Float> pos_red(_p2.pos[0] - _p1.pos[0], _p2.pos[1] - _p1.pos[1], _p2.pos[2] - _p1.pos[2]);
             Vector3<Float> vel_red(_p2.vel[0] - _p1.vel[0], _p2.vel[1] - _p1.vel[1], _p2.vel[2] - _p1.vel[2]);
             Float r_sq = pos_red * pos_red;
-            Float r = sqrt(r_sq);
+            _r = sqrt(r_sq);
             Float v_sq = vel_red * vel_red;
-            Float rv = pos_red * vel_red;
-            _semi = 1.0 / (2.0 / r - v_sq / Gm_tot);
-            Float p = 1.0 - r/_semi;
-            _ecc = sqrt(p*p + rv*rv/_semi/Gm_tot);
+            _rv = pos_red * vel_red;
+            _semi = 1.0 / (2.0 / _r - v_sq / Gm_tot);
+            Float p = 1.0 - _r/_semi;
+            _ecc = sqrt(p*p + _rv*_rv/_semi/Gm_tot);
         }
 
         //! calculate eccentricy anomaly from mean anomaly
