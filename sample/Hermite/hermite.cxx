@@ -146,7 +146,10 @@ int main(int argc, char **argv){
             break;
         case 'h':
             std::cout<<"chain [option] data_filename\n"
-                     <<"Input data file format: each line: mass, x, y, z, vx, vy, vz\n"
+                     <<"Input data file format: \n"
+                     <<"  First   line:  number of particles(N)\n"
+                     <<"  2-(N+1) line:  mass, x, y, z, vx, vy, vz\n"
+                     <<"  last    line:  N_group, group_offset_index_lst[N_group], group_member_particle_index[N_member_total]\n"
                      <<"Options: (*) show defaulted values\n"
                      <<"          --time-start [Float]:  initial physical time ("<<time_zero<<")\n"
                      <<"    -t [Float]:  ending physical time ("<<time_end<<")\n"

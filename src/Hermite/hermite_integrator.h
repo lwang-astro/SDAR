@@ -1184,6 +1184,7 @@ namespace H4{
 
         //! Add group based on a configure file
         /*! @param[in] _fin: std::istream IO for read
+          File format: N_group, group_offset_index_lst[N_group number], group_member_particle_index[total group member number]
          */
         void readGroupConfigureAscii(std::istream& _fin) {
             int n_group;
@@ -1842,8 +1843,8 @@ namespace H4{
 
             dt_limit_ = manager->step.calcNextDtLimit(time_);
 
-            // check the resolved cases
-            checkGroupResolve(n_init_group_);
+            // slowdown not yet initialized, cannot check
+            // checkGroupResolve(n_init_group_);
             writeBackResolvedGroupAndCreateJParticleList();
 
             calcAccJerkNBList(index_single, n_init_single_, index_group, n_init_group_);

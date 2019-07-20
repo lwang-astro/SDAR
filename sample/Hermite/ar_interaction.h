@@ -212,7 +212,7 @@ public:
         }
         else {
             _slowdown.pert_out = 0.0;
-            _slowdown.timescale = NUMERIC_FLOAT_MAX;
+            _slowdown.timescale = _slowdown.getTimescaleMax();
         }
     }
 
