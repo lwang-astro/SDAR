@@ -1137,6 +1137,7 @@ namespace H4{
                 std::cerr<<"Add new group, index: "<<group_index[i]<<" Member_index: ";
                 for (int k=0; k<group_new.particles.getSize(); k++) 
                     std::cerr<<group_new.info.particle_index[k]<<" ";
+                std::cerr<<"r_break_crit: "<<group_new.info.r_break_crit;
                 std::cerr<<std::endl;
                 COMM::Binary& bin = group_new.info.getBinaryTreeRoot();
                 bin.printColumnTitle(std::cerr);
