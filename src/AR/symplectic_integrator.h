@@ -824,7 +824,7 @@ namespace AR {
                     std::cerr<<std::endl;
 #ifdef AR_DEBUG_DUMP
                     restoreIntData(backup_data_init);
-                    DATADUMP();
+                    DATADUMP("dump_large_step");
 #endif
                     abort();
                 }
@@ -909,7 +909,7 @@ namespace AR {
 
 #ifdef AR_DEBUG_DUMP
                     restoreIntData(backup_data_init);
-                    DATADUMP();
+                    DATADUMP("dump_negative_time");
 #endif
                     abort();
                 }
