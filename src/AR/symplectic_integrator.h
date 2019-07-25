@@ -399,8 +399,12 @@ namespace AR {
             // set slowdown reference
             //const Float mass_ratio = std::min(1.0,manager->slowdown_mass_ref/particles.cm.mass);
             //slowdown.initialSlowDownReference(mass_ratio*mass_ratio*manager->slowdown_pert_ratio_ref, manager->slowdown_timescale_max);
+#ifdef SLOWDOWN_MASSRATIO
             const Float mass_ratio = manager->slowdown_mass_ref/particles.cm.mass;
             slowdown.initialSlowDownReference(mass_ratio*manager->slowdown_pert_ratio_ref, manager->slowdown_timescale_max);
+#else
+            slowdown.initialSlowDownReference(manager->slowdown_pert_ratio_ref, manager->slowdown_timescale_max);
+#endif
 
             // particle number and data address
             const int n_particle = particles.getSize();
