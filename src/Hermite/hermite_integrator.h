@@ -1446,7 +1446,8 @@ namespace H4{
                 Float fin= (bin_root.m1*bin_root.m2)/(bin_root.r*bin_root.r);
                 Float fout2  = bin_root.mass*bin_root.mass*(acc[0]*acc[0]+acc[1]*acc[1]+acc[2]*acc[2]);
                 Float fratiosq = fout2/(fin*fin);
-                if (fratiosq>0.1 && bin_root.semi>0 && bin_root.ecca>0.0 && !_start_flag) {
+                Float apo = bin_root.semi*(bin_root.ecc+1.0);
+                if (fratiosq>0.1 && apo>groupk.info.r_break_crit && bin_root.ecca>0.0 && !_start_flag) {
 #ifdef ADJUST_GROUP_DEBUG
                     std::cerr<<"Break group: strong perturbed, time: "<<time_<<" i_group: "<<k<<" N_member: "<<n_member;
                     std::cerr<<" index: ";
@@ -1456,7 +1457,10 @@ namespace H4{
                              <<" fin: "<<fin
                              <<" fout: "<<std::sqrt(fout2)
                              <<" dr: "<<bin_root.r
-                             <<" semi: "<<bin_root.semi<<" ecca: "<<bin_root.ecca<<std::endl;
+                             <<" semi: "<<bin_root.semi<<" ecca: "<<bin_root.ecca
+                             <<" apo: "<<apo
+                             <<" r_break: "<<groupk.info.r_break_crit
+                             <<std::endl;
 #endif
                     _break_group_index_with_offset[_n_break++] = k + index_offset_group_;
                     continue;
@@ -1472,9 +1476,9 @@ namespace H4{
                             auto* bin_sub = (COMM::BinaryTree<ParticleAR<Tparticle>>*) bin_root.getMember(j);
                             Float semi_db = 2.0*bin_sub->semi;
                             // inner hyperbolic case
-                            if(semi_db<0.0) {
+                            if(semi_db<0.0 && abs(groupk.getEnergyError()/groupk.getEtot())<100.0*groupk.manager->energy_error_relative_max && bin_sub->ecca>0.0) {
 #ifdef ADJUST_GROUP_DEBUG
-                                std::cerr<<"Break group: inner member hyperbolic, time: "<<time_<<" i_group: "<<k<<" i_member: "<<j<<" semi: "<<semi_db<<std::endl;
+                                std::cerr<<"Break group: inner member hyperbolic, time: "<<time_<<" i_group: "<<k<<" i_member: "<<j<<" semi: "<<semi_db<<" ecca: "<<bin_sub->ecca<<std::endl;
 #endif
                                 _break_group_index_with_offset[_n_break++] = k + index_offset_group_;
                                 break;
@@ -1492,7 +1496,12 @@ namespace H4{
                             if (abs(groupk.getEnergyError()/groupk.getEtot())<100.0/(1-std::min(bin_sub->ecc,bin_root.ecc))*groupk.manager->energy_error_relative_max) {
                                 if (kappa_in>1.0 && kappa_in_max>5.0) {
 #ifdef ADJUST_GROUP_DEBUG
-                                    std::cerr<<"Break group: inner kappa large, time: "<<time_<<" i_group: "<<k<<" i_member: "<<j<<" kappa_in:"<<kappa_in<<" kappa_in(max):"<<kappa_in_max<<std::endl;
+                                    std::cerr<<"Break group: inner kappa large, time: "<<time_<<" i_group: "<<k<<" i_member: "<<j<<" kappa_in:"<<kappa_in<<" kappa_in(max):"<<kappa_in_max
+                                             <<" Energy error:"<<groupk.getEnergyError()
+                                             <<" Etot:"<<groupk.getEtot()
+                                             <<" ecc(in):"<<bin_sub->ecc
+                                             <<" ecc(out):"<<bin_root.ecc
+                                             <<std::endl;
 #endif
                                     _break_group_index_with_offset[_n_break++] = k + index_offset_group_;
                                     break;
