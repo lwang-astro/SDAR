@@ -798,22 +798,6 @@ namespace H4{
             return drdv;
         }
 
-        //! estimate perturbation / inner ratio square for a pair
-        /*!
-          @param[in] _r2: separation square
-          @param[in] _p1: particle 1
-          @param[in] _p2: particle 2
-         */
-        Float calcPertInnerRatioSq(const Float _dr2, const ParticleH4<Tparticle>& _p1, const ParticleH4<Tparticle>& _p2) {
-            Float fcm[3] = {_p1.mass*_p1.acc0[0] + _p2.mass*_p2.acc0[0], 
-                            _p1.mass*_p1.acc0[1] + _p2.mass*_p2.acc0[1], 
-                            _p1.mass*_p1.acc0[2] + _p2.mass*_p2.acc0[2]};
-            Float fcm2 = fcm[0]*fcm[0] + fcm[1]*fcm[1] + fcm[2]*fcm[2];
-            Float fin = _p1.mass*_p2.mass/_dr2;
-            Float fratiosq = fcm2/(fin*fin);
-            return fratiosq;
-        }
-
         // for get sorted index of single
         class SortIndexDtSingle{
         private:
@@ -1368,6 +1352,9 @@ namespace H4{
           @param[in] _start_flag: indicate this is the first adjust of the groups in the integration
         */
         void checkBreak(int* _break_group_index_with_offset, int& _n_break, const bool _start_flag) {
+            // kappa_org criterion for break group kappa_org>kappa_org_crit
+            const Float kappa_org_crit = 1.0;
+
             const int n_group_tot = index_dt_sorted_group_.getSize();
             for (int i=0; i<n_group_tot; i++) {
                 const int k = index_dt_sorted_group_[i];
@@ -1379,10 +1366,13 @@ namespace H4{
                 groupk.info.generateBinaryTree(groupk.particles);
                 
                 auto& bin_root = groupk.info.binarytree.getLastMember();
+                bool outgoing_flag = false; // Indicate whether it is a outgoing case or income case
 
-                // check binary 
+                // check binary case 
+                // ecc anomaly indicates outgoing (ecca>0) or income (ecca<0)
                 if (bin_root.semi>0.0 && bin_root.ecca>0.0) {
-                    // check distance criterion and outcome (ecca>0) or income (ecca<0)
+                    outgoing_flag = true;
+                    // check whether separation is larger than distance criterion. 
                     if (bin_root.r > groupk.info.r_break_crit) {
 #ifdef ADJUST_GROUP_DEBUG
                         std::cerr<<"Break group: binary escape, time: "<<time_<<" i_group: "<<k<<" N_member: "<<n_member<<" ecca: "<<bin_root.ecca<<" separation : "<<bin_root.r<<" r_crit: "<<groupk.info.r_break_crit<<std::endl;
@@ -1391,14 +1381,17 @@ namespace H4{
                         continue;
                     }
 
-                    // check wide binary case for next step
-                    if (bin_root.semi*(1.0+bin_root.ecc)>groupk.info.r_break_crit) {
+                    // in case apo is larger than distance criterion
+                    Float apo = bin_root.semi * (1.0 + bin_root.ecc);
+                    if (apo>groupk.info.r_break_crit) {
                         Float dr2, drdv;
+
                         groupk.info.getDrDv(dr2, drdv, *bin_root.getLeftMember(), *bin_root.getRightMember());
                         ASSERT(drdv>=0.0);
 
-                        // check next step the radial distance
-                        // Not sure whether it can work correctly or not
+                        // check whether next step the separation is larger than distance criterion
+                        // Not sure whether it can work correctly or not:
+                        // rp = v_r * dt + r
                         Float rp = drdv/bin_root.r*groups[k].particles.cm.dt + bin_root.r;
                         if (rp >groupk.info.r_break_crit) {
 #ifdef ADJUST_GROUP_DEBUG
@@ -1408,6 +1401,7 @@ namespace H4{
                             continue;
                         }
                     }
+
                 }
 
                 // check hyperbolic case
@@ -1416,6 +1410,7 @@ namespace H4{
                     Float dr2, drdv;
                     groupk.info.getDrDv(dr2, drdv, *bin_root.getLeftMember(), *bin_root.getRightMember());
                     if (drdv>0.0) {
+                        outgoing_flag = true;
                         // check distance criterion
                         if (bin_root.r > groupk.info.r_break_crit) {
 #ifdef ADJUST_GROUP_DEBUG
@@ -1434,77 +1429,103 @@ namespace H4{
                             continue;
                         }
                     }
+
                 }
 
-                // some case hermite step is too large, the distance is already large than criterion after one step integration
-                // ASSERT(bin_root.r<2.0*groupk.info.r_break_crit);
-   
-                // check strong perturbed binary case
-                //Float kappa_org = groupk.slowdown.getSlowDownFactorOrigin();
-                //if (kappa_org<0.01 && bin_root.semi>0 && bin_root.ecca>0.0) {
-                auto* acc = groupk.particles.cm.acc0;
-                Float fin= (bin_root.m1*bin_root.m2)/(bin_root.r*bin_root.r);
-                Float fout2  = bin_root.mass*bin_root.mass*(acc[0]*acc[0]+acc[1]*acc[1]+acc[2]*acc[2]);
-                Float fratiosq = fout2/(fin*fin);
-                Float apo = bin_root.semi*(bin_root.ecc+1.0);
-                if (fratiosq>0.1 && apo>groupk.info.r_break_crit && bin_root.ecca>0.0 && !_start_flag) {
-#ifdef ADJUST_GROUP_DEBUG
-                    std::cerr<<"Break group: strong perturbed, time: "<<time_<<" i_group: "<<k<<" N_member: "<<n_member;
-                    std::cerr<<" index: ";
-                    for (int i=0; i<n_member; i++) 
-                        std::cerr<<groupk.info.particle_index[i]<<" ";
-                    std::cerr<<" fratio_sq: "<<fratiosq
-                             <<" fin: "<<fin
-                             <<" fout: "<<std::sqrt(fout2)
-                             <<" dr: "<<bin_root.r
-                             <<" semi: "<<bin_root.semi<<" ecca: "<<bin_root.ecca
-                             <<" apo: "<<apo
-                             <<" r_break: "<<groupk.info.r_break_crit
-                             <<std::endl;
-#endif
-                    _break_group_index_with_offset[_n_break++] = k + index_offset_group_;
-                    continue;
-                }
+                // only check further if it is outgoing case
+                if (outgoing_flag) {
 
-                // check few-body inner perturbation
-                if (n_member>2 && bin_root.ecca>0.0) {
                     AR::SlowDown sd;
                     sd.initialSlowDownReference(groupk.slowdown.getSlowDownFactorReference(),groupk.slowdown.getSlowDownFactorMax());
-                    
-                    for (int j=0; j<2; j++) {
-                        if (bin_root.getMember(j)->id<0) {
-                            auto* bin_sub = (COMM::BinaryTree<ParticleAR<Tparticle>>*) bin_root.getMember(j);
-                            Float semi_db = 2.0*bin_sub->semi;
-                            // inner hyperbolic case
-                            if(semi_db<0.0 && abs(groupk.getEnergyError()/groupk.getEtot())<100.0*groupk.manager->energy_error_relative_max && bin_sub->ecca>0.0) {
+                    sd.timescale = groupk.slowdown.timescale;
+                    sd.period = groupk.slowdown.period;
+
+                    if (n_member==2) {
+                        // check strong perturbed binary case 
+                        // calculate slowdown in a consistent way like in checknewgroup to avoid switching
+                        sd.pert_in = ar_manager->interaction.calcPertFromBinary(bin_root);
+                        sd.pert_out= ar_manager->interaction.calcPertFromAcc(groupk.particles.cm.acc0, bin_root.mass, bin_root.mass);
+                        sd.calcSlowDownFactor();
+                        Float kappa_org = sd.getSlowDownFactorOrigin();
+
+                        if (kappa_org<kappa_org_crit && !_start_flag) {
+                            // in binary case, only break when apo is larger than distance criterion
+                            Float apo = bin_root.semi * (1.0 + bin_root.ecc);
+                            if (apo>groupk.info.r_break_crit||bin_root.semi<0.0) {
 #ifdef ADJUST_GROUP_DEBUG
-                                std::cerr<<"Break group: inner member hyperbolic, time: "<<time_<<" i_group: "<<k<<" i_member: "<<j<<" semi: "<<semi_db<<" ecca: "<<bin_sub->ecca<<std::endl;
+                                std::cerr<<"Break group: strong perturbed, time: "<<time_<<" i_group: "<<k<<" N_member: "<<n_member;
+                                std::cerr<<" index: ";
+                                for (int i=0; i<n_member; i++) 
+                                    std::cerr<<groupk.info.particle_index[i]<<" ";
+                                std::cerr<<" pert_in: "<<groupk.slowdown.pert_in
+                                         <<" pert_out: "<<groupk.slowdown.pert_out
+                                         <<" kappa_org: "<<kappa_org
+                                         <<" dr: "<<bin_root.r
+                                         <<" semi: "<<bin_root.semi
+                                         <<" ecc: "<<bin_root.ecc
+                                         <<" r_break: "<<groupk.info.r_break_crit
+                                         <<std::endl;
 #endif
                                 _break_group_index_with_offset[_n_break++] = k + index_offset_group_;
-                                break;
+                                continue;
                             }
-                            // if slowdown factor is large, break the group
-                            sd.pert_in = bin_sub->m1*bin_sub->m2/(semi_db*semi_db*semi_db);
-                            sd.pert_out = bin_sub->mass*bin_root.getMember(1-j)->mass/(bin_root.r*bin_root.r*bin_root.r);
-                            sd.period = bin_sub->period;
-                            sd.timescale = groupk.slowdown.timescale;
-                            Float kappa_in = sd.calcSlowDownFactor();
-                            // estimate kappa_in_max
-                            Float ecc_fac = 1+bin_root.ecc;
-                            Float kappa_in_max = kappa_in*ecc_fac*ecc_fac*ecc_fac;
-                            // avoid quit at high energy error phase
-                            if (abs(groupk.getEnergyError()/groupk.getEtot())<100.0/(1-std::min(bin_sub->ecc,bin_root.ecc))*groupk.manager->energy_error_relative_max) {
-                                if (kappa_in>1.0 && kappa_in_max>5.0) {
+                        }
+                    }
+                    // check few-body inner perturbation
+                    else {
+                        for (int j=0; j<2; j++) {
+                            if (bin_root.getMember(j)->id<0) {
+                                auto* bin_sub = (COMM::BinaryTree<ParticleAR<Tparticle>>*) bin_root.getMember(j);
+//                            Float semi_db = 2.0*bin_sub->semi;
+//                            // inner hyperbolic case
+//                            if(semi_db<0.0 && abs(groupk.getEnergyError()/groupk.getEtot())<100.0*groupk.manager->energy_error_relative_max && bin_root->ecca>0.0) {
+//#ifdef ADJUST_GROUP_DEBUG
+//                                std::cerr<<"Break group: inner member hyperbolic, time: "<<time_<<" i_group: "<<k<<" i_member: "<<j<<" semi: "<<semi_db<<" ecca: "<<bin_sub->ecca<<std::endl;
+//#endif
+//                                _break_group_index_with_offset[_n_break++] = k + index_offset_group_;
+//                                break;
+//                            }
+
+                                // check inner binary slowdown factor
+                                if (bin_sub->semi>0.0) {
+
+                                    Float apo_in = bin_sub->semi*(1+bin_sub->ecc);
+                                    sd.pert_in = ar_manager->interaction.calcPertFromMR(apo_in, bin_sub->m1, bin_sub->m2);
+
+                                    // present slowdown 
+                                    sd.pert_out = ar_manager->interaction.calcPertFromMR(bin_root.r, bin_root.m1, bin_root.m2);
+                                    sd.calcSlowDownFactor();
+                                    Float kappa_in = sd.getSlowDownFactorOrigin();
+
+                                    // in case slowdown >1
+                                    if (kappa_in>1.0) {
+                                        Float kappa_in_max = NUMERIC_FLOAT_MAX;
+                                        // if outer is binary, estimate slowdown max (apo_out)
+                                        if (bin_root.semi>0.0) {
+                                            Float apo_out = bin_root.semi*(1+bin_root.ecc);
+                                            sd.pert_out = ar_manager->interaction.calcPertFromMR(apo_out, bin_root.m1, bin_root.m2);
+                                            sd.calcSlowDownFactor();
+
+                                            kappa_in_max = sd.getSlowDownFactorOrigin();
+                                        }
+                                    
+                                        // if slowdown factor is large, break the group
+                                        if (kappa_in_max>5.0) {
+                                            // avoid quit at high energy error phase
+                                            if (abs(groupk.getEnergyError()/groupk.getEtot())<100.0/(1-std::min(bin_sub->ecc,bin_root.ecc))*groupk.manager->energy_error_relative_max) {
 #ifdef ADJUST_GROUP_DEBUG
-                                    std::cerr<<"Break group: inner kappa large, time: "<<time_<<" i_group: "<<k<<" i_member: "<<j<<" kappa_in:"<<kappa_in<<" kappa_in(max):"<<kappa_in_max
-                                             <<" Energy error:"<<groupk.getEnergyError()
-                                             <<" Etot:"<<groupk.getEtot()
-                                             <<" ecc(in):"<<bin_sub->ecc
-                                             <<" ecc(out):"<<bin_root.ecc
-                                             <<std::endl;
+                                                std::cerr<<"Break group: inner kappa large, time: "<<time_<<" i_group: "<<k<<" i_member: "<<j<<" kappa_in:"<<kappa_in<<" kappa_in(max):"<<kappa_in_max
+                                                         <<" Energy error:"<<groupk.getEnergyError()
+                                                         <<" Etot:"<<groupk.getEtot()
+                                                         <<" ecc(in):"<<bin_sub->ecc
+                                                         <<" ecc(out):"<<bin_root.ecc
+                                                         <<std::endl;
 #endif
-                                    _break_group_index_with_offset[_n_break++] = k + index_offset_group_;
-                                    break;
+                                                _break_group_index_with_offset[_n_break++] = k + index_offset_group_;
+                                                break;
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -1531,6 +1552,9 @@ namespace H4{
                            int& _n_break_no_add,
                            const int _n_break, 
                            const bool _start_flag) {
+            // kappa_org criterion for new group kappa_org>kappa_org_crit
+            const Float kappa_org_crit = 1.0;
+
             const int n_particle = particles.getSize();
             const int n_group = groups.getSize();
             ASSERT(index_offset_group_==n_particle);
@@ -1594,31 +1618,49 @@ namespace H4{
                     // only inwards or first step case
                     Float drdv = calcDrDv(pi, *pj);
                     if(drdv<0.0||_start_flag) {
-                            
-                        Float fratiosq = calcPertInnerRatioSq(dr2, pi, *pj);
+
+                        Float mcm = pi.mass + pj->mass;
+                        Float fcm[3] = {(pi.mass*pi.acc0[0] + pj->mass*pj->acc0[0])/mcm, 
+                                        (pi.mass*pi.acc0[1] + pj->mass*pj->acc0[1])/mcm, 
+                                        (pi.mass*pi.acc0[2] + pj->mass*pj->acc0[2])/mcm};
+
+                        AR::SlowDown sd;
+#ifdef SLOWDOWN_MASSRATIO
+                        const Float mass_ratio = ar_manager->slowdown_mass_ref/(pi.mass+pj->mass);
+                        sd.initialSlowDownReference(mass_ratio*ar_manager->slowdown_pert_ratio_ref, ar_manager->slowdown_timescale_max);
+#else
+                        sd.initialSlowDownReference(ar_manager->slowdown_pert_ratio_ref, ar_manager->slowdown_timescale_max);
+#endif
+                        sd.pert_in = ar_manager->interaction.calcPertFromMR(std::sqrt(dr2), pi.mass, pj->mass);
+                        sd.pert_out = ar_manager->interaction.calcPertFromAcc(fcm, pi.mass, pj->mass);
+
+                        sd.calcSlowDownFactor();
+                        Float kappa_org = sd.getSlowDownFactorOrigin();
 
                         // avoid strong perturbed case, estimate perturbation
                         // if fratiosq >1.5, avoid to form new group, should be consistent as checkbreak
-                        if(fratiosq>0.01) continue;
+                        if(kappa_org<kappa_org_crit) continue;
 
 #ifdef ADJUST_GROUP_DEBUG
                         if (j<index_offset_group_) {
-                            std::cerr<<"Find new group: time: "<<time_<<" index: "<<i<<" "<<j<<" dr: "<<std::sqrt(dr2)<<"  ftid_sq: "<<fratiosq<<"\n";
+                            std::cerr<<"Find new group: time: "<<time_
+                                     <<" index: "<<i<<" "<<j
+                                     <<" dr: "<<std::sqrt(dr2)
+                                     <<" kappa_org: "<<kappa_org<<"\n";
                         }
                         else {
                             auto& bin_root = groups[j-index_offset_group_].info.binarytree.getLastMember();
                             std::cerr<<"Find new group: time: "<<time_<<" dr: "<<std::sqrt(dr2)
-                                     <<"\n       index      slowdown      apo      ftid_sq \n"
+                                     <<"\n       index      slowdown      apo      kappa_org \n"
                                      <<"i1 "
                                      <<std::setw(8)<<i
                                      <<std::setw(16)<<0
                                      <<std::setw(16)<<0
-                                     <<std::setw(16)<<fratiosq;
+                                     <<std::setw(16)<<kappa_org;
                             std::cerr<<"\ni2 "
                                      <<std::setw(8)<<j
                                      <<std::setw(16)<<groups[j-index_offset_group_].slowdown.getSlowDownFactorOrigin()
-                                     <<std::setw(16)<<bin_root.semi*(1.0+bin_root.ecc)
-                                     <<std::setw(16)<<fratiosq;
+                                     <<std::setw(16)<<bin_root.semi*(1.0+bin_root.ecc);
                             std::cerr<<std::endl;
                         }
 #endif
@@ -1684,27 +1726,42 @@ namespace H4{
                     Float drdv = calcDrDv(pi, *pj);
                     if(drdv<0.0||_start_flag) {
 
-                        Float fratiosq = calcPertInnerRatioSq(dr2, pi, *pj);
+                        Float mcm = pi.mass + pj->mass;
+                        Float fcm[3] = {(pi.mass*pi.acc0[0] + pj->mass*pj->acc0[0])/mcm, 
+                                        (pi.mass*pi.acc0[1] + pj->mass*pj->acc0[1])/mcm, 
+                                        (pi.mass*pi.acc0[2] + pj->mass*pj->acc0[2])/mcm};
+
+                        AR::SlowDown sd;
+#ifdef SLOWDOWN_MASSRATIO
+                        const Float mass_ratio = ar_manager->slowdown_mass_ref/(pi.mass+pj->mass);
+                        sd.initialSlowDownReference(mass_ratio*ar_manager->slowdown_pert_ratio_ref, ar_manager->slowdown_timescale_max);
+#else
+                        sd.initialSlowDownReference(ar_manager->slowdown_pert_ratio_ref, ar_manager->slowdown_timescale_max);
+#endif
+                        sd.pert_in = ar_manager->interaction.calcPertFromMR(std::sqrt(dr2), pi.mass, pj->mass);
+                        sd.pert_out = ar_manager->interaction.calcPertFromAcc(fcm, pi.mass, pj->mass);
+
+                        sd.calcSlowDownFactor();
+                        Float kappa_org = sd.getSlowDownFactorOrigin();
 
                         // avoid strong (outside) perturbed case, estimate perturbation
                         // if fratiosq >1.5, avoid to form new group, should be consistent as checkbreak
-                        if(fratiosq>0.01) continue;
+                        if(kappa_org<kappa_org_crit) continue;
 
 #ifdef ADJUST_GROUP_DEBUG
                         auto& bini = groupi.info.binarytree.getLastMember();
                         std::cerr<<"Find new group: time: "<<time_<<" dr: "<<std::sqrt(dr2)
-                                 <<"\n       index      slowdown       apo      ftid_sq \n"
+                                 <<"\n       index      slowdown       apo      kappa_org \n"
                                  <<"i1 "
                                  <<std::setw(8)<<i
                                  <<std::setw(16)<<kappa_org_i
                                  <<std::setw(16)<<bini.semi*(1.0+bini.ecc)
-                                 <<std::setw(16)<<fratiosq;
+                                 <<std::setw(16)<<kappa_org;
                         if(j<index_offset_group_) {
                             std::cerr<<"\ni2 "
                                      <<std::setw(8)<<j
                                      <<std::setw(16)<<0
-                                     <<std::setw(16)<<0
-                                     <<std::setw(16)<<fratiosq;
+                                     <<std::setw(16)<<0;
                         }
                         else {
                             auto& binj = groups[j-index_offset_group_].info.binarytree.getLastMember();
@@ -1712,8 +1769,7 @@ namespace H4{
                             std::cerr<<"\ni2 "
                                      <<std::setw(8)<<j
                                      <<std::setw(16)<<kappaj
-                                     <<std::setw(16)<<binj.semi*(1.0+binj.ecc)
-                                     <<std::setw(16)<<fratiosq;
+                                     <<std::setw(16)<<binj.semi*(1.0+binj.ecc);
                         }
                         std::cerr<<std::endl;
 #endif
@@ -1930,9 +1986,9 @@ namespace H4{
             for (int i=0; i<n_group_tot; i++) {
                 const int k = index_dt_sorted_group_[i];
                 ASSERT(table_group_mask_[k]==false);
-                const Float ds = groups[k].info.ds;
+                //const Float ds = groups[k].info.ds;
                 ASSERT(abs(groups[k].slowdown.getRealTime()-time_)<=ar_manager->time_error_max_real);
-                groups[k].integrateToTime(ds, time_next, groups[k].info.fix_step_option);
+                groups[k].integrateToTime(time_next);
                 ASSERT(abs(groups[k].slowdown.getRealTime()-time_next)<=ar_manager->time_error_max_real);
                 // profile
                 profile.ar_step_count += groups[k].profile.step_count;

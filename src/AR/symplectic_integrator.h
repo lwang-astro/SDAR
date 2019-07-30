@@ -6,19 +6,13 @@
 #include "AR/force.h"
 #include "AR/slow_down.h"
 #include "AR/profile.h"
+#include "AR/information.h"
 
 //! Algorithmic regularization chain (ARC) namespace
 /*!
   All major ARC classes and related acceleration functions (typedef) are defined
 */
 namespace AR {
-    //! Fix step options for integration with adjusted step (not for time sychronizatio phase)
-    /*! always: use the given step without change \n
-        later: fix step after a few adjustment of initial steps due to energy error
-        none: don't fix step
-     */
-    enum class FixStepOption {always, later, none};
-
     //! Symplectic integrator manager
     /*! Tmethod is the class contain the interaction function, see sample of interaction.h:\n
      */
@@ -414,57 +408,82 @@ namespace AR {
             force_.resizeNoInitialize(n_particle);
             Force* force_data = force_.getDataAddress();
 
-            if (n_particle==2) {
-
 #ifdef AR_TTL
-                // calculate acceleration, potential, time transformation function gradient and time transformation factor 
-                Float gt_kick = manager->interaction.calcAccPotAndGTKickTwo(force_data, epot_, particle_data, n_particle); 
-
-                // initially gt_drift 
-                gt_inv_ = 1.0/gt_kick;
-#else 
-                // calculate acceleration, potential and time transformation factor 
-                manager->interaction.calcAccPotAndGTKickTwo(force_data, epot_, particle_data, n_particle); 
+            // calculate acceleration, potential, (time transformation function gradient for AR_TTL), time transformation factor and slowdown pert out
+            Float gt_kick = manager->interaction.calcAccEnergyAndSlowDownPert(slowdown, force_data, epot_, particle_data, n_particle, particles.cm, info.getBinaryTreeRoot(), perturber);
+            
+            // initially gt_drift 
+            gt_inv_ = 1.0/gt_kick;
+#else
+            // calculate acceleration, potential and time transformation factor and slowdown pert out
+            manager->interaction.calcAccEnergyAndSlowDownPert(slowdown, force_data, epot_, particle_data, n_particle, particles.cm, info.getBinaryTreeRoot(), perturber);
 #endif
 
-                // calculate kinetic energy
-                calcEKin();
+            // calculate kinetic energy
+            calcEKin();
 
-                // initial total energy
-                etot_ = ekin_ + epot_;
+            // initial total energy
+            etot_ = ekin_ + epot_;
 
-                // two-body case, also initialslowdown
-                // calcualte perturbation force (cumulative to acc) and slowdown perturbation estimation
-                manager->interaction.calcAccAndSlowDownPert(slowdown, force_data, particle_data, n_particle, particles.cm, perturber);
-                // slowdown factor, for inner perturbation, m1*m2/(2.0*semi)^3 is used
-                slowdown.calcSlowDownFactorBinary(etot_, particle_data[0].mass, particle_data[1].mass);
+            // slowdown factor
+            slowdown.calcSlowDownFactor();
 
-            }
-            else {
-#ifdef AR_TTL
-                // calculate acceleration, potential, time transformation function gradient and time transformation factor 
-                Float gt_kick = manager->interaction.calcAccPotAndGTKick(force_data, epot_, particle_data, n_particle); 
-
-                // initially gt_drift 
-                gt_inv_ = 1.0/gt_kick;
-#else 
-                // calculate acceleration, potential and time transformation factor 
-                manager->interaction.calcAccPotAndGTKick(force_data, epot_, particle_data, n_particle); 
-#endif
-
-                // calculate kinetic energy
-                calcEKin();
-
-                // initial total energy
-                etot_ = ekin_ + epot_;
-
-                // calcualte perturbation force (cumulative to acc) and slowdown perturbation estimation
-                manager->interaction.calcAccAndSlowDownPert(slowdown, force_data, particle_data, n_particle, particles.cm, perturber);
-
-                // slowdown factor, calculate inner force and slowdown factor
-                // slowdown.calcSlowDownFactorMultiply(particle_data, n_particle);
-
-            }
+//            if (n_particle==2) {
+// 
+//#ifdef AR_TTL
+//                // calculate acceleration, potential, time transformation function gradient and time transformation factor 
+//                Float gt_kick = manager->interaction.calcAccPotAndGTKickTwo(force_data, epot_, particle_data, n_particle); 
+// 
+//                // initially gt_drift 
+//                gt_inv_ = 1.0/gt_kick;
+//#else 
+//                // calculate acceleration, potential and time transformation factor 
+//                manager->interaction.calcAccPotAndGTKickTwo(force_data, epot_, particle_data, n_particle); 
+//#endif
+// 
+//                // calculate kinetic energy
+//                calcEKin();
+// 
+//                // initial total energy
+//                etot_ = ekin_ + epot_;
+// 
+//                // two-body case, also initialslowdown
+//                // calcualte perturbation force (cumulative to acc) and slowdown perturbation estimation
+//                manager->interaction.calcAccAndSlowDownPert(slowdown, force_data, particle_data, n_particle, particles.cm, perturber);
+// 
+// 
+//                // slowdown factor, for inner perturbation, m1*m2/(2.0*semi)^3 is used
+//                //slowdown.calcSlowDownFactorBinary(etot_, particle_data[0].mass, particle_data[1].mass);
+// 
+//            }
+//            else {
+//#ifdef AR_TTL
+//                // calculate acceleration, potential, time transformation function gradient and time transformation factor 
+//                Float gt_kick = manager->interaction.calcAccPotAndGTKick(force_data, epot_, particle_data, n_particle); 
+// 
+//                // initially gt_drift 
+//                gt_inv_ = 1.0/gt_kick;
+//#else 
+//                // calculate acceleration, potential and time transformation factor 
+//                manager->interaction.calcAccPotAndGTKick(force_data, epot_, particle_data, n_particle); 
+//#endif
+// 
+//                // calculate kinetic energy
+//                calcEKin();
+// 
+//                // initial total energy
+//                etot_ = ekin_ + epot_;
+// 
+//                // calcualte perturbation force (cumulative to acc) and slowdown perturbation estimation
+//                manager->interaction.calcAccAndSlowDownPert(slowdown, force_data, particle_data, n_particle, particles.cm, perturber);
+// 
+//                // slowdown factor
+//                slowdown.calcSlowDownFactor();
+// 
+//                // slowdown factor, calculate inner force and slowdown factor
+//                // slowdown.calcSlowDownFactorMultiply(particle_data, n_particle);
+// 
+//            }
 
         }
 
@@ -508,12 +527,12 @@ namespace AR {
                 // step for kick
                 Float ds_kick = manager->step.getDK(i)*_ds;
 
-                // calculate acceleration, potential and time transfromation factor
+                // calculate acceleration, potential, time transfromation factor and slowdown perturbation
                 // Notice in TTL method, time transformation function gradient is also updated 
-                Float gt_kick = manager->interaction.calcAccPotAndGTKick(force_data, epot_, particle_data, n_particle); 
+                Float gt_kick = manager->interaction.calcAccEnergyAndSlowDownPert(slowdown, force_data, epot_, particle_data, n_particle, particles.cm, info.getBinaryTreeRoot(), perturber); 
 
                 // calcualte perturbation force (cumulative to acc)
-                manager->interaction.calcAccAndSlowDownPert(slowdown, force_data, particle_data, n_particle, particles.cm, perturber);
+                //manager->interaction.calcAccAndSlowDownPert(slowdown, force_data, particle_data, n_particle, particles.cm, perturber);
 
                 // slowdown factor
                 slowdown.calcSlowDownFactor();
@@ -608,19 +627,21 @@ namespace AR {
                 // step for kick
                 ds = manager->step.getDK(i)*_ds;
 
-                // calculate acceleration, potential, and time transformation factor for kick
+                // calculate acceleration, potential, time transformation factor for kick and slowdown perturbation
                 // Notice in TTL method, time transformation function gradient is also updated 
-                gt = manager->interaction.calcAccPotAndGTKickTwo(force_data, epot_, particle_data, n_particle); 
+                gt = manager->interaction.calcAccEnergyAndSlowDownPert(slowdown, force_data, epot_, particle_data, n_particle, particles.cm, info.getBinaryTreeRoot(), perturber);
+
+                // calcualte perturbation force (cumulative to acc) and slowdown perturbation estimation
+                //manager->interaction.calcAccAndSlowDownPert(slowdown, force_data, particle_data, n_particle, particles.cm, perturber);
+
                 ASSERT(!std::isnan(epot_));
+
+                // slowdown factor
+                //const Float kappa = slowdown.calcSlowDownFactorBinary(etot_, mass1, mass2);
+                const Float kappa = slowdown.calcSlowDownFactor();
 
                 // time step for kick
                 dt = 0.5*ds*gt;
-
-                // calcualte perturbation force (cumulative to acc) and slowdown perturbation estimation
-                manager->interaction.calcAccAndSlowDownPert(slowdown, force_data, particle_data, n_particle, particles.cm, perturber);
-
-                // slowdown factor
-                const Float kappa = slowdown.calcSlowDownFactorBinary(etot_, mass1, mass2);
 
                 // kick half step for velocity
                 Float dvel1[3], dvel2[3];
@@ -685,9 +706,8 @@ namespace AR {
         /*!
           @param[in] _ds: the integration step size
           @param[in] _time_end_real: the expected finishing real time 
-          @param[in] _fix_step_option: FixStepOption for controlling the auto-adjust step size
          */
-        void integrateToTime(const Float _ds, const Float _time_end_real, const FixStepOption _fix_step_option) {
+        void integrateToTime(const Float _time_end_real) {
             ASSERT(checkParams());
 
             // real full time step
@@ -716,8 +736,8 @@ namespace AR {
             Float time_table[cd_pair_size]; // for storing sub-integrated time 
 
             // step control
-            Float ds[2] = {_ds,_ds}; // step with a buffer
-            Float ds_backup = _ds;  //backup step size
+            Float ds[2] = {info.ds,info.ds}; // step with a buffer
+            Float ds_backup = info.ds;  //backup step size
             int ds_switch=0;   // 0 or 1
             int n_step_wait=-1; // number of waiting step to change ds
             int n_step_end=0;  // number of steps integrated to reach the time end for one during the time sychronization sub steps
@@ -769,7 +789,7 @@ namespace AR {
                 // real step size
                 Float time_real = slowdown.getRealTime();
                 dt_real =  time_real - dt_real;
-                ASSERT(dt_real>0.0);
+//                ASSERT(dt_real>0.0);
                 
                 step_count++;
 
@@ -848,7 +868,7 @@ namespace AR {
 
                 // modify step if energy error is large
                 if(energy_error_rel_abs>energy_error_rel_max) {
-                    if(_fix_step_option!=FixStepOption::always) {
+                    if(info.fix_step_option!=FixStepOption::always) {
 
                         // energy error zero case, continue to avoid problem
                         if (energy_error_rel_abs==0.0) continue;
@@ -872,7 +892,7 @@ namespace AR {
                             continue;
                         }
                         // for big energy error
-                        else if (_fix_step_option==FixStepOption::none && energy_error_ratio<0.1) {
+                        else if (info.fix_step_option==FixStepOption::none && energy_error_ratio<0.1) {
                             if(backup_flag) ds_backup = ds[ds_switch];
                             ds[ds_switch] *= modify_factor;
                             ds[1-ds_switch] = ds[ds_switch];
@@ -917,7 +937,7 @@ namespace AR {
                 // check integration time
                 if(time_real < _time_end_real - time_error_real){
                     // step increase depend on n_step_wait or energy_error
-                    if(_fix_step_option==FixStepOption::none && !time_end_flag) {
+                    if(info.fix_step_option==FixStepOption::none && !time_end_flag) {
                         // waiting step count reach
                         if(n_step_wait==0) {
 #ifdef AR_DEEP_DEBUG
@@ -1014,10 +1034,10 @@ namespace AR {
                     std::cerr<<"Finish, time_diff_real_rel = "<<time_diff_real_rel<<" energy_error_rel_abs = "<<energy_error_rel_abs<<std::endl;
 #endif
 #ifdef AR_WARN
+                    Float etot_init = getEtotFromBackup(backup_data_init);
                     if (energy_error_rel_abs>energy_error_rel_max) {
                         std::cerr<<"AR large energy error, error_rel: "<<energy_error_rel_abs
-                                 <<" N_members: "<<n_particle<<" Fix step option: "<<static_cast<typename std::underlying_type<FixStepOption>::type>(_fix_step_option);
-                        Float etot_init = getEtotFromBackup(backup_data_init);
+                                 <<" N_members: "<<n_particle<<" Fix step option: "<<static_cast<typename std::underlying_type<FixStepOption>::type>(info.fix_step_option);
                         Float error_init = getEnergyErrorFromBackup(backup_data_init);
                         std::cerr<<" etot_init: "<<etot_init
                                  <<" etot_end: "<<etot_

@@ -12,6 +12,7 @@
 */
 class Particle{
 public:
+    long long int id;
     Float mass;
     Float pos[3];
     Float vel[3];
@@ -105,7 +106,8 @@ public:
              <<std::setw(_width)<<"pos.z"
              <<std::setw(_width)<<"vel.x"
              <<std::setw(_width)<<"vel.y"
-             <<std::setw(_width)<<"vel.z";
+             <<std::setw(_width)<<"vel.z"
+             <<std::setw(_width)<<"id";
     }
 
     //! print data of class members using column style
@@ -120,7 +122,8 @@ public:
              <<std::setw(_width)<<pos[2]
              <<std::setw(_width)<<vel[0]
              <<std::setw(_width)<<vel[1]
-             <<std::setw(_width)<<vel[2];
+             <<std::setw(_width)<<vel[2]
+             <<std::setw(_width)<<id;
     }
     
 };

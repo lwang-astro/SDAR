@@ -10,31 +10,7 @@
     
 //! a sample interaction class with newtonian acceleration
 class Interaction{
-public:
-    //! (Necessary) check whether publicly initialized parameters are correctly set
-    /*! \return true: all parmeters are correct. In this case no parameters, return true;
-     */
-    bool checkParams() {
-        return true;
-    }
-
-    //! (Necessary) calculate acceleration from perturber and the perturbation factor for slowdown calculation
-    /*! The AR::Force class acc_pert should be updated
-      @param[out] _force: force array to store the calculation results (in acc_pert[3], notice acc_pert may need to reset zero to avoid accummulating old values)
-      @param[in] _particles: member particle array
-      @param[in] _n_particle: number of member particles
-      @param[in] _particle_cm: center-of-mass particle
-      @param[in] _perturber: pertuber container
-      @param[in] _time: time to integrate
-    */
-    void calcAccAndSlowDownPert(AR::SlowDown& _slowdown, AR::Force* _force, const Particle* _particles, const int _n_particle, const Particle& _particle_cm, const Perturber& _perturber) {
-        for (int i=0; i<_n_particle; i++) {
-            Float* acc_pert = _force[i].acc_pert;
-            acc_pert[0] = acc_pert[1] = acc_pert[2] = Float(0.0);
-        }            
-        _slowdown.pert_out = 0;
-        _slowdown.timescale = _slowdown.getTimescaleMax();
-    }
+private:
 
     //! (Necessary) calculate inner member acceleration, potential and time transformation function gradient and factor for kick (two-body case)
     /*!
@@ -44,7 +20,7 @@ public:
       @param[in] _n_particle: number of member particles
       \return the time transformation factor (gt_kick) for kick step
     */
-    Float calcAccPotAndGTKickTwo(AR::Force* _force, Float& _epot, const Particle* _particles, const int _n_particle) {
+    inline Float calcAccPotAndGTKickTwo(AR::Force* _force, Float& _epot, const Particle* _particles, const int _n_particle) {
         ASSERT(_n_particle==2);
 
         // acceleration
@@ -109,7 +85,7 @@ public:
       @param[in] _n_particle: number of member particles
       \return the time transformation factor (gt_kick) for kick step
     */
-    Float calcAccPotAndGTKick(AR::Force* _force, Float& _epot, const Particle* _particles, const int _n_particle) {
+    inline Float calcAccPotAndGTKick(AR::Force* _force, Float& _epot, const Particle* _particles, const int _n_particle) {
         _epot = Float(0.0);
         Float gt_kick = Float(0.0);
         for (int i=0; i<_n_particle; i++) {
@@ -161,6 +137,49 @@ public:
 
         return gt_kick;
     }
+
+public:
+    //! (Necessary) check whether publicly initialized parameters are correctly set
+    /*! \return true: all parmeters are correct. In this case no parameters, return true;
+     */
+    bool checkParams() {
+        return true;
+    }
+
+    //! (Necessary) calculate acceleration from perturber and the perturbation factor for slowdown calculation
+    /*! The AR::Force class acc_pert should be updated
+      @param[in,out] _slowdown: slowdown class to store perturbation (member: pert: perturbation ([m]/[r^3]); timescale: limited timescale to calculate maximum slowdown factor)
+      @param[out] _force: force array to store the calculation results (in acc_pert[3], notice acc_pert may need to reset zero to avoid accummulating old values)
+      @param[out] _epot: potential energy
+      @param[in] _particles: member particle array
+      @param[in] _n_particle: number of member particles
+      @param[in] _particle_cm: center-of-mass particle
+      @param[in] _bin_root: binary tree root
+      @param[in] _perturber: pertuber container
+      \return perturbation energy to calculate slowdown factor
+    */
+    Float calcAccEnergyAndSlowDownPert(AR::SlowDown& _slowdown, AR::Force* _force, Float& _epot, const Particle* _particles, const int _n_particle, const Particle& _particle_cm, const COMM::BinaryTree<Particle>& _bin_root, const Perturber& _perturber) {
+
+        Float gt_kick;
+        if (_n_particle==2) gt_kick = calcAccPotAndGTKickTwo(_force, _epot, _particles, _n_particle);
+        else gt_kick = calcAccPotAndGTKick(_force, _epot, _particles, _n_particle);
+
+        // slowdown inner perturbation: m1*m2/apo_in^4
+        Float apo_in = _bin_root.semi*(1.0+_bin_root.ecc);
+        Float apo_in2 = apo_in*apo_in;
+        _slowdown.pert_in = _bin_root.m1*_bin_root.m2/(apo_in2*apo_in2);
+        _slowdown.period  = _bin_root.period;
+
+        for (int i=0; i<_n_particle; i++) {
+            Float* acc_pert = _force[i].acc_pert;
+            acc_pert[0] = acc_pert[1] = acc_pert[2] = Float(0.0);
+        }            
+        _slowdown.pert_out = 0;
+        _slowdown.timescale = _slowdown.getTimescaleMax();
+
+        return gt_kick;
+    }
+
 
 #ifndef AR_TTL
     //! (Necessary) calcualte the time transformation factor for drift

@@ -11,11 +11,13 @@
 
 #define ASSERT(x) assert(x)
 
+#include "Common/Float.h"
+#include "Common/binary_tree.h"
 #include "AR/symplectic_integrator.h"
+#include "AR/information.h"
 #include "particle.h"
 #include "perturber.h"
 #include "interaction.h"
-#include "information.h"
 
 using namespace AR;
 
@@ -31,13 +33,14 @@ int main(int argc, char **argv){
     int sym_order=-6; // symplectic integrator order
     Float energy_error=1e-10; // phase error requirement
     Float time_error=5e-14; // time synchronization error
-    Float s=0.5;    // step size
+    Float s=0.0;    // step size
     Float time_zero=0.0;    // initial physical time
     Float time_end=-1.0; // ending physical time
     Float dt_min = 1e-13; // minimum physical time step
     char* filename_par=NULL; // par dumped filename
-    FixStepOption fix_step_option=FixStepOption::none; // fix step option
     bool load_flag=false; // if true; load dumped data
+    bool fix_step_flag=false; // if true; use input fix step option
+    FixStepOption fix_step_option; // fix step option
 
     int copt;
     static struct option long_options[] = {
@@ -75,6 +78,7 @@ int main(int argc, char **argv){
                     std::cerr<<"Error: fix step option unknown ("<<optarg<<"), should be always, later, none\n";
                     abort();
                 }
+                fix_step_flag = true;
                 break;
             case 4:
                 time_error = atof(optarg);
@@ -189,7 +193,7 @@ int main(int argc, char **argv){
     }
     
     // integrator
-    SymplecticIntegrator<Particle, Particle, Perturber, Interaction, Information> sym_int;
+    SymplecticIntegrator<Particle, Particle, Perturber, Interaction, Information<Particle,Particle>> sym_int;
     sym_int.manager = &manager;
 
     if(load_flag) {
@@ -215,12 +219,24 @@ int main(int argc, char **argv){
 
     }
 
+    for (int i=0; i<sym_int.particles.getSize(); i++) sym_int.particles[i].id = i+1;
+
+    sym_int.info.reserveMem(sym_int.particles.getSize());
+    sym_int.info.generateBinaryTree(sym_int.particles);
+
     // no initial when both parameters and data are load
     if(!(load_flag&&filename_par!=NULL)) {
         // initialization 
         sym_int.initialIntegration(time_zero);
+        sym_int.info.calcDsAndStepOption(sym_int.slowdown.getSlowDownFactorOrigin(), manager.step.getOrder());
     }
 
+    // use input fix step option
+    if (fix_step_flag) sym_int.info.fix_step_option = fix_step_option;
+
+    // use input ds
+    if (s>0.0) sym_int.info.ds = s;
+    
     // precision
     std::cout<<std::setprecision(print_precision);
 
@@ -238,8 +254,8 @@ int main(int argc, char **argv){
     if (time_end<0.0) {
         Float time_table[manager.step.getCDPairSize()];
         for (int i=0; i<nstep; i++) {
-            if(n_particle==2) sym_int.integrateTwoOneStep(s, time_table);
-            else sym_int.integrateOneStep(s, time_table);
+            if(n_particle==2) sym_int.integrateTwoOneStep(sym_int.info.ds, time_table);
+            else sym_int.integrateOneStep(sym_int.info.ds, time_table);
             sym_int.printColumn(std::cout, print_width);
             std::cout<<std::endl;
         }
@@ -247,7 +263,7 @@ int main(int argc, char **argv){
     else {
         Float time_step = time_end/nstep;
         for (int i=1; i<=nstep; i++) {
-            sym_int.integrateToTime(s, time_step*i, fix_step_option);
+            sym_int.integrateToTime(time_step*i);
             sym_int.printColumn(std::cout, print_width);
             std::cout<<std::endl;
         }

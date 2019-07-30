@@ -70,45 +70,6 @@ namespace AR{
             kappa_org_ = _kappa;
         }
 
-        //! calculate inner perturbation from kepler orbit
-        /*
-          @param[in] _semi: semi-major axis
-          @param[in] _m1: mass 1
-          @param[in] _m2: mass 2
-         */
-        void calcPertInBinary(const Float _semi, const Float _m1, const Float _m2) {
-            Float semi3 = _semi*_semi*_semi;
-            Float m1m2 = _m1*_m2;
-            period = std::sqrt(semi3/(_m1+_m2)); // miss 2*pi, extra 2\sqrt(2)
-            pert_in = m1m2/semi3;
-        }
-
-        //! calculate slowdown factor based on perturbation and inner acceleration and timescale
-        /* if it is a hyperbolic encounter, (ebin_>0), set slowdown factor to 1.0
-           @param[in] _etot: total energy of binary
-           @param[in] _m1: mass 1
-           @param[in] _m2: mass 2
-          \return slowdown factor
-         */
-        Float calcSlowDownFactorBinary(const Float _etot, const Float _m1, const Float _m2) {
-            // hyberbolic case no slowdown
-            if(_etot>=0.0) {
-                kappa_org_ = kappa_ = Float(1.0);
-            }
-            else { 
-                ASSERT(pert_out>=0.0);
-                Float m1m2 = _m1*_m2;
-                Float semi_db = - m1m2/_etot;
-                calcPertInBinary(semi_db, _m1, _m2);
-                kappa_max_ = std::max(Float(1.0), timescale/period);
-                if (pert_out==0.0) kappa_org_ = kappa_max_;
-                else kappa_org_ = kappa_ref_*pert_in/pert_out;
-                kappa_ = std::min(kappa_org_, kappa_max_);
-                kappa_ = std::max(Float(1.0), kappa_);
-            }
-            return kappa_;
-        }
-
         //! calculate slowdown factor based on perturbation and inner acceleration
         /* if it is a hyperbolic encounter, (ebin_>0), set slowdown factor to 1.0
           \return slowdown factor
