@@ -1353,7 +1353,7 @@ namespace H4{
         */
         void checkBreak(int* _break_group_index_with_offset, int& _n_break, const bool _start_flag) {
             // kappa_org criterion for break group kappa_org>kappa_org_crit
-            const Float kappa_org_crit = 1.0;
+            const Float kappa_org_crit = 100;
 
             const int n_group_tot = index_dt_sorted_group_.getSize();
             for (int i=0; i<n_group_tot; i++) {
@@ -1443,8 +1443,11 @@ namespace H4{
                     if (n_member==2) {
                         // check strong perturbed binary case 
                         // calculate slowdown in a consistent way like in checknewgroup to avoid switching
+                        // fcm may not properly represent the perturbation force (perturber mass is unknown)
                         sd.pert_in = ar_manager->interaction.calcPertFromBinary(bin_root);
-                        sd.pert_out= ar_manager->interaction.calcPertFromAcc(groupk.particles.cm.acc0, bin_root.mass, bin_root.mass);
+                        Float* acc_cm = groupk.particles.cm.acc0;
+                        Float fcm[3] = {acc_cm[0]*bin_root.mass, acc_cm[1]*bin_root.mass, acc_cm[2]*bin_root.mass };
+                        sd.pert_out= ar_manager->interaction.calcPertFromForce(fcm, bin_root.mass, bin_root.mass);
                         sd.calcSlowDownFactor();
                         Float kappa_org = sd.getSlowDownFactorOrigin();
 
@@ -1553,7 +1556,7 @@ namespace H4{
                            const int _n_break, 
                            const bool _start_flag) {
             // kappa_org criterion for new group kappa_org>kappa_org_crit
-            const Float kappa_org_crit = 1.0;
+            const Float kappa_org_crit = 100.0;
 
             const int n_particle = particles.getSize();
             const int n_group = groups.getSize();
@@ -1619,10 +1622,10 @@ namespace H4{
                     Float drdv = calcDrDv(pi, *pj);
                     if(drdv<0.0||_start_flag) {
 
-                        Float mcm = pi.mass + pj->mass;
-                        Float fcm[3] = {(pi.mass*pi.acc0[0] + pj->mass*pj->acc0[0])/mcm, 
-                                        (pi.mass*pi.acc0[1] + pj->mass*pj->acc0[1])/mcm, 
-                                        (pi.mass*pi.acc0[2] + pj->mass*pj->acc0[2])/mcm};
+                        //Float mcm = pi.mass + pj->mass;
+                        Float fcm[3] = {pi.mass*pi.acc0[0] + pj->mass*pj->acc0[0], 
+                                        pi.mass*pi.acc0[1] + pj->mass*pj->acc0[1], 
+                                        pi.mass*pi.acc0[2] + pj->mass*pj->acc0[2]};
 
                         AR::SlowDown sd;
 #ifdef SLOWDOWN_MASSRATIO
@@ -1632,7 +1635,7 @@ namespace H4{
                         sd.initialSlowDownReference(ar_manager->slowdown_pert_ratio_ref, ar_manager->slowdown_timescale_max);
 #endif
                         sd.pert_in = ar_manager->interaction.calcPertFromMR(std::sqrt(dr2), pi.mass, pj->mass);
-                        sd.pert_out = ar_manager->interaction.calcPertFromAcc(fcm, pi.mass, pj->mass);
+                        sd.pert_out = ar_manager->interaction.calcPertFromForce(fcm, pi.mass, pj->mass);
 
                         sd.calcSlowDownFactor();
                         Float kappa_org = sd.getSlowDownFactorOrigin();
@@ -1726,10 +1729,10 @@ namespace H4{
                     Float drdv = calcDrDv(pi, *pj);
                     if(drdv<0.0||_start_flag) {
 
-                        Float mcm = pi.mass + pj->mass;
-                        Float fcm[3] = {(pi.mass*pi.acc0[0] + pj->mass*pj->acc0[0])/mcm, 
-                                        (pi.mass*pi.acc0[1] + pj->mass*pj->acc0[1])/mcm, 
-                                        (pi.mass*pi.acc0[2] + pj->mass*pj->acc0[2])/mcm};
+                        //Float mcm = pi.mass + pj->mass;
+                        Float fcm[3] = {pi.mass*pi.acc0[0] + pj->mass*pj->acc0[0], 
+                                        pi.mass*pi.acc0[1] + pj->mass*pj->acc0[1], 
+                                        pi.mass*pi.acc0[2] + pj->mass*pj->acc0[2]};
 
                         AR::SlowDown sd;
 #ifdef SLOWDOWN_MASSRATIO
@@ -1739,7 +1742,8 @@ namespace H4{
                         sd.initialSlowDownReference(ar_manager->slowdown_pert_ratio_ref, ar_manager->slowdown_timescale_max);
 #endif
                         sd.pert_in = ar_manager->interaction.calcPertFromMR(std::sqrt(dr2), pi.mass, pj->mass);
-                        sd.pert_out = ar_manager->interaction.calcPertFromAcc(fcm, pi.mass, pj->mass);
+                        // fcm may not properly represent the perturbation force (perturber mass is unknown)
+                        sd.pert_out = ar_manager->interaction.calcPertFromForce(fcm, pi.mass, pj->mass);
 
                         sd.calcSlowDownFactor();
                         Float kappa_org = sd.getSlowDownFactorOrigin();

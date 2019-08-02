@@ -161,9 +161,9 @@ public:
 
 
     //! calculate perturbation from c.m. acceleration
-    Float calcPertFromAcc(const Float* _acc, const Float _mp, const Float _mpert) {
-        Float acc2 = _acc[0]*_acc[0]+_acc[1]*_acc[1]+_acc[2]*_acc[2];
-        return acc2/(_mp*_mpert);
+    Float calcPertFromForce(const Float* _force, const Float _mp, const Float _mpert) {
+        Float force2 = _force[0]*_force[0]+_force[1]*_force[1]+_force[2]*_force[2];
+        return force2/(_mp*_mpert);
     }
 
     //! calculate perturbation from binary tree
