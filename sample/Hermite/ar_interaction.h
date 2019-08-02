@@ -179,6 +179,8 @@ public:
         return _mp*_mpert/(r2*r2);
     }
 
+#ifdef SLOWDOWN_INTEGRATE
+
     //! (Necessary) calculate acceleration from perturber and the perturbation factor for slowdown calculation
     /*! The Force class acc_pert should be updated
       @param[in,out] _slowdown: slowdown class to store perturbation (member: pert: perturbation ([m]/[r^3]); timescale: limited timescale to calculate maximum slowdown factor)
@@ -389,6 +391,238 @@ public:
         return gt_kick;
     }
 
+#else
+
+    //! (Necessary) calculate acceleration from perturber and the perturbation factor for slowdown calculation
+    /*! The Force class acc_pert should be updated
+      @param[out] _force: force array to store the calculation results (in acc_pert[3], notice acc_pert may need to reset zero to avoid accummulating old values)
+      @param[out] _epot: potential 
+      @param[in] _particles: member particle array
+      @param[in] _n_particle: number of member particles
+      @param[in] _particle_cm: center-of-mass particle
+      @param[in] _perturber: pertuber container
+      @param[in] _time: current time
+      \return perturbation energy to calculate slowdown factor
+    */
+    Float calcAccEnergy(AR::Force* _force, Float& _epot, const ARPtcl* _particles, const int _n_particle, const H4Ptcl& _particle_cm, const H4::Neighbor<Particle>& _perturber, const Float _time) {
+        static const Float inv3 = 1.0 / 3.0;
+
+        Float gt_kick;
+        if (_n_particle==2) gt_kick = calcAccPotAndGTKickTwo(_force, _epot, _particles, _n_particle);
+        else gt_kick = calcAccPotAndGTKick(_force, _epot, _particles, _n_particle);
+
+        const int n_pert = _perturber.neighbor_address.getSize();
+        if (n_pert>0) {
+
+            auto* pert_adr = _perturber.neighbor_address.getDataAddress();
+
+            Float xp[n_pert][3], xcm[3], m[n_pert];
+
+            for (int j=0; j<n_pert; j++) {
+                H4::NBAdr<Particle>::Single* pertj;
+                if (pert_adr[j].type==H4::NBType::group) pertj = &(((H4::NBAdr<Particle>::Group*)pert_adr[j].adr)->cm);
+                else pertj = (H4::NBAdr<Particle>::Single*)pert_adr[j].adr;
+                Float dt = _time - pertj->time;
+                ASSERT(dt>=0.0);
+                xp[j][0] = pertj->pos[0] + dt*(pertj->vel[0] + 0.5*dt*(pertj->acc0[0] + inv3*dt*pertj->acc1[0]));
+                xp[j][1] = pertj->pos[1] + dt*(pertj->vel[1] + 0.5*dt*(pertj->acc0[1] + inv3*dt*pertj->acc1[1]));
+                xp[j][2] = pertj->pos[2] + dt*(pertj->vel[2] + 0.5*dt*(pertj->acc0[2] + inv3*dt*pertj->acc1[2]));
+
+                m[j] = pertj->mass;
+            }
+
+            Float dt = _time - _particle_cm.time;
+            ASSERT(dt>=0.0);
+            xcm[0] = _particle_cm.pos[0] + dt*(_particle_cm.vel[0] + 0.5*dt*(_particle_cm.acc0[0] + inv3*dt*_particle_cm.acc1[0]));
+            xcm[1] = _particle_cm.pos[1] + dt*(_particle_cm.vel[1] + 0.5*dt*(_particle_cm.acc0[1] + inv3*dt*_particle_cm.acc1[1]));
+            xcm[2] = _particle_cm.pos[2] + dt*(_particle_cm.vel[2] + 0.5*dt*(_particle_cm.acc0[2] + inv3*dt*_particle_cm.acc1[2]));
+
+            Float acc_pert_cm[3]={0.0, 0.0, 0.0};
+            Float mcm = _particle_cm.mass;
+            if (_perturber.need_resolve_flag) {
+                // calculate component perturbation
+                for (int i=0; i<_n_particle; i++) {
+                    Float* acc_pert = _force[i].acc_pert;
+                    const auto& pi = _particles[i];
+                    acc_pert[0] = acc_pert[1] = acc_pert[2] = Float(0.0);
+
+                    Float xi[3];
+                    xi[0] = pi.pos[0] + xcm[0];
+                    xi[1] = pi.pos[1] + xcm[1];
+                    xi[2] = pi.pos[2] + xcm[2];
+
+                    for (int j=0; j<n_pert; j++) {
+                        Float dr[3] = {xp[j][0] - xi[0],
+                                       xp[j][1] - xi[1],
+                                       xp[j][2] - xi[2]};
+                        Float r2 = dr[0]*dr[0] + dr[1]*dr[1] + dr[2]*dr[2] + eps_sq;
+                        Float r  = sqrt(r2);
+                        Float r3 = r*r2;
+                        Float mor3 = G*m[j]/r3;
+
+                        acc_pert[0] += mor3 * dr[0];
+                        acc_pert[1] += mor3 * dr[1];
+                        acc_pert[2] += mor3 * dr[2];
+                    }
+
+                    acc_pert_cm[0] += pi.mass *acc_pert[0];
+                    acc_pert_cm[1] += pi.mass *acc_pert[1];
+                    acc_pert_cm[2] += pi.mass *acc_pert[2];
+#ifdef ARC_DEBUG
+                    mcm += pi.mass;
+#endif
+                }
+#ifdef ARC_DEBUG
+                ASSERT(abs(mcm-_particles_cm.mass)<1e-10);
+#endif
+                // get cm perturbation
+                acc_pert_cm[0] /= mcm;
+                acc_pert_cm[1] /= mcm;
+                acc_pert_cm[2] /= mcm;
+
+                // remove cm. perturbation
+                for (int i=0; i<_n_particle; i++) {
+                    Float* acc_pert = _force[i].acc_pert;
+                    acc_pert[0] -= acc_pert_cm[0]; 
+                    acc_pert[1] -= acc_pert_cm[1];        
+                    acc_pert[2] -= acc_pert_cm[2]; 
+                }
+            }
+            else {
+                // first calculate c.m. acceleration and tidal perturbation
+                for (int j=0; j<n_pert; j++) {
+                    Float dr[3] = {xp[j][0] - xcm[0],
+                                   xp[j][1] - xcm[1],
+                                   xp[j][2] - xcm[2]};
+                    Float r2 = dr[0]*dr[0] + dr[1]*dr[1] + dr[2]*dr[2] + eps_sq;
+                    Float r  = sqrt(r2);
+                    Float r3 = r*r2;
+                    Float mor3 = G*m[j]/r3;
+
+                    acc_pert_cm[0] += mor3 * dr[0];
+                    acc_pert_cm[1] += mor3 * dr[1];
+                    acc_pert_cm[2] += mor3 * dr[2];
+                }
+
+                // calculate component perturbation
+                for (int i=0; i<_n_particle; i++) {
+                    Float* acc_pert = _force[i].acc_pert;
+                    const auto& pi = _particles[i];
+                    acc_pert[0] = acc_pert[1] = acc_pert[2] = Float(0.0);
+
+                    Float xi[3];
+                    xi[0] = pi.pos[0] + xcm[0];
+                    xi[1] = pi.pos[1] + xcm[1];
+                    xi[2] = pi.pos[2] + xcm[2];
+
+                    // remove c.m. perturbation acc
+                    acc_pert[0] = -acc_pert_cm[0]; 
+                    acc_pert[1] = -acc_pert_cm[1];        
+                    acc_pert[2] = -acc_pert_cm[2]; 
+
+                    for (int j=0; j<n_pert; j++) {
+                        Float dr[3] = {xp[j][0] - xi[0],
+                                       xp[j][1] - xi[1],
+                                       xp[j][2] - xi[2]};
+                        Float r2 = dr[0]*dr[0] + dr[1]*dr[1] + dr[2]*dr[2] + eps_sq;
+                        Float r  = sqrt(r2);
+                        Float r3 = r*r2;
+                        Float mor3 = G*m[j]/r3;
+
+                        acc_pert[0] += mor3 * dr[0];
+                        acc_pert[1] += mor3 * dr[1];
+                        acc_pert[2] += mor3 * dr[2];
+                    }
+                }
+
+            }
+        }
+        return gt_kick;
+        
+    }
+
+    //! (Necessary) calculate slowdown perturbation and timescale
+    /*!
+      @param[in,out] _slowdown: slowdown paramters, (pert_out and timescale should be updated)
+      @param[in] _particle_cm: center-of-mass particle
+      @param[in] _bin_root: binary tree root
+      @param[in] _perturber: pertuber container
+    */
+    void calcSlowDownPert(AR::SlowDown& _slowdown, const H4Ptcl& _particle_cm, const COMM::BinaryTree<ARPtcl>& _bin_root, const H4::Neighbor<Particle>& _perturber) {
+        static const Float inv3 = 1.0 / 3.0;
+
+        // slowdown inner perturbation: m1*m2/apo_in^4
+        Float apo_in = _bin_root.semi*(1.0+_bin_root.ecc);
+        Float apo_in2 = apo_in*apo_in;
+        _slowdown.pert_in = _bin_root.m1*_bin_root.m2/(apo_in2*apo_in2);
+        _slowdown.period  = _bin_root.period;
+
+        const Float time = _slowdown.getRealTime();
+
+        const int n_pert = _perturber.neighbor_address.getSize();
+
+        if (n_pert>0) {
+
+            auto* pert_adr = _perturber.neighbor_address.getDataAddress();
+
+            Float xp[n_pert][3], xcm[3], m[n_pert];
+            Float vp[n_pert][3], vcm[3];
+
+            Float dt = time - _particle_cm.time;
+            //ASSERT(dt>=0.0);
+            xcm[0] = _particle_cm.pos[0] + dt*(_particle_cm.vel[0] + 0.5*dt*(_particle_cm.acc0[0] + inv3*dt*_particle_cm.acc1[0]));
+            xcm[1] = _particle_cm.pos[1] + dt*(_particle_cm.vel[1] + 0.5*dt*(_particle_cm.acc0[1] + inv3*dt*_particle_cm.acc1[1]));
+            xcm[2] = _particle_cm.pos[2] + dt*(_particle_cm.vel[2] + 0.5*dt*(_particle_cm.acc0[2] + inv3*dt*_particle_cm.acc1[2]));
+
+            vcm[0] = _particle_cm.vel[0] + dt*(_particle_cm.acc0[0] + 0.5*dt*_particle_cm.acc1[0]);
+            vcm[1] = _particle_cm.vel[1] + dt*(_particle_cm.acc0[1] + 0.5*dt*_particle_cm.acc1[1]);
+            vcm[2] = _particle_cm.vel[2] + dt*(_particle_cm.acc0[2] + 0.5*dt*_particle_cm.acc1[2]);
+
+            Float pert_pot = 0.0, t2_min = NUMERIC_FLOAT_MAX;
+            Float mcm = _particle_cm.mass;
+
+            for (int j=0; j<n_pert; j++) {
+                H4::NBAdr<Particle>::Single* pertj;
+                if (pert_adr[j].type==H4::NBType::group) pertj = &(((H4::NBAdr<Particle>::Group*)pert_adr[j].adr)->cm);
+                else pertj = (H4::NBAdr<Particle>::Single*)pert_adr[j].adr;
+                Float dt = time - pertj->time;
+                //ASSERT(dt>=0.0);
+                xp[j][0] = pertj->pos[0] + dt*(pertj->vel[0] + 0.5*dt*(pertj->acc0[0] + inv3*dt*pertj->acc1[0]));
+                xp[j][1] = pertj->pos[1] + dt*(pertj->vel[1] + 0.5*dt*(pertj->acc0[1] + inv3*dt*pertj->acc1[1]));
+                xp[j][2] = pertj->pos[2] + dt*(pertj->vel[2] + 0.5*dt*(pertj->acc0[2] + inv3*dt*pertj->acc1[2]));
+
+                vp[j][0] = pertj->vel[0] + dt*(pertj->acc0[0] + 0.5*dt*pertj->acc1[0]);
+                vp[j][1] = pertj->vel[1] + dt*(pertj->acc0[1] + 0.5*dt*pertj->acc1[1]);
+                vp[j][2] = pertj->vel[2] + dt*(pertj->acc0[2] + 0.5*dt*pertj->acc1[2]);
+
+                m[j] = pertj->mass;
+
+                Float dr[3] = {xp[j][0] - xcm[0],
+                               xp[j][1] - xcm[1],
+                               xp[j][2] - xcm[2]};
+                Float dv[3] = {vp[j][0] - vcm[0],
+                               vp[j][1] - vcm[1],
+                               vp[j][2] - vcm[2]};
+                Float r2 = dr[0]*dr[0] + dr[1]*dr[1] + dr[2]*dr[2] + eps_sq;
+                Float r4 = r2*r2;
+                pert_pot += m[j]/r4;
+
+                Float v2 = dv[0]*dv[0] + dv[1]*dv[1] + dv[2]*dv[2];
+                Float drdv = dr[0]*dv[0] + dr[1]*dv[1] + dr[2]*dv[2];
+                Float ti2 = r2*r2/(drdv*drdv+1e-4*v2*r2);
+
+                t2_min = std::min(ti2, t2_min);
+            }
+            _slowdown.pert_out = mcm* pert_pot;
+            _slowdown.timescale = 0.1*std::min(_slowdown.getTimescaleMax(), sqrt(t2_min));
+        }
+        else{
+            _slowdown.pert_out = 0.0;
+            _slowdown.timescale = _slowdown.getTimescaleMax();
+        }
+    }    
+        
+#endif
 
 #ifndef AR_TTL
     //! (Necessary) calcualte the time transformation factor for drift

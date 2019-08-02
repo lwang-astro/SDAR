@@ -146,6 +146,9 @@ public:
         return true;
     }
 
+
+#ifdef SLOWDOWN_INTEGRATE
+
     //! (Necessary) calculate acceleration from perturber and the perturbation factor for slowdown calculation
     /*! The AR::Force class acc_pert should be updated
       @param[in,out] _slowdown: slowdown class to store perturbation (member: pert: perturbation ([m]/[r^3]); timescale: limited timescale to calculate maximum slowdown factor)
@@ -179,6 +182,52 @@ public:
 
         return gt_kick;
     }
+
+#else
+
+    //! (Necessary) calculate acceleration from perturber and the perturbation factor for slowdown calculation
+    /*! The Force class acc_pert should be updated
+      @param[out] _force: force array to store the calculation results (in acc_pert[3], notice acc_pert may need to reset zero to avoid accummulating old values)
+      @param[out] _epot: potential 
+      @param[in] _particles: member particle array
+      @param[in] _n_particle: number of member particles
+      @param[in] _particle_cm: center-of-mass particle
+      @param[in] _perturber: pertuber container
+      @param[in] _time: current time
+      \return perturbation energy to calculate slowdown factor
+    */
+    Float calcAccEnergy(AR::Force* _force, Float& _epot, const Particle* _particles, const int _n_particle, const Particle& _particle_cm, const Perturber& _perturber, const Float _time) {
+        
+        Float gt_kick;
+        if (_n_particle==2) gt_kick = calcAccPotAndGTKickTwo(_force, _epot, _particles, _n_particle);
+        else gt_kick = calcAccPotAndGTKick(_force, _epot, _particles, _n_particle);
+
+        for (int i=0; i<_n_particle; i++) {
+            Float* acc_pert = _force[i].acc_pert;
+            acc_pert[0] = acc_pert[1] = acc_pert[2] = Float(0.0);
+        }            
+        return gt_kick;
+    }    
+
+    //! (Necessary) calculate slowdown perturbation and timescale
+    /*!
+      @param[in,out] _slowdown: slowdown paramters, (pert_out and timescale should be updated)
+      @param[in] _particle_cm: center-of-mass particle
+      @param[in] _bin_root: binary tree root
+      @param[in] _perturber: pertuber container
+    */
+    void calcSlowDownPert(AR::SlowDown& _slowdown, const Particle& _particle_cm, const COMM::BinaryTree<Particle>& _bin_root, const Perturber& _perturber) {
+        
+        // slowdown inner perturbation: m1*m2/apo_in^4
+        Float apo_in = _bin_root.semi*(1.0+_bin_root.ecc);
+        Float apo_in2 = apo_in*apo_in;
+        _slowdown.pert_in = _bin_root.m1*_bin_root.m2/(apo_in2*apo_in2);
+        _slowdown.period  = _bin_root.period;
+
+        _slowdown.pert_out = 0;
+        _slowdown.timescale = _slowdown.getTimescaleMax();
+    }
+#endif
 
 
 #ifndef AR_TTL
