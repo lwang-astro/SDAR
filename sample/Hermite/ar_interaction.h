@@ -565,21 +565,26 @@ public:
 
             auto* pert_adr = _perturber.neighbor_address.getDataAddress();
 
-            Float xp[n_pert][3], xcm[3], m[n_pert];
-            Float vp[n_pert][3], vcm[3];
-
+            Float xp[3], xcm[3];
+#ifdef SLOWDOWN_TIMESCALE
+            Float vp[3], vcm[3];
+#endif
             Float dt = time - _particle_cm.time;
             //ASSERT(dt>=0.0);
             xcm[0] = _particle_cm.pos[0] + dt*(_particle_cm.vel[0] + 0.5*dt*(_particle_cm.acc0[0] + inv3*dt*_particle_cm.acc1[0]));
             xcm[1] = _particle_cm.pos[1] + dt*(_particle_cm.vel[1] + 0.5*dt*(_particle_cm.acc0[1] + inv3*dt*_particle_cm.acc1[1]));
             xcm[2] = _particle_cm.pos[2] + dt*(_particle_cm.vel[2] + 0.5*dt*(_particle_cm.acc0[2] + inv3*dt*_particle_cm.acc1[2]));
 
+            Float pert_pot = 0.0; 
+            Float mcm = _particle_cm.mass;
+
+#ifdef SLOWDOWN_TIMESCALE
             vcm[0] = _particle_cm.vel[0] + dt*(_particle_cm.acc0[0] + 0.5*dt*_particle_cm.acc1[0]);
             vcm[1] = _particle_cm.vel[1] + dt*(_particle_cm.acc0[1] + 0.5*dt*_particle_cm.acc1[1]);
             vcm[2] = _particle_cm.vel[2] + dt*(_particle_cm.acc0[2] + 0.5*dt*_particle_cm.acc1[2]);
 
-            Float pert_pot = 0.0, t2_min = NUMERIC_FLOAT_MAX;
-            Float mcm = _particle_cm.mass;
+            Float t2_min = NUMERIC_FLOAT_MAX;
+#endif
 
             for (int j=0; j<n_pert; j++) {
                 H4::NBAdr<Particle>::Single* pertj;
@@ -587,34 +592,43 @@ public:
                 else pertj = (H4::NBAdr<Particle>::Single*)pert_adr[j].adr;
                 Float dt = time - pertj->time;
                 //ASSERT(dt>=0.0);
-                xp[j][0] = pertj->pos[0] + dt*(pertj->vel[0] + 0.5*dt*(pertj->acc0[0] + inv3*dt*pertj->acc1[0]));
-                xp[j][1] = pertj->pos[1] + dt*(pertj->vel[1] + 0.5*dt*(pertj->acc0[1] + inv3*dt*pertj->acc1[1]));
-                xp[j][2] = pertj->pos[2] + dt*(pertj->vel[2] + 0.5*dt*(pertj->acc0[2] + inv3*dt*pertj->acc1[2]));
+                xp[0] = pertj->pos[0] + dt*(pertj->vel[0] + 0.5*dt*(pertj->acc0[0] + inv3*dt*pertj->acc1[0]));
+                xp[1] = pertj->pos[1] + dt*(pertj->vel[1] + 0.5*dt*(pertj->acc0[1] + inv3*dt*pertj->acc1[1]));
+                xp[2] = pertj->pos[2] + dt*(pertj->vel[2] + 0.5*dt*(pertj->acc0[2] + inv3*dt*pertj->acc1[2]));
 
-                vp[j][0] = pertj->vel[0] + dt*(pertj->acc0[0] + 0.5*dt*pertj->acc1[0]);
-                vp[j][1] = pertj->vel[1] + dt*(pertj->acc0[1] + 0.5*dt*pertj->acc1[1]);
-                vp[j][2] = pertj->vel[2] + dt*(pertj->acc0[2] + 0.5*dt*pertj->acc1[2]);
+                Float mj = pertj->mass;
 
-                m[j] = pertj->mass;
+                Float dr[3] = {xp[0] - xcm[0],
+                               xp[1] - xcm[1],
+                               xp[2] - xcm[2]};
 
-                Float dr[3] = {xp[j][0] - xcm[0],
-                               xp[j][1] - xcm[1],
-                               xp[j][2] - xcm[2]};
-                Float dv[3] = {vp[j][0] - vcm[0],
-                               vp[j][1] - vcm[1],
-                               vp[j][2] - vcm[2]};
                 Float r2 = dr[0]*dr[0] + dr[1]*dr[1] + dr[2]*dr[2] + eps_sq;
                 Float r4 = r2*r2;
-                pert_pot += m[j]/r4;
+                pert_pot += mj/r4;
+
+#ifdef SLOWDOWN_TIMESCALE
+                vp[0] = pertj->vel[0] + dt*(pertj->acc0[0] + 0.5*dt*pertj->acc1[0]);
+                vp[1] = pertj->vel[1] + dt*(pertj->acc0[1] + 0.5*dt*pertj->acc1[1]);
+                vp[2] = pertj->vel[2] + dt*(pertj->acc0[2] + 0.5*dt*pertj->acc1[2]);
+
+                Float dv[3] = {vp[0] - vcm[0],
+                               vp[1] - vcm[1],
+                               vp[2] - vcm[2]};
 
                 Float v2 = dv[0]*dv[0] + dv[1]*dv[1] + dv[2]*dv[2];
                 Float drdv = dr[0]*dv[0] + dr[1]*dv[1] + dr[2]*dv[2];
-                Float ti2 = r2*r2/(drdv*drdv+1e-4*v2*r2);
+                Float ti2 = r2*r2/(drdv*drdv+1e-2*v2*r2);
 
                 t2_min = std::min(ti2, t2_min);
+#endif
+
             }
             _slowdown.pert_out = mcm* pert_pot;
+#ifdef SLOWDOWN_TIMESCALE
             _slowdown.timescale = 0.1*std::min(_slowdown.getTimescaleMax(), sqrt(t2_min));
+#else
+            _slowdown.timescale = _slowdown.getTimescaleMax();
+#endif
         }
         else{
             _slowdown.pert_out = 0.0;

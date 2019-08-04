@@ -161,7 +161,7 @@ namespace H4 {
         /*! @param[in] _kappa: slowdown factor
          */
         void checkGroupResolve(const Float _kappa) {
-            if (_kappa==1.0 && !need_resolve_flag) {
+            if (_kappa<=10.0 && !need_resolve_flag) {
                 need_resolve_flag = true;
                 initial_step_flag = true;
             }

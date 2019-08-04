@@ -12,6 +12,7 @@
 #define ASSERT(expr) assert(expr)
 #define DATADUMP(x) abort()
 
+#include "Common/io.h"
 #include "AR/symplectic_integrator.h"
 #include "Hermite/hermite_integrator.h"
 #include "particle.h"
@@ -27,27 +28,30 @@ int main(int argc, char **argv){
 
     //unsigned int oldcw;
     //fpu_fix_start(&oldcw);
+    // initial parameters
+    COMM::IOParamsContainer input_par_store;
 
-    int print_width=22; //print width
-    int print_precision=14; //print digital precision
-    int nstep_max=1000000; // maximum time step allown for tsyn integration
-    int sym_order=-6; // symplectic integrator order
-    int dt_min_power_index = 40; // power index to calculate minimum physical time step
-    Float energy_error=1e-10; // phase error requirement
-    Float time_error=0;; // time synchronization error
-    Float time_zero=0.0;    // initial physical time
-    Float time_end=1.0; // ending physical time
-    Float dt_output = 0.25; // output time interval
-    Float dt_max = 0.25; // maximum physical time step
-    Float r_break = 1e-3; // binary break criterion
-    Float r_search = 5.0; // neighbor search radius for AR
-    Float eta_4th = 0.1; // time step coefficient 
-    Float eta_2nd = 0.001; // time step coefficient for 2nd order
-    Float eps_sq = 0.0;    // softening parameter
-    Float slowdown_ref =1e-6; // slowdown reference factor
-    Float slowdown_timescale_max = time_end; // slowdown timescale
-    Float G = 1.0;      // gravitational constant
-    char* filename_par=NULL; // par dumped filename
+    COMM::IOParams<int> print_width    (input_par_store, 22, "print width of value"); //print width
+    COMM::IOParams<int> print_precision(input_par_store, 14, "print digital precision"); //print digital precision
+    COMM::IOParams<int> nstep_max      (input_par_store, 1000000, "number of maximum step for AR integration"); // maximum time step allown for tsyn integration
+    COMM::IOParams<int> sym_order      (input_par_store, -6, "Symplectic integrator order, should be even number"); // symplectic integrator order
+    COMM::IOParams<int> dt_min_power_index (input_par_store, 40, "power index to calculate mimimum hermite time step"); // power index to calculate minimum physical time step
+    COMM::IOParams<Float> energy_error (input_par_store, 1e-10,"relative energy error limit for AR"); // phase error requirement
+    COMM::IOParams<Float> time_error   (input_par_store, 0.0, "time synchronization absolute error limit for AR","default is 0.25*dt-min"); // time synchronization error
+    COMM::IOParams<Float> time_zero    (input_par_store, 0.0, "initial physical time");    // initial physical time
+    COMM::IOParams<Float> time_end     (input_par_store, 1.0, "ending physical time "); // ending physical time
+    COMM::IOParams<Float> dt_output    (input_par_store, 0.25, "output time interval"); // output time interval
+    COMM::IOParams<Float> dt_max       (input_par_store, 0.25, "maximum hermite time step"); // maximum physical time step
+    COMM::IOParams<Float> r_break      (input_par_store, 1e-3, "distance criterion for switching AR and Hermite"); // binary break criterion
+    COMM::IOParams<Float> r_search     (input_par_store, 5.0,  "neighbor search radius"); // neighbor search radius for AR
+    COMM::IOParams<Float> eta_4th      (input_par_store, 0.1,  "time step coefficient for 4th order"); // time step coefficient 
+    COMM::IOParams<Float> eta_2nd      (input_par_store, 0.001,"time step coefficient for 2nd order"); // time step coefficient for 2nd order
+    COMM::IOParams<Float> eps_sq       (input_par_store, 0.0,  "softerning parameter");    // softening parameter
+    COMM::IOParams<Float> G            (input_par_store, 1.0,  "gravitational constant");      // gravitational constant
+    COMM::IOParams<Float> slowdown_ref (input_par_store, 1e-6, "slowdown perturbation ratio reference"); // slowdown reference factor
+    COMM::IOParams<Float> slowdown_mass_ref (input_par_store, 0.0, "slowdowm mass reference","averaged mass"); // slowdown mass reference
+    COMM::IOParams<Float> slowdown_timescale_max (input_par_store, 0.0, "maximum timescale for maximum slowdown factor","time-end"); // slowdown timescale
+    COMM::IOParams<std::string> filename_par (input_par_store, "", "filename to load manager parameters","input name"); // par dumped filename
 
     int copt;
     static struct option long_options[] = {
@@ -63,16 +67,16 @@ int main(int argc, char **argv){
         {"eta-2nd",required_argument, 0, 0},
         {"eps",required_argument, 0, 0},
         {"slowdown-ref",required_argument, 0, 0},
+        {"slowdown-mass-ref",required_argument, 0, 0},
         {"slowdown-timescale-max",required_argument, 0, 0},
         {"print-width",required_argument, 0, 0},
         {"print-precision",required_argument, 0, 0},
-        {"load-par",required_argument, 0, 0},    
         {"help",no_argument, 0, 'h'},
         {0,0,0,0}
     };
   
     int option_index;
-    while ((copt = getopt_long(argc, argv, "t:R:r:k:G:e:o:lh", long_options, &option_index)) != -1)
+    while ((copt = getopt_long(argc, argv, "t:r:R:k:G:e:o:p:h", long_options, &option_index)) != -1)
         switch (copt) {
         case 0:
 #ifdef DEBUG
@@ -80,43 +84,43 @@ int main(int argc, char **argv){
 #endif
             switch (option_index) {
             case 0:
-                time_zero = atof(optarg);
+                time_zero.value = atof(optarg);
                 break;
             case 4:
-                time_error = atof(optarg);
+                time_error.value = atof(optarg);
                 break;
             case 5:
-                dt_max = atof(optarg);
+                dt_max.value = atof(optarg);
                 break;
             case 6:
-                dt_min_power_index = atoi(optarg);
+                dt_min_power_index.value = atoi(optarg);
                 break;
             case 7:
-                nstep_max = atoi(optarg);
+                nstep_max.value = atoi(optarg);
                 break;
             case 8:
-                eta_4th = atof(optarg);
+                eta_4th.value = atof(optarg);
                 break;
             case 9:
-                eta_2nd = atof(optarg);
+                eta_2nd.value = atof(optarg);
                 break;
             case 10:
-                eps_sq = atof(optarg);
+                eps_sq.value = atof(optarg);
                 break;
             case 11:
-                slowdown_ref = atof(optarg);
+                slowdown_ref.value = atof(optarg);
                 break;
             case 12:
-                slowdown_timescale_max = atof(optarg);
+                slowdown_mass_ref.value = atof(optarg);
                 break;
             case 13:
-                print_width = atof(optarg);
+                slowdown_timescale_max.value = atof(optarg);
                 break;
             case 14:
-                print_precision = atoi(optarg);
+                print_width.value = atof(optarg);
                 break;
             case 15:
-                filename_par = optarg;
+                print_precision.value = atoi(optarg);
                 break;
             default:
                 std::cerr<<"Unknown option. check '-h' for help.\n";
@@ -124,25 +128,35 @@ int main(int argc, char **argv){
             }
             break;
         case 't':
-            time_end = atof(optarg);
+            time_end.value = atof(optarg);
             break;
         case 'r':
-            r_break = atof(optarg);
+            r_break.value = atof(optarg);
             break;
         case 'R':
-            r_search = atof(optarg);
+            r_search.value = atof(optarg);
             break;
         case 'k':
-            sym_order = atoi(optarg);
+            sym_order.value = atoi(optarg);
             break;
         case 'G':
-            G = atof(optarg);
+            G.value = atof(optarg);
             break;
         case 'e':
-            energy_error = atof(optarg);
+            energy_error.value = atof(optarg);
             break;
         case 'o':
-            dt_output = atof(optarg);
+            dt_output.value = atof(optarg);
+            break;
+        case 'p':
+            filename_par.value = optarg;
+            FILE* fpar_in;
+            if( (fpar_in = fopen(filename_par.value.c_str(),"r")) == NULL) {
+                fprintf(stderr,"Error: Cannot open file %s.\n", filename_par.value.c_str());
+                abort();
+            }
+            input_par_store.readAscii(fpar_in);
+            fclose(fpar_in);
             break;
         case 'h':
             std::cout<<"chain [option] data_filename\n"
@@ -151,31 +165,32 @@ int main(int argc, char **argv){
                      <<"  2-(N+1) line:  mass, x, y, z, vx, vy, vz\n"
                      <<"  last    line:  N_group, group_offset_index_lst[N_group], group_member_particle_index[N_member_total]\n"
                      <<"Options: (*) show defaulted values\n"
-                     <<"          --time-start [Float]:  initial physical time ("<<time_zero<<")\n"
-                     <<"    -t [Float]:  ending physical time ("<<time_end<<")\n"
-                     <<"          --time-end (same as -t)\n"
-                     <<"          --dt-max       [Float]: maximum hermite time step ("<<dt_max<<")\n"
-                     <<"          --dt-min-power [int]  : power index to calculate mimimum hermite time step ("<<dt_min_power_index<<")\n"
-                     <<"    -r [Float]:  distance criterion for switching AR and Hermite ("<<r_break<<")\n"
-                     <<"          --r-break             : same as -r\n"
-                     <<"    -R [Float]:  neighbor search radius ("<<r_search<<")\n"
-                     <<"    -o [Float]:  output time interval ("<<dt_output<<")\n"
-                     <<"    -k [int]:  Symplectic integrator order, should be even number ("<<sym_order<<")\n"
-                     <<"    -e [Float]:  relative energy error limit for AR ("<<energy_error<<")\n"
-                     <<"          --energy-error (same as -e)\n"
-                     <<"          --time-error [Float]:    time synchronization absolute error limit for AR, default is 0.25*dt-min ("<<time_error<<")\n"
-                     <<"          --n-step-max [int]  :    number of maximum step for AR integration ("<<nstep_max<<")\n"
-                     <<"    -G [Float]: gravitational constant ("<<G<<")\n"
-                     <<"          --eta-4th:   time step coefficient for 4th order ("<<eta_4th<<")\n"
-                     <<"          --eta-2nd:   time step coefficient for 2nd order ("<<eta_2nd<<")\n"
-                     <<"          --eps:       softerning parameter ("<<eps_sq<<")\n"
-                     <<"          --slowdown-ref:  slowdown perturbation ratio reference ("<<slowdown_ref<<")\n"
-                     <<"          --slowdown-timescale-max:  maximum timescale for maximum slowdown factor("<<slowdown_timescale_max<<")\n"
-                     <<"          --print-width [int]:     print width of value ("<<print_width<<")\n"
-                     <<"          --print-precision [int]: print digital precision ("<<print_precision<<")\n"
-                     <<"          --load-par    [char]:    filename to load manager parameters\n"
-                     <<"    -h :          print option information\n"
-                     <<"          --help (same as -h)\n";
+                     <<"          --dt-max       [Float]:  "<<dt_max<<"\n"
+                     <<"          --dt-min-power [int]  :  "<<dt_min_power_index<<"\n"
+                     <<"    -e [Float]:  "<<energy_error<<"\n"
+                     <<"          --energy-error [Float]:  same as -e\n"
+                     <<"          --eta-4th:     [Float]:  "<<eta_4th<<"\n"
+                     <<"          --eta-2nd:     [Float]:  "<<eta_2nd<<"\n"
+                     <<"          --eps:         [Float]:  "<<eps_sq<<"\n"
+                     <<"    -G [Float]:  "<<G<<"\n"
+                     <<"    -k [int]:    "<<sym_order<<"\n"
+                     <<"          --load-par     [string]: "<<filename_par<<"\n"
+                     <<"          --n-step-max   [int]  :  "<<nstep_max<<"\n"
+                     <<"    -o [Float]:  "<<dt_output<<"\n"
+                     <<"          --print-width     [int]: "<<print_width<<"\n"
+                     <<"          --print-precision [int]: "<<print_precision<<"\n"
+                     <<"    -r [Float]:  "<<r_break<<"\n"
+                     <<"          --r-break      [Float]: same as -r\n"
+                     <<"    -R [Float]:  "<<r_search<<"\n"
+                     <<"          --slowdown-ref:           [Float]: "<<slowdown_ref<<"\n"
+                     <<"          --slowdown-mass-ref       [Float]: "<<slowdown_mass_ref<<"\n"
+                     <<"          --slowdown-timescale-max: [Float]: "<<slowdown_timescale_max<<"\n"
+                     <<"    -t [Float]:  "<<time_end<<"\n"
+                     <<"          --time-start   [Float]:  "<<time_zero<<"\n"
+                     <<"          --time-end     [Float]:  same as -t\n"
+                     <<"          --time-error   [Float]:  "<<time_error<<"\n"
+                     <<"    -h :         print option information\n"
+                     <<"          --help:                 same as -h\n";
             return 0;
         default:
             std::cerr<<"Unknown argument. check '-h' for help.\n";
@@ -187,59 +202,45 @@ int main(int argc, char **argv){
         abort();
     }
 
-#ifdef DEBUG
-    // parameter list
-    std::cerr<<"Options:\n"
-             <<"steps: "<<nstep<<std::endl
-             <<"time-start: "<<time_zero<<std::endl
-             <<"time-end: "<<time_end<<std::endl
-             <<"step size: "<<s<<std::endl
-             <<"energy-error: "<<energy_error<<std::endl
-             <<"time-error: "<<time_error<<std::endl
-             <<"print width: "<<print_width<<std::endl
-             <<"print precision: "<<print_precision<<std::endl;
-#endif
-
     // data file name
     char* filename = argv[argc-1];
-
 
     // manager
     HermiteManager<HermiteInteraction> manager;
     AR::SymplecticManager<ARInteraction> ar_manager;
 
-    if (filename_par!=NULL) {
-        std::FILE* fp = std::fopen(filename_par,"r");
-        if (fp==NULL) {
-            std::cerr<<"Error: parameter file "<<filename_par<<" cannot be open!\n";
-            abort();
-        }
-        manager.readBinary(fp);
-        ar_manager.readBinary(fp);
-        fclose(fp);
+    Particle::r_break_crit = r_break.value;
+    Particle::r_neighbor_crit = r_search.value;
+    manager.step.eta_4th = eta_4th.value;
+    manager.step.eta_2nd = eta_2nd.value;
+    manager.step.setDtRange(dt_max.value, dt_min_power_index.value);
+    manager.interaction.eps_sq = eps_sq.value;
+    manager.interaction.G = G.value;
+    ar_manager.interaction.eps_sq = eps_sq.value;
+    ar_manager.interaction.G = G.value;
+    ar_manager.time_step_real_min = manager.step.getDtMin();
+    if (time_error.value == 0.0) ar_manager.time_error_max_real = 0.25*ar_manager.time_step_real_min;
+    else ar_manager.time_error_max_real = time_error.value;
+
+    ASSERT(ar_manager.time_error_max_real>1e-14);
+    // time error cannot be smaller than round-off error
+    ar_manager.energy_error_relative_max = energy_error.value; 
+    ar_manager.slowdown_pert_ratio_ref = slowdown_ref.value;
+    if (slowdown_timescale_max.value>0.0) ar_manager.slowdown_timescale_max = slowdown_timescale_max.value;
+    else ar_manager.slowdown_timescale_max = time_end.value;
+    ar_manager.step_count_max = nstep_max.value;
+    // set symplectic order
+    ar_manager.step.initialSymplecticCofficients(sym_order.value);
+
+    // store input parameters
+    std::string fpar_out = std::string(filename) + ".par";
+    std::FILE* fout = std::fopen(fpar_out.c_str(),"w");
+    if (fout==NULL) {
+        std::cerr<<"Error: data file "<<fpar_out<<" cannot be open!\n";
+        abort();
     }
-    else {
-        Particle::r_break_crit = r_break;
-        Particle::r_neighbor_crit = r_search;
-        manager.step.eta_4th = eta_4th;
-        manager.step.eta_2nd = eta_2nd;
-        manager.step.setDtRange(dt_max, dt_min_power_index);
-        manager.interaction.eps_sq = eps_sq;
-        manager.interaction.G = G;
-        ar_manager.interaction.eps_sq = eps_sq;
-        ar_manager.interaction.G = G;
-        ar_manager.time_step_real_min = manager.step.getDtMin();
-        if (time_error == 0.0) time_error = 0.25*ar_manager.time_step_real_min;
-        ASSERT(time_error>1e-14);
-        ar_manager.time_error_max_real = time_error;
-        // time error cannot be smaller than round-off error
-        ar_manager.energy_error_relative_max = energy_error; 
-        ar_manager.slowdown_pert_ratio_ref = slowdown_ref;
-        ar_manager.slowdown_timescale_max = slowdown_timescale_max;
-        ar_manager.step_count_max = nstep_max;
-        // set symplectic order
-        ar_manager.step.initialSymplecticCofficients(sym_order);
-    }
+    input_par_store.writeAscii(fout);
+    fclose(fout);
 
     // integrator
     HermiteIntegrator<Particle, Particle, HermitePerturber, Neighbor<Particle>, HermiteInteraction, ARInteraction, HermiteInformation> h4_int;
@@ -260,18 +261,24 @@ int main(int argc, char **argv){
     h4_int.particles.calcCenterOfMass();
         
     Float m_ave = h4_int.particles.cm.mass/h4_int.particles.getSize();
-    manager.step.calcAcc0OffsetSq(m_ave, r_search);
-    ar_manager.slowdown_mass_ref = m_ave;
+    manager.step.calcAcc0OffsetSq(m_ave, r_search.value);
+    if (slowdown_mass_ref.value<=0.0) ar_manager.slowdown_mass_ref = m_ave;
+    else ar_manager.slowdown_mass_ref = slowdown_mass_ref.value;
+
+    // print parameters
+    manager.print(std::cerr);
+    ar_manager.print(std::cerr);
+
 
     std::cerr<<"CM: after shift ";
-    h4_int.particles.cm.printColumn(std::cerr, print_width);
+    h4_int.particles.cm.printColumn(std::cerr, print_width.value);
     std::cerr<<std::endl;
 
     h4_int.groups.setMode(COMM::ListMode::local);
     h4_int.groups.reserveMem(h4_int.particles.getSize());
     h4_int.reserveIntegratorMem();
     // initial system 
-    h4_int.initialSystemSingle(time_zero);
+    h4_int.initialSystemSingle(time_zero.value);
     h4_int.readGroupConfigureAscii(fin);
 
     // no initial when both parameters and data are load
@@ -284,7 +291,7 @@ int main(int argc, char **argv){
     h4_int.info.time = h4_int.getTime();
 
     // precision
-    std::cout<<std::setprecision(print_precision);
+    std::cout<<std::setprecision(print_precision.value);
 
     // get initial energy
     h4_int.writeBackGroupMembers();
@@ -292,58 +299,48 @@ int main(int argc, char **argv){
     // cm
     h4_int.particles.calcCenterOfMass();
     std::cerr<<"CM:";
-    h4_int.particles.cm.printColumn(std::cerr, print_width);
+    h4_int.particles.cm.printColumn(std::cerr, print_width.value);
     std::cerr<<std::endl;
 
     //print column title
-    h4_int.info.printColumnTitle(std::cout, print_width);
-    std::cout<<std::setw(print_width)<<"Ngroup";
-    for (int i=0; i<n_group_init; i++) h4_int.groups[i].slowdown.printColumnTitle(std::cout, print_width);
-    h4_int.particles.printColumnTitle(std::cout, print_width);
+    h4_int.info.printColumnTitle(std::cout, print_width.value);
+    std::cout<<std::setw(print_width.value)<<"Ngroup";
+    for (int i=0; i<n_group_init; i++) h4_int.groups[i].slowdown.printColumnTitle(std::cout, print_width.value);
+    h4_int.particles.printColumnTitle(std::cout, print_width.value);
     std::cout<<std::endl;
 
     //print initial data
-    h4_int.info.printColumn(std::cout, print_width);
-    std::cout<<std::setw(print_width)<<n_group_init;
-    for (int i=0; i<n_group_init; i++) h4_int.groups[i].slowdown.printColumn(std::cout, print_width);
-    h4_int.particles.printColumn(std::cout, print_width);
+    h4_int.info.printColumn(std::cout, print_width.value);
+    std::cout<<std::setw(print_width.value)<<n_group_init;
+    for (int i=0; i<n_group_init; i++) h4_int.groups[i].slowdown.printColumn(std::cout, print_width.value);
+    h4_int.particles.printColumn(std::cout, print_width.value);
     std::cout<<std::endl;
     
     // integration loop
-    while (h4_int.info.time<time_end) {
+    while (h4_int.info.time<time_end.value) {
         h4_int.integrateOneStepAct();
         h4_int.adjustGroups(false);
         h4_int.initialIntegration();
         h4_int.sortDtAndSelectActParticle();
         h4_int.info.time = h4_int.getTime();
 
-        if (dt_output==0.0||fmod(h4_int.info.time, dt_output)==0.0) {
+        if (dt_output.value==0.0||fmod(h4_int.info.time, dt_output.value)==0.0) {
             h4_int.writeBackGroupMembers();
             h4_int.info.calcEnergy(h4_int.particles, manager.interaction, false);
             
             h4_int.particles.calcCenterOfMass();
             std::cerr<<"CM:";
-            h4_int.particles.cm.printColumn(std::cerr, print_width);
+            h4_int.particles.cm.printColumn(std::cerr, print_width.value);
             std::cerr<<std::endl;
 
-            h4_int.info.printColumn(std::cout, print_width);
-            std::cout<<std::setw(print_width)<<n_group_init;
-            for (int i=0; i<n_group_init; i++) h4_int.groups[i].slowdown.printColumn(std::cout, print_width);
-            h4_int.particles.printColumn(std::cout, print_width);
+            h4_int.info.printColumn(std::cout, print_width.value);
+            std::cout<<std::setw(print_width.value)<<n_group_init;
+            for (int i=0; i<n_group_init; i++) h4_int.groups[i].slowdown.printColumn(std::cout, print_width.value);
+            h4_int.particles.printColumn(std::cout, print_width.value);
             std::cout<<std::endl;
             h4_int.printStepHist();
         }
     }
-
-    std::string fpar_out = std::string(filename) + ".par";
-    std::FILE* fout = std::fopen(fpar_out.c_str(),"w");
-    if (fout==NULL) {
-        std::cerr<<"Error: data file "<<fpar_out<<" cannot be open!\n";
-        abort();
-    }
-    manager.writeBinary(fout);
-    ar_manager.writeBinary(fout);
-    fclose(fout);
 
     //fpu_fix_end(&oldcw);
 
