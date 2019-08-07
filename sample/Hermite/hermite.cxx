@@ -179,6 +179,7 @@ int main(int argc, char **argv){
                      <<"    -o [Float]:  "<<dt_output<<"\n"
                      <<"          --print-width     [int]: "<<print_width<<"\n"
                      <<"          --print-precision [int]: "<<print_precision<<"\n"
+                     <<"    -p [string]: "<<filename_par<<"\n"
                      <<"    -r [Float]:  "<<r_break<<"\n"
                      <<"          --r-break      [Float]: same as -r\n"
                      <<"    -R [Float]:  "<<r_search<<"\n"

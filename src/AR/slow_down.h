@@ -76,7 +76,7 @@ namespace AR{
          */
         Float calcSlowDownFactor() {
             // hyberbolic case or no perturbation
-            if(pert_in<0.0) {
+            if(pert_in<=0.0) {
                 kappa_org_ = kappa_max_ = kappa_ = Float(1.0);
             }
             else { 

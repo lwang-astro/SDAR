@@ -37,12 +37,11 @@ namespace H4{
         }
 
     public:
-        Float dt_limit; ///> hermite time step limit for this group
+        Float dt_limit;       ///> hermite time step limit for this group
         Float r_break_crit;    // group break radius criterion
-        bool need_resolve_flag; // indicate whether the members need to be resolved for outside
         COMM::List<int> particle_index; // particle index in original array (Hermite particles)
 
-        ARInformation(): ARInfoBase(), dt_limit(NUMERIC_FLOAT_MAX), r_break_crit(-1.0), need_resolve_flag(false), particle_index() {}
+        ARInformation(): ARInfoBase(), dt_limit(NUMERIC_FLOAT_MAX), r_break_crit(-1.0), particle_index() {}
 
         //! check whether parameters values are correct
         /*! \return true: all correct
@@ -51,6 +50,29 @@ namespace H4{
             ASSERT(r_break_crit>=0.0);
             return true;
         }        
+
+        //! print titles of class members using column style
+        /*! print titles of class members in one line for column style
+          @param[out] _fout: std::ostream output object
+          @param[in] _width: print width (defaulted 20)
+        */
+        void printColumnTitle(std::ostream & _fout, const int _width=20) {
+            ARInfoBase::printColumnTitle(_fout, _width);
+            _fout<<std::setw(_width)<<"dt_limit"
+                 <<std::setw(_width)<<"r_break_crit";
+        }
+
+        //! print data of class members using column style
+        /*! print data of class members in one line for column style. Notice no newline is printed at the end
+          @param[out] _fout: std::ostream output object
+          @param[in] _width: print width (defaulted 20)
+        */
+        void printColumn(std::ostream & _fout, const int _width=20){
+            ARInfoBase::printColumn(_fout, _width);
+            _fout<<std::setw(_width)<<dt_limit
+                 <<std::setw(_width)<<r_break_crit;
+        }
+
     
         //! reserve memory
         void reserveMem(const int _nmax) {
@@ -63,7 +85,6 @@ namespace H4{
             ARInfoBase::clear();
             dt_limit = NUMERIC_FLOAT_MAX;
             r_break_crit=-1.0;
-            need_resolve_flag=false;
             particle_index.clear();
         }
 

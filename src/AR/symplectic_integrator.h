@@ -116,17 +116,17 @@ namespace AR {
 
     public:
         SymplecticManager<Tmethod>* manager; ///< integration manager
-        Tpert   perturber; ///< perturber class 
-        SlowDown slowdown; ///< slowdown controller
         COMM::ParticleGroup<Tparticle,Tpcm> particles; ///< particle group manager
+        SlowDown slowdown; ///< slowdown controller
+        Tpert    perturber; ///< perturber class 
         Tinfo    info;   ///< information of the system
         Profile  profile;  ///< profile to measure the performance
         
         //! Constructor
 #ifdef AR_TTL
-        SymplecticIntegrator(): time_(0), etot_(0), ekin_(0), epot_(0), gt_inv_(0), force_(), manager(NULL), perturber(), slowdown(), particles(), info(), profile() {}
+        SymplecticIntegrator(): time_(0), etot_(0), ekin_(0), epot_(0), gt_inv_(0), force_(), manager(NULL), particles(), slowdown(), perturber(), info(), profile() {}
 #else
-        SymplecticIntegrator(): time_(0), etot_(0), ekin_(0), epot_(0), force_(), manager(NULL), perturber(), slowdown(), particles(), info(), profile() {}
+        SymplecticIntegrator(): time_(0), etot_(0), ekin_(0), epot_(0), force_(), manager(NULL), particles(), slowdown(), perturber(), info(), profile() {}
 #endif
 
         //! check whether parameters values are correct
@@ -1249,8 +1249,10 @@ namespace AR {
 #ifdef AR_TTL
             _fout<<std::setw(_width)<<"Gt_inv";
 #endif
-            profile.printColumnTitle(_fout, _width);
             slowdown.printColumnTitle(_fout, _width);
+            perturber.printColumnTitle(_fout, _width);
+            info.printColumnTitle(_fout, _width);
+            profile.printColumnTitle(_fout, _width);
             particles.printColumnTitle(_fout, _width);
         }
 
@@ -1268,8 +1270,10 @@ namespace AR {
 #ifdef AR_TTL
             _fout<<std::setw(_width)<<gt_inv_;
 #endif
-            profile.printColumn(_fout, _width);
             slowdown.printColumn(_fout, _width);
+            perturber.printColumn(_fout, _width);
+            info.printColumn(_fout, _width);
+            profile.printColumn(_fout, _width);
             particles.printColumn(_fout, _width);
         }
 
@@ -1288,9 +1292,9 @@ namespace AR {
             fwrite(&size, sizeof(int), 1, _fout);
             for (int i=0; i<size; i++) force_[i].writeBinary(_fout);
             
-            perturber.writeBinary(_fout);
-            slowdown.writeBinary(_fout);
             particles.writeBinary(_fout);
+            slowdown.writeBinary(_fout);
+            perturber.writeBinary(_fout);
             info.writeBinary(_fout);
             profile.writeBinary(_fout);
         }
@@ -1331,10 +1335,10 @@ namespace AR {
                 for (int i=0; i<size; i++) force_[i].readBinary(_fin);
             }
             
-            perturber.readBinary(_fin);
-            slowdown.readBinary(_fin);
             particles.setMode(COMM::ListMode::local);
             particles.readBinary(_fin);
+            slowdown.readBinary(_fin);
+            perturber.readBinary(_fin);
             info.readBinary(_fin);
             profile.readBinary(_fin);
         }

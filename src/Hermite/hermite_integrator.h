@@ -1628,14 +1628,15 @@ namespace H4{
                                         pi.mass*pi.acc0[2] + pj->mass*pj->acc0[2]};
 
                         AR::SlowDown sd;
+                        Float mcm = pi.mass + pj->mass;
 #ifdef SLOWDOWN_MASSRATIO
-                        const Float mass_ratio = ar_manager->slowdown_mass_ref/(pi.mass+pj->mass);
+                        const Float mass_ratio = ar_manager->slowdown_mass_ref/mcm;
                         sd.initialSlowDownReference(mass_ratio*ar_manager->slowdown_pert_ratio_ref, ar_manager->slowdown_timescale_max);
 #else
                         sd.initialSlowDownReference(ar_manager->slowdown_pert_ratio_ref, ar_manager->slowdown_timescale_max);
 #endif
                         sd.pert_in = ar_manager->interaction.calcPertFromMR(std::sqrt(dr2), pi.mass, pj->mass);
-                        sd.pert_out = ar_manager->interaction.calcPertFromForce(fcm, pi.mass, pj->mass);
+                        sd.pert_out = ar_manager->interaction.calcPertFromForce(fcm, mcm, mcm);
 
                         sd.calcSlowDownFactor();
                         Float kappa_org = sd.getSlowDownFactorOrigin();
@@ -1735,15 +1736,16 @@ namespace H4{
                                         pi.mass*pi.acc0[2] + pj->mass*pj->acc0[2]};
 
                         AR::SlowDown sd;
+                        Float mcm = pi.mass + pj->mass;
 #ifdef SLOWDOWN_MASSRATIO
-                        const Float mass_ratio = ar_manager->slowdown_mass_ref/(pi.mass+pj->mass);
+                        const Float mass_ratio = ar_manager->slowdown_mass_ref/mcm;
                         sd.initialSlowDownReference(mass_ratio*ar_manager->slowdown_pert_ratio_ref, ar_manager->slowdown_timescale_max);
 #else
                         sd.initialSlowDownReference(ar_manager->slowdown_pert_ratio_ref, ar_manager->slowdown_timescale_max);
 #endif
                         sd.pert_in = ar_manager->interaction.calcPertFromMR(std::sqrt(dr2), pi.mass, pj->mass);
                         // fcm may not properly represent the perturbation force (perturber mass is unknown)
-                        sd.pert_out = ar_manager->interaction.calcPertFromForce(fcm, pi.mass, pj->mass);
+                        sd.pert_out = ar_manager->interaction.calcPertFromForce(fcm, mcm, mcm);
 
                         sd.calcSlowDownFactor();
                         Float kappa_org = sd.getSlowDownFactorOrigin();

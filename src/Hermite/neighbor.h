@@ -46,7 +46,7 @@ namespace H4 {
         Float r_min_mass;   // nearest neighbor index for each ptcl
         Float mass_min;    // mimimum mass in neighbors
         Float r_neighbor_crit_sq; // neighbor radius criterion
-        bool need_resolve_flag; // for group
+        bool need_resolve_flag; // indicate whether the members need to be resolved for outside
         bool initial_step_flag; // indicate whether the time step need to be initialized due to the change of neighbors
         int n_neighbor_group; // number of group neighbor
         int n_neighbor_single; // number of single neighbor
@@ -62,6 +62,43 @@ namespace H4 {
             ASSERT(r_neighbor_crit_sq>0.0);
             return true;
         }        
+
+
+        //! print titles of class members using column style
+        /*! print titles of class members in one line for column style
+          @param[out] _fout: std::ostream output object
+          @param[in] _width: print width (defaulted 20)
+        */
+        void printColumnTitle(std::ostream & _fout, const int _width=20) {
+            _fout<<std::setw(_width)<<"r_min_index"
+                 <<std::setw(_width)<<"mass_min_index"
+                 <<std::setw(_width)<<"r_min_sq"
+                 <<std::setw(_width)<<"r_min_mass"
+                 <<std::setw(_width)<<"mass_min"
+                 <<std::setw(_width)<<"r_neighbor_crit_sq"
+                 <<std::setw(_width)<<"need_resolve_flag"
+                 <<std::setw(_width)<<"initial_step_flag"
+                 <<std::setw(_width)<<"n_neighbor_group"
+                 <<std::setw(_width)<<"n_neighbor_single";
+        }
+
+        //! print data of class members using column style
+        /*! print data of class members in one line for column style. Notice no newline is printed at the end
+          @param[out] _fout: std::ostream output object
+          @param[in] _width: print width (defaulted 20)
+        */
+        void printColumn(std::ostream & _fout, const int _width=20){
+            _fout<<std::setw(_width)<<r_min_index
+                 <<std::setw(_width)<<mass_min_index
+                 <<std::setw(_width)<<r_min_sq
+                 <<std::setw(_width)<<r_min_mass
+                 <<std::setw(_width)<<mass_min
+                 <<std::setw(_width)<<r_neighbor_crit_sq
+                 <<std::setw(_width)<<need_resolve_flag
+                 <<std::setw(_width)<<initial_step_flag
+                 <<std::setw(_width)<<n_neighbor_group
+                 <<std::setw(_width)<<n_neighbor_single;
+        }
 
         //! reserve memory for neighbor lists
         /*! 

@@ -146,6 +146,9 @@ public:
         return true;
     }
 
+    //! print parameters
+    void print(std::ostream & _fout) const{
+    }    
 
 #ifdef SLOWDOWN_INTEGRATE
 
@@ -168,10 +171,11 @@ public:
         else gt_kick = calcAccPotAndGTKick(_force, _epot, _particles, _n_particle);
 
         // slowdown inner perturbation: m1*m2/apo_in^4
-        Float apo_in = _bin_root.semi*(1.0+_bin_root.ecc);
-        Float apo_in2 = apo_in*apo_in;
-        _slowdown.pert_in = _bin_root.m1*_bin_root.m2/(apo_in2*apo_in2);
-        _slowdown.period  = _bin_root.period;
+        //Float apo_in = _bin_root.semi*(1.0+_bin_root.ecc);
+        //Float apo_in2 = apo_in*apo_in;
+        //_slowdown.pert_in = _bin_root.m1*_bin_root.m2/(apo_in2*apo_in2);
+        //_slowdown.period  = _bin_root.period;
+        _slowdown.pert_in = 0.0; // suppress slowdown 
 
         for (int i=0; i<_n_particle; i++) {
             Float* acc_pert = _force[i].acc_pert;
@@ -219,10 +223,11 @@ public:
     void calcSlowDownPert(AR::SlowDown& _slowdown, const Particle& _particle_cm, const COMM::BinaryTree<Particle>& _bin_root, const Perturber& _perturber) {
         
         // slowdown inner perturbation: m1*m2/apo_in^4
-        Float apo_in = _bin_root.semi*(1.0+_bin_root.ecc);
-        Float apo_in2 = apo_in*apo_in;
-        _slowdown.pert_in = _bin_root.m1*_bin_root.m2/(apo_in2*apo_in2);
-        _slowdown.period  = _bin_root.period;
+        //Float apo_in = _bin_root.semi*(1.0+_bin_root.ecc);
+        //Float apo_in2 = apo_in*apo_in;
+        //_slowdown.pert_in = _bin_root.m1*_bin_root.m2/(apo_in2*apo_in2);
+        //_slowdown.period  = _bin_root.period;
+        _slowdown.pert_in = 0.0; // suppress slowdown 
 
         _slowdown.pert_out = 0;
         _slowdown.timescale = _slowdown.getTimescaleMax();
