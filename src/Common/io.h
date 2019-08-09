@@ -1,18 +1,17 @@
 #pragma once
-#include "Common/Float.h"
 #include <vector>
 
 namespace COMM {
 
     //! IO Params container
     class IOParamsContainer{
-        std::vector<Float*> d_f64;
+        std::vector<double*> d_f64;
         std::vector<long long int*> d_s64;
         std::vector<int*> d_s32;
         std::vector<std::string*> d_str;
     
     public:
-        void store(Float* _item) {
+        void store(double* _item) {
             d_f64.push_back(_item);
         }
 

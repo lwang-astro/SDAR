@@ -14,12 +14,12 @@ namespace AR {
     class Information{
     private:
         //! calculate minimum kepler ds for ARC
-        static Float calcDsKeplerIter(const Float& _ds, COMM::BinaryTree<Tparticle>& _bin) {
+        static Float calcDsKeplerIter(Float& _ds, COMM::BinaryTree<Tparticle>& _bin) {
             Float ds;
             //kepler orbit, step ds=dt*m1*m2/r estimation (1/64 orbit): pi/4*sqrt(semi/(m1+m2))*m1*m2 
-            if (_bin.semi>0) ds = 0.09817477042*std::sqrt(_bin.semi/(_bin.m1+_bin.m2))*(_bin.m1*_bin.m2);
+            if (_bin.semi>0) ds = 0.09817477042*sqrt(_bin.semi/(_bin.m1+_bin.m2))*(_bin.m1*_bin.m2);
             //hyperbolic orbit, step ds=dt*m1*m2/r estimation (1/256 orbit): pi/128*sqrt(semi/(m1+m2))*m1*m2         
-            else ds = 0.0245436926*std::sqrt(-_bin.semi/(_bin.m1+_bin.m2))*(_bin.m1*_bin.m2);   
+            else ds = 0.0245436926*sqrt(-_bin.semi/(_bin.m1+_bin.m2))*(_bin.m1*_bin.m2);   
             return std::min(ds, _ds);
         }
 

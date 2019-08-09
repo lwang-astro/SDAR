@@ -229,7 +229,7 @@ public:
         //_slowdown.period  = _bin_root.period;
         _slowdown.pert_in = 0.0; // suppress slowdown 
 
-        _slowdown.pert_out = 0;
+        _slowdown.pert_out = 0.0;
         _slowdown.timescale = _slowdown.getTimescaleMax();
     }
 #endif
