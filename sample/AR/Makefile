@@ -6,15 +6,15 @@ SOURCE=${shell ls ../../src/AR/*.h} ${shell ls ../../src/Common/*.h} ${shell ls 
 
 use_x86=yes
 #use_k_computer=yes
-#QD_PATH=/opt/qd
+QD_PATH=/opt/qd-2.3.18
 #GPERF_PATH = /opt/gperftools-2.6.1
 
 
 ## compiler-------------------------------------------#
 ifeq ($(use_x86),yes)
 CXX= g++
-#CXXFLAGS += -O2 -Wall
-CXXFLAGS += -g -fbounds-check -Wall -O0
+CXXFLAGS += -O2 -Wall
+#CXXFLAGS += -g -fbounds-check -Wall -O0
 endif
 
 ifeq ($(use_k_computer),yes)
@@ -31,6 +31,7 @@ endif
 
 ## for debug------------------------------------------#
 #CXXFLAGS += -D DEBUG 
+CXXFLAGS += -D BINARY_DEBUG
 #CXXFLAGS += -D AR_DEBUG
 #CXXFLAGS += -D AR_DEEP_DEBUG
 
@@ -51,7 +52,7 @@ endif
 
 ## qd-lib---------------------------------------------#
 ifneq (x$(QD_PATH),x)
-CXXFLAGS += -D USE_QD ${shell ${QD_PATH}/bin/qd-config --cxxflags}
+CXXFLAGS += -D USE_DD ${shell ${QD_PATH}/bin/qd-config --cxxflags}
 CXXLIBS += ${shell ${QD_PATH}/bin/qd-config --libs}
 endif
 
