@@ -108,7 +108,7 @@ namespace AR {
 
 #ifdef AR_TTL
         // transformation factors
-        Float gt_inv_;     ///< integrated time transformation factor for drift 
+        Float gt_inv_;     ///< integrated time transformation factor for drift: dt(drift) = ds/gt_inv_
 #endif
 
         // force array
@@ -411,22 +411,22 @@ namespace AR {
 #ifdef SLOWDOWN_INTEGRATE
 #ifdef AR_TTL
             // calculate acceleration, potential, (time transformation function gradient for AR_TTL), time transformation factor and slowdown pert out
-            Float gt_kick = manager->interaction.calcAccEnergyAndSlowDownPert(slowdown, force_data, epot_, particle_data, n_particle, particles.cm, info.getBinaryTreeRoot(), perturber);
+            Float gt_kick = manager->interaction.calcAccPotGTKickAndSlowDownPert(slowdown, force_data, epot_, particle_data, n_particle, particles.cm, info.getBinaryTreeRoot(), perturber);
             
             // initially gt_drift 
             gt_inv_ = 1.0/gt_kick;
 #else
             // calculate acceleration, potential and time transformation factor and slowdown pert out
-            manager->interaction.calcAccEnergyAndSlowDownPert(slowdown, force_data, epot_, particle_data, n_particle, particles.cm, info.getBinaryTreeRoot(), perturber);
+            manager->interaction.calcAccPotGTKickAndSlowDownPert(slowdown, force_data, epot_, particle_data, n_particle, particles.cm, info.getBinaryTreeRoot(), perturber);
 #endif
 
 #else
 #ifdef AR_TTL
-            Float gt_kick = manager->interaction.calcAccEnergy(force_data, epot_, particle_data, n_particle, particles.cm,  perturber, _time_real);
+            Float gt_kick = manager->interaction.calcAccPotAndGTKick(force_data, epot_, particle_data, n_particle, particles.cm,  perturber, _time_real);
             // initially gt_drift 
             gt_inv_ = 1.0/gt_kick;
 #else
-            manager->interaction.calcAccEnergy(force_data, epot_, particle_data, n_particle, particles.cm,  perturber, _time_real);
+            manager->interaction.calcAccPotAndGTKick(force_data, epot_, particle_data, n_particle, particles.cm,  perturber, _time_real);
 #endif
             manager->interaction.calcSlowDownPert(slowdown, particles.cm, info.getBinaryTreeRoot(), perturber);
             slowdown.calcSlowDownFactor();
@@ -543,7 +543,7 @@ namespace AR {
 #ifdef SLOWDOWN_INTEGRATE
                 // calculate acceleration, potential, time transfromation factor and slowdown perturbation
                 // Notice in TTL method, time transformation function gradient is also updated 
-                Float gt_kick = manager->interaction.calcAccEnergyAndSlowDownPert(slowdown, force_data, epot_, particle_data, n_particle, particles.cm, info.getBinaryTreeRoot(), perturber); 
+                Float gt_kick = manager->interaction.calcAccPotGTKickAndSlowDownPert(slowdown, force_data, epot_, particle_data, n_particle, particles.cm, info.getBinaryTreeRoot(), perturber); 
 
                 // calcualte perturbation force (cumulative to acc)
                 //manager->interaction.calcAccAndSlowDownPert(slowdown, force_data, particle_data, n_particle, particles.cm, perturber);
@@ -551,7 +551,7 @@ namespace AR {
                 // slowdown factor
                 slowdown.calcSlowDownFactor();
 #else
-                Float gt_kick = manager->interaction.calcAccEnergy(force_data, epot_, particle_data, n_particle, particles.cm,  perturber, _time_table[i]);
+                Float gt_kick = manager->interaction.calcAccPotAndGTKick(force_data, epot_, particle_data, n_particle, particles.cm,  perturber, _time_table[i]);
 #endif
 
                 // time step for kick
@@ -650,7 +650,7 @@ namespace AR {
 #ifdef SLOWDOWN_INTEGRATE
                 // calculate acceleration, potential, time transformation factor for kick and slowdown perturbation
                 // Notice in TTL method, time transformation function gradient is also updated 
-                gt = manager->interaction.calcAccEnergyAndSlowDownPert(slowdown, force_data, epot_, particle_data, n_particle, particles.cm, info.getBinaryTreeRoot(), perturber);
+                gt = manager->interaction.calcAccPotGTKickAndSlowDownPert(slowdown, force_data, epot_, particle_data, n_particle, particles.cm, info.getBinaryTreeRoot(), perturber);
 
                 // calcualte perturbation force (cumulative to acc) and slowdown perturbation estimation
                 //manager->interaction.calcAccAndSlowDownPert(slowdown, force_data, particle_data, n_particle, particles.cm, perturber);
@@ -660,7 +660,7 @@ namespace AR {
                 const Float kappa = slowdown.calcSlowDownFactor();
 
 #else
-                gt = manager->interaction.calcAccEnergy(force_data, epot_, particle_data, n_particle, particles.cm, perturber, _time_table[i]);
+                gt = manager->interaction.calcAccPotAndGTKick(force_data, epot_, particle_data, n_particle, particles.cm, perturber, _time_table[i]);
 #endif
                 ASSERT(!isnan(epot_));
 
@@ -1224,13 +1224,6 @@ namespace AR {
             return ekin_ + epot_ - etot_;
         }
 
-        //! get Halmitionian
-        /*! \return energy error
-         */
-        Float getH() const {
-            return (log(ekin_ - etot_) - log(-epot_))/(ekin_ + epot_ - etot_);
-        }
-
 #ifdef AR_TTL
         //! Get integrated inverse time transformation factor
         /*! In TTF case, it is calculated by integrating \f$ \frac{dg}{dt} = \sum_k \frac{\partial g}{\partial \vec{r_k}} \bullet \vec{v_k} \f$.
@@ -1252,10 +1245,11 @@ namespace AR {
                  <<std::setw(_width)<<"dE"
                  <<std::setw(_width)<<"Etot"
                  <<std::setw(_width)<<"Ekin"
-                 <<std::setw(_width)<<"Epot"
-                 <<std::setw(_width)<<"Gt";
+                 <<std::setw(_width)<<"Epot";
 #ifdef AR_TTL
             _fout<<std::setw(_width)<<"Gt_inv";
+#else
+            _fout<<std::setw(_width)<<"H";
 #endif
             slowdown.printColumnTitle(_fout, _width);
             perturber.printColumnTitle(_fout, _width);
@@ -1274,10 +1268,11 @@ namespace AR {
                  <<std::setw(_width)<<getEnergyError()
                  <<std::setw(_width)<<etot_
                  <<std::setw(_width)<<ekin_
-                 <<std::setw(_width)<<epot_
-                 <<std::setw(_width)<<getH();
+                 <<std::setw(_width)<<epot_;
 #ifdef AR_TTL
             _fout<<std::setw(_width)<<gt_inv_;
+#else
+            _fout<<std::setw(_width)<<manager->interaction.calcH(ekin_-etot_, epot_);
 #endif
             slowdown.printColumn(_fout, _width);
             perturber.printColumn(_fout, _width);

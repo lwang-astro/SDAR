@@ -29,14 +29,22 @@ int main(int argc, char **argv){
 
     COMM::IOParamsContainer input_par_store;
 
+#ifdef USE_QD
+    COMM::IOParams<int> print_width    (input_par_store, 68,   "print width of value"); //print width
+    COMM::IOParams<int> print_precision(input_par_store, 60,   "print digital precision"); //print digital precision
+#elif USE_DD
+    COMM::IOParams<int> print_width    (input_par_store, 38,   "print width of value"); //print width
+    COMM::IOParams<int> print_precision(input_par_store, 30,   "print digital precision"); //print digital precision
+#else
     COMM::IOParams<int> print_width    (input_par_store, 22,   "print width of value"); //print width
     COMM::IOParams<int> print_precision(input_par_store, 14,   "print digital precision"); //print digital precision
+#endif
     COMM::IOParams<int> nstep_max      (input_par_store, 1000000, "number of maximum (integrate/output) step for AR integration"); // maximum time step allown for tsyn integration
     COMM::IOParams<int> sym_order      (input_par_store, -6,   "Symplectic integrator order, should be even number"); // symplectic integrator order
     COMM::IOParams<double> energy_error (input_par_store, 1e-10,"relative energy error limit for AR"); // phase error requirement
     COMM::IOParams<double> time_error   (input_par_store, 0.0,  "time synchronization absolute error limit for AR","default is 0.25*dt-min"); // time synchronization error
     COMM::IOParams<double> time_zero    (input_par_store, 0.0,  "initial physical time");    // initial physical time
-    COMM::IOParams<double> time_end     (input_par_store, 1.0,  "ending physical time"); // ending physical time
+    COMM::IOParams<double> time_end     (input_par_store, -1.0,  "ending physical time","determined by nstep and s"); // ending physical time
     COMM::IOParams<int>   nstep        (input_par_store, 1000, "number of integration steps"); // total step size
     COMM::IOParams<double> s            (input_par_store, 0.0,  "step size, not physical time step","auto");    // step size
     COMM::IOParams<double> dt_min       (input_par_store, 1e-13,"minimum physical time step"); // minimum physical time step

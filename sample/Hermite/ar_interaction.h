@@ -19,7 +19,7 @@ private:
       @param[in] _n_particle: number of member particles
       \return the time transformation factor (gt_kick) for kick step
     */
-    Float calcAccPotAndGTKickTwo(AR::Force* _force, Float& _epot, const ARPtcl* _particles, const int _n_particle) {
+    Float calcInnerAccPotAndGTKickTwo(AR::Force* _force, Float& _epot, const ARPtcl* _particles, const int _n_particle) {
         ASSERT(_n_particle==2);
 
         // acceleration
@@ -85,7 +85,7 @@ private:
       @param[in] _n_particle: number of member particles
       \return the time transformation factor (gt_kick) for kick step
     */
-    Float calcAccPotAndGTKick(AR::Force* _force, Float& _epot, const ARPtcl* _particles, const int _n_particle) {
+    Float calcInnerAccPotAndGTKick(AR::Force* _force, Float& _epot, const ARPtcl* _particles, const int _n_particle) {
         _epot = Float(0.0);
         Float gt_kick = Float(0.0);
         for (int i=0; i<_n_particle; i++) {
@@ -193,12 +193,12 @@ public:
       @param[in] _perturber: pertuber container
       \return perturbation energy to calculate slowdown factor
     */
-    Float calcAccEnergyAndSlowDownPert(AR::SlowDown& _slowdown, AR::Force* _force, Float& _epot, const ARPtcl* _particles, const int _n_particle, const H4Ptcl& _particle_cm, const COMM::BinaryTree<ARPtcl>& _bin_root, const H4::Neighbor<Particle>& _perturber) {
+    Float calcAccPotGTKickAndSlowDownPert(AR::SlowDown& _slowdown, AR::Force* _force, Float& _epot, const ARPtcl* _particles, const int _n_particle, const H4Ptcl& _particle_cm, const COMM::BinaryTree<ARPtcl>& _bin_root, const H4::Neighbor<Particle>& _perturber) {
         static const Float inv3 = 1.0 / 3.0;
 
         Float gt_kick;
-        if (_n_particle==2) gt_kick = calcAccPotAndGTKickTwo(_force, _epot, _particles, _n_particle);
-        else gt_kick = calcAccPotAndGTKick(_force, _epot, _particles, _n_particle);
+        if (_n_particle==2) gt_kick = calcInnerAccPotAndGTKickTwo(_force, _epot, _particles, _n_particle);
+        else gt_kick = calcInnerAccPotAndGTKick(_force, _epot, _particles, _n_particle);
 
         // slowdown inner perturbation: m1*m2/apo_in^4
         Float apo_in = _bin_root.semi*(1.0+_bin_root.ecc);
@@ -404,12 +404,12 @@ public:
       @param[in] _time: current time
       \return perturbation energy to calculate slowdown factor
     */
-    Float calcAccEnergy(AR::Force* _force, Float& _epot, const ARPtcl* _particles, const int _n_particle, const H4Ptcl& _particle_cm, const H4::Neighbor<Particle>& _perturber, const Float _time) {
+    Float calcAccPotAndGTKick(AR::Force* _force, Float& _epot, const ARPtcl* _particles, const int _n_particle, const H4Ptcl& _particle_cm, const H4::Neighbor<Particle>& _perturber, const Float _time) {
         static const Float inv3 = 1.0 / 3.0;
 
         Float gt_kick;
-        if (_n_particle==2) gt_kick = calcAccPotAndGTKickTwo(_force, _epot, _particles, _n_particle);
-        else gt_kick = calcAccPotAndGTKick(_force, _epot, _particles, _n_particle);
+        if (_n_particle==2) gt_kick = calcInnerAccPotAndGTKickTwo(_force, _epot, _particles, _n_particle);
+        else gt_kick = calcInnerAccPotAndGTKick(_force, _epot, _particles, _n_particle);
 
         const int n_pert = _perturber.neighbor_address.getSize();
         if (n_pert>0) {
@@ -645,6 +645,14 @@ public:
     */
     Float calcGTDrift(Float _ekin_minus_etot) {
         return 1.0/_ekin_minus_etot;
+    }
+
+    //! (Necessary) calculate the time transformed Hamiltonian
+    /*! calculate the time transformed Hamiltonian
+      @param[in] _ekin_minus_etot: ekin - etot
+    */
+    Float calcH(Float _ekin_minus_etot, Float _epot) {
+        return log(_ekin_minus_etot) - log(-_epot);
     }
 #endif   
 
