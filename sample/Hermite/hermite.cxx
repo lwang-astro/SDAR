@@ -31,26 +31,34 @@ int main(int argc, char **argv){
     // initial parameters
     COMM::IOParamsContainer input_par_store;
 
-    COMM::IOParams<int> print_width    (input_par_store, 22, "print width of value"); //print width
-    COMM::IOParams<int> print_precision(input_par_store, 14, "print digital precision"); //print digital precision
+#ifdef USE_QD
+    COMM::IOParams<int> print_width    (input_par_store, 68,   "print width of value"); //print width
+    COMM::IOParams<int> print_precision(input_par_store, 60,   "print digital precision"); //print digital precision
+#elif USE_DD
+    COMM::IOParams<int> print_width    (input_par_store, 38,   "print width of value"); //print width
+    COMM::IOParams<int> print_precision(input_par_store, 30,   "print digital precision"); //print digital precision
+#else
+    COMM::IOParams<int> print_width    (input_par_store, 22,   "print width of value"); //print width
+    COMM::IOParams<int> print_precision(input_par_store, 14,   "print digital precision"); //print digital precision
+#endif
     COMM::IOParams<int> nstep_max      (input_par_store, 1000000, "number of maximum step for AR integration"); // maximum time step allown for tsyn integration
     COMM::IOParams<int> sym_order      (input_par_store, -6, "Symplectic integrator order, should be even number"); // symplectic integrator order
     COMM::IOParams<int> dt_min_power_index (input_par_store, 40, "power index to calculate mimimum hermite time step"); // power index to calculate minimum physical time step
-    COMM::IOParams<Float> energy_error (input_par_store, 1e-10,"relative energy error limit for AR"); // phase error requirement
-    COMM::IOParams<Float> time_error   (input_par_store, 0.0, "time synchronization absolute error limit for AR","default is 0.25*dt-min"); // time synchronization error
-    COMM::IOParams<Float> time_zero    (input_par_store, 0.0, "initial physical time");    // initial physical time
-    COMM::IOParams<Float> time_end     (input_par_store, 1.0, "ending physical time "); // ending physical time
-    COMM::IOParams<Float> dt_output    (input_par_store, 0.25, "output time interval"); // output time interval
-    COMM::IOParams<Float> dt_max       (input_par_store, 0.25, "maximum hermite time step"); // maximum physical time step
-    COMM::IOParams<Float> r_break      (input_par_store, 1e-3, "distance criterion for switching AR and Hermite"); // binary break criterion
-    COMM::IOParams<Float> r_search     (input_par_store, 5.0,  "neighbor search radius"); // neighbor search radius for AR
-    COMM::IOParams<Float> eta_4th      (input_par_store, 0.1,  "time step coefficient for 4th order"); // time step coefficient 
-    COMM::IOParams<Float> eta_2nd      (input_par_store, 0.001,"time step coefficient for 2nd order"); // time step coefficient for 2nd order
-    COMM::IOParams<Float> eps_sq       (input_par_store, 0.0,  "softerning parameter");    // softening parameter
-    COMM::IOParams<Float> G            (input_par_store, 1.0,  "gravitational constant");      // gravitational constant
-    COMM::IOParams<Float> slowdown_ref (input_par_store, 1e-6, "slowdown perturbation ratio reference"); // slowdown reference factor
-    COMM::IOParams<Float> slowdown_mass_ref (input_par_store, 0.0, "slowdowm mass reference","averaged mass"); // slowdown mass reference
-    COMM::IOParams<Float> slowdown_timescale_max (input_par_store, 0.0, "maximum timescale for maximum slowdown factor","time-end"); // slowdown timescale
+    COMM::IOParams<double> energy_error (input_par_store, 1e-10,"relative energy error limit for AR"); // phase error requirement
+    COMM::IOParams<double> time_error   (input_par_store, 0.0, "time synchronization absolute error limit for AR","default is 0.25*dt-min"); // time synchronization error
+    COMM::IOParams<double> time_zero    (input_par_store, 0.0, "initial physical time");    // initial physical time
+    COMM::IOParams<double> time_end     (input_par_store, 1.0, "ending physical time "); // ending physical time
+    COMM::IOParams<double> dt_output    (input_par_store, 0.25, "output time interval"); // output time interval
+    COMM::IOParams<double> dt_max       (input_par_store, 0.25, "maximum hermite time step"); // maximum physical time step
+    COMM::IOParams<double> r_break      (input_par_store, 1e-3, "distance criterion for switching AR and Hermite"); // binary break criterion
+    COMM::IOParams<double> r_search     (input_par_store, 5.0,  "neighbor search radius"); // neighbor search radius for AR
+    COMM::IOParams<double> eta_4th      (input_par_store, 0.1,  "time step coefficient for 4th order"); // time step coefficient 
+    COMM::IOParams<double> eta_2nd      (input_par_store, 0.001,"time step coefficient for 2nd order"); // time step coefficient for 2nd order
+    COMM::IOParams<double> eps_sq       (input_par_store, 0.0,  "softerning parameter");    // softening parameter
+    COMM::IOParams<double> G            (input_par_store, 1.0,  "gravitational constant");      // gravitational constant
+    COMM::IOParams<double> slowdown_ref (input_par_store, 1e-6, "slowdown perturbation ratio reference"); // slowdown reference factor
+    COMM::IOParams<double> slowdown_mass_ref (input_par_store, 0.0, "slowdowm mass reference","averaged mass"); // slowdown mass reference
+    COMM::IOParams<double> slowdown_timescale_max (input_par_store, 0.0, "maximum timescale for maximum slowdown factor","time-end"); // slowdown timescale
     COMM::IOParams<std::string> filename_par (input_par_store, "", "filename to load manager parameters","input name"); // par dumped filename
 
     int copt;
@@ -272,7 +280,7 @@ int main(int argc, char **argv){
 
 
     std::cerr<<"CM: after shift ";
-    h4_int.particles.cm.printColumn(std::cerr, print_width.value);
+    h4_int.particles.cm.printColumn(std::cerr, 22);
     std::cerr<<std::endl;
 
     h4_int.groups.setMode(COMM::ListMode::local);
@@ -300,7 +308,7 @@ int main(int argc, char **argv){
     // cm
     h4_int.particles.calcCenterOfMass();
     std::cerr<<"CM:";
-    h4_int.particles.cm.printColumn(std::cerr, print_width.value);
+    h4_int.particles.cm.printColumn(std::cerr, 22);
     std::cerr<<std::endl;
 
     //print column title
@@ -331,7 +339,7 @@ int main(int argc, char **argv){
             
             h4_int.particles.calcCenterOfMass();
             std::cerr<<"CM:";
-            h4_int.particles.cm.printColumn(std::cerr, print_width.value);
+            h4_int.particles.cm.printColumn(std::cerr, 22);
             std::cerr<<std::endl;
 
             h4_int.info.printColumn(std::cout, print_width.value);

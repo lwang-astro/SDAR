@@ -1635,7 +1635,7 @@ namespace H4{
 #else
                         sd.initialSlowDownReference(ar_manager->slowdown_pert_ratio_ref, ar_manager->slowdown_timescale_max);
 #endif
-                        sd.pert_in = ar_manager->interaction.calcPertFromMR(std::sqrt(dr2), pi.mass, pj->mass);
+                        sd.pert_in = ar_manager->interaction.calcPertFromMR(sqrt(dr2), pi.mass, pj->mass);
                         sd.pert_out = ar_manager->interaction.calcPertFromForce(fcm, mcm, mcm);
 
                         sd.calcSlowDownFactor();
@@ -1649,12 +1649,12 @@ namespace H4{
                         if (j<index_offset_group_) {
                             std::cerr<<"Find new group: time: "<<time_
                                      <<" index: "<<i<<" "<<j
-                                     <<" dr: "<<std::sqrt(dr2)
+                                     <<" dr: "<<sqrt(dr2)
                                      <<" kappa_org: "<<kappa_org<<"\n";
                         }
                         else {
                             auto& bin_root = groups[j-index_offset_group_].info.binarytree.getLastMember();
-                            std::cerr<<"Find new group: time: "<<time_<<" dr: "<<std::sqrt(dr2)
+                            std::cerr<<"Find new group: time: "<<time_<<" dr: "<<sqrt(dr2)
                                      <<"\n       index      slowdown      apo      kappa_org \n"
                                      <<"i1 "
                                      <<std::setw(8)<<i
@@ -1743,7 +1743,7 @@ namespace H4{
 #else
                         sd.initialSlowDownReference(ar_manager->slowdown_pert_ratio_ref, ar_manager->slowdown_timescale_max);
 #endif
-                        sd.pert_in = ar_manager->interaction.calcPertFromMR(std::sqrt(dr2), pi.mass, pj->mass);
+                        sd.pert_in = ar_manager->interaction.calcPertFromMR(sqrt(dr2), pi.mass, pj->mass);
                         // fcm may not properly represent the perturbation force (perturber mass is unknown)
                         sd.pert_out = ar_manager->interaction.calcPertFromForce(fcm, mcm, mcm);
 
@@ -1756,7 +1756,7 @@ namespace H4{
 
 #ifdef ADJUST_GROUP_DEBUG
                         auto& bini = groupi.info.binarytree.getLastMember();
-                        std::cerr<<"Find new group: time: "<<time_<<" dr: "<<std::sqrt(dr2)
+                        std::cerr<<"Find new group: time: "<<time_<<" dr: "<<sqrt(dr2)
                                  <<"\n       index      slowdown       apo      kappa_org \n"
                                  <<"i1 "
                                  <<std::setw(8)<<i

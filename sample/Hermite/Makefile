@@ -7,7 +7,7 @@ SOURCE=${shell ls ../../src/*/*.h} ${shell ls ./*.h}
 
 use_x86=yes
 #use_k_computer=yes
-#QD_PATH=/opt/qd
+QD_PATH=/opt/qd-2.3.22
 #GPERF_PATH = /opt/gperftools-2.6.1
 
 
@@ -33,6 +33,7 @@ endif
 ## for debug------------------------------------------#
 #CXXFLAGS += -D DEBUG 
 CXXFLAGS += -D AR_DEBUG
+CXXFLAGS += -D BINARY_DEBUG
 #CXXFLAGS += -D AR_DEEP_DEBUG
 CXXFLAGS += -D HERMITE_DEBUG
 CXXFLAGS += -D ADJUST_GROUP_DEBUG
