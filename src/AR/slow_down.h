@@ -10,7 +10,8 @@ namespace AR{
     */
     class SlowDown{
     private:
-        Float time_real_;      // current time
+        Float time_real_;      // current real time
+        Float time_update_;    // update time (int) for new slowdown factor
         Float kappa_;          // slow-down factor
         Float kappa_org_;      // original slow-down factor without kappa limit (1.0, kappa_max)
         Float kappa_max_;      // maximum kappa factor
@@ -23,11 +24,12 @@ namespace AR{
         Float period;            // orbital period
 
         //! defaulted constructor
-        SlowDown(): time_real_(Float(0.0)), kappa_(Float(1.0)), kappa_org_(Float(1.0)), kappa_max_(Float(1.0)), kappa_ref_(Float(1.0e-6)), timescale_max_(NUMERIC_FLOAT_MAX), pert_in(0.0), pert_out(0.0), timescale(NUMERIC_FLOAT_MAX), period(NUMERIC_FLOAT_MAX) {}
+        SlowDown(): time_real_(Float(0.0)), time_update_(Float(0.0)), kappa_(Float(1.0)), kappa_org_(Float(1.0)), kappa_max_(Float(1.0)), kappa_ref_(Float(1.0e-6)), timescale_max_(NUMERIC_FLOAT_MAX), pert_in(0.0), pert_out(0.0), timescale(NUMERIC_FLOAT_MAX), period(NUMERIC_FLOAT_MAX) {}
     
         //! clear function
         void clear(){
             time_real_ = Float(0.0);
+            time_update_ = Float(0.0);
             kappa_ = kappa_org_ = kappa_max_ = Float(1.0);
             kappa_ref_ = Float(1.0e-6);
             pert_in = pert_out = Float(0.0);
@@ -62,6 +64,21 @@ namespace AR{
         */
         void driftRealTime(const Float _dt_int) {
             time_real_ += _dt_int * kappa_;
+        }
+
+        //! set update time for new slowdown factor
+        void setUpdateTime (const Float _time) {
+            time_update_ = _time;
+        }
+
+        //! get update time for new slowdown factor
+        Float getUpdateTime() const {
+            return time_update_;
+        }
+
+        //! advance update time by one period
+        void increaseUpdateTimeOnePeriod() {
+            time_update_ += period;
         }
 
         //! manually set kappa
@@ -149,7 +166,7 @@ namespace AR{
         /*! \return the data array size for backupSlowDownFactorAndTimeReal()
          */
         int getBackupDataSize() const {
-            return 2;
+            return 3;
         }
 
         //! backup real time and force ratio
@@ -159,7 +176,8 @@ namespace AR{
         int backupSlowDownFactorAndTimeReal(Float* _bk) {
             _bk[0] = kappa_;
             _bk[1] = time_real_;
-            return 2;
+            _bk[2] = time_update_;
+            return 3;
         }
 
         //! restore real time and force ratio
@@ -167,9 +185,10 @@ namespace AR{
           \return backup array size
          */
         int restoreSlowDownFactorAndTimeReal(Float* _bk) {
-            kappa_     =   _bk[0];
-            time_real_ =   _bk[1];
-            return 2;
+            kappa_       =   _bk[0];
+            time_real_   =   _bk[1];
+            time_update_ =   _bk[2];
+            return 3;
         }
     
         //! print slowdown data

@@ -37,9 +37,11 @@ namespace AR {
         /*! \return true: all correct
          */
         bool checkParams() {
-            ASSERT(time_error_max_real>ROUND_OFF_ERROR_LIMIT);
+            //ASSERT(time_error_max_real>ROUND_OFF_ERROR_LIMIT);
+            ASSERT(time_error_max_real>0.0);
             ASSERT(energy_error_relative_max>ROUND_OFF_ERROR_LIMIT);
-            ASSERT(time_step_real_min>ROUND_OFF_ERROR_LIMIT);
+            //ASSERT(time_step_real_min>ROUND_OFF_ERROR_LIMIT);
+            ASSERT(time_step_real_min>0.0);
             ASSERT(slowdown_pert_ratio_ref>0.0);
             ASSERT(slowdown_mass_ref>0.0);
             ASSERT(slowdown_timescale_max>0);
@@ -795,6 +797,15 @@ namespace AR {
                     int bk_return_size = backupIntData(backup_data);
                     ASSERT(bk_return_size == bk_data_size);
                     (void)bk_return_size;
+
+#ifndef SLOWDOWN_INTEGRATE
+                    if (!time_end_flag&&time_>=slowdown.getUpdateTime()) {
+                        manager->interaction.calcSlowDownPert(slowdown, particles.cm, info.getBinaryTreeRoot(), perturber);
+                        slowdown.calcSlowDownFactor();
+                        slowdown.increaseUpdateTimeOnePeriod();
+                    }
+#endif                
+
                 }
                 else { //restore data
                     int bk_return_size = restoreIntData(backup_data);
@@ -802,10 +813,6 @@ namespace AR {
                     (void)bk_return_size;
                 }
 
-#ifndef SLOWDOWN_INTEGRATE
-                manager->interaction.calcSlowDownPert(slowdown, particles.cm, info.getBinaryTreeRoot(), perturber);
-                slowdown.calcSlowDownFactor();
-#endif                
                 // get real time 
                 Float dt_real = slowdown.getRealTime();
 

@@ -163,20 +163,33 @@ public:
     //! calculate perturbation from c.m. acceleration
     Float calcPertFromForce(const Float* _force, const Float _mp, const Float _mpert) {
         Float force2 = _force[0]*_force[0]+_force[1]*_force[1]+_force[2]*_force[2];
+#ifdef SLOWDOWN_PERT_R4
         return force2/(_mp*_mpert);
+#else
+        Float force = sqrt(force2);
+        return sqrt(force/(_mp*_mpert))*force;
+#endif
     }
 
     //! calculate perturbation from binary tree
     Float calcPertFromBinary(const COMM::BinaryTree<ARPtcl>& _bin) {
         Float apo = _bin.semi*(1.0+_bin.ecc);
-        Float r2 = apo*apo;
-        return (_bin.m1*_bin.m2)/(r2*r2);
+        Float apo2 = apo*apo;
+#ifdef SLOWDOWN_PERT_R4
+        return (_bin.m1*_bin.m2)/(apo2*apo2);
+#else
+        return (_bin.m1*_bin.m2)/(apo2*apo);
+#endif
     }
 
     //! calculate perturbation from distance to perturber and masses of particle and perturber 
     Float calcPertFromMR(const Float _r, const Float _mp, const Float _mpert) {
         Float r2 = _r*_r;
+#ifdef SLOWDOWN_PERT_R4
         return _mp*_mpert/(r2*r2);
+#else
+        return (_mp*_mpert)/(r2*_r);
+#endif
     }
 
 #ifdef SLOWDOWN_INTEGRATE
@@ -551,10 +564,16 @@ public:
     void calcSlowDownPert(AR::SlowDown& _slowdown, const H4Ptcl& _particle_cm, const COMM::BinaryTree<ARPtcl>& _bin_root, const H4::Neighbor<Particle>& _perturber) {
         static const Float inv3 = 1.0 / 3.0;
 
-        // slowdown inner perturbation: m1*m2/apo_in^4
+
         Float apo_in = _bin_root.semi*(1.0+_bin_root.ecc);
         Float apo_in2 = apo_in*apo_in;
+#ifdef SLOWDOWN_PERT_R4
+        // slowdown inner perturbation: m1*m2/apo_in^4
         _slowdown.pert_in = _bin_root.m1*_bin_root.m2/(apo_in2*apo_in2);
+#else
+        // slowdown inner perturbation: m1*m2/apo_in^3
+        _slowdown.pert_in = _bin_root.m1*_bin_root.m2/(apo_in2*apo_in);
+#endif
         _slowdown.period  = _bin_root.period;
 
         const Float time = _slowdown.getRealTime();
@@ -603,8 +622,12 @@ public:
                                xp[2] - xcm[2]};
 
                 Float r2 = dr[0]*dr[0] + dr[1]*dr[1] + dr[2]*dr[2] + eps_sq;
+#ifdef SLOWDOWN_PERT_R4
                 Float r4 = r2*r2;
                 pert_pot += mj/r4;
+#else
+                pert_pot += mj/(r2*sqrt(r2));
+#endif
 
 #ifdef SLOWDOWN_TIMESCALE
                 vp[0] = pertj->vel[0] + dt*(pertj->acc0[0] + 0.5*dt*pertj->acc1[0]);
