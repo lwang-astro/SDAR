@@ -31,16 +31,8 @@ int main(int argc, char **argv){
     // initial parameters
     COMM::IOParamsContainer input_par_store;
 
-#ifdef USE_QD
-    COMM::IOParams<int> print_width    (input_par_store, 68,   "print width of value"); //print width
-    COMM::IOParams<int> print_precision(input_par_store, 60,   "print digital precision"); //print digital precision
-#elif USE_DD
-    COMM::IOParams<int> print_width    (input_par_store, 38,   "print width of value"); //print width
-    COMM::IOParams<int> print_precision(input_par_store, 30,   "print digital precision"); //print digital precision
-#else
-    COMM::IOParams<int> print_width    (input_par_store, 22,   "print width of value"); //print width
-    COMM::IOParams<int> print_precision(input_par_store, 14,   "print digital precision"); //print digital precision
-#endif
+    COMM::IOParams<int> print_width    (input_par_store, WRITE_WIDTH,     "print width of value"); //print width
+    COMM::IOParams<int> print_precision(input_par_store, WRITE_PRECISION, "print digital precision"); //print digital precision
     COMM::IOParams<int> nstep_max      (input_par_store, 1000000, "number of maximum step for AR integration"); // maximum time step allown for tsyn integration
     COMM::IOParams<int> sym_order      (input_par_store, -6, "Symplectic integrator order, should be even number"); // symplectic integrator order
     COMM::IOParams<int> dt_min_power_index (input_par_store, 40, "power index to calculate mimimum hermite time step"); // power index to calculate minimum physical time step

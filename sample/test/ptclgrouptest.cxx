@@ -1,4 +1,6 @@
 #include <iostream>
+#include <cassert>
+#define ASSERT(expr) assert(expr)
 
 #include "Common/particle_group.h"
 

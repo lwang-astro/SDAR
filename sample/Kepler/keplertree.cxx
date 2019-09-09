@@ -26,8 +26,8 @@ Particle ParticleShift(const Particle &_p, const Particle &_p_ref) {
 
 int main(int argc, char **argv){
     int num=0;
-    int WIDTH=22;
-    int PRECISION=15;
+    int WIDTH=WRITE_WIDTH;
+    int PRECISION=WRITE_PRECISION;
     int unit=0;
 
     int copt;
@@ -60,8 +60,8 @@ int main(int argc, char **argv){
                      <<"     PS: if 1-0 has no children, 1-1 still have 2, 3 as children's branch_id\n"
                      <<"Options: (*) show defaulted values\n"
                      <<"   -n [int]:  number of pairs to read (defaulted: all)\n"
-                     <<"   -w [int]:  print width(22)\n"
-                     <<"   -p [int]:  print precision(15)\n"
+                     <<"   -w [int]:  print width("<<WIDTH<<")\n"
+                     <<"   -p [int]:  print precision("<<PRECISION<<")\n"
                      <<"   -u [int]:  0: unscale; 1: x[PC], v[km/s], semi[AU], period[days]; 2: x[AU], v[km/s], semi[AU], period[days] (0)\n"
                      <<std::endl;
             return 0;

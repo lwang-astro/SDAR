@@ -8,6 +8,8 @@
 typedef qd_real Float;
 const Float ROUND_OFF_ERROR_LIMIT=1e-60;
 const Float NUMERIC_FLOAT_MAX = std::numeric_limits<double>::max();;
+const int WRITE_WIDTH=68;
+const int WRITE_PRECISION=60;
 
 #elif USE_DD
 #include <qd/dd_real.h>
@@ -15,6 +17,8 @@ const Float NUMERIC_FLOAT_MAX = std::numeric_limits<double>::max();;
 typedef dd_real Float;
 const Float ROUND_OFF_ERROR_LIMIT=1e-30;
 const Float NUMERIC_FLOAT_MAX = std::numeric_limits<double>::max();
+const int WRITE_WIDTH=38;
+const int WRITE_PRECISION=30;
 
 #else
 #include <limits>
@@ -23,6 +27,8 @@ typedef double Float;
 #define to_double(x)  double(x)
 const Float ROUND_OFF_ERROR_LIMIT=1e-14;
 const Float NUMERIC_FLOAT_MAX = std::numeric_limits<Float>::max();
+const int WRITE_WIDTH=22;
+const int WRITE_PRECISION=14;
 
 using std::sqrt;
 using std::abs;
