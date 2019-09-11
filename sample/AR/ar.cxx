@@ -40,6 +40,9 @@ int main(int argc, char **argv){
     COMM::IOParams<int>   nstep        (input_par_store, 1000, "number of integration steps"); // total step size
     COMM::IOParams<double> s            (input_par_store, 0.0,  "step size, not physical time step","auto");    // step size
     COMM::IOParams<double> dt_min       (input_par_store, 1e-13,"minimum physical time step"); // minimum physical time step
+    COMM::IOParams<double> slowdown_ref (input_par_store, 1e-6, "slowdown perturbation ratio reference"); // slowdown reference factor
+    COMM::IOParams<double> slowdown_mass_ref (input_par_store, 0.0, "slowdowm mass reference","averaged mass"); // slowdown mass reference
+    COMM::IOParams<double> slowdown_timescale_max (input_par_store, 0.0, "maximum timescale for maximum slowdown factor","time-end"); // slowdown timescale
     COMM::IOParams<int>   fix_step_option (input_par_store, -1, "always, later, none","auto"); // if true; use input fix step option
     COMM::IOParams<std::string> filename_par (input_par_store, "", "filename to load manager parameters","input name"); // par dumped filename
     bool load_flag=false; // if true; load dumped data
@@ -48,13 +51,16 @@ int main(int argc, char **argv){
     static struct option long_options[] = {
         {"time-start", required_argument, 0, 0},
         {"time-end", required_argument, 0, 't'},
-        {"fix-step-option", required_argument, 0, 0},
+        {"fix-step-option", required_argument, 0, 2},
         {"energy-error",required_argument, 0, 'e'},
-        {"time-error",required_argument, 0, 0},
-        {"dt-min",required_argument, 0, 0},
-        {"n-step-max",required_argument, 0, 0},
-        {"print-width",required_argument, 0, 0},
-        {"print-precision",required_argument, 0, 0},
+        {"time-error",required_argument, 0, 4},
+        {"dt-min",required_argument, 0, 5},
+        {"n-step-max",required_argument, 0, 6},
+        {"slowdown-ref",required_argument, 0, 7},
+        {"slowdown-mass-ref",required_argument, 0, 8},
+        {"slowdown-timescale-max",required_argument, 0, 9},
+        {"print-width",required_argument, 0, 10},
+        {"print-precision",required_argument, 0, 11},
         {"load-data",no_argument, 0, 'l'},
         {"help",no_argument, 0, 'h'},
         {0,0,0,0}
@@ -64,41 +70,40 @@ int main(int argc, char **argv){
     while ((copt = getopt_long(argc, argv, "N:n:t:s:k:e:lh", long_options, &option_index)) != -1)
         switch (copt) {
         case 0:
-#ifdef DEBUG
-            std::cerr<<"option "<<option_index<<" "<<long_options[option_index].name<<" "<<optarg<<std::endl;
-#endif
-            switch (option_index) {
-            case 0:
-                time_zero.value = atof(optarg);
-                break;
-            case 2:
-                if (strcmp(optarg,"none")) fix_step_option.value=0;
-                else if (strcmp(optarg,"always")) fix_step_option.value=1;
-                else if (strcmp(optarg,"later")) fix_step_option.value=2;
-                else {
-                    std::cerr<<"Error: fix step option unknown ("<<optarg<<"), should be always, later, none\n";
-                    abort();
-                }
-                break;
-            case 4:
-                time_error.value = atof(optarg);
-                break;
-            case 5:
-                dt_min.value = atof(optarg);
-                break;
-            case 6:
-                nstep_max.value = atoi(optarg);
-                break;
-            case 7:
-                print_width.value = atof(optarg);
-                break;
-            case 8:
-                print_precision.value = atoi(optarg);
-                break;
-            default:
-                std::cerr<<"Unknown option. check '-h' for help.\n";
+            time_zero.value = atof(optarg);
+            break;
+        case 2:
+            if (strcmp(optarg,"none")) fix_step_option.value=0;
+            else if (strcmp(optarg,"always")) fix_step_option.value=1;
+            else if (strcmp(optarg,"later")) fix_step_option.value=2;
+            else {
+                std::cerr<<"Error: fix step option unknown ("<<optarg<<"), should be always, later, none\n";
                 abort();
             }
+            break;
+        case 4:
+            time_error.value = atof(optarg);
+            break;
+        case 5:
+            dt_min.value = atof(optarg);
+                break;
+        case 6:
+            nstep_max.value = atoi(optarg);
+            break;
+        case 7:
+            slowdown_ref.value = atof(optarg);
+            break;
+        case 8:
+            slowdown_mass_ref.value = atof(optarg);
+            break;
+        case 9:
+            slowdown_timescale_max.value = atof(optarg);
+            break;
+        case 10:
+            print_width.value = atof(optarg);
+            break;
+        case 11:
+            print_precision.value = atoi(optarg);
             break;
         case 'n':
             nstep.value = atoi(optarg);
@@ -144,6 +149,9 @@ int main(int argc, char **argv){
                      <<"          --print-width     [int]  : "<<print_width<<"\n"
                      <<"          --print-precision [int]  : "<<print_precision<<"\n"
                      <<"    -s [Float]:  "<<s<<"\n"
+                     <<"          --slowdown-ref:           [Float]: "<<slowdown_ref<<"\n"
+                     <<"          --slowdown-mass-ref       [Float]: "<<slowdown_mass_ref<<"\n"
+                     <<"          --slowdown-timescale-max: [Float]: "<<slowdown_timescale_max<<"\n"
                      <<"    -t [Float]:  "<<time_end<<"\n"
                      <<"          --time-start      [Float]:  "<<time_zero<<"\n"
                      <<"          --time-end        [Float]:  same as -t\n"
@@ -170,9 +178,10 @@ int main(int argc, char **argv){
     if (time_error.value>0.0)  manager.time_error_max_real = time_error.value;
     else manager.time_error_max_real = 0.25*dt_min.value;
     manager.energy_error_relative_max = energy_error.value; 
-    manager.slowdown_timescale_max = 1.0;
-    manager.slowdown_mass_ref = 1.0;
-    manager.slowdown_pert_ratio_ref = 1e-6;
+    if (slowdown_timescale_max.value>0.0) manager.slowdown_timescale_max = slowdown_timescale_max.value;
+    else if (time_end.value>0.0) manager.slowdown_timescale_max = time_end.value;
+    else manager.slowdown_timescale_max = 1.0;
+    manager.slowdown_pert_ratio_ref = slowdown_ref.value;
     manager.step_count_max = nstep_max.value;
     // set symplectic order
     manager.step.initialSymplecticCofficients(sym_order.value);
@@ -215,6 +224,11 @@ int main(int argc, char **argv){
         fin.close();
 
     }
+    sym_int.particles.calcCenterOfMass();
+    Float m_ave = sym_int.particles.cm.mass/sym_int.particles.getSize();
+    if (slowdown_mass_ref.value<=0.0) manager.slowdown_mass_ref = m_ave;
+    else manager.slowdown_mass_ref = slowdown_mass_ref.value;
+
 
     for (int i=0; i<sym_int.particles.getSize(); i++) sym_int.particles[i].id = i+1;
 

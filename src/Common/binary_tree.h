@@ -358,6 +358,7 @@ namespace COMM{
         typedef std::pair<Float, int> R2Index;  // First is distance square, second is index
 
         int n_members; ///> Total member number belong to the tree (can be more than 2)
+        int member_index[2];        ///> particle index of original list
         Tptcl* member[2]; ///> member pointer
     
         static bool pairLess(const R2Index& a, const R2Index & b)  {
@@ -404,7 +405,7 @@ namespace COMM{
     
 
     public:
-        BinaryTree(): Tptcl(), Binary(), n_members(-1), member{NULL,NULL} {}
+        BinaryTree(): Tptcl(), Binary(), n_members(-1), member_index{-1,-1}, member{NULL,NULL} {}
 
 
         // copy function
@@ -415,7 +416,7 @@ namespace COMM{
 
 
         //! Generate kepler binary tree for a group of particles
-        /* Notice binarytree id is (- first member id), thus particle id must be positive to avoid error
+        /* 
            @param[in,out] _bins: binary tree, size of n_members
            @param[in,out] _ptcl_list: group particle member index in _ptcl, will be reordered by the minimum distance chain.
            @param[in] _n: number of particles in _ptcl_list
@@ -442,12 +443,14 @@ namespace COMM{
                 // get the pair index k in _ptcl_list with sorted r2_list, i represent the sorted r2min order.
                 int k = r2_list[i].second;
                 Tptcl* p[2];
+                int pindex[2]={-1,-1};
                 // if no tree root assign, set member 1 to particle and their host to current bins i
                 if(bin_host[k]==NULL) {
-                    p[0] = &_ptcl[_ptcl_list[k]];
 #ifdef BINARY_DEBUG
-                    ASSERT(p[0]->id>0);
+                    ASSERT(_ptcl_list[k]>=0);
 #endif
+                    p[0] = &_ptcl[_ptcl_list[k]];
+                    pindex[0] = _ptcl_list[k];
                     bin_host[k] = &_bins[i];
                 }
 
@@ -460,10 +463,11 @@ namespace COMM{
 
                 // if no tree root assign, set member 2 to particle and their host to current bins i
                 if(bin_host[k+1]==NULL) {
-                    p[1] = &_ptcl[_ptcl_list[k+1]];
 #ifdef BINARY_DEBUG
-                    ASSERT(p[1]->id>0);
+                    ASSERT(_ptcl_list[k+1]>0);
 #endif
+                    p[1] = &_ptcl[_ptcl_list[k+1]];
+                    pindex[1] = _ptcl_list[k+1];
                     bin_host[k+1] = &_bins[i];
                 }
 
@@ -475,7 +479,7 @@ namespace COMM{
                 }
 
                 // calculate binary parameter
-                _bins[i].setMembers(p[0], p[1]);
+                _bins[i].setMembers(p[0], p[1], pindex[0], pindex[1]);
                 // calculate kepler orbit
                 _bins[i].calcOrbit();
                 // calculate center-of-mass 
@@ -501,7 +505,6 @@ namespace COMM{
 #ifdef BINARY_DEBUG
             ASSERT(member[0]!=NULL);
             ASSERT(member[1]!=NULL);
-            ASSERT(member[0]->id!=0);
 #endif
             Float m1 = member[0]->mass;
             Float m2 = member[1]->mass;
@@ -518,7 +521,6 @@ namespace COMM{
             this->vel[0] /=this->mass;
             this->vel[1] /=this->mass;
             this->vel[2] /=this->mass;
-            this->id = - std::abs(member[0]->id);
         }
 
         //! calculate Kepler orbit from members
@@ -533,9 +535,9 @@ namespace COMM{
             ASSERT(member[1]!=NULL);
 #endif
             n_members = 0;
-            if (member[0]->id<0) n_members += ((BinaryTree<Tptcl>*)member[0])->getMemberN();
+            if (member_index[0]<0) n_members += ((BinaryTree<Tptcl>*)member[0])->getMemberN();
             else n_members++;
-            if (member[1]->id<0) n_members += ((BinaryTree<Tptcl>*)member[1])->getMemberN();
+            if (member_index[1]<0) n_members += ((BinaryTree<Tptcl>*)member[1])->getMemberN();
             else n_members++;
             return n_members;
         }
@@ -552,9 +554,9 @@ namespace COMM{
             ASSERT(member[1]!=NULL);
 #endif
             n_members = 0;
-            if (member[0]->id<0) n_members += (BinaryTree<Tptcl>*)member[0]->calcMemberNIter();
+            if (member_index[0]<0) n_members += (BinaryTree<Tptcl>*)member[0]->calcMemberNIter();
             else n_members++;
-            if (member[1]->id<0) n_members += (BinaryTree<Tptcl>*)member[1]->calcMemberNIter();
+            if (member_index[1]<0) n_members += (BinaryTree<Tptcl>*)member[1]->calcMemberNIter();
             else n_members++;
             return n_members;
         }
@@ -575,9 +577,9 @@ namespace COMM{
             ASSERT(member[0]!=NULL);
             ASSERT(member[1]!=NULL);
 #endif
-            if (member[0]->id<0) ((BinaryTree<Tptcl>*)member[0])->processLeafIter(_dat, _f);
+            if (member_index[0]<0) ((BinaryTree<Tptcl>*)member[0])->processLeafIter(_dat, _f);
             else _f(_dat, member[0]);
-            if (member[1]->id<0) ((BinaryTree<Tptcl>*)member[1])->processLeafIter(_dat, _f);
+            if (member_index[1]<0) ((BinaryTree<Tptcl>*)member[1])->processLeafIter(_dat, _f);
             else _f(_dat, member[1]);
         }
 
@@ -597,13 +599,13 @@ namespace COMM{
             ASSERT(member[1]!=NULL);
             T dat_new = _f(_dat, *this);
             for (int k=0; k<2; k++) 
-                if (member[k]->id<0) dat_new = ((BinaryTree<Tptcl>*)member[k])->processRootIter(dat_new, _f);
+                if (member_index[k]<0) dat_new = ((BinaryTree<Tptcl>*)member[k])->processRootIter(dat_new, _f);
             return dat_new;
         }
 
         //! iteratively tree processing function template
         template <class T, class Tr>
-        using ProcessFunctionTree = void (*) (T&, const Tr&, const Tr&, BinaryTree<Tptcl>& );
+        using ProcessFunctionTree = Tr (*) (T&, const Tr&, const Tr&, BinaryTree<Tptcl>& );
 
         //! Process tree data with extra dat iteratively (from bottom to top)
         /*! The process go from top root to leafs from left to right
@@ -619,7 +621,7 @@ namespace COMM{
             ASSERT(member[1]!=NULL);
             Tr res[2] = {_res1, _res2};
             for (int k=0; k<2; k++) 
-                if (member[k]->id<0) res[k] = ((BinaryTree<Tptcl>*)member[k])->processTreeIter(_dat, _res1, _res2, _f);
+                if (member_index[k]<0) res[k] = ((BinaryTree<Tptcl>*)member[k])->processTreeIter(_dat, _res1, _res2, _f);
             return _f(_dat, res[0], res[1], *this);
         }
     
@@ -634,7 +636,7 @@ namespace COMM{
             int inow = _i; // array index to fill (backwards moving)
             _bin_out[_i] = *this;
             for (int k=0; k<2; k++) {
-                if (member[k]->id<0) {
+                if (member_index[k]<0) {
                     inow--;
                     ASSERT(inow>=0);
                     _bin_out[_i].member[k] = &_bin_out[inow];
@@ -645,9 +647,11 @@ namespace COMM{
         }
 
         //! set members
-        void setMembers(Tptcl* _p1, Tptcl* _p2) {
+        void setMembers(Tptcl* _p1, Tptcl* _p2, const int _i1, const int _i2) {
             member[0] = _p1;
             member[1] = _p2;
+            member_index[0] = _i1;
+            member_index[1] = _i2;
             calcMemberN();
         }
 
@@ -655,6 +659,12 @@ namespace COMM{
         Tptcl* getMember(const size_t i) const {
             ASSERT(i<2);
             return member[i];
+        }
+
+        //! get member index
+        int getMemberIndex(const size_t i) const {
+            ASSERT(i<2);
+            return member_index[i];
         }
 
         //! get left member
@@ -679,7 +689,7 @@ namespace COMM{
         //    for (int k=0; k<2; k++) {
         //        if (_bin.member[k]!=NULL)  {
         //            // if a member is another binarytree
-        //            if (_bin.member[k]->id<0) {
+        //            if (_bin.member_index[k]<0) {
         //                // Add the address difference to make the new member address consistent in the new binary tree array
         //                member[k] += adr_diff;
         //            }
@@ -729,7 +739,7 @@ namespace COMM{
             printColumn(_fout, _width);
             _fout<<std::endl;
             for (int k=0; k<2; k++) {
-                if (member[k]->id<0) ((BinaryTree<Tptcl>*)member[k])->printColumnIter(_fout, _width);
+                if (member_index[k]<0) ((BinaryTree<Tptcl>*)member[k])->printColumnIter(_fout, _width);
             }
         }
     };

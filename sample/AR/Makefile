@@ -1,4 +1,4 @@
-TARGET: ar.logh ar.ttl
+TARGET: ar.logh ar.ttl ar.ttl.sd
 
 VPATH=../../src 
 
@@ -6,15 +6,15 @@ SOURCE=${shell ls ../../src/AR/*.h} ${shell ls ../../src/Common/*.h} ${shell ls 
 
 use_x86=yes
 #use_k_computer=yes
-QD_PATH=/opt/qd-2.3.22
+#QD_PATH=/opt/qd-2.3.22
 #GPERF_PATH = /opt/gperftools-2.6.1
 
 
 ## compiler-------------------------------------------#
 ifeq ($(use_x86),yes)
 CXX= g++
-CXXFLAGS += -O2 -Wall
-#CXXFLAGS += -g -fbounds-check -Wall -O0
+#CXXFLAGS += -O2 -Wall
+CXXFLAGS += -g -fbounds-check -Wall -O0
 endif
 
 ifeq ($(use_k_computer),yes)
@@ -64,6 +64,9 @@ ar.logh: ar.cxx  ${SOURCE}
 
 ar.ttl: ar.cxx ${SOURCE}
 	$(CXX) $(CXXFLAGS) -D AR_TTL $< -o $@ $(CXXLIBS)
+
+ar.ttl.sd: ar.cxx ${SOURCE}
+	$(CXX) $(CXXFLAGS) -D AR_TTL -D AR_TTL_SLOWDOWN_INNER -D SLOWDOWN_TIMESCALE $< -o $@ $(CXXLIBS)
 
 clean:
 	rm -f $(TARGET)
