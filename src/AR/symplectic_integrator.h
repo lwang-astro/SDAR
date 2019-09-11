@@ -395,7 +395,7 @@ namespace AR {
                 if (_time>=sdi.slowdown.getUpdateTime()) {
                     sdi.bin->calcCenterOfMass();
                     manager->interaction.calcSlowDownInnerBinary(sdi.slowdown, slowdown, *sdi.bin, particles.getDataAddress(), particles.getSize());
-                    sdi.slowdown.increaseUpdateTimeOnePeriod();                
+                    sdi.slowdown.increaseUpdateTimeOnePeriod();
                 }
             }            
         }
@@ -468,8 +468,8 @@ namespace AR {
                               vel[1] * kappa*pert[1] +
                               vel[2] * kappa*pert[2]);
                 dg +=  (vel[0] * gtgrad[0] +
-                         vel[1] * gtgrad[1] +
-                         vel[2] * gtgrad[2]);
+                        vel[1] * gtgrad[1] +
+                        vel[2] * gtgrad[2]);
             }
             etot_ += _dt * de;
             Float dgt = _dt * dg;
@@ -652,63 +652,6 @@ namespace AR {
 
             // initial total energy
             etot_ = ekin_ + epot_;
-
-//            if (n_particle==2) {
-// 
-//#ifdef AR_TTL
-//                // calculate acceleration, potential, time transformation function gradient and time transformation factor 
-//                Float gt_kick = manager->interaction.calcAccPotAndGTKickTwo(force_data, epot_, particle_data, n_particle); 
-// 
-//                // initially gt_drift 
-//                gt_inv_ = 1.0/gt_kick;
-//#else 
-//                // calculate acceleration, potential and time transformation factor 
-//                manager->interaction.calcAccPotAndGTKickTwo(force_data, epot_, particle_data, n_particle); 
-//#endif
-// 
-//                // calculate kinetic energy
-//                calcEKin();
-// 
-//                // initial total energy
-//                etot_ = ekin_ + epot_;
-// 
-//                // two-body case, also initialslowdown
-//                // calcualte perturbation force (cumulative to acc) and slowdown perturbation estimation
-//                manager->interaction.calcAccAndSlowDownPert(slowdown, force_data, particle_data, n_particle, particles.cm, perturber);
-// 
-// 
-//                // slowdown factor, for inner perturbation, m1*m2/(2.0*semi)^3 is used
-//                //slowdown.calcSlowDownFactorBinary(etot_, particle_data[0].mass, particle_data[1].mass);
-// 
-//            }
-//            else {
-//#ifdef AR_TTL
-//                // calculate acceleration, potential, time transformation function gradient and time transformation factor 
-//                Float gt_kick = manager->interaction.calcAccPotAndGTKick(force_data, epot_, particle_data, n_particle); 
-// 
-//                // initially gt_drift 
-//                gt_inv_ = 1.0/gt_kick;
-//#else 
-//                // calculate acceleration, potential and time transformation factor 
-//                manager->interaction.calcAccPotAndGTKick(force_data, epot_, particle_data, n_particle); 
-//#endif
-// 
-//                // calculate kinetic energy
-//                calcEKin();
-// 
-//                // initial total energy
-//                etot_ = ekin_ + epot_;
-// 
-//                // calcualte perturbation force (cumulative to acc) and slowdown perturbation estimation
-//                manager->interaction.calcAccAndSlowDownPert(slowdown, force_data, particle_data, n_particle, particles.cm, perturber);
-// 
-//                // slowdown factor
-//                slowdown.calcSlowDownFactor();
-// 
-//                // slowdown factor, calculate inner force and slowdown factor
-//                // slowdown.calcSlowDownFactorMultiply(particle_data, n_particle);
-// 
-//            }
 
         }
 

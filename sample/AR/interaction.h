@@ -184,7 +184,7 @@ public:
     }
 
     //! calculate perturbation from distance to perturber and masses of particle and perturber 
-    Float calcPertFromMR(const Float _r, const Float _mp, const Float _mpert) {
+    inline Float calcPertFromMR(const Float _r, const Float _mp, const Float _mpert) {
         Float r2 = _r*_r;
 #ifdef SLOWDOWN_PERT_R4
         return _mp*_mpert/(r2*r2);
@@ -204,7 +204,7 @@ public:
      */
     void calcSlowDownInnerBinary(AR::SlowDown& _slowdown, const AR::SlowDown& _slowdown_cm, const COMM::BinaryTree<Particle>& _bin_root, const Particle* _particles, const int _n_particle) {
         _slowdown.pert_in = calcPertFromBinary(_bin_root);
-        _slowdown.period = _bin_root.period;
+        _slowdown.period = _slowdown.getSlowDownFactor()*_bin_root.period;
         int imask[2] = {_bin_root.getMemberIndex(0), _bin_root.getMemberIndex(1)};
         const Float* xcm = _bin_root.pos;
         const Float  mcm = _bin_root.mass;
@@ -247,7 +247,7 @@ public:
 #endif
 
         _slowdown.calcSlowDownFactor();
-        _slowdown.setSlowDownFactor(1.0);
+        //_slowdown.setSlowDownFactor(1.2);
     }
 #endif
 

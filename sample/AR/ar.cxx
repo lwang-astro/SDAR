@@ -67,7 +67,7 @@ int main(int argc, char **argv){
     };
   
     int option_index;
-    while ((copt = getopt_long(argc, argv, "N:n:t:s:k:e:lh", long_options, &option_index)) != -1)
+    while ((copt = getopt_long(argc, argv, "N:n:t:s:k:e:p:lh", long_options, &option_index)) != -1)
         switch (copt) {
         case 0:
             time_zero.value = atof(optarg);
@@ -186,7 +186,6 @@ int main(int argc, char **argv){
     // set symplectic order
     manager.step.initialSymplecticCofficients(sym_order.value);
 
-    manager.print(std::cerr);
 
     // store input parameters
     std::string fpar_out = std::string(filename) + ".par";
@@ -229,6 +228,7 @@ int main(int argc, char **argv){
     if (slowdown_mass_ref.value<=0.0) manager.slowdown_mass_ref = m_ave;
     else manager.slowdown_mass_ref = slowdown_mass_ref.value;
 
+    manager.print(std::cerr);
 
     for (int i=0; i<sym_int.particles.getSize(); i++) sym_int.particles[i].id = i+1;
 

@@ -13,8 +13,8 @@ use_x86=yes
 ## compiler-------------------------------------------#
 ifeq ($(use_x86),yes)
 CXX= g++
-#CXXFLAGS += -O2 -Wall
-CXXFLAGS += -g -fbounds-check -Wall -O0
+CXXFLAGS += -O2 -Wall
+#CXXFLAGS += -g -fbounds-check -Wall -O0
 endif
 
 ifeq ($(use_k_computer),yes)
@@ -66,7 +66,7 @@ ar.ttl: ar.cxx ${SOURCE}
 	$(CXX) $(CXXFLAGS) -D AR_TTL $< -o $@ $(CXXLIBS)
 
 ar.ttl.sd: ar.cxx ${SOURCE}
-	$(CXX) $(CXXFLAGS) -D AR_TTL -D AR_TTL_SLOWDOWN_INNER -D SLOWDOWN_TIMESCALE $< -o $@ $(CXXLIBS)
+	$(CXX) $(CXXFLAGS) -D AR_TTL -D AR_TTL_SLOWDOWN_INNER -D SLOWDOWN_TIMESCALE -D SLOWDOWN_MASSRATIO $< -o $@ $(CXXLIBS)
 
 clean:
 	rm -f $(TARGET)
