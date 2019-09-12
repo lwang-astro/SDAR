@@ -247,7 +247,7 @@ public:
 #endif
 
         _slowdown.calcSlowDownFactor();
-        //_slowdown.setSlowDownFactor(1.2);
+        //_slowdown.setSlowDownFactor(1.0);
     }
 #endif
 

@@ -384,20 +384,28 @@ namespace AR {
         }
 
 
-        //! calculate slowdown inner 
-        /*!
+        //! calculate slowdown inner and correct gt_inv_
+        /*! Check whether the slowdown inner should be updated, and also initialize the new gt_inv_ with new slowdown factor if updated
           @param[in] _time: current intergration time
          */
-        void calcSlowDownInner(const Float _time) {
+        void calcSlowDownInnerAndCorrectGTInv(const Float _time) {
             int n = slowdown_inner.getSize();
+            bool modified_flag=false;
             for (int i=0; i<n; i++) {
                 auto& sdi = slowdown_inner[i];
                 if (_time>=sdi.slowdown.getUpdateTime()) {
                     sdi.bin->calcCenterOfMass();
                     manager->interaction.calcSlowDownInnerBinary(sdi.slowdown, slowdown, *sdi.bin, particles.getDataAddress(), particles.getSize());
                     sdi.slowdown.increaseUpdateTimeOnePeriod();
+                    modified_flag=true;
                 }
-            }            
+            }    
+            // correct the initial gt_inv_ for next integration step is important to be consistent with TTL method.
+            if (modified_flag) {
+                Float gt_kick = 1.0/gt_inv_;
+                correctAccGTKickSlowDown(gt_kick);
+                gt_inv_ = 1.0/gt_kick;
+            }
         }
 #endif
 
@@ -573,6 +581,14 @@ namespace AR {
         void initialIntegration(const Float _time_real) {
             ASSERT(checkParams());
 
+            // particle number and data address
+            const int n_particle = particles.getSize();
+            Tparticle* particle_data = particles.getDataAddress();
+
+            // resize force array
+            force_.resizeNoInitialize(n_particle);
+            Force* force_data = force_.getDataAddress();
+
             // Initial intgrt value t (avoid confusion of real time when slowdown is used)
             time_ = Float(0.0);
 
@@ -620,29 +636,17 @@ namespace AR {
             // slowdown for the system
             manager->interaction.calcSlowDownPert(slowdown, particles.cm, info.getBinaryTreeRoot(), perturber);
  
-#ifdef AR_TTL_SLOWDOWN_INNER
-            // slodown for inner binaries
-            calcSlowDownInner(time_);
-#endif
-
-            // particle number and data address
-            const int n_particle = particles.getSize();
-            Tparticle* particle_data = particles.getDataAddress();
-
-            // resize force array
-            force_.resizeNoInitialize(n_particle);
-            Force* force_data = force_.getDataAddress();
-
 #ifdef AR_TTL
             Float gt_kick = manager->interaction.calcAccPotAndGTKick(force_data, epot_, particle_data, n_particle, particles.cm,  perturber, _time_real);
 
-#ifdef AR_TTL_SLOWDOWN_INNER
-            // inner slowdown binary acceleration
-            correctAccGTKickSlowDown(gt_kick);
-#endif
-            
             // initially gt_drift 
             gt_inv_ = 1.0/gt_kick;
+
+#ifdef AR_TTL_SLOWDOWN_INNER
+            // slodown for inner binaries
+            calcSlowDownInnerAndCorrectGTInv(time_);
+#endif
+
 #else
             manager->interaction.calcAccPotAndGTKick(force_data, epot_, particle_data, n_particle, particles.cm,  perturber, _time_real);
 #endif
@@ -930,10 +934,6 @@ namespace AR {
             while(true) {
                 // backup data
                 if(backup_flag) {
-                    int bk_return_size = backupIntData(backup_data);
-                    ASSERT(bk_return_size == bk_data_size);
-                    (void)bk_return_size;
-
                     // update slowdown
                     if (!time_end_flag) {
                         // system slowdown
@@ -943,9 +943,13 @@ namespace AR {
                         }
 #ifdef AR_TTL_SLOWDOWN_INNER
                         // inner binary slowdown
-                        calcSlowDownInner(time_);
+                        calcSlowDownInnerAndCorrectGTInv(time_);
 #endif
                     }
+
+                    int bk_return_size = backupIntData(backup_data);
+                    ASSERT(bk_return_size == bk_data_size);
+                    (void)bk_return_size;
 
                 }
                 else { //restore data
