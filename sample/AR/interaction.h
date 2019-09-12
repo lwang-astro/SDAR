@@ -204,7 +204,8 @@ public:
      */
     void calcSlowDownInnerBinary(AR::SlowDown& _slowdown, const AR::SlowDown& _slowdown_cm, const COMM::BinaryTree<Particle>& _bin_root, const Particle* _particles, const int _n_particle) {
         _slowdown.pert_in = calcPertFromBinary(_bin_root);
-        _slowdown.period = _slowdown.getSlowDownFactor()*_bin_root.period;
+        //_slowdown.period = _slowdown.getSlowDownFactor()*_bin_root.period;
+        _slowdown.period = 0.0;
         int imask[2] = {_bin_root.getMemberIndex(0), _bin_root.getMemberIndex(1)};
         const Float* xcm = _bin_root.pos;
         const Float  mcm = _bin_root.mass;
