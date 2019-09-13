@@ -204,15 +204,16 @@ public:
      */
     void calcSlowDownInnerBinary(AR::SlowDown& _slowdown, const AR::SlowDown& _slowdown_cm, const COMM::BinaryTree<Particle>& _bin_root, const Particle* _particles, const int _n_particle) {
         _slowdown.pert_in = calcPertFromBinary(_bin_root);
-        //_slowdown.period = _slowdown.getSlowDownFactor()*_bin_root.period;
-        _slowdown.period = 0.0;
+        _slowdown.period = _bin_root.period;
         int imask[2] = {_bin_root.getMemberIndex(0), _bin_root.getMemberIndex(1)};
         const Float* xcm = _bin_root.pos;
         const Float  mcm = _bin_root.mass;
         Float pert_pot = 0.0;
 #ifdef SLOWDOWN_TIMESCALE
         const Float* vcm = _bin_root.vel;
-        Float t2_min = NUMERIC_FLOAT_MAX;
+        Float trf2_min = NUMERIC_FLOAT_MAX;
+        Float mvor[3] = {0.0,0.0,0.0};
+        Float mtot=0.0;
 #endif
         for (int i=0; i<_n_particle; i++) {
             if (i==imask[0]||i==imask[1]) continue;
@@ -233,16 +234,28 @@ public:
                            vp[1] - vcm[1],
                            vp[2] - vcm[2]};
 
-            Float v2 = dv[0]*dv[0] + dv[1]*dv[1] + dv[2]*dv[2];
-            Float drdv = dr[0]*dv[0] + dr[1]*dv[1] + dr[2]*dv[2];
-            Float ti2 = r2*r2/(drdv*drdv+1e-2*v2*r2);
+            // velocity dependent method 
+            // m_tot / |\sum m_j /|r_j| * v_j|
+            Float mor = mj/r;
+            mvor[0] += mor*dv[0];
+            mvor[1] += mor*dv[1];
+            mvor[2] += mor*dv[2];
+            mtot += mj;
 
-            t2_min = std::min(ti2, t2_min);
+            // force dependent method
+            // min sqrt(r^3/(G m))
+            Float mor3 = (mj+mcm)*r*r2/(mj*mcm);
+            trf2_min =  std::min(trf2_min, mor3);
+
 #endif
         }            
         _slowdown.pert_out = pert_pot + _slowdown_cm.pert_out;
 #ifdef SLOWDOWN_TIMESCALE
-        _slowdown.timescale = 0.1*std::min(_slowdown_cm.timescale, sqrt(t2_min));
+        // velocity dependent method
+        Float trv_ave = mtot/sqrt(mvor[0]*mvor[0] + mvor[1]*mvor[1] + mvor[2]*mvor[2]);
+        // get min of velocity and force dependent values
+        Float t_min = std::min(trv_ave, sqrt(trf2_min));
+        _slowdown.timescale = 0.1*std::min(_slowdown.getTimescaleMax(), t_min);
 #else
         _slowdown.timescale = _slowdown.getTimescaleMax();
 #endif

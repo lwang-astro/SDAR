@@ -97,6 +97,7 @@ namespace AR{
                 kappa_org_ = kappa_max_ = kappa_ = Float(1.0);
             }
             else { 
+                ASSERT(period>0.0);
                 kappa_max_ = std::max(Float(1.0), timescale/period);
                 if (pert_out==0.0) kappa_org_ = kappa_max_;
                 else kappa_org_ = kappa_ref_*pert_in/pert_out;

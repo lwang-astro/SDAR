@@ -94,7 +94,7 @@ int main(int argc, char **argv){
                abort();
            }
 
-           bin.setMembers(&p[0],&p[1]);
+           bin.setMembers(&p[0],&p[1],i*2,i*2+1);
            bin.calcCenterOfMass();
 
            // pc ->AU

@@ -244,7 +244,7 @@ namespace AR {
 #ifdef AR_TTL_SLOWDOWN_INNER
         //! correct force, potential energy and gt_kick based on slowdown for inner binaries
         /*! 
-          @param[in,out] _gt_kick: the scaled gt_kick based on binaries (if 0.0, no slowdown case)
+          @param[in,out] _gt_kick: the time transformation factor for kick step (input), be corrected with slowdown (output)
           @param[in] _epot: total potential energy wihtout slowdown
          */
         inline void correctAccPotGTKickSlowDownInner(Float& _gt_kick, const Float& _epot) {
@@ -278,7 +278,16 @@ namespace AR {
 
                     de += epoti*kappa_inv - epoti;
                     // scale gtgrad with slowdown
-                    /*
+#ifdef AR_TTL_GT_BINARY_INNER
+                    force_[i1].gtgrad[0] = fi[0].gtgrad[0]*kappa_inv;
+                    force_[i1].gtgrad[1] = fi[0].gtgrad[1]*kappa_inv;
+                    force_[i1].gtgrad[2] = fi[0].gtgrad[2]*kappa_inv;
+                    force_[i2].gtgrad[0] = fi[1].gtgrad[0]*kappa_inv;
+                    force_[i2].gtgrad[1] = fi[1].gtgrad[1]*kappa_inv;
+                    force_[i2].gtgrad[2] = fi[1].gtgrad[2]*kappa_inv;
+
+                    gt_kick_inv_cor += kappa_inv/gt_kick_i;
+#else
                     force_[i1].gtgrad[0] += fi[0].gtgrad[0]*kappa_inv - fi[0].gtgrad[0];
                     force_[i1].gtgrad[1] += fi[0].gtgrad[1]*kappa_inv - fi[0].gtgrad[1];
                     force_[i1].gtgrad[2] += fi[0].gtgrad[2]*kappa_inv - fi[0].gtgrad[2];
@@ -288,27 +297,19 @@ namespace AR {
 
                     // gt kick
                     gt_kick_inv_cor += (kappa_inv - 1.0)/gt_kick_i;
-                    */
-
-                    force_[i1].gtgrad[0] = fi[0].gtgrad[0]*kappa_inv;
-                    force_[i1].gtgrad[1] = fi[0].gtgrad[1]*kappa_inv;
-                    force_[i1].gtgrad[2] = fi[0].gtgrad[2]*kappa_inv;
-                    force_[i2].gtgrad[0] = fi[1].gtgrad[0]*kappa_inv;
-                    force_[i2].gtgrad[1] = fi[1].gtgrad[1]*kappa_inv;
-                    force_[i2].gtgrad[2] = fi[1].gtgrad[2]*kappa_inv;
-
-                    gt_kick_inv_cor += kappa_inv/gt_kick_i;
+#endif
                 }
             }
             epot_sd_ = epot_ + de;
-            /*
+#ifdef AR_TTL_GT_BINARY_INNER
+            if (gt_kick_inv_cor!=0.0) _gt_kick = 1.0/gt_kick_inv_cor;
+#else
             if (gt_kick_inv_cor!=0.0) {
                 Float gt_kick_inv = 1.0/_gt_kick;
                 gt_kick_inv += gt_kick_inv_cor;
                 _gt_kick = 1.0/gt_kick_inv;
             }
-            */
-            if (gt_kick_inv_cor!=0.0) _gt_kick = 1.0/gt_kick_inv_cor;
+#endif
         }
 
         //! correct postion drift due to inner binary slowdown
@@ -354,18 +355,23 @@ namespace AR {
                         ASSERT(j<particles.getSize());
                         Float* gtgrad=force_[j].gtgrad;
                         Float* vel = particles[j].getVel();
-                        /*
-                          dg +=  (vel[0] * (kappa_inv-1)* gtgrad[0] +
-                          vel[1] * (kappa_inv-1)* gtgrad[1] +
-                          vel[2] * (kappa_inv-1)* gtgrad[2]);
-                        */
+#ifdef AR_TTL_GT_BINARY_INNER
                         dg +=  (vel[0] * kappa_inv* gtgrad[0] +
                                 vel[1] * kappa_inv* gtgrad[1] +
                                 vel[2] * kappa_inv* gtgrad[2]);
+#else
+                        dg +=  (vel[0] * (kappa_inv-1)* gtgrad[0] +
+                                vel[1] * (kappa_inv-1)* gtgrad[1] +
+                                vel[2] * (kappa_inv-1)* gtgrad[2]);
+#endif
                     }
                 }
             }
+#ifdef AR_TTL_GT_BINARY_INNER
             _dgt = _dt*dg;
+#else
+            _dgt += _dt*dg;
+#endif
         }
 
         //! calculate kinetic energy with slowdown factor
@@ -432,23 +438,27 @@ namespace AR {
          */
         void calcSlowDownInnerAndCorrectGTInv(const Float _time) {
             int n = slowdown_inner.getSize();
-            bool modified_flag=false;
+            //bool modified_flag=false;
             for (int i=0; i<n; i++) {
                 auto& sdi = slowdown_inner[i];
-                if (_time>=sdi.slowdown.getUpdateTime()) {
-                    sdi.bin->calcCenterOfMass();
-                    manager->interaction.calcSlowDownInnerBinary(sdi.slowdown, slowdown, *sdi.bin, particles.getDataAddress(), particles.getSize());
-                    sdi.slowdown.increaseUpdateTimeOnePeriod();
-                    modified_flag=true;
-                }
+                //if (_time>=sdi.slowdown.getUpdateTime()) {
+                sdi.bin->calcCenterOfMass();
+                manager->interaction.calcSlowDownInnerBinary(sdi.slowdown, slowdown, *sdi.bin, particles.getDataAddress(), particles.getSize());
+                //sdi.slowdown.increaseUpdateTimeOnePeriod();
+                //modified_flag=true;
+                //}
             }    
             // correct the initial gt_inv_ for next integration step is important to be consistent with TTL method.
-            if (modified_flag) {
+            if (n>0) {
                 // back up old ekin_sd and epot_sd
                 Float ekin_sd_bk = ekin_sd_;
                 Float epot_sd_bk = epot_sd_;
                 // initialize the gt_inv_ with new slowdown factor
+#ifdef AR_TTL_GT_BINARY_INNER
+                Float gt_kick = 0.0;
+#else
                 Float gt_kick = manager->interaction.calcAccPotAndGTKick(force_.getDataAddress(), epot_, particles.getDataAddress(), particles.getSize(), particles.cm, perturber, slowdown.getRealTime());
+#endif
                 correctAccPotGTKickSlowDownInner(gt_kick, epot_);
                 gt_inv_ = 1.0/gt_kick;
 
@@ -1239,7 +1249,16 @@ namespace AR {
 
 #ifdef AR_TTL_SLOWDOWN_INNER
             // find new inner slowdown binaries
-            if (n_particle >2) findSlowDownInner(time_);
+            if (n_particle >2) {
+                int nold = slowdown_inner.getSize();
+                findSlowDownInner(time_);
+                int nnew = slowdown_inner.getSize();
+                // in case slowdown is disabled in the next step, gt_inv_ should be re-initialized
+                if (nold>0&&nnew==0) {
+                    Float gt_kick = manager->interaction.calcAccPotAndGTKick(force_.getDataAddress(), epot_, particles.getDataAddress(), particles.getSize(), particles.cm, perturber, slowdown.getRealTime());
+                    gt_inv_ = 1.0/gt_kick;
+                }
+            }
 #endif
             // cumulative step count 
             profile.step_count = step_count;
