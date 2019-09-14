@@ -322,17 +322,39 @@ namespace AR {
                 ASSERT(sdi.bin!=NULL);
                 Float kappa = sdi.slowdown.getSlowDownFactor();
                 Float kappa_inv = 1.0/kappa;
-                for (int k=0; k<2; k++) {
-                    int j = sdi.bin->getMemberIndex(k);
-                    if (j>=0) {
-                        ASSERT(j<particles.getSize());
-                        Float* pos = particles[j].getPos();
-                        Float* vel = particles[j].getVel();
-                        pos[0] += _dt * (vel[0]*kappa_inv - vel[0]);
-                        pos[1] += _dt * (vel[1]*kappa_inv - vel[1]);
-                        pos[2] += _dt * (vel[2]*kappa_inv - vel[2]);
-                    }
-                }
+
+                int i1 = sdi.bin->getMemberIndex(0);
+                int i2 = sdi.bin->getMemberIndex(1);
+                ASSERT(i1>=0&&i1<particles.getSize());
+                ASSERT(i2>=0&&i2<particles.getSize());
+
+                Float    m1 = particles[i1].mass;
+                Float* pos1 = particles[i1].getPos();
+                Float* vel1 = particles[i1].getVel();
+                Float    m2 = particles[i2].mass;
+                Float* pos2 = particles[i2].getPos();
+                Float* vel2 = particles[i2].getVel();
+                Float mcm = m1+m2;
+
+                // first obtain the binary c.m. velocity
+                Float velcm[3] = { (m1*vel1[0] + m2*vel2[0])/mcm,
+                                   (m1*vel1[1] + m2*vel2[1])/mcm,
+                                   (m1*vel1[2] + m2*vel2[2])/mcm };
+
+                // only scale velocity referring to binary c.m.
+                Float vrel1[3] = { vel1[0] - velcm[0], 
+                                   vel1[1] - velcm[1], 
+                                   vel1[2] - velcm[2]}; 
+                pos1[0] += _dt * (vrel1[0]*kappa_inv - vrel1[0]);
+                pos1[1] += _dt * (vrel1[1]*kappa_inv - vrel1[1]);
+                pos1[2] += _dt * (vrel1[2]*kappa_inv - vrel1[2]);
+
+                Float vrel2[3] = { vel2[0] - velcm[0], 
+                                   vel2[1] - velcm[1], 
+                                   vel2[2] - velcm[2]}; 
+                pos2[0] += _dt * (vrel2[0]*kappa_inv - vrel2[0]);
+                pos2[1] += _dt * (vrel2[1]*kappa_inv - vrel2[1]);
+                pos2[2] += _dt * (vrel2[2]*kappa_inv - vrel2[2]);
             }
         }
 
@@ -385,15 +407,33 @@ namespace AR {
                 ASSERT(sdi.bin!=NULL);
                 Float kappa = sdi.slowdown.getSlowDownFactor();
                 Float kappa_inv = 1.0/kappa;
-                for (int k=0; k<2; k++) {
-                    int j = sdi.bin->getMemberIndex(k);
-                    if (j>=0) {
-                        ASSERT(j<particles.getSize());
-                        Float* vel = particles[j].getVel();
-                        Float mass = particles[j].mass;
-                        de += 0.5*mass*(kappa_inv-1.0)*(vel[0]*vel[0]+vel[1]*vel[1]+vel[2]*vel[2]);
-                    }
-                }
+                int i1 = sdi.bin->getMemberIndex(0);
+                int i2 = sdi.bin->getMemberIndex(1);
+                ASSERT(i1>=0&&i1<particles.getSize());
+                ASSERT(i2>=0&&i2<particles.getSize());
+
+                Float    m1 = particles[i1].mass;
+                Float* vel1 = particles[i1].getVel();
+                Float    m2 = particles[i2].mass;
+                Float* vel2 = particles[i2].getVel();
+                Float   mcm = m1+m2;
+
+                // first obtain the binary c.m. velocity
+                Float velcm[3] = { (m1*vel1[0] + m2*vel2[0])/mcm,
+                                   (m1*vel1[1] + m2*vel2[1])/mcm,
+                                   (m1*vel1[2] + m2*vel2[2])/mcm };
+
+                // only scale velocity referring to binary c.m.
+                Float vrel1[3] = { vel1[0] - velcm[0], 
+                                   vel1[1] - velcm[1], 
+                                   vel1[2] - velcm[2]}; 
+
+                Float vrel2[3] = { vel2[0] - velcm[0], 
+                                   vel2[1] - velcm[1], 
+                                   vel2[2] - velcm[2]}; 
+                de += 0.5 * (kappa_inv-1.0) *
+                    (m1 * (vrel1[0]*vrel1[0] + vrel1[1]*vrel1[1] + vrel1[2]*vrel1[2]) + 
+                     m2 * (vrel2[0]*vrel2[0] + vrel2[1]*vrel2[1] + vrel2[2]*vrel2[2]));
             }
             ekin_sd_ = _ekin + de;
         }
@@ -528,6 +568,21 @@ namespace AR {
 #ifdef AR_TTL_SLOWDOWN_INNER
             // inner slowdown binary acceleration
             correctAccPotGTKickSlowDownInner(gt_kick, epot_);
+#ifdef AR_DEBUG
+            // check c.m. force 
+            Force fcm;
+            Float mcm=0.0;
+            for (int i=0; i<particles.getSize(); i++) {
+                for (int k=0; k<3; k++) {
+                    fcm.acc_in[k] += particles[i].mass * force_[i].acc_in[k];
+                }
+                mcm += particles[i].mass;
+            }
+            for (int k=0; k<3; k++) {
+                fcm.acc_in[k] /= mcm;
+                ASSERT(abs(fcm.acc_in[k])<1e-10);
+            }
+#endif
 #endif
             return gt_kick;
         }
