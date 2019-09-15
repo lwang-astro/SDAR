@@ -8,26 +8,46 @@
 
 //! a sample interaction class with newtonian acceleration
 class ARInteraction{
+public:
     typedef H4::ParticleAR<Particle> ARPtcl;
     typedef H4::ParticleH4<Particle> H4Ptcl;
-private:
-    //! calculate inner member acceleration, potential and time transformation function gradient and factor for kick (two-body case)
+
+    Float eps_sq; // softening 
+    Float G;      // gravititional constant
+
+    ARInteraction(): eps_sq(Float(-1.0)), G(Float(-1.0)) {}
+
+    //! (Necessary) check whether publicly initialized parameters are correctly set
+    /*! \return true: all parmeters are correct. In this case no parameters, return true;
+     */
+    bool checkParams() {
+        ASSERT(eps_sq>=0.0);
+        ASSERT(G>0.0);
+        return true;
+    }        
+
+    //! print parameters
+    void print(std::ostream & _fout) const{
+        _fout<<"eps_sq: "<<eps_sq<<std::endl
+             <<"G     : "<<G<<std::endl;
+    }    
+
+    //! (Necessary) calculate inner member acceleration, potential and time transformation function gradient and factor for kick (two-body case)
     /*!
-      @param[out] _force: force array to store the calculation results (in acc_in[3] for acceleration and gtgrad[3] for gradient, notice acc/gtgard may need to reset zero to avoid accummulating old values)
+      @param[out] _f1: force for particle 1 to store the calculation results (in acc_in[3] for acceleration and gtgrad[3] for gradient, notice acc/gtgard are overwritten, not accummulating old values)
+      @param[out] _f2: force for particle 2
       @param[out] _epot: total inner potential energy
-      @param[in] _particles: member particle array
-      @param[in] _n_particle: number of member particles
+      @param[in] _p1: particle 1
+      @param[in] _p2: particle 2
       \return the time transformation factor (gt_kick) for kick step
     */
-    Float calcInnerAccPotAndGTKickTwo(AR::Force* _force, Float& _epot, const ARPtcl* _particles, const int _n_particle) {
-        ASSERT(_n_particle==2);
-
+    inline Float calcInnerAccPotAndGTKickTwo(AR::Force& _f1, AR::Force& _f2, Float& _epot, const ARPtcl& _p1, const Particle& _p2) {
         // acceleration
-        const Float mass1 = _particles[0].mass;
-        const Float* pos1 = _particles[0].pos;
+        const Float mass1 = _p1.mass;
+        const Float* pos1 = _p1.pos;
 
-        const Float mass2 = _particles[1].mass;
-        const Float* pos2 = _particles[1].pos;
+        const Float mass2 = _p2.mass;
+        const Float* pos2 = _p2.pos;
 
         Float dr[3] = {pos2[0] -pos1[0],
                        pos2[1] -pos1[1],
@@ -37,8 +57,8 @@ private:
         Float inv_r = 1.0/sqrt(r2);
         Float inv_r3 = inv_r*inv_r*inv_r;
 
-        Float* acc1 = _force[0].acc_in;
-        Float* acc2 = _force[1].acc_in;
+        Float* acc1 = _f1.acc_in;
+        Float* acc2 = _f2.acc_in;
 
         Float mor3_1 = G*mass2*inv_r3;
         acc1[0] = mor3_1 * dr[0];
@@ -55,8 +75,8 @@ private:
 #ifdef AR_TTL 
         // trans formation function gradient
         Float m1m2or3 = m1m2*inv_r3;
-        Float* gtgrad1 = _force[0].gtgrad;
-        Float* gtgrad2 = _force[1].gtgrad;
+        Float* gtgrad1 = _f1.gtgrad;
+        Float* gtgrad2 = _f2.gtgrad;
 
         gtgrad1[0] = m1m2or3 * dr[0];
         gtgrad1[1] = m1m2or3 * dr[1];
@@ -85,7 +105,7 @@ private:
       @param[in] _n_particle: number of member particles
       \return the time transformation factor (gt_kick) for kick step
     */
-    Float calcInnerAccPotAndGTKick(AR::Force* _force, Float& _epot, const ARPtcl* _particles, const int _n_particle) {
+    inline Float calcInnerAccPotAndGTKick(AR::Force* _force, Float& _epot, const ARPtcl* _particles, const int _n_particle) {
         _epot = Float(0.0);
         Float gt_kick = Float(0.0);
         for (int i=0; i<_n_particle; i++) {
@@ -138,27 +158,6 @@ private:
         return gt_kick;
     }
 
-public:
-    Float eps_sq;
-    Float G;
-
-    ARInteraction(): eps_sq(Float(-1.0)), G(Float(-1.0)) {}
-
-    //! check whether parameters values are correct
-    /*! \return true: all correct
-     */
-    bool checkParams() {
-        ASSERT(eps_sq>=0.0);
-        ASSERT(G>0.0);
-        return true;
-    }        
-
-    //! print parameters
-    void print(std::ostream & _fout) const{
-        _fout<<"eps_sq: "<<eps_sq<<std::endl
-             <<"G     : "<<G<<std::endl;
-    }    
-
     //! (Necessary) calculate acceleration from perturber and the perturbation factor for slowdown calculation
     /*! The Force class acc_pert should be updated
       @param[out] _force: force array to store the calculation results (in acc_pert[3], notice acc_pert may need to reset zero to avoid accummulating old values)
@@ -174,7 +173,7 @@ public:
         static const Float inv3 = 1.0 / 3.0;
 
         Float gt_kick;
-        if (_n_particle==2) gt_kick = calcInnerAccPotAndGTKickTwo(_force, _epot, _particles, _n_particle);
+        if (_n_particle==2) gt_kick = calcInnerAccPotAndGTKickTwo(_force[0], _force[1], _epot, _particles[0], _particles[1]);
         else gt_kick = calcInnerAccPotAndGTKick(_force, _epot, _particles, _n_particle);
 
         const int n_pert = _perturber.neighbor_address.getSize();
@@ -339,6 +338,78 @@ public:
         return (_mp*_mpert)/(r2*_r);
 #endif
     }
+
+#ifdef AR_TTL_SLOWDOWN_INNER
+    //! (Necessary) calculate slowdown factor for inner binary based on other particles and slowdown of system c.m.
+    /*!
+      @param[in,out] _slowdown: slowdown paramters for inner binary.
+      @param[in] _slowdown_cm: slowdown paramters of system c.m..
+      @param[in] _bin_root: binary tree root
+      @param[in] _particles: member particle array
+      @param[in] _n_particle: number of member particles
+     */
+    void calcSlowDownInnerBinary(AR::SlowDown& _slowdown, const AR::SlowDown& _slowdown_cm, const COMM::BinaryTree<ARPtcl>& _bin_root, const ARPtcl* _particles, const int _n_particle) {
+        _slowdown.pert_in = calcPertFromBinary(_bin_root);
+        _slowdown.period = _bin_root.period;
+        int imask[2] = {_bin_root.getMemberIndex(0), _bin_root.getMemberIndex(1)};
+        const Float* xcm = _bin_root.pos;
+        const Float  mcm = _bin_root.mass;
+        Float pert_pot = 0.0;
+#ifdef SLOWDOWN_TIMESCALE
+        const Float* vcm = _bin_root.vel;
+        Float trf2_min = NUMERIC_FLOAT_MAX;
+        Float mvor[3] = {0.0,0.0,0.0};
+        Float mtot=0.0;
+#endif
+        for (int i=0; i<_n_particle; i++) {
+            if (i==imask[0]||i==imask[1]) continue;
+            const Float* xp = _particles[i].pos;
+
+            const Float mj = _particles[i].mass;
+
+            Float dr[3] = {xp[0] - xcm[0],
+                           xp[1] - xcm[1],
+                           xp[2] - xcm[2]};
+            Float r2 = dr[0]*dr[0] + dr[1]*dr[1] + dr[2]*dr[2];
+            Float r = sqrt(r2);
+            pert_pot += calcPertFromMR(r, mcm, mj);
+
+#ifdef SLOWDOWN_TIMESCALE
+            const Float* vp = _particles[i].vel;
+            Float dv[3] = {vp[0] - vcm[0],
+                           vp[1] - vcm[1],
+                           vp[2] - vcm[2]};
+
+            // velocity dependent method 
+            // m_tot / |\sum m_j /|r_j| * v_j|
+            Float mor = mj/r;
+            mvor[0] += mor*dv[0];
+            mvor[1] += mor*dv[1];
+            mvor[2] += mor*dv[2];
+            mtot += mj;
+
+            // force dependent method
+            // min sqrt(r^3/(G m))
+            Float mor3 = (mj+mcm)*r*r2/(mj*mcm);
+            trf2_min =  std::min(trf2_min, mor3);
+
+#endif
+        }            
+        _slowdown.pert_out = pert_pot + _slowdown_cm.pert_out;
+#ifdef SLOWDOWN_TIMESCALE
+        // velocity dependent method
+        Float trv_ave = mtot/sqrt(mvor[0]*mvor[0] + mvor[1]*mvor[1] + mvor[2]*mvor[2]);
+        // get min of velocity and force dependent values
+        Float t_min = std::min(trv_ave, sqrt(trf2_min));
+        _slowdown.timescale = 0.1*std::min(_slowdown.getTimescaleMax(), t_min);
+#else
+        _slowdown.timescale = _slowdown.getTimescaleMax();
+#endif
+
+        _slowdown.calcSlowDownFactor();
+        //_slowdown.setSlowDownFactor(10.0);
+    }
+#endif
 
     //! (Necessary) calculate slowdown perturbation and timescale
     /*!

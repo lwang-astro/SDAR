@@ -12,6 +12,17 @@
 class Interaction{
 public:
 
+    //! (Necessary) check whether publicly initialized parameters are correctly set
+    /*! \return true: all parmeters are correct. In this case no parameters, return true;
+     */
+    bool checkParams() {
+        return true;
+    }
+
+    //! print parameters
+    void print(std::ostream & _fout) const{
+    }    
+
     //! (Necessary) calculate inner member acceleration, potential and time transformation function gradient and factor for kick (two-body case)
     /*!
       @param[out] _f1: force for particle 1 to store the calculation results (in acc_in[3] for acceleration and gtgrad[3] for gradient, notice acc/gtgard are overwritten, not accummulating old values)
@@ -137,17 +148,6 @@ public:
         return gt_kick;
     }
 
-    //! (Necessary) check whether publicly initialized parameters are correctly set
-    /*! \return true: all parmeters are correct. In this case no parameters, return true;
-     */
-    bool checkParams() {
-        return true;
-    }
-
-    //! print parameters
-    void print(std::ostream & _fout) const{
-    }    
-
     //! (Necessary) calculate acceleration from perturber and the perturbation factor for slowdown calculation
     /*! The Force class acc_pert should be updated
       @param[out] _force: force array to store the calculation results (in acc_pert[3], notice acc_pert may need to reset zero to avoid accummulating old values)
@@ -157,10 +157,9 @@ public:
       @param[in] _particle_cm: center-of-mass particle
       @param[in] _perturber: pertuber container
       @param[in] _time: current time
-      \return perturbation energy to calculate slowdown factor
+      \return time transformation factor for kick
     */
     Float calcAccPotAndGTKick(AR::Force* _force, Float& _epot, const Particle* _particles, const int _n_particle, const Particle& _particle_cm, const Perturber& _perturber, const Float _time) {
-        
         Float gt_kick;
         if (_n_particle==2) gt_kick = calcInnerAccPotAndGTKickTwo(_force[0], _force[1], _epot, _particles[0], _particles[1]);
         else gt_kick = calcInnerAccPotAndGTKick(_force, _epot, _particles, _n_particle);
@@ -261,7 +260,7 @@ public:
 #endif
 
         _slowdown.calcSlowDownFactor();
-        //_slowdown.setSlowDownFactor(1.0);
+        //_slowdown.setSlowDownFactor(10.0);
     }
 #endif
 
