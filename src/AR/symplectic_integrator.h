@@ -111,7 +111,8 @@ namespace AR {
 
 #ifdef AR_TTL
         // transformation factors
-        Float gt_inv_;     ///< integrated time transformation factor for drift: dt(drift) = ds/gt_inv_
+        Float gt_drift_inv_;  ///< integrated time transformation factor for drift: dt(drift) = ds/gt_drift_inv_
+        Float gt_kick_;       ///< time transformation factor for kick 
 #ifdef AR_TTL_SLOWDOWN_INNER
         Float ekin_sd_;  ///< slowdown kinetic energy
         Float epot_sd_;  ///< slowdown potential energy
@@ -143,7 +144,7 @@ namespace AR {
         //! Constructor
         SymplecticIntegrator(): time_(0), etot_(0), ekin_(0), epot_(0), 
 #ifdef AR_TTL
-                                gt_inv_(0), 
+                                gt_drift_inv_(0), gt_kick_(0), 
 #ifdef AR_TTL_SLOWDOWN_INNER
                                 ekin_sd_(0), epot_sd_(0), etot_sd_(0), slowdown_inner(), 
 #endif
@@ -208,7 +209,8 @@ namespace AR {
             ekin_   = _sym.ekin_;
             epot_   = _sym.epot_;
 #ifdef AR_TTL
-            gt_inv_ = _sym.gt_inv_;
+            gt_drift_inv_ = _sym.gt_drift_inv_;
+            gt_kick_ = _sym.gt_kick_;
 #ifdef AR_TTL_SLOWDOWN_INNER
             ekin_sd_= _sym.ekin_sd_;
             epot_sd_= _sym.epot_sd_;
@@ -358,9 +360,9 @@ namespace AR {
             }
         }
 
-        //! calculate gt_inv in the case of inner binary slowdown.
+        //! calculate gt_drift_inv in the case of inner binary slowdown.
         /*!
-          @param[in,out] _dgt: d gt_inv_ for correction, modified the original value (from all members) with the slowdown correction
+          @param[in,out] _dgt: d gt_drift_inv_ for correction, modified the original value (from all members) with the slowdown correction
           @param[in] _dt: time step
          */
         inline void correctDGTInvSlowDownInner(Float& _dgt, const Float _dt) {
@@ -472,35 +474,37 @@ namespace AR {
             }
         }
 
-        //! calculate slowdown inner and correct gt_inv_
-        /*! Check whether the slowdown inner should be updated, and also initialize the new gt_inv_ with new slowdown factor if updated
+        //! calculate slowdown inner and correct gt_drift_inv_
+        /*! Check whether the slowdown inner should be updated, and also initialize the new gt_drift_inv_ with new slowdown factor if updated
           @param[in] _time: current intergration time
          */
         void calcSlowDownInnerAndCorrectGTInv(const Float _time) {
             int n = slowdown_inner.getSize();
-            //bool modified_flag=false;
+            bool modified_flag=false;
             for (int i=0; i<n; i++) {
                 auto& sdi = slowdown_inner[i];
                 //if (_time>=sdi.slowdown.getUpdateTime()) {
                 sdi.bin->calcCenterOfMass();
                 manager->interaction.calcSlowDownInnerBinary(sdi.slowdown, slowdown, *sdi.bin, particles.getDataAddress(), particles.getSize());
-                //sdi.slowdown.increaseUpdateTimeOnePeriod();
-                //modified_flag=true;
+                sdi.slowdown.increaseUpdateTimeOnePeriod();
+                modified_flag=true;
                 //}
             }    
-            // correct the initial gt_inv_ for next integration step is important to be consistent with TTL method.
-            if (n>0) {
+            // correct the initial gt_drift_inv_ for next integration step is important to be consistent with TTL method.
+            if (modified_flag) {
                 // back up old ekin_sd and epot_sd
                 Float ekin_sd_bk = ekin_sd_;
                 Float epot_sd_bk = epot_sd_;
-                // initialize the gt_inv_ with new slowdown factor
+                // initialize the gt_drift_inv_ with new slowdown factor
 #ifdef AR_TTL_GT_BINARY_INNER
-                Float gt_kick = 0.0;
+                Float gt_kick_sd = 0.0;
 #else
-                Float gt_kick = manager->interaction.calcAccPotAndGTKick(force_.getDataAddress(), epot_, particles.getDataAddress(), particles.getSize(), particles.cm, perturber, slowdown.getRealTime());
+                Float gt_kick_sd = manager->interaction.calcAccPotAndGTKick(force_.getDataAddress(), epot_, particles.getDataAddress(), particles.getSize(), particles.cm, perturber, slowdown.getRealTime());
 #endif
-                correctAccPotGTKickSlowDownInner(gt_kick, epot_);
-                gt_inv_ = 1.0/gt_kick;
+                correctAccPotGTKickSlowDownInner(gt_kick_sd, epot_);
+                //gt_drift_inv_ = 1.0/gt_kick_sd;
+                gt_drift_inv_ += 1.0/gt_kick_sd - 1.0/gt_kick_;
+                gt_kick_ = gt_kick_sd;
 
                 // correct etot_sd_ with new slowdown
                 calcEkinSlowDownInner(ekin_);
@@ -619,7 +623,7 @@ namespace AR {
             etot_sd_ += _dt * de;
             correctDGTInvSlowDownInner(dgt, _dt);
 #endif
-            gt_inv_ += dgt;
+            gt_drift_inv_ += dgt;
         }
 
 #else
@@ -693,10 +697,10 @@ namespace AR {
             manager->interaction.calcSlowDownPert(slowdown, particles.cm, info.getBinaryTreeRoot(), perturber);
  
 #ifdef AR_TTL
-            Float gt_kick = manager->interaction.calcAccPotAndGTKick(force_data, epot_, particle_data, n_particle, particles.cm,  perturber, _time_real);
+            gt_kick_ = manager->interaction.calcAccPotAndGTKick(force_data, epot_, particle_data, n_particle, particles.cm,  perturber, _time_real);
 
             // initially gt_drift 
-            gt_inv_ = 1.0/gt_kick;
+            gt_drift_inv_ = 1.0/gt_kick_;
 
 #else
             manager->interaction.calcAccPotAndGTKick(force_data, epot_, particle_data, n_particle, particles.cm,  perturber, _time_real);
@@ -741,7 +745,7 @@ namespace AR {
 
                 // time transformation factor for drift
 #ifdef AR_TTL
-                Float gt_drift = 1.0/gt_inv_;
+                Float gt_drift = 1.0/gt_drift_inv_;
 #else 
                 Float gt_drift = manager->interaction.calcGTDrift(ekin_-etot_); // pt = -etot
 #endif
@@ -765,10 +769,12 @@ namespace AR {
                 // kick half step for velocity
                 kickVel(0.5*dt_kick);
 
-#ifdef AR_TTL                
+#ifdef AR_TTL   
+                // back up gt_kick 
+                gt_kick_ = gt_kick;
+
                 // kick total energy and time transformation factor for drift
                 kickEtotAndGTDrift(dt_kick);
-
 #else
                 // kick total energy 
                 kickEtot(dt_kick);
@@ -825,7 +831,7 @@ namespace AR {
                 Float ds = manager->step.getCK(i)*_ds;
                 // time transformation factor for drift
 #ifdef AR_TTL
-                Float gt = 1.0/gt_inv_;
+                Float gt = 1.0/gt_drift_inv_;
 #else 
                 Float gt = manager->interaction.calcGTDrift(ekin_-etot_); // pt = -etot
 #endif
@@ -894,13 +900,17 @@ namespace AR {
                                            vel2[1] * kpert2[1] + 
                                            vel2[2] * kpert2[2]));
 
-#ifdef AR_TTL                
-                gt_inv_ +=  2.0*dt* (vel1[0] * gtgrad1[0] +
-                                     vel1[1] * gtgrad1[1] +
-                                     vel1[2] * gtgrad1[2] +
-                                     vel2[0] * gtgrad2[0] +
-                                     vel2[1] * gtgrad2[1] +
-                                     vel2[2] * gtgrad2[2]);
+#ifdef AR_TTL   
+                // back up gt_kick
+                gt_kick_ = gt;
+
+                // integrate gt_drift_inv
+                gt_drift_inv_ +=  2.0*dt* (vel1[0] * gtgrad1[0] +
+                                           vel1[1] * gtgrad1[1] +
+                                           vel1[2] * gtgrad1[2] +
+                                           vel2[0] * gtgrad2[0] +
+                                           vel2[1] * gtgrad2[1] +
+                                           vel2[2] * gtgrad2[2]);
 #endif
 
                 // kick half step for velocity
@@ -1308,10 +1318,10 @@ namespace AR {
                 int nold = slowdown_inner.getSize();
                 findSlowDownInner(time_);
                 int nnew = slowdown_inner.getSize();
-                // in case slowdown is disabled in the next step, gt_inv_ should be re-initialized
+                // in case slowdown is disabled in the next step, gt_drift_inv_ should be re-initialized
                 if (nold>0&&nnew==0) {
-                    Float gt_kick = manager->interaction.calcAccPotAndGTKick(force_.getDataAddress(), epot_, particles.getDataAddress(), particles.getSize(), particles.cm, perturber, slowdown.getRealTime());
-                    gt_inv_ = 1.0/gt_kick;
+                    gt_kick_ = manager->interaction.calcAccPotAndGTKick(force_.getDataAddress(), epot_, particles.getDataAddress(), particles.getSize(), particles.cm, perturber, slowdown.getRealTime());
+                    gt_drift_inv_ = 1.0/gt_kick_;
                 }
             }
 #endif
@@ -1493,12 +1503,12 @@ namespace AR {
 
         //! get energy error with inner slowdown from backup data 
         Float getEnergyErrorSlowDownInnerFromBackup(Float* _bk) const {
-            return -_bk[5] + _bk[6] + _bk[7];
+            return -_bk[6] + _bk[7] + _bk[8];
         }
 
         //! get energy error with inner slowdown from backup data
         Float getEtotSlowDownInnerFromBackup(Float* _bk) const {
-            return _bk[5];
+            return _bk[6];
         }
 #endif
 
@@ -1506,7 +1516,7 @@ namespace AR {
         int getBackupDataSize() const {
 #ifdef AR_TTL
 #ifdef AR_TTL_SLOWDOWN_INNER
-            int bk_size = 8; 
+            int bk_size = 9; 
 #else
             int bk_size = 5; 
 #endif
@@ -1529,12 +1539,13 @@ namespace AR {
             _bk[2] = ekin_;
             _bk[3] = epot_;
 #ifdef AR_TTL
-            _bk[4] = gt_inv_;
+            _bk[4] = gt_drift_inv_;
+            _bk[5] = gt_kick_;
 #ifdef AR_TTL_SLOWDOWN_INNER
-            _bk[5] = etot_sd_;
-            _bk[6] = ekin_sd_;
-            _bk[7] = epot_sd_;
-            int bk_size = 8; 
+            _bk[6] = etot_sd_;
+            _bk[7] = ekin_sd_;
+            _bk[8] = epot_sd_;
+            int bk_size = 9; 
 #else
             int bk_size = 5; 
 #endif
@@ -1556,12 +1567,13 @@ namespace AR {
             ekin_    = _bk[2];
             epot_    = _bk[3];
 #ifdef AR_TTL
-            gt_inv_  = _bk[4];
+            gt_drift_inv_  = _bk[4];
+            gt_kick_       = _bk[5];
 #ifdef AR_TTL_SLOWDOWN_INNER
-            etot_sd_ = _bk[5];
-            ekin_sd_ = _bk[6];
-            epot_sd_ = _bk[7];
-            int bk_size = 8; 
+            etot_sd_ = _bk[6];
+            ekin_sd_ = _bk[7];
+            epot_sd_ = _bk[8];
+            int bk_size = 9; 
 #else
             int bk_size = 5; 
 #endif
@@ -1579,8 +1591,8 @@ namespace AR {
           Notice last step is the sub-step in one symplectic loop
           \return time transformation factor for drift
         */
-        Float getGTIntInv() const {
-            return gt_inv_;
+        Float getGTDriftInv() const {
+            return gt_drift_inv_;
         }
 #endif
 
@@ -1596,7 +1608,7 @@ namespace AR {
                  <<std::setw(_width)<<"Ekin"
                  <<std::setw(_width)<<"Epot";
 #ifdef AR_TTL
-            _fout<<std::setw(_width)<<"Gt_inv";
+            _fout<<std::setw(_width)<<"GtD_inv";
 #else
             _fout<<std::setw(_width)<<"H";
 #endif
@@ -1631,7 +1643,7 @@ namespace AR {
                  <<std::setw(_width)<<ekin_
                  <<std::setw(_width)<<epot_;
 #ifdef AR_TTL
-            _fout<<std::setw(_width)<<gt_inv_;
+            _fout<<std::setw(_width)<<gt_drift_inv_;
 #else
             _fout<<std::setw(_width)<<manager->interaction.calcH(ekin_-etot_, epot_);
 #endif
@@ -1663,7 +1675,7 @@ namespace AR {
             fwrite(&ekin_, sizeof(Float), 1, _fout);
             fwrite(&epot_, sizeof(Float), 1, _fout);
 #ifdef AR_TTL
-            fwrite(&gt_inv_, sizeof(Float), 1, _fout);
+            fwrite(&gt_drift_inv_, sizeof(Float), 1, _fout);
 #endif
             int size = force_.getSize();
             fwrite(&size, sizeof(int), 1, _fout);
@@ -1689,7 +1701,7 @@ namespace AR {
                 abort();
             }
 #ifdef AR_TTL
-            rcount = fread(&gt_inv_, sizeof(Float), 1, _fin);
+            rcount = fread(&gt_drift_inv_, sizeof(Float), 1, _fin);
             if (rcount<1) {
                 std::cerr<<"Error: Data reading fails! requiring data number is 1, only obtain "<<rcount<<".\n";
                 abort();
