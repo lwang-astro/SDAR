@@ -569,24 +569,37 @@ namespace AR {
         inline Float calcAccPotAndGTKick() {
             Float gt_kick = manager->interaction.calcAccPotAndGTKick(force_.getDataAddress(), epot_, particles.getDataAddress(), particles.getSize(), particles.cm, perturber, slowdown.getRealTime());            
 
+//#ifdef AR_DEBUG
+//            // check c.m. force 
+//            Force fcm;
+//            Float mcm=0.0;
+//            for (int i=0; i<particles.getSize(); i++) {
+//                for (int k=0; k<3; k++) {
+//                    fcm.acc_in[k] += particles[i].mass * force_[i].acc_in[k];
+//                }
+//                mcm += particles[i].mass;
+//            }
+//            for (int k=0; k<3; k++) {
+//                fcm.acc_in[k] /= mcm;
+//                ASSERT(abs(fcm.acc_in[k])<1e-10);
+//            }
+//#endif
 #ifdef AR_TTL_SLOWDOWN_INNER
             // inner slowdown binary acceleration
             correctAccPotGTKickSlowDownInner(gt_kick, epot_);
-#ifdef AR_DEBUG
-            // check c.m. force 
-            Force fcm;
-            Float mcm=0.0;
-            for (int i=0; i<particles.getSize(); i++) {
-                for (int k=0; k<3; k++) {
-                    fcm.acc_in[k] += particles[i].mass * force_[i].acc_in[k];
-                }
-                mcm += particles[i].mass;
-            }
-            for (int k=0; k<3; k++) {
-                fcm.acc_in[k] /= mcm;
-                ASSERT(abs(fcm.acc_in[k])<1e-10);
-            }
-#endif
+//#ifdef AR_DEBUG
+//            // check c.m. force 
+//            fcm.acc_in[0] = fcm.acc_in[1] = fcm.acc_in[2] = 0.0;
+//            for (int i=0; i<particles.getSize(); i++) {
+//                for (int k=0; k<3; k++) {
+//                    fcm.acc_in[k] += particles[i].mass * force_[i].acc_in[k];
+//                }
+//            }
+//            for (int k=0; k<3; k++) {
+//                fcm.acc_in[k] /= mcm;
+//                ASSERT(abs(fcm.acc_in[k])<1e-10);
+//            }
+//#endif
 #endif
             return gt_kick;
         }

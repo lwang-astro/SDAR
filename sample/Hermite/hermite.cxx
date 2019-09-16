@@ -1,4 +1,4 @@
-#include <iostream>
+ #include <iostream>
 #include <fstream>
 //#include <unistd.h>
 #include <getopt.h>
@@ -35,13 +35,13 @@ int main(int argc, char **argv){
     COMM::IOParams<int> print_precision(input_par_store, WRITE_PRECISION, "print digital precision"); //print digital precision
     COMM::IOParams<int> nstep_max      (input_par_store, 1000000, "number of maximum step for AR integration"); // maximum time step allown for tsyn integration
     COMM::IOParams<int> sym_order      (input_par_store, -6, "Symplectic integrator order, should be even number"); // symplectic integrator order
-    COMM::IOParams<int> dt_min_power_index (input_par_store, 40, "power index to calculate mimimum hermite time step"); // power index to calculate minimum physical time step
+    COMM::IOParams<int> dt_min_power_index (input_par_store, 40, "power index to calculate mimimum hermite time step: dt_max*0.5^n"); // power index to calculate minimum physical time step
+    COMM::IOParams<int> dt_max_power_index (input_par_store, 2, "power index of 0.5 for maximum hermite time step"); // maximum physical time step
+    COMM::IOParams<int> dt_out_power_index (input_par_store, 2, "power index of 0.5 for output time interval"); // output time interval
     COMM::IOParams<double> energy_error (input_par_store, 1e-10,"relative energy error limit for AR"); // phase error requirement
     COMM::IOParams<double> time_error   (input_par_store, 0.0, "time synchronization absolute error limit for AR","default is 0.25*dt-min"); // time synchronization error
     COMM::IOParams<double> time_zero    (input_par_store, 0.0, "initial physical time");    // initial physical time
     COMM::IOParams<double> time_end     (input_par_store, 1.0, "ending physical time "); // ending physical time
-    COMM::IOParams<double> dt_output    (input_par_store, 0.25, "output time interval"); // output time interval
-    COMM::IOParams<double> dt_max       (input_par_store, 0.25, "maximum hermite time step"); // maximum physical time step
     COMM::IOParams<double> r_break      (input_par_store, 1e-3, "distance criterion for switching AR and Hermite"); // binary break criterion
     COMM::IOParams<double> r_search     (input_par_store, 5.0,  "neighbor search radius"); // neighbor search radius for AR
     COMM::IOParams<double> eta_4th      (input_par_store, 0.1,  "time step coefficient for 4th order"); // time step coefficient 
@@ -59,18 +59,18 @@ int main(int argc, char **argv){
         {"time-end", required_argument, 0, 't'},
         {"r-break", required_argument, 0, 'r'},
         {"energy-error",required_argument, 0, 'e'},
-        {"time-error",required_argument, 0, 0},
-        {"dt-max",required_argument, 0, 0},
-        {"dt-min-power",required_argument, 0, 0},
-        {"n-step-max",required_argument, 0, 0},
-        {"eta-4th",required_argument, 0, 0},
-        {"eta-2nd",required_argument, 0, 0},
-        {"eps",required_argument, 0, 0},
-        {"slowdown-ref",required_argument, 0, 0},
-        {"slowdown-mass-ref",required_argument, 0, 0},
-        {"slowdown-timescale-max",required_argument, 0, 0},
-        {"print-width",required_argument, 0, 0},
-        {"print-precision",required_argument, 0, 0},
+        {"time-error",required_argument, 0, 4},
+        {"dt-max-power",required_argument, 0, 5},
+        {"dt-min-power",required_argument, 0, 6},
+        {"n-step-max",required_argument, 0, 7},
+        {"eta-4th",required_argument, 0, 8},
+        {"eta-2nd",required_argument, 0, 9},
+        {"eps",required_argument, 0, 10},
+        {"slowdown-ref",required_argument, 0, 11},
+        {"slowdown-mass-ref",required_argument, 0, 12},
+        {"slowdown-timescale-max",required_argument, 0, 13},
+        {"print-width",required_argument, 0, 14},
+        {"print-precision",required_argument, 0, 15},
         {"help",no_argument, 0, 'h'},
         {0,0,0,0}
     };
@@ -79,53 +79,43 @@ int main(int argc, char **argv){
     while ((copt = getopt_long(argc, argv, "t:r:R:k:G:e:o:p:h", long_options, &option_index)) != -1)
         switch (copt) {
         case 0:
-#ifdef DEBUG
-            std::cerr<<"option "<<option_index<<" "<<long_options[option_index].name<<" "<<optarg<<std::endl;
-#endif
-            switch (option_index) {
-            case 0:
-                time_zero.value = atof(optarg);
-                break;
-            case 4:
-                time_error.value = atof(optarg);
-                break;
-            case 5:
-                dt_max.value = atof(optarg);
-                break;
-            case 6:
-                dt_min_power_index.value = atoi(optarg);
-                break;
-            case 7:
-                nstep_max.value = atoi(optarg);
-                break;
-            case 8:
-                eta_4th.value = atof(optarg);
-                break;
-            case 9:
-                eta_2nd.value = atof(optarg);
-                break;
-            case 10:
-                eps_sq.value = atof(optarg);
-                break;
-            case 11:
-                slowdown_ref.value = atof(optarg);
-                break;
-            case 12:
-                slowdown_mass_ref.value = atof(optarg);
-                break;
-            case 13:
-                slowdown_timescale_max.value = atof(optarg);
-                break;
-            case 14:
-                print_width.value = atof(optarg);
-                break;
-            case 15:
-                print_precision.value = atoi(optarg);
-                break;
-            default:
-                std::cerr<<"Unknown option. check '-h' for help.\n";
-                abort();
-            }
+            time_zero.value = atof(optarg);
+            break;
+        case 4:
+            time_error.value = atof(optarg);
+            break;
+        case 5:
+            dt_max_power_index.value = atoi(optarg);
+            break;
+        case 6:
+            dt_min_power_index.value = atoi(optarg);
+            break;
+        case 7:
+            nstep_max.value = atoi(optarg);
+            break;
+        case 8:
+            eta_4th.value = atof(optarg);
+            break;
+        case 9:
+            eta_2nd.value = atof(optarg);
+            break;
+        case 10:
+            eps_sq.value = atof(optarg);
+            break;
+        case 11:
+            slowdown_ref.value = atof(optarg);
+            break;
+        case 12:
+            slowdown_mass_ref.value = atof(optarg);
+            break;
+        case 13:
+            slowdown_timescale_max.value = atof(optarg);
+            break;
+        case 14:
+            print_width.value = atof(optarg);
+            break;
+        case 15:
+            print_precision.value = atoi(optarg);
             break;
         case 't':
             time_end.value = atof(optarg);
@@ -146,7 +136,7 @@ int main(int argc, char **argv){
             energy_error.value = atof(optarg);
             break;
         case 'o':
-            dt_output.value = atof(optarg);
+            dt_out_power_index.value = atoi(optarg);
             break;
         case 'p':
             filename_par.value = optarg;
@@ -165,7 +155,7 @@ int main(int argc, char **argv){
                      <<"  2-(N+1) line:  mass, x, y, z, vx, vy, vz\n"
                      <<"  last    line:  N_group, group_offset_index_lst[N_group], group_member_particle_index[N_member_total]\n"
                      <<"Options: (*) show defaulted values\n"
-                     <<"          --dt-max       [Float]:  "<<dt_max<<"\n"
+                     <<"          --dt-max-power [Float]:  "<<dt_max_power_index<<"\n"
                      <<"          --dt-min-power [int]  :  "<<dt_min_power_index<<"\n"
                      <<"    -e [Float]:  "<<energy_error<<"\n"
                      <<"          --energy-error [Float]:  same as -e\n"
@@ -176,7 +166,7 @@ int main(int argc, char **argv){
                      <<"    -k [int]:    "<<sym_order<<"\n"
                      <<"          --load-par     [string]: "<<filename_par<<"\n"
                      <<"          --n-step-max   [int]  :  "<<nstep_max<<"\n"
-                     <<"    -o [Float]:  "<<dt_output<<"\n"
+                     <<"    -o [int]:    "<<dt_out_power_index<<"\n"
                      <<"          --print-width     [int]: "<<print_width<<"\n"
                      <<"          --print-precision [int]: "<<print_precision<<"\n"
                      <<"    -p [string]: "<<filename_par<<"\n"
@@ -214,7 +204,8 @@ int main(int argc, char **argv){
     Particle::r_neighbor_crit = r_search.value;
     manager.step.eta_4th = eta_4th.value;
     manager.step.eta_2nd = eta_2nd.value;
-    manager.step.setDtRange(dt_max.value, dt_min_power_index.value);
+    Float dt_max = pow(Float(0.5), Float(dt_max_power_index.value));
+    manager.step.setDtRange(dt_max, dt_min_power_index.value);
     manager.interaction.eps_sq = eps_sq.value;
     manager.interaction.G = G.value;
     ar_manager.interaction.eps_sq = eps_sq.value;
@@ -317,6 +308,9 @@ int main(int argc, char **argv){
     h4_int.particles.printColumn(std::cout, print_width.value);
     std::cout<<std::endl;
     
+    // dt_out
+    Float dt_output = pow(Float(0.5),Float(dt_out_power_index.value));
+
     // integration loop
     while (h4_int.info.time<time_end.value) {
         h4_int.integrateOneStepAct();
@@ -325,7 +319,7 @@ int main(int argc, char **argv){
         h4_int.sortDtAndSelectActParticle();
         h4_int.info.time = h4_int.getTime();
 
-        if (dt_output.value==0.0||fmod(h4_int.info.time, dt_output.value)==0.0) {
+        if (fmod(h4_int.info.time, dt_output)==0.0) {
             h4_int.writeBackGroupMembers();
             h4_int.info.calcEnergy(h4_int.particles, manager.interaction, false);
             
