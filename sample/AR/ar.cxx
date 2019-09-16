@@ -287,6 +287,7 @@ int main(int argc, char **argv){
         Float time_step = time_end.value/nstep.value;
         for (int i=1; i<=nstep.value; i++) {
             sym_int.integrateToTime(time_step*i);
+            sym_int.info.generateBinaryTree(sym_int.particles);
             sym_int.printColumn(std::cout, print_width.value);
             std::cout<<std::endl;
         }

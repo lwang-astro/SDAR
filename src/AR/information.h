@@ -30,6 +30,14 @@ namespace AR {
 
         Information(): ds(Float(0.0)),  fix_step_option(AR::FixStepOption::none), binarytree() {}
 
+        //! check whether parameters values are correct initialized
+        /*! \return true: all correct
+         */
+        bool checkParams() {
+            ASSERT(binarytree.getSize()>0);
+            return true;
+        }
+
         //! reserve memory
         void reserveMem(const int _nmax) {
             binarytree.setMode(COMM::ListMode::local);
@@ -89,11 +97,6 @@ namespace AR {
             ds=0.0;
             fix_step_option = FixStepOption::none;
             binarytree.clear();
-        }
-
-        bool checkParams() {
-            ASSERT(binarytree.getSize()>0);
-            return true;
         }
 
         //! print titles of class members using column style
