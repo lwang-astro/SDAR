@@ -109,14 +109,17 @@ namespace AR {
         Float ekin_;   ///< kinetic energy
         Float epot_;   ///< potential
 
+        // cumulative slowdown (inner + outer) energy change
+        Float de_sd_cum_;  
+
 #ifdef AR_TTL
         // transformation factors
         Float gt_drift_inv_;  ///< integrated time transformation factor for drift: dt(drift) = ds/gt_drift_inv_
         Float gt_kick_;       ///< time transformation factor for kick 
 #ifdef AR_TTL_SLOWDOWN_INNER
-        Float ekin_sd_;  ///< slowdown kinetic energy
-        Float epot_sd_;  ///< slowdown potential energy
-        Float etot_sd_;  ///< slowdown total energy
+        Float ekin_sdi_;  ///< slowdown (inner) kinetic energy
+        Float epot_sdi_;  ///< slowdown (inner) potential energy
+        Float etot_sdi_;  ///< slowdown (inner) total energy
 
         //! slowdown with pair particle index
         struct SlowDownPair{
@@ -142,11 +145,11 @@ namespace AR {
         Profile  profile;  ///< profile to measure the performance
         
         //! Constructor
-        SymplecticIntegrator(): time_(0), etot_(0), ekin_(0), epot_(0), 
+        SymplecticIntegrator(): time_(0), etot_(0), ekin_(0), epot_(0), de_sd_cum_(0),
 #ifdef AR_TTL
                                 gt_drift_inv_(0), gt_kick_(0), 
 #ifdef AR_TTL_SLOWDOWN_INNER
-                                ekin_sd_(0), epot_sd_(0), etot_sd_(0), slowdown_inner(), 
+                                ekin_sdi_(0), epot_sdi_(0), etot_sdi_(0), slowdown_inner(), 
 #endif
 #endif
                                 force_(), manager(NULL), particles(), 
@@ -182,6 +185,8 @@ namespace AR {
         /*! Free dynamical memory space allocated
          */
         void clear() {
+            time_ = 0.0;
+            de_sd_cum_ = 0.0;
 #ifdef AR_TTL_SLOWDOWN_INNER
             slowdown_inner.clear();
 #endif
@@ -208,13 +213,14 @@ namespace AR {
 
             ekin_   = _sym.ekin_;
             epot_   = _sym.epot_;
+            de_sd_cum_= _sym.de_sd_cum_;
 #ifdef AR_TTL
             gt_drift_inv_ = _sym.gt_drift_inv_;
             gt_kick_ = _sym.gt_kick_;
 #ifdef AR_TTL_SLOWDOWN_INNER
-            ekin_sd_= _sym.ekin_sd_;
-            epot_sd_= _sym.epot_sd_;
-            etot_sd_= _sym.etot_sd_;
+            ekin_sdi_= _sym.ekin_sdi_;
+            epot_sdi_= _sym.epot_sdi_;
+            etot_sdi_= _sym.etot_sdi_;
             slowdown_inner = _sym.slowdown_inner;
 #endif
 #endif
@@ -302,7 +308,7 @@ namespace AR {
 #endif
                 }
             }
-            epot_sd_ = epot_ + de;
+            epot_sdi_ = epot_ + de;
 #ifdef AR_TTL_GT_BINARY_INNER
             if (gt_kick_inv_cor!=0.0) _gt_kick = 1.0/gt_kick_inv_cor;
 #else
@@ -439,7 +445,7 @@ namespace AR {
                     de += kappa_inv_m_one * particles[j].mass * (vrel[0]*vrel[0] + vrel[1]*vrel[1] + vrel[2]*vrel[2]);
                 }
             }
-            ekin_sd_ = _ekin + 0.5*de;
+            ekin_sdi_ = _ekin + 0.5*de;
         }
 
         //! find inner binaries for slowdown treatment iteration function
@@ -447,8 +453,8 @@ namespace AR {
             // find leaf binary
             if (_bin.getMemberN()==2 && _bin.semi>0.0) {
                 _slowdown_inner.increaseSizeNoInitialize(1);
-                auto& sd_new = _slowdown_inner.getLastMember();
-                sd_new.bin = &_bin;
+                auto& sdi_new = _slowdown_inner.getLastMember();
+                sdi_new.bin = &_bin;
                 return _c1+_c2+1;
             }
             else return _c1+_c2;
@@ -476,11 +482,11 @@ namespace AR {
             }
         }
 
-        //! calculate slowdown inner and correct gt_drift_inv_
+        //! calculate slowdown inner and correct gt_drift_inv_ and slowdown energy
         /*! Check whether the slowdown inner should be updated, and also initialize the new gt_drift_inv_ with new slowdown factor if updated
           @param[in] _time: current intergration time
          */
-        void calcSlowDownInnerAndCorrectGTInv(const Float _time) {
+        void calcSlowDownInnerAndCorrectGTInvEnergy(const Float _time) {
             int n = slowdown_inner.getSize();
             bool modified_flag=false;
             for (int i=0; i<n; i++) {
@@ -494,23 +500,27 @@ namespace AR {
             }    
             // correct the initial gt_drift_inv_ for next integration step is important to be consistent with TTL method.
             if (modified_flag) {
-                // back up old ekin_sd and epot_sd
-                Float ekin_sd_bk = ekin_sd_;
-                Float epot_sd_bk = epot_sd_;
+                // back up old ekin_sdi and epot_sdi
+                Float ekin_sdi_bk = ekin_sdi_;
+                Float epot_sdi_bk = epot_sdi_;
                 // initialize the gt_drift_inv_ with new slowdown factor
 #ifdef AR_TTL_GT_BINARY_INNER
-                Float gt_kick_sd = 0.0;
+                Float gt_kick_sdi = 0.0;
 #else
-                Float gt_kick_sd = manager->interaction.calcAccPotAndGTKick(force_.getDataAddress(), epot_, particles.getDataAddress(), particles.getSize(), particles.cm, perturber, slowdown.getRealTime());
+                Float gt_kick_sdi = manager->interaction.calcAccPotAndGTKick(force_.getDataAddress(), epot_, particles.getDataAddress(), particles.getSize(), particles.cm, perturber, slowdown.getRealTime());
 #endif
-                correctAccPotGTKickSlowDownInner(gt_kick_sd, epot_);
-                //gt_drift_inv_ = 1.0/gt_kick_sd;
-                gt_drift_inv_ += 1.0/gt_kick_sd - 1.0/gt_kick_;
-                gt_kick_ = gt_kick_sd;
+                correctAccPotGTKickSlowDownInner(gt_kick_sdi, epot_);
+                //gt_drift_inv_ = 1.0/gt_kick_sdi;
+                gt_drift_inv_ += 1.0/gt_kick_sdi - 1.0/gt_kick_;
+                gt_kick_ = gt_kick_sdi;
 
-                // correct etot_sd_ with new slowdown
+                // correct etot_sdi_ with new slowdown
                 calcEkinSlowDownInner(ekin_);
-                etot_sd_ += (ekin_sd_ - ekin_sd_bk) + (epot_sd_ - epot_sd_bk);
+                Float de_sdi = (ekin_sdi_ - ekin_sdi_bk) + (epot_sdi_ - epot_sdi_bk);
+                etot_sdi_ += de_sdi;
+
+                // add slowdown change to the global slowdown energy
+                de_sd_cum_ += de_sdi/slowdown.getSlowDownFactor();
             }
         }
 #endif
@@ -635,7 +645,7 @@ namespace AR {
             etot_ += _dt * de;
             Float dgt = _dt * dg;
 #ifdef AR_TTL_SLOWDOWN_INNER
-            etot_sd_ += _dt * de;
+            etot_sdi_ += _dt * de;
             correctDGTInvSlowDownInner(dgt, _dt);
 #endif
             gt_drift_inv_ += dgt;
@@ -729,15 +739,20 @@ namespace AR {
 
 #ifdef AR_TTL_SLOWDOWN_INNER
             // initialize the energy with slowdown inner
-            ekin_sd_ = ekin_;
-            epot_sd_ = epot_;
-            etot_sd_ = etot_;
+            ekin_sdi_ = ekin_;
+            epot_sdi_ = epot_;
+            etot_sdi_ = etot_;
 
             if (particles.getSize()>2) {
                 findSlowDownInner(time_);
-                calcSlowDownInnerAndCorrectGTInv(time_);
+                // update c.m. of binaries 
+                updateCenterOfMassForBinaryWithSlowDownInner();
+                // calculate slowdown inner and correct gt and energy
+                calcSlowDownInnerAndCorrectGTInvEnergy(time_);
             }
 #endif
+            // reset de_sd_cum, energy change due to the initializaiton of slowdown (inner/outer) is excluded.
+            de_sd_cum_ = 0.0;
         }
 
         //! integration for one step
@@ -1018,12 +1033,21 @@ namespace AR {
                     if (!time_end_flag) {
                         // system slowdown
                         if (time_>=slowdown.getUpdateTime()) {
+                            // backup old slowdown factor
+                            Float sd_old = slowdown.getSlowDownFactor();
                             manager->interaction.calcSlowDownPert(slowdown, particles.cm, info.getBinaryTreeRoot(), perturber);
+                            // add energy change due to slowdown change
+                            Float sd_new = slowdown.getSlowDownFactor();
+#ifdef AR_TTL_SLOWDOWN_INNER
+                            de_sd_cum_ += (1.0/sd_new-1.0/sd_old)*(ekin_sdi_ + epot_sdi_);
+#else
+                            de_sd_cum_ += (1.0/sd_new-1.0/sd_old)*(ekin_ + epot_);
+#endif
                             slowdown.increaseUpdateTimeOnePeriod();
                         }
 #ifdef AR_TTL_SLOWDOWN_INNER
                         // inner binary slowdown
-                        calcSlowDownInnerAndCorrectGTInv(time_);
+                        calcSlowDownInnerAndCorrectGTInvEnergy(time_);
 #endif
                     }
 
@@ -1036,6 +1060,11 @@ namespace AR {
                     int bk_return_size = restoreIntData(backup_data);
                     ASSERT(bk_return_size == bk_data_size);
                     (void)bk_return_size;
+#ifdef AR_TTL_SLOWDOWN_INNER
+                    // update c.m. of binaries 
+                    // binary c.m. is not backup, thus recalculate to get correct c.m. velocity for position drift correction due to slowdown inner (the first drift in integrateonestep assume c.m. vel is up to date)
+                    updateCenterOfMassForBinaryWithSlowDownInner();
+#endif
                 }
 
                 // get real time 
@@ -1309,11 +1338,11 @@ namespace AR {
                                  <<" etot_end: "<<etot_
                                  <<" etot_diff: "<<etot_- etot_init;
 #ifdef AR_TTL_SLOWDOWN_INNER
-                        Float etot_sd_init = getEtotSlowDownInnerFromBackup(backup_data_init);
-                        Float error_sd_init = getEnergyErrorSlowDownInnerFromBackup(backup_data_init);
-                        std::cerr<<" etot_sd_init: "<<etot_sd_init
-                                 <<" etot_sd_end: "<<etot_sd_
-                                 <<" etot_sd_diff: "<<etot_sd_- etot_sd_init
+                        Float etot_sdi_init = getEtotSlowDownInnerFromBackup(backup_data_init);
+                        Float error_sdi_init = getEnergyErrorSlowDownInnerFromBackup(backup_data_init);
+                        std::cerr<<" etot_sdi_init: "<<etot_sdi_init
+                                 <<" etot_sdi_end: "<<etot_sdi_
+                                 <<" etot_sdi_diff: "<<etot_sdi_- etot_sdi_init
 #else
                         std::cerr<<" ekin+epot(init): "<<error_init+etot_init
                                  <<" ekin+epot(end): "<<etot_ + energy_error
@@ -1494,54 +1523,66 @@ namespace AR {
             return _bk[1];
         }
 
+        //! reset cumulative energy change due to slowdown change
+        void resetDESlowDownCum() {
+            de_sd_cum_ = 0.0;
+        }
+
+        //! get cumulative energy change due to slowdown change
+        Float getDESlowDownCum() const {
+            return de_sd_cum_;
+        }
+
+
 #ifdef AR_TTL_SLOWDOWN_INNER
         //! Get current kinetic energy with inner slowdown
         /*! \return current kinetic energy
          */
         Float getEkinSlowDownInner() const {
-            return ekin_sd_;
+            return ekin_sdi_;
         }
 
         //! Get current potential energy with inner slowdown
         /*! \return current potetnial energy (negative value for bounded systems)
          */
         Float getEpotSlowDownInner() const {
-            return epot_sd_;
+            return epot_sdi_;
         }
         //! Get current total integrated energy with inner slowdown
         /*! \return total integrated energy 
          */
         Float getEtotSlowDownInner() const {
-            return etot_sd_;
+            return etot_sdi_;
         }
         //! get energy error with inner slowdown
         /*! \return energy error
          */
         Float getEnergyErrorSlowDownInner() const {
-            return ekin_sd_ + epot_sd_ - etot_sd_;
+            return ekin_sdi_ + epot_sdi_ - etot_sdi_;
         }
 
         //! get energy error with inner slowdown from backup data 
         Float getEnergyErrorSlowDownInnerFromBackup(Float* _bk) const {
-            return -_bk[6] + _bk[7] + _bk[8];
+            return -_bk[7] + _bk[8] + _bk[9];
         }
 
         //! get energy error with inner slowdown from backup data
         Float getEtotSlowDownInnerFromBackup(Float* _bk) const {
-            return _bk[6];
+            return _bk[7];
         }
+
 #endif
 
         //! get backup data size
         int getBackupDataSize() const {
 #ifdef AR_TTL
 #ifdef AR_TTL_SLOWDOWN_INNER
-            int bk_size = 9; 
+            int bk_size = 10; 
 #else
-            int bk_size = 5; 
+            int bk_size = 7; 
 #endif
 #else
-            int bk_size = 4;
+            int bk_size = 5;
 #endif
             bk_size += particles.getBackupDataSize();
             bk_size += slowdown.getBackupDataSize();
@@ -1558,19 +1599,20 @@ namespace AR {
             _bk[1] = etot_;
             _bk[2] = ekin_;
             _bk[3] = epot_;
+            _bk[4] = de_sd_cum_;
 #ifdef AR_TTL
-            _bk[4] = gt_drift_inv_;
-            _bk[5] = gt_kick_;
+            _bk[5] = gt_drift_inv_;
+            _bk[6] = gt_kick_;
 #ifdef AR_TTL_SLOWDOWN_INNER
-            _bk[6] = etot_sd_;
-            _bk[7] = ekin_sd_;
-            _bk[8] = epot_sd_;
-            int bk_size = 9; 
+            _bk[7] = etot_sdi_;
+            _bk[8] = ekin_sdi_;
+            _bk[9] = epot_sdi_;
+            int bk_size = 10; 
 #else
-            int bk_size = 5; 
+            int bk_size = 7; 
 #endif
 #else
-            int bk_size = 4;
+            int bk_size = 5;
 #endif
             bk_size += particles.backupParticlePosVel(&_bk[bk_size]); 
             bk_size +=  slowdown.backupSlowDownFactorAndTimeReal(&_bk[bk_size]); // time_real, slowdownfactor
@@ -1586,19 +1628,20 @@ namespace AR {
             etot_    = _bk[1];
             ekin_    = _bk[2];
             epot_    = _bk[3];
+            de_sd_cum_= _bk[4];
 #ifdef AR_TTL
-            gt_drift_inv_  = _bk[4];
-            gt_kick_       = _bk[5];
+            gt_drift_inv_  = _bk[5];
+            gt_kick_       = _bk[6];
 #ifdef AR_TTL_SLOWDOWN_INNER
-            etot_sd_ = _bk[6];
-            ekin_sd_ = _bk[7];
-            epot_sd_ = _bk[8];
-            int bk_size = 9; 
+            etot_sdi_ = _bk[7];
+            ekin_sdi_ = _bk[8];
+            epot_sdi_ = _bk[9];
+            int bk_size = 10; 
 #else
-            int bk_size = 5; 
+            int bk_size = 7; 
 #endif
 #else
-            int bk_size = 4; 
+            int bk_size = 5; 
 #endif
             bk_size += particles.restoreParticlePosVel(&_bk[bk_size]);
             bk_size +=  slowdown.restoreSlowDownFactorAndTimeReal(&_bk[bk_size]);
@@ -1632,11 +1675,13 @@ namespace AR {
 #else
             _fout<<std::setw(_width)<<"H";
 #endif
+            _fout<<std::setw(_width)<<"dE_SD_cum";            
+
 #ifdef AR_TTL_SLOWDOWN_INNER
-            _fout<<std::setw(_width)<<"dE_SD" 
-                 <<std::setw(_width)<<"Etot_SD" 
-                 <<std::setw(_width)<<"Ekin_SD" 
-                 <<std::setw(_width)<<"Epot_SD";
+            _fout<<std::setw(_width)<<"dE_SD_in" 
+                 <<std::setw(_width)<<"Etot_SD_in" 
+                 <<std::setw(_width)<<"Ekin_SD_in" 
+                 <<std::setw(_width)<<"Epot_SD_in";
             _fout<<std::setw(_width)<<"N_SD_in";
             for (int i=0; i<slowdown_inner.getSize(); i++) {
                 _fout<<std::setw(_width)<<"I1"
@@ -1667,11 +1712,12 @@ namespace AR {
 #else
             _fout<<std::setw(_width)<<manager->interaction.calcH(ekin_-etot_, epot_);
 #endif
+            _fout<<std::setw(_width)<<de_sd_cum_;
 #ifdef AR_TTL_SLOWDOWN_INNER
             _fout<<std::setw(_width)<<getEnergyErrorSlowDownInner()
-                 <<std::setw(_width)<<etot_sd_ 
-                 <<std::setw(_width)<<ekin_sd_ 
-                 <<std::setw(_width)<<epot_sd_;
+                 <<std::setw(_width)<<etot_sdi_ 
+                 <<std::setw(_width)<<ekin_sdi_ 
+                 <<std::setw(_width)<<epot_sdi_;
             _fout<<std::setw(_width)<<slowdown_inner.getSize();
             for (int i=0; i<slowdown_inner.getSize(); i++) {
                 _fout<<std::setw(_width)<<slowdown_inner[i].bin->getMemberIndex(0)

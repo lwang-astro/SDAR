@@ -287,7 +287,7 @@ int main(int argc, char **argv){
 
     // get initial energy
     h4_int.writeBackGroupMembers();
-    h4_int.info.calcEnergy(h4_int.particles, manager.interaction, true);
+    h4_int.info.calcEnergySlowDown(h4_int.particles, h4_int.groups, manager.interaction, true);
     // cm
     h4_int.particles.calcCenterOfMass();
     std::cerr<<"CM:";
@@ -314,6 +314,7 @@ int main(int argc, char **argv){
     // integration loop
     while (h4_int.info.time<time_end.value) {
         h4_int.integrateOneStepAct();
+        h4_int.info.correctEtotSlowDownRef(h4_int.groups);
         h4_int.adjustGroups(false);
         h4_int.initialIntegration();
         h4_int.sortDtAndSelectActParticle();
@@ -321,7 +322,8 @@ int main(int argc, char **argv){
 
         if (fmod(h4_int.info.time, dt_output)==0.0) {
             h4_int.writeBackGroupMembers();
-            h4_int.info.calcEnergy(h4_int.particles, manager.interaction, false);
+            h4_int.info.correctEtotSlowDownRef(h4_int.groups);
+            h4_int.info.calcEnergySlowDown(h4_int.particles, h4_int.groups, manager.interaction, false);
             
             h4_int.particles.calcCenterOfMass();
             std::cerr<<"CM:";
