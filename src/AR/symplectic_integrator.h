@@ -100,6 +100,13 @@ namespace AR {
     template <class Tparticle, class Tpcm, class Tpert, class Tmethod, class Tinfo>
     class SymplecticIntegrator {
     private:
+        //! slowdown with pair particle index
+        struct SlowDownPair{
+            SlowDown slowdown;
+            COMM::BinaryTree<Tparticle>* bin;
+        
+            SlowDownPair(): slowdown(), bin(NULL) {}
+        };
 
         // intergrated variables
         Float time_;   ///< integrated time (not real physical time if slowdown is on)
@@ -120,16 +127,6 @@ namespace AR {
         Float ekin_sdi_;  ///< slowdown (inner) kinetic energy
         Float epot_sdi_;  ///< slowdown (inner) potential energy
         Float etot_sdi_;  ///< slowdown (inner) total energy
-
-        //! slowdown with pair particle index
-        struct SlowDownPair{
-            SlowDown slowdown;
-            COMM::BinaryTree<Tparticle>* bin;
-        
-            SlowDownPair(): slowdown(), bin(NULL) {}
-        };
-        // inner slowdown
-        COMM::List<SlowDownPair> slowdown_inner; /// inner binary slowdown
 #endif
 #endif
 
@@ -139,6 +136,9 @@ namespace AR {
     public:
         SymplecticManager<Tmethod>* manager; ///< integration manager
         COMM::ParticleGroup<Tparticle,Tpcm> particles; ///< particle group manager
+#ifdef AR_TTL_SLOWDOWN_INNER
+        COMM::List<SlowDownPair> slowdown_inner; /// inner binary slowdown
+#endif
         SlowDown slowdown; ///< slowdown of the system
         Tpert    perturber; ///< perturber class 
         Tinfo    info;   ///< information of the system
@@ -149,10 +149,13 @@ namespace AR {
 #ifdef AR_TTL
                                 gt_drift_inv_(0), gt_kick_(0), 
 #ifdef AR_TTL_SLOWDOWN_INNER
-                                ekin_sdi_(0), epot_sdi_(0), etot_sdi_(0), slowdown_inner(), 
+                                ekin_sdi_(0), epot_sdi_(0), etot_sdi_(0), 
 #endif
 #endif
                                 force_(), manager(NULL), particles(), 
+#ifdef AR_TTL_SLOWDOWN_INNER
+                                slowdown_inner(), 
+#endif
                                 slowdown(), perturber(), info(), profile() {}
 
         //! check whether parameters values are correct
@@ -173,12 +176,12 @@ namespace AR {
             // force array always allocated local memory
             int nmax = particles.getSizeMax();
             ASSERT(nmax>0);
+            force_.setMode(COMM::ListMode::local);
+            force_.reserveMem(nmax);
 #ifdef AR_TTL_SLOWDOWN_INNER
             slowdown_inner.setMode(COMM::ListMode::local);
             slowdown_inner.reserveMem(nmax/2);
 #endif
-            force_.setMode(COMM::ListMode::local);
-            force_.reserveMem(nmax);
         }
 
         //! Clear function
@@ -187,11 +190,11 @@ namespace AR {
         void clear() {
             time_ = 0.0;
             de_sd_cum_ = 0.0;
+            force_.clear();
+            particles.clear();
 #ifdef AR_TTL_SLOWDOWN_INNER
             slowdown_inner.clear();
 #endif
-            force_.clear();
-            particles.clear();
             slowdown.clear();
             perturber.clear();
             info.clear();
@@ -221,11 +224,13 @@ namespace AR {
             ekin_sdi_= _sym.ekin_sdi_;
             epot_sdi_= _sym.epot_sdi_;
             etot_sdi_= _sym.etot_sdi_;
-            slowdown_inner = _sym.slowdown_inner;
 #endif
 #endif
             force_  = _sym.force_;
             manager = _sym.manager;
+#ifdef AR_TTL_SLOWDOWN_INNER
+            slowdown_inner = _sym.slowdown_inner;
+#endif
             slowdown = _sym.slowdown;
             particles = _sym.particles;
             info = _sym.binarytree;
