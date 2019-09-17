@@ -966,6 +966,13 @@ namespace AR {
                 ekin_ = 0.5 * (mass1 * (vel1[0]*vel1[0]+vel1[1]*vel1[1]+vel1[2]*vel1[2]) +
                                mass2 * (vel2[0]*vel2[0]+vel2[1]*vel2[1]+vel2[2]*vel2[2]));
             }
+
+#ifdef AR_TTL_SLOWDOWN_INNER
+            // make consistent slowdown inner energy 
+            etot_sdi_ = etot_;
+            ekin_sdi_ = ekin_;
+            epot_sdi_ = epot_;
+#endif
         }
         
         // Integrate the system to a given time
@@ -1037,7 +1044,7 @@ namespace AR {
                     // update slowdown
                     if (!time_end_flag) {
                         // system slowdown
-                        if (time_>=slowdown.getUpdateTime()) {
+                        //if (time_>=slowdown.getUpdateTime()) {
                             // backup old slowdown factor
                             Float sd_old = slowdown.getSlowDownFactor();
                             manager->interaction.calcSlowDownPert(slowdown, particles.cm, info.getBinaryTreeRoot(), perturber);
@@ -1049,7 +1056,7 @@ namespace AR {
                             de_sd_cum_ += (1.0/sd_new-1.0/sd_old)*(ekin_ + epot_);
 #endif
                             slowdown.increaseUpdateTimeOnePeriod();
-                        }
+                            //}
 #ifdef AR_TTL_SLOWDOWN_INNER
                         // inner binary slowdown
                         calcSlowDownInnerAndCorrectGTInvEnergy(time_);
@@ -1338,17 +1345,16 @@ namespace AR {
                         std::cerr<<"AR large energy error, error_rel: "<<energy_error_rel_abs
                                  <<" N_members: "<<n_particle<<" Fix step option: "<<static_cast<typename std::underlying_type<FixStepOption>::type>(info.fix_step_option);
                         Float etot_init = getEtotFromBackup(backup_data_init);
-                        Float error_init = getEnergyErrorFromBackup(backup_data_init);
                         std::cerr<<" etot_init: "<<etot_init
                                  <<" etot_end: "<<etot_
                                  <<" etot_diff: "<<etot_- etot_init;
 #ifdef AR_TTL_SLOWDOWN_INNER
                         Float etot_sdi_init = getEtotSlowDownInnerFromBackup(backup_data_init);
-                        Float error_sdi_init = getEnergyErrorSlowDownInnerFromBackup(backup_data_init);
                         std::cerr<<" etot_sdi_init: "<<etot_sdi_init
                                  <<" etot_sdi_end: "<<etot_sdi_
-                                 <<" etot_sdi_diff: "<<etot_sdi_- etot_sdi_init
+                                 <<" etot_sdi_diff: "<<etot_sdi_- etot_sdi_init;
 #else
+                        Float error_init = getEnergyErrorFromBackup(backup_data_init);
                         std::cerr<<" ekin+epot(init): "<<error_init+etot_init
                                  <<" ekin+epot(end): "<<etot_ + energy_error
                                  <<" ekin+epot(diff): "<<etot_ + energy_error - (error_init+etot_init);
