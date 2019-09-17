@@ -1343,17 +1343,18 @@ namespace H4{
 
         //! Check break condition
         /*! Check whether it is necessary to break the chain\n
-          1. Inner distance criterion:
-          If r>r_break_crit, and ecca>0.0, break.\n
-          2. Perturbation criterion for closed orbit:
-          If inner slowdown factor >1.0 break.\n
+          1. Inner distance criterion, for outmost pair: \n
+             If r>r_break_crit, and ecca>0.0, break. Also predict next step r to ensure break early enough\n
+          2. Perturbation criterion for closed orbit:\n
+             For two body case, if slowdown factor >1.0 break. 
+             For few-body, if no inner AR slowdown, break when inner kappa is large. \n
           @param[out] _break_group_index_with_offset: group index list to break (with index_offset_group_ added)
           @parma[out] _n_break: number of groups need to break
           @param[in] _start_flag: indicate this is the first adjust of the groups in the integration
         */
         void checkBreak(int* _break_group_index_with_offset, int& _n_break, const bool _start_flag) {
             // kappa_org criterion for break group kappa_org>kappa_org_crit
-            const Float kappa_org_crit = 100;
+            const Float kappa_org_crit = 1;
 
             const int n_group_tot = index_dt_sorted_group_.getSize();
             for (int i=0; i<n_group_tot; i++) {
@@ -1432,6 +1433,7 @@ namespace H4{
 
                 }
 
+                // check perturbation
                 // only check further if it is outgoing case
                 if (outgoing_flag) {
 
@@ -1474,7 +1476,8 @@ namespace H4{
                             }
                         }
                     }
-                    // check few-body inner perturbation
+#ifndef AR_TTL_SLOWDOWN_INNER
+                    // check few-body inner perturbation (suppress when use slowdown inner AR)
                     else {
                         for (int j=0; j<2; j++) {
                             if (bin_root.getMember(j)->id<0) {
@@ -1533,6 +1536,7 @@ namespace H4{
                             }
                         }
                     }
+#endif
                 }
             }
         }
@@ -1556,7 +1560,7 @@ namespace H4{
                            const int _n_break, 
                            const bool _start_flag) {
             // kappa_org criterion for new group kappa_org>kappa_org_crit
-            const Float kappa_org_crit = 100.0;
+            const Float kappa_org_crit = 1.0;
 
             const int n_particle = particles.getSize();
             const int n_group = groups.getSize();
@@ -1614,8 +1618,11 @@ namespace H4{
                     }
                     else {
                         const int jg = j-index_offset_group_;
+#ifndef AR_TTL_SLOWDOWN_INNER
+                        // in case without AR slowdown inner, avoid form AR when inner kappa is >1.0
                         Float kappa_org_j = groups[jg].slowdown.getSlowDownFactorOrigin();
                         if (kappa_org_j>1.0) continue;
+#endif
                         pj = &groups[jg].particles.cm;
                     }
                     // only inwards or first step case
