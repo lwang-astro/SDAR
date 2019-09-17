@@ -59,7 +59,8 @@ namespace AR {
         void calcDsAndStepOption(const Float _sd_org, const int _int_order) {
             ds = NUMERIC_FLOAT_MAX;
             ds = getBinaryTreeRoot().processRootIter(ds, calcDsKeplerIter);
-            if (_sd_org<1.0) ds *= 1.0/8.0*pow(_sd_org, 1.0/Float(_int_order));
+            // Avoid too small step
+            if (_sd_org<1.0) ds *= std::max(1.0/8.0*pow(_sd_org, 1.0/Float(_int_order)),0.125);
             auto& bin_root = getBinaryTreeRoot();
             const int n_particle = bin_root.getMemberN();
 
