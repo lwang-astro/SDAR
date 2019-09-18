@@ -742,6 +742,9 @@ namespace AR {
             // initial total energy
             etot_ = ekin_ + epot_;
 
+            // add slowdown energy change due to turning on of slowdown.
+            de_sd_cum_ += etot_/slowdown.getSlowDownFactor() - etot_;
+
 #ifdef AR_TTL_SLOWDOWN_INNER
             // initialize the energy with slowdown inner
             ekin_sdi_ = ekin_;
@@ -756,8 +759,6 @@ namespace AR {
                 calcSlowDownInnerAndCorrectGTInvEnergy(time_);
             }
 #endif
-            // reset de_sd_cum, energy change due to the initializaiton of slowdown (inner/outer) is excluded.
-            de_sd_cum_ = 0.0;
         }
 
         //! integration for one step

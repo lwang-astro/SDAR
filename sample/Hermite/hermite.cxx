@@ -49,9 +49,7 @@ int main(int argc, char **argv){
     COMM::IOParams<double> eps_sq       (input_par_store, 0.0,  "softerning parameter");    // softening parameter
     COMM::IOParams<double> G            (input_par_store, 1.0,  "gravitational constant");      // gravitational constant
     COMM::IOParams<double> slowdown_ref (input_par_store, 1e-6, "slowdown perturbation ratio reference"); // slowdown reference factor
-#ifdef SLOWDOWN_MASSRATIO
     COMM::IOParams<double> slowdown_mass_ref (input_par_store, 0.0, "slowdowm mass reference","averaged mass"); // slowdown mass reference
-#endif
     COMM::IOParams<double> slowdown_timescale_max (input_par_store, 0.0, "maximum timescale for maximum slowdown factor","time-end"); // slowdown timescale
     COMM::IOParams<std::string> filename_par (input_par_store, "", "filename to load manager parameters","input name"); // par dumped filename
 
@@ -69,9 +67,7 @@ int main(int argc, char **argv){
         {"eta-2nd",required_argument, 0, 9},
         {"eps",required_argument, 0, 10},
         {"slowdown-ref",required_argument, 0, 11},
-#ifdef SLOWDOWN_MASSRATIO
         {"slowdown-mass-ref",required_argument, 0, 12},
-#endif
         {"slowdown-timescale-max",required_argument, 0, 13},
         {"print-width",required_argument, 0, 14},
         {"print-precision",required_argument, 0, 15},
@@ -109,11 +105,9 @@ int main(int argc, char **argv){
         case 11:
             slowdown_ref.value = atof(optarg);
             break;
-#ifdef SLOWDOWN_MASSRATIO
         case 12:
             slowdown_mass_ref.value = atof(optarg);
             break;
-#endif
         case 13:
             slowdown_timescale_max.value = atof(optarg);
             break;
@@ -180,9 +174,7 @@ int main(int argc, char **argv){
                      <<"          --r-break      [Float]: same as -r\n"
                      <<"    -R [Float]:  "<<r_search<<"\n"
                      <<"          --slowdown-ref:           [Float]: "<<slowdown_ref<<"\n"
-#ifdef SLOWDOWN_MASSRATIO
                      <<"          --slowdown-mass-ref       [Float]: "<<slowdown_mass_ref<<"\n"
-#endif
                      <<"          --slowdown-timescale-max: [Float]: "<<slowdown_timescale_max<<"\n"
                      <<"    -t [Float]:  "<<time_end<<"\n"
                      <<"          --time-start   [Float]:  "<<time_zero<<"\n"
@@ -262,10 +254,8 @@ int main(int argc, char **argv){
         
     Float m_ave = h4_int.particles.cm.mass/h4_int.particles.getSize();
     manager.step.calcAcc0OffsetSq(m_ave, r_search.value);
-#ifdef SLOWDOWN_MASSRATIO
     if (slowdown_mass_ref.value<=0.0) ar_manager.slowdown_mass_ref = m_ave;
     else ar_manager.slowdown_mass_ref = slowdown_mass_ref.value;
-#endif
 
     // print parameters
     manager.print(std::cerr);
@@ -296,14 +286,12 @@ int main(int argc, char **argv){
     h4_int.adjustGroups(true);
     h4_int.initialIntegration();
     h4_int.sortDtAndSelectActParticle();
-    h4_int.info.time = h4_int.getTime();
 
     // precision
     std::cout<<std::setprecision(print_precision.value);
 
     // get initial energy
-    h4_int.writeBackGroupMembers();
-    h4_int.info.calcEnergySlowDown(h4_int.particles, h4_int.groups, manager.interaction, true);
+    h4_int.calcEnergySlowDown(true);
     // cm
     h4_int.particles.calcCenterOfMass();
     std::cerr<<"CM:";
@@ -311,68 +299,33 @@ int main(int argc, char **argv){
     std::cerr<<std::endl;
 
     //print column title
-    h4_int.info.printColumnTitle(std::cout, print_width.value);
-    std::cout<<std::setw(print_width.value)<<"N_SD";
-    for (int i=0; i<n_group_init; i++) {
-        auto & gi = h4_int.groups[i];
-        for (int j=0; j<n_group_sub_init[i]; j++) 
-            gi.slowdown.printColumnTitle(std::cout, print_width.value);
-        gi.slowdown.printColumnTitle(std::cout, print_width.value);
-    }
-    h4_int.particles.printColumnTitle(std::cout, print_width.value);
+    h4_int.printColumnTitle(std::cout, print_width.value, n_group_sub_init, n_group_init, n_group_sub_tot_init);
     std::cout<<std::endl;
 
     //print initial data
-    h4_int.info.printColumn(std::cout, print_width.value);
-    std::cout<<std::setw(print_width.value)<<n_group_init + n_group_sub_tot_init;
-    for (int i=0; i<n_group_init; i++) {
-        auto & gi = h4_int.groups[i];
-        AR::SlowDown sd_empty;
-        int n_sd_in = gi.slowdown_inner.getSize();
-        for (int j=0; j<n_group_sub_init[i]; j++) {
-            if (j<n_sd_in) gi.slowdown_inner[j].slowdown.printColumn(std::cout, print_width.value);
-            else sd_empty.printColumn(std::cout, print_width.value);
-        }
-        h4_int.groups[i].slowdown.printColumn(std::cout, print_width.value);
-    }
-    h4_int.particles.printColumn(std::cout, print_width.value);
+    h4_int.printColumn(std::cout, print_width.value, n_group_sub_init, n_group_init, n_group_sub_tot_init);
     std::cout<<std::endl;
     
     // dt_out
     Float dt_output = pow(Float(0.5),Float(dt_out_power_index.value));
 
     // integration loop
-    while (h4_int.info.time<time_end.value) {
+    while (h4_int.getTime()<time_end.value) {
         h4_int.integrateOneStepAct();
-        h4_int.info.correctEtotSlowDownRef(h4_int.groups);
         h4_int.adjustGroups(false);
         h4_int.initialIntegration();
         h4_int.sortDtAndSelectActParticle();
-        h4_int.info.time = h4_int.getTime();
 
-        if (fmod(h4_int.info.time, dt_output)==0.0) {
-            h4_int.writeBackGroupMembers();
-            h4_int.info.correctEtotSlowDownRef(h4_int.groups);
-            h4_int.info.calcEnergySlowDown(h4_int.particles, h4_int.groups, manager.interaction, false);
+        if (fmod(h4_int.getTime(), dt_output)==0.0) {
+            h4_int.calcEnergySlowDown(false);
             
             h4_int.particles.calcCenterOfMass();
             std::cerr<<"CM:";
             h4_int.particles.cm.printColumn(std::cerr, 22);
             std::cerr<<std::endl;
 
-            h4_int.info.printColumn(std::cout, print_width.value);
-            std::cout<<std::setw(print_width.value)<<n_group_init + n_group_sub_tot_init;
-            for (int i=0; i<n_group_init; i++) {
-                auto & gi = h4_int.groups[i];
-                AR::SlowDown sd_empty;
-                int n_sd_in = gi.slowdown_inner.getSize();
-                for (int j=0; j<n_group_sub_init[i]; j++) {
-                    if (j<n_sd_in) gi.slowdown_inner[j].slowdown.printColumn(std::cout, print_width.value);
-                    else sd_empty.printColumn(std::cout, print_width.value);
-                }
-                h4_int.groups[i].slowdown.printColumn(std::cout, print_width.value);
-            }
-            h4_int.particles.printColumn(std::cout, print_width.value);
+            // Notice in energy calculation, writeBackGroupMembers() is already done;
+            h4_int.printColumn(std::cout, print_width.value, n_group_sub_init, n_group_init, n_group_sub_tot_init);
             std::cout<<std::endl;
             h4_int.printStepHist();
         }

@@ -333,21 +333,40 @@ public:
         return dr2;
     }
 
-    //! calculate potential from j to i
-    /*! \return the potential
+    //! calculate kinetic and potential energy of the system
+    /*!
+      @param[out] _energy: hermite energy
+      @param[in] _particles: (all) particle list
+      @param[in] _n_particle: number of particles
+      @param[in] _groups: group list
+      @param[in] _n_group: number of groups
+      @param[in] _perturber: perturber 
      */
-    template<class Tpi, class Tpj>
-    inline Float calcPotPair(const Tpi& _pi,
-                             const Tpj& _pj) {
-        const Float dr[3] = {_pj.pos[0]-_pi.pos[0], 
-                             _pj.pos[1]-_pi.pos[1],
-                             _pj.pos[2]-_pi.pos[2]};
-        Float dr2 = dr[0]*dr[0] + dr[1]*dr[1] + dr[2]*dr[2];
-        Float dr2_eps = dr2 + eps_sq;
-        const Float r = sqrt(dr2_eps);
-        const Float rinv = 1.0/r;
-        
-        return -G*_pj.mass*rinv;
+    template<class Tp, class Tgroup, class Tpert>
+    inline void calcEnergy(H4::HermiteEnergy& _energy, const Tp* _particles, const int _n_particle, const Tgroup* _groups, const int _n_group, const Tpert& _perturber) {
+        _energy.ekin = _energy.epot = _energy.epert = 0.0;
+        for (int i=0; i<_n_particle; i++) {
+            auto& pi = _particles[i];
+            _energy.ekin += pi.mass* (pi.vel[0]*pi.vel[0] + pi.vel[1]*pi.vel[1] + pi.vel[2]*pi.vel[2]);
+            Float poti = 0.0;
+            for (int j=0; j<i; j++) {
+                if (i==j) continue;
+                auto& pj = _particles[j];
+                const Float dr[3] = {pj.pos[0] - pi.pos[0], 
+                                     pj.pos[1] - pi.pos[1],
+                                     pj.pos[2] - pi.pos[2]};
+                Float dr2 = dr[0]*dr[0] + dr[1]*dr[1] + dr[2]*dr[2];
+                Float dr2_eps = dr2 + eps_sq;
+                const Float r = sqrt(dr2_eps);
+                ASSERT(r>0.0);
+                const Float rinv = 1.0/r;
+                poti += -G*pj.mass*rinv;
+            }
+            _energy.epot += poti*pi.mass;
+        }
+
+        _energy.ekin *= 0.5;
+        _energy.epert *= 0.5;
     }
     
     //! write class data to file with binary format

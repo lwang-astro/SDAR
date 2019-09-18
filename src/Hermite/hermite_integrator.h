@@ -86,6 +86,58 @@ namespace H4{
 
     };
 
+    //! Hermite energy 
+    struct HermiteEnergy{
+    public:
+        Float etot_ref;  ///< total energy for reference
+        Float ekin;  ///< kinetic energy
+        Float epot;  ///< potential energy
+        Float epert; ///< perturbation extra energy
+
+        HermiteEnergy(): etot_ref(0.0), ekin(0.0), epot(0.0), epert(0.0) {}
+
+        //! clear function
+        void clear() {
+            etot_ref = ekin = epot = epert = 0.0;
+        }
+
+        //! calc energy error 
+        Float getEnergyError() const {
+            return ekin + epot + epert - etot_ref;
+        }
+
+        //! calc total energy
+        Float getEtot() const {
+            return ekin + epot + epert;
+        }
+
+        //! print titles of class members using column style
+        /*! print titles of class members in one line for column style
+          @param[out] _fout: std::ostream output object
+          @param[in] _width: print width (defaulted 20)
+        */
+        void printColumnTitle(std::ostream & _fout, const int _width=20) {
+            _fout<<std::setw(_width)<<"dE"
+                 <<std::setw(_width)<<"Etot_ref"
+                 <<std::setw(_width)<<"Ekin"
+                 <<std::setw(_width)<<"Epot"
+                 <<std::setw(_width)<<"Epert";
+        }
+
+        //! print data of class members using column style
+        /*! print data of class members in one line for column style. Notice no newline is printed at the end
+          @param[out] _fout: std::ostream output object
+          @param[in] _width: print width (defaulted 20)
+        */
+        void printColumn(std::ostream & _fout, const int _width=20){
+            _fout<<std::setw(_width)<<getEnergyError()
+                 <<std::setw(_width)<<etot_ref
+                 <<std::setw(_width)<<ekin
+                 <<std::setw(_width)<<epot
+                 <<std::setw(_width)<<epert;
+        }
+    };
+
     //!Hermite integrator class
     template <class Tparticle, class Tpcm, class Tpert, class TARpert, class Tacc, class TARacc, class Tinfo>
     class HermiteIntegrator{
@@ -93,9 +145,14 @@ namespace H4{
         typedef AR::SymplecticIntegrator<ParticleAR<Tparticle>, ParticleH4<Tparticle>, TARpert, TARacc, ARInformation<Tparticle>> ARSym;
 
         // time 
-        Float time_;   ///< integrated time (not real physical time if slowdown is on)
+        Float time_;   ///< integrated time 
         Float time_next_min_; ///< the next minimum time 
         Float dt_limit_;  // maximum step size allown for next integration step calculation
+
+        // Energy
+        HermiteEnergy energy_; // true energy
+        HermiteEnergy energy_sd_;  // slowdown energy
+        Float de_sd_cum_;   //cumulative slowdown energy change due to slowdown factor change
 
         // active particle number
         int n_act_single_;    /// active particle number of singles
@@ -152,6 +209,97 @@ namespace H4{
             ASSERT(perturber.checkParams());
             ASSERT(info.checkParams());
             return true;
+        }
+
+        //! constructor
+        HermiteIntegrator(): time_(0.0), time_next_min_(0.0), 
+                             energy_(), energy_sd_(),
+                             de_sd_cum_(0.0),
+                             n_act_single_(0), n_act_group_(0), 
+                             n_init_single_(0), n_init_group_(0), 
+                             index_offset_group_(0), 
+                             initial_system_flag_(false), modify_system_flag_(false),
+                             index_dt_sorted_single_(), index_dt_sorted_group_(), 
+                             index_group_resolve_(), index_group_cm_(), 
+                             pred_(), force_(), time_next_(), 
+                             index_group_mask_(), table_group_mask_(), table_single_mask_(), 
+                             manager(NULL), ar_manager(NULL), particles(), groups(), neighbors(), perturber(), info(), profile() {}
+
+        //! clear function
+        void clear() {
+            time_ = 0.0;
+            time_next_min_ = 0.0;
+            energy_.clear();
+            energy_sd_.clear();
+            de_sd_cum_ = 0.0;
+            n_act_single_ = n_act_group_ = n_init_single_ = n_init_group_ = 0;
+            index_offset_group_ = 0;
+            initial_system_flag_ = false;
+            modify_system_flag_ = false;
+
+            particles.clear();
+            groups.clear();
+            index_dt_sorted_single_.clear();
+            index_dt_sorted_group_.clear();
+            index_group_resolve_.clear();
+            index_group_cm_.clear();
+            index_group_mask_.clear();
+            table_group_mask_.clear();
+            table_single_mask_.clear();
+            pred_.clear();
+            force_.clear();
+            time_next_.clear();
+            neighbors.clear();
+            perturber.clear();
+            info.clear();
+            profile.clear();
+        }
+
+        //! reserve memory for system
+        /*! The memory size depends in the particles and groups memory sizes, thus particles and groups are reserved first
+         */
+        void reserveIntegratorMem() {
+            // reserve memory
+            const int nmax = particles.getSizeMax();
+            const int nmax_group = groups.getSizeMax();
+            const int nmax_tot = nmax + nmax_group;
+            ASSERT(nmax>0);
+
+            index_dt_sorted_single_.setMode(COMM::ListMode::local);
+            index_dt_sorted_group_.setMode(COMM::ListMode::local);
+            index_group_resolve_.setMode(COMM::ListMode::local);
+            index_group_cm_.setMode(COMM::ListMode::local);
+            index_group_mask_.setMode(COMM::ListMode::local);
+            table_group_mask_.setMode(COMM::ListMode::local);
+            table_single_mask_.setMode(COMM::ListMode::local);
+            pred_.setMode(COMM::ListMode::local);
+            force_.setMode(COMM::ListMode::local);
+            time_next_.setMode(COMM::ListMode::local);
+            neighbors.setMode(COMM::ListMode::local);
+            
+            index_dt_sorted_single_.reserveMem(nmax);
+            index_dt_sorted_group_.reserveMem(nmax_group);
+
+            index_group_resolve_.reserveMem(nmax_group);
+            index_group_cm_.reserveMem(nmax_group);
+
+            index_group_mask_.reserveMem(nmax_group);
+            table_group_mask_.reserveMem(nmax_group);
+            table_single_mask_.reserveMem(nmax);
+
+            // total allocation size includes both single and group c.m. size
+            index_offset_group_ = nmax;
+            pred_.reserveMem(nmax_tot);
+            force_.reserveMem(nmax_tot);
+            time_next_.reserveMem(nmax_tot);
+
+            // reserve for neighbor list
+            neighbors.reserveMem(nmax);
+            auto* nb_ptr = neighbors.getDataAddress();
+            for (int i=0; i<nmax; i++) {
+                nb_ptr[i].neighbor_address.setMode(COMM::ListMode::local);
+                nb_ptr[i].neighbor_address.reserveMem(nmax_tot);
+            }
         }
 
     private:
@@ -893,91 +1041,6 @@ namespace H4{
         
 
     public:
-        //! constructor
-        HermiteIntegrator(): time_(Float(0.0)), time_next_min_(Float(0.0)), 
-                             n_act_single_(0), n_act_group_(0), 
-                             n_init_single_(0), n_init_group_(0), 
-                             index_offset_group_(0), 
-                             initial_system_flag_(false), modify_system_flag_(false),
-                             index_dt_sorted_single_(), index_dt_sorted_group_(), 
-                             index_group_resolve_(), index_group_cm_(), 
-                             pred_(), force_(), time_next_(), 
-                             index_group_mask_(), table_group_mask_(), table_single_mask_(), 
-                             manager(NULL), ar_manager(NULL), particles(), groups(), neighbors(), perturber(), info(), profile() {}
-
-        //! clear function
-        void clear() {
-            time_ = 0.0;
-            time_next_min_ = 0.0;
-            n_act_single_ = n_act_group_ = n_init_single_ = n_init_group_ = 0;
-            index_offset_group_ = 0;
-            initial_system_flag_ = false;
-            modify_system_flag_ = false;
-
-            particles.clear();
-            groups.clear();
-            index_dt_sorted_single_.clear();
-            index_dt_sorted_group_.clear();
-            index_group_resolve_.clear();
-            index_group_cm_.clear();
-            index_group_mask_.clear();
-            table_group_mask_.clear();
-            table_single_mask_.clear();
-            pred_.clear();
-            force_.clear();
-            time_next_.clear();
-            neighbors.clear();
-            perturber.clear();
-            info.clear();
-            profile.clear();
-        }
-
-        //! reserve memory for system
-        /*! The memory size depends in the particles and groups memory sizes, thus particles and groups are reserved first
-         */
-        void reserveIntegratorMem() {
-            // reserve memory
-            const int nmax = particles.getSizeMax();
-            const int nmax_group = groups.getSizeMax();
-            const int nmax_tot = nmax + nmax_group;
-            ASSERT(nmax>0);
-
-            index_dt_sorted_single_.setMode(COMM::ListMode::local);
-            index_dt_sorted_group_.setMode(COMM::ListMode::local);
-            index_group_resolve_.setMode(COMM::ListMode::local);
-            index_group_cm_.setMode(COMM::ListMode::local);
-            index_group_mask_.setMode(COMM::ListMode::local);
-            table_group_mask_.setMode(COMM::ListMode::local);
-            table_single_mask_.setMode(COMM::ListMode::local);
-            pred_.setMode(COMM::ListMode::local);
-            force_.setMode(COMM::ListMode::local);
-            time_next_.setMode(COMM::ListMode::local);
-            neighbors.setMode(COMM::ListMode::local);
-            
-            index_dt_sorted_single_.reserveMem(nmax);
-            index_dt_sorted_group_.reserveMem(nmax_group);
-
-            index_group_resolve_.reserveMem(nmax_group);
-            index_group_cm_.reserveMem(nmax_group);
-
-            index_group_mask_.reserveMem(nmax_group);
-            table_group_mask_.reserveMem(nmax_group);
-            table_single_mask_.reserveMem(nmax);
-
-            // total allocation size includes both single and group c.m. size
-            index_offset_group_ = nmax;
-            pred_.reserveMem(nmax_tot);
-            force_.reserveMem(nmax_tot);
-            time_next_.reserveMem(nmax_tot);
-
-            // reserve for neighbor list
-            neighbors.reserveMem(nmax);
-            auto* nb_ptr = neighbors.getDataAddress();
-            for (int i=0; i<nmax; i++) {
-                nb_ptr[i].neighbor_address.setMode(COMM::ListMode::local);
-                nb_ptr[i].neighbor_address.reserveMem(nmax_tot);
-            }
-        }
 
         //! Initial system array
         /*!@param[in] _time_sys: current set time
@@ -1226,6 +1289,13 @@ namespace H4{
                 const int i = _break_group_index_with_offset[k] - index_offset_group_;
                 ASSERT(i>=0&&i<groups.getSize());
                 auto& groupi = groups[i];
+
+                // before break group, first accummulating de_sd_cum_
+                de_sd_cum_ += groupi.getDESlowDownCum();
+                // add the change due to the shutdown of slowdown (inner/outer)
+                Float kappa = groupi.slowdown.getSlowDownFactor();
+                de_sd_cum_ += groupi.getEkin() + groupi.getEpot() - (groupi.getEkinSlowDownInner() + groupi.getEpotSlowDownInner())/kappa;
+
                 const int n_member =groupi.particles.getSize();
                 int particle_index_origin[n_member];
                 int ibreak = groupi.info.getTwoBranchParticleIndexOriginFromBinaryTree(particle_index_origin, groupi.particles.getDataAddress());
@@ -2143,6 +2213,76 @@ namespace H4{
             }
         }
 
+        //! correct Etot slowdown reference due to the groups change
+        void correctEtotSlowDownRef() {
+            for (int i=0; i<groups.getSize(); i++) {
+                auto& gi = groups[i];
+                de_sd_cum_ += gi.getDESlowDownCum();
+                gi.resetDESlowDownCum();
+            } 
+        }
+
+        //! calculate slowdown energy
+        /*! @param[in] _initial_flag: if true, set energy reference
+         */
+        void calcEnergySlowDown(const bool _initial_flag = false) {
+            writeBackGroupMembers();
+            manager->interaction.calcEnergy(energy_, particles.getDataAddress(), particles.getSize(), groups.getDataAddress(), groups.getSize(), perturber);
+            correctEtotSlowDownRef();
+            // slowdown energy
+            energy_sd_.ekin = energy_.ekin;
+            energy_sd_.epot = energy_.epot;
+            energy_sd_.epert= energy_.epert;
+            for (int i=0; i<groups.getSize(); i++) {
+                auto& gi = groups[i];
+                Float kappa = gi.slowdown.getSlowDownFactor();
+                Float kappa_inv = 1.0/kappa;
+                energy_sd_.ekin -= gi.getEkin();
+                energy_sd_.epot -= gi.getEpot(); 
+#ifdef AR_TTL_SLOWDOWN_INNER
+                energy_sd_.ekin += kappa_inv * gi.getEkinSlowDownInner();
+                energy_sd_.epot += kappa_inv * gi.getEpotSlowDownInner();
+#else
+                energy_sd_.ekin += kappa_inv * gi.getEkin();
+                energy_sd_.epot += kappa_inv * gi.getEpot(); 
+#endif
+            }
+            if (_initial_flag) {
+                energy_.etot_ref = energy_.getEtot();
+            }
+            energy_sd_.etot_ref = energy_.etot_ref + de_sd_cum_;
+        }
+
+        //! get slowdown energy error
+        Float getEnergyErrorSlowDown() const {
+            return energy_sd_.getEnergyError();
+        }
+
+        //! get slowdown energy error
+        Float getEnergyError() const {
+            return energy_.getEnergyError();
+        }
+
+        //! get slowdown energy error
+        Float getEtot() const {
+            return energy_.getEtot();
+        }
+
+        //! get slowdown energy error
+        Float getEtotSlowDown() const {
+            return energy_sd_.getEtot();
+        }
+
+        //! get slowdown energy error
+        Float getDESlowDownCum() const {
+            return de_sd_cum_;
+        }
+
+        //! get slowdown energy error
+        void resetDESlowDownCum()  {
+            de_sd_cum_ = 0.0;
+        }
+
         //! get next time for intergration
         Float getNextTime() const {
             return time_next_min_;
@@ -2193,7 +2333,80 @@ namespace H4{
             return index_dt_sorted_group_.getDataAddress();
         }
 
-        
+        //! print titles of class members using column style
+        /*! print titles of class members in one line for column style
+          @param[out] _fout: std::ostream output object
+          @param[in] _width: print width
+          @param[in] _n_sd_list: AR inner slowdown numbers per group (list)
+          @param[in] _n_group: total AR group number
+          @param[in] _n_sd_tot: total slowdown numbers
+        */
+        void printColumnTitle(std::ostream & _fout, const int _width, const int _n_sd_list[], const int _n_group, const int _n_sd_tot) {
+            _fout<<std::setw(_width)<<"Time"
+                 <<std::setw(_width)<<"dE"
+                 <<std::setw(_width)<<"Etot_ref"
+                 <<std::setw(_width)<<"Ekin"
+                 <<std::setw(_width)<<"Epot"
+                 <<std::setw(_width)<<"Epert"
+                 <<std::setw(_width)<<"dE_SD"
+                 <<std::setw(_width)<<"Etot_SD_ref"
+                 <<std::setw(_width)<<"Ekin_SD"
+                 <<std::setw(_width)<<"Epot_SD"
+                 <<std::setw(_width)<<"Epert_SD"
+                 <<std::setw(_width)<<"N_SD";
+            AR::SlowDown sd_empty;
+            int n_sd_count = 0;
+            for (int i=0; i<_n_group; i++) {
+                n_sd_count += _n_sd_list[i];
+                for (int j=0; j<_n_sd_list[i]; j++) 
+                    sd_empty.printColumnTitle(_fout, _width);
+                sd_empty.printColumnTitle(_fout, _width);
+            }
+            ASSERT(_n_sd_tot == n_sd_count);
+            perturber.printColumnTitle(_fout, _width);
+            info.printColumnTitle(_fout, _width);
+            profile.printColumnTitle(_fout, _width);
+            particles.printColumnTitle(_fout, _width);
+        }    
+
+        //! print data of class members using column style
+        /*! print data of class members in one line for column style. Notice no newline is printed at the end
+          @param[out] _fout: std::ostream output object
+          @param[in] _width: print width
+          @param[in] _n_sd_list: AR inner slowdown numbers per group (list)
+          @param[in] _n_group: total AR group number
+          @param[in] _n_sd_tot: total slowdown numbers
+        */
+        void printColumn(std::ostream & _fout, const int _width, const int _n_sd_list[], const int _n_group, const int _n_sd_tot){
+            _fout<<std::setw(_width)<<time_;
+            energy_.printColumn(_fout, _width);
+            energy_sd_.printColumn(_fout, _width);
+            _fout<<std::setw(_width)<<_n_sd_tot + _n_group;
+            AR::SlowDown sd_empty;
+            int n_group_now = groups.getSize();
+            int n_sd_count = 0;
+            for (int i=0; i<_n_group; i++) {
+                n_sd_count += _n_sd_list[i];
+                if (i<n_group_now) {
+                    auto & gi = groups[i];
+                    int n_sd_in = gi.slowdown_inner.getSize();
+                    for (int j=0; j<_n_sd_list[i]; j++) {
+                        if (j<n_sd_in) gi.slowdown_inner[j].slowdown.printColumn(_fout, _width);
+                        else sd_empty.printColumn(_fout, _width);
+                    }
+                    gi.slowdown.printColumn(_fout, _width);
+                }
+                else {
+                    for (int j=0; j<_n_sd_list[i]; j++) sd_empty.printColumn(_fout, _width);
+                    sd_empty.printColumn(_fout, _width);
+                }
+            }
+            ASSERT(_n_sd_tot == n_sd_count);
+            perturber.printColumn(_fout, _width);
+            info.printColumn(_fout, _width);
+            profile.printColumn(_fout, _width);
+            particles.printColumn(_fout, _width);
+        }        
 
         //! print step histogram
         void printStepHist(){
