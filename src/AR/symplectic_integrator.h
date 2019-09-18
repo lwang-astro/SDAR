@@ -1676,9 +1676,10 @@ namespace AR {
         //! print titles of class members using column style
         /*! print titles of class members in one line for column style
           @param[out] _fout: std::ostream output object
-          @param[in] _width: print width (defaulted 20)
+          @param[in] _width: print width 
+          @param[in] _n_sd: slowdown inner group
         */
-        void printColumnTitle(std::ostream & _fout, const int _width=20) {
+        void printColumnTitle(std::ostream & _fout, const int _width=20, const int _n_sd=0) {
             _fout<<std::setw(_width)<<"Time_int"
                  <<std::setw(_width)<<"dE"
                  <<std::setw(_width)<<"Etot"
@@ -1697,10 +1698,10 @@ namespace AR {
                  <<std::setw(_width)<<"Ekin_SD_in" 
                  <<std::setw(_width)<<"Epot_SD_in";
             _fout<<std::setw(_width)<<"N_SD_in";
-            for (int i=0; i<slowdown_inner.getSize(); i++) {
+            for (int i=0; i<_n_sd; i++) {
                 _fout<<std::setw(_width)<<"I1"
                      <<std::setw(_width)<<"I2";
-                slowdown_inner[i].slowdown.printColumnTitle(_fout, _width);
+                slowdown.printColumnTitle(_fout, _width);
             }
 #endif
             slowdown.printColumnTitle(_fout, _width);
@@ -1713,9 +1714,10 @@ namespace AR {
         //! print data of class members using column style
         /*! print data of class members in one line for column style. Notice no newline is printed at the end
           @param[out] _fout: std::ostream output object
-          @param[in] _width: print width (defaulted 20)
+          @param[in] _width: print width 
+          @param[in] _n_sd: slowdown inner group
         */
-        void printColumn(std::ostream & _fout, const int _width=20){
+        void printColumn(std::ostream & _fout, const int _width=20, const int _n_sd=0){
             _fout<<std::setw(_width)<<time_
                  <<std::setw(_width)<<getEnergyError()
                  <<std::setw(_width)<<etot_
@@ -1733,10 +1735,19 @@ namespace AR {
                  <<std::setw(_width)<<ekin_sdi_ 
                  <<std::setw(_width)<<epot_sdi_;
             _fout<<std::setw(_width)<<slowdown_inner.getSize();
-            for (int i=0; i<slowdown_inner.getSize(); i++) {
-                _fout<<std::setw(_width)<<slowdown_inner[i].bin->getMemberIndex(0)
-                     <<std::setw(_width)<<slowdown_inner[i].bin->getMemberIndex(1);
-                slowdown_inner[i].slowdown.printColumn(_fout, _width);
+            int n_sd_now = slowdown_inner.getSize();
+            SlowDown sd_empty;
+            for (int i=0; i<_n_sd; i++) {
+                if (i<n_sd_now) {
+                    _fout<<std::setw(_width)<<slowdown_inner[i].bin->getMemberIndex(0)
+                         <<std::setw(_width)<<slowdown_inner[i].bin->getMemberIndex(1);
+                    slowdown_inner[i].slowdown.printColumn(_fout, _width);
+                }
+                else {
+                    _fout<<std::setw(_width)<<-1
+                         <<std::setw(_width)<<-1;
+                    sd_empty.printColumn(_fout, _width);
+                }
             }
 #endif
             slowdown.printColumn(_fout, _width);

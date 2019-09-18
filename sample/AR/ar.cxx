@@ -73,9 +73,9 @@ int main(int argc, char **argv){
             time_zero.value = atof(optarg);
             break;
         case 2:
-            if (strcmp(optarg,"none")) fix_step_option.value=0;
-            else if (strcmp(optarg,"always")) fix_step_option.value=1;
-            else if (strcmp(optarg,"later")) fix_step_option.value=2;
+            if (!strcmp(optarg,"none")) fix_step_option.value=0;
+            else if (!strcmp(optarg,"always")) fix_step_option.value=1;
+            else if (!strcmp(optarg,"later")) fix_step_option.value=2;
             else {
                 std::cerr<<"Error: fix step option unknown ("<<optarg<<"), should be always, later, none\n";
                 abort();
@@ -263,12 +263,17 @@ int main(int argc, char **argv){
     // precision
     std::cout<<std::setprecision(print_precision.value);
 
+#ifdef AR_TTL_SLOWDOWN_INNER
+    int n_sd = sym_int.slowdown_inner.getSize();
+#else
+    int n_sd = 0;
+#endif
     //print column title
-    sym_int.printColumnTitle(std::cout, print_width.value);
+    sym_int.printColumnTitle(std::cout, print_width.value, n_sd);
     std::cout<<std::endl;
 
     //print initial data
-    sym_int.printColumn(std::cout, print_width.value);
+    sym_int.printColumn(std::cout, print_width.value, n_sd);
     std::cout<<std::endl;
 
     
@@ -279,7 +284,7 @@ int main(int argc, char **argv){
         for (int i=0; i<nstep.value; i++) {
             if(n_particle==2) sym_int.integrateTwoOneStep(sym_int.info.ds, time_table);
             else sym_int.integrateOneStep(sym_int.info.ds, time_table);
-            sym_int.printColumn(std::cout, print_width.value);
+            sym_int.printColumn(std::cout, print_width.value, n_sd);
             std::cout<<std::endl;
         }
     }
@@ -288,7 +293,7 @@ int main(int argc, char **argv){
         for (int i=1; i<=nstep.value; i++) {
             sym_int.integrateToTime(time_step*i);
             sym_int.info.generateBinaryTree(sym_int.particles);
-            sym_int.printColumn(std::cout, print_width.value);
+            sym_int.printColumn(std::cout, print_width.value, n_sd);
             std::cout<<std::endl;
         }
     }

@@ -1425,7 +1425,7 @@ namespace H4{
         */
         void checkBreak(int* _break_group_index_with_offset, int& _n_break, const bool _start_flag) {
             // kappa_org criterion for break group kappa_org>kappa_org_crit
-            const Float kappa_org_crit = 1;
+            const Float kappa_org_crit = 1e-2;
 
             const int n_group_tot = index_dt_sorted_group_.getSize();
             for (int i=0; i<n_group_tot; i++) {
@@ -1631,7 +1631,7 @@ namespace H4{
                            const int _n_break, 
                            const bool _start_flag) {
             // kappa_org criterion for new group kappa_org>kappa_org_crit
-            const Float kappa_org_crit = 1.0;
+            const Float kappa_org_crit = 1e-2;
 
             const int n_particle = particles.getSize();
             const int n_group = groups.getSize();
@@ -1720,7 +1720,7 @@ namespace H4{
                         Float kappa_org = sd.getSlowDownFactorOrigin();
 
                         // avoid strong perturbed case, estimate perturbation
-                        // if fratiosq >1.5, avoid to form new group, should be consistent as checkbreak
+                        // if kappa_org < criterion, avoid to form new group, should be consistent as checkbreak
                         if(kappa_org<kappa_org_crit) continue;
 
 #ifdef ADJUST_GROUP_DEBUG
@@ -1732,13 +1732,14 @@ namespace H4{
                         }
                         else {
                             auto& bin_root = groups[j-index_offset_group_].info.binarytree.getLastMember();
-                            std::cerr<<"Find new group: time: "<<time_<<" dr: "<<sqrt(dr2)
-                                     <<"\n       index      slowdown      apo      kappa_org \n"
+                            std::cerr<<"Find new group: time: "<<time_
+                                     <<" dr: "<<sqrt(dr2)
+                                     <<" kappa_org: "<<kappa_org<<"\n"
+                                     <<"       index         slowdown          apo \n"
                                      <<"i1 "
                                      <<std::setw(8)<<i
                                      <<std::setw(16)<<0
-                                     <<std::setw(16)<<0
-                                     <<std::setw(16)<<kappa_org;
+                                     <<std::setw(16)<<0;
                             std::cerr<<"\ni2 "
                                      <<std::setw(8)<<j
                                      <<std::setw(16)<<groups[j-index_offset_group_].slowdown.getSlowDownFactorOrigin()
@@ -1834,13 +1835,14 @@ namespace H4{
 
 #ifdef ADJUST_GROUP_DEBUG
                         auto& bini = groupi.info.binarytree.getLastMember();
-                        std::cerr<<"Find new group: time: "<<time_<<" dr: "<<sqrt(dr2)
-                                 <<"\n       index      slowdown       apo      kappa_org \n"
+                        std::cerr<<"Find new group: time: "<<time_
+                                 <<" dr: "<<sqrt(dr2)
+                                 <<" kappa_org: "<<kappa_org
+                                 <<"\n       index        slowdown         apo  \n"
                                  <<"i1 "
                                  <<std::setw(8)<<i
                                  <<std::setw(16)<<kappa_org_i
-                                 <<std::setw(16)<<bini.semi*(1.0+bini.ecc)
-                                 <<std::setw(16)<<kappa_org;
+                                 <<std::setw(16)<<bini.semi*(1.0+bini.ecc);
                         if(j<index_offset_group_) {
                             std::cerr<<"\ni2 "
                                      <<std::setw(8)<<j
