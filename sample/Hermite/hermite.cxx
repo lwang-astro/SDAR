@@ -49,7 +49,9 @@ int main(int argc, char **argv){
     COMM::IOParams<double> eps_sq       (input_par_store, 0.0,  "softerning parameter");    // softening parameter
     COMM::IOParams<double> G            (input_par_store, 1.0,  "gravitational constant");      // gravitational constant
     COMM::IOParams<double> slowdown_ref (input_par_store, 1e-6, "slowdown perturbation ratio reference"); // slowdown reference factor
+#ifdef SLOWDOWN_MASSRATIO
     COMM::IOParams<double> slowdown_mass_ref (input_par_store, 0.0, "slowdowm mass reference","averaged mass"); // slowdown mass reference
+#endif
     COMM::IOParams<double> slowdown_timescale_max (input_par_store, 0.0, "maximum timescale for maximum slowdown factor","time-end"); // slowdown timescale
     COMM::IOParams<std::string> filename_par (input_par_store, "", "filename to load manager parameters","input name"); // par dumped filename
 
@@ -67,7 +69,9 @@ int main(int argc, char **argv){
         {"eta-2nd",required_argument, 0, 9},
         {"eps",required_argument, 0, 10},
         {"slowdown-ref",required_argument, 0, 11},
+#ifdef SLOWDOWN_MASSRATIO
         {"slowdown-mass-ref",required_argument, 0, 12},
+#endif
         {"slowdown-timescale-max",required_argument, 0, 13},
         {"print-width",required_argument, 0, 14},
         {"print-precision",required_argument, 0, 15},
@@ -105,9 +109,11 @@ int main(int argc, char **argv){
         case 11:
             slowdown_ref.value = atof(optarg);
             break;
+#ifdef SLOWDOWN_MASSRATIO
         case 12:
             slowdown_mass_ref.value = atof(optarg);
             break;
+#endif
         case 13:
             slowdown_timescale_max.value = atof(optarg);
             break;
@@ -174,7 +180,9 @@ int main(int argc, char **argv){
                      <<"          --r-break      [Float]: same as -r\n"
                      <<"    -R [Float]:  "<<r_search<<"\n"
                      <<"          --slowdown-ref:           [Float]: "<<slowdown_ref<<"\n"
+#ifdef SLOWDOWN_MASSRATIO
                      <<"          --slowdown-mass-ref       [Float]: "<<slowdown_mass_ref<<"\n"
+#endif
                      <<"          --slowdown-timescale-max: [Float]: "<<slowdown_timescale_max<<"\n"
                      <<"    -t [Float]:  "<<time_end<<"\n"
                      <<"          --time-start   [Float]:  "<<time_zero<<"\n"
@@ -254,8 +262,10 @@ int main(int argc, char **argv){
         
     Float m_ave = h4_int.particles.cm.mass/h4_int.particles.getSize();
     manager.step.calcAcc0OffsetSq(m_ave, r_search.value);
+#ifdef SLOWDOWN_MASSRATIO
     if (slowdown_mass_ref.value<=0.0) ar_manager.slowdown_mass_ref = m_ave;
     else ar_manager.slowdown_mass_ref = slowdown_mass_ref.value;
+#endif
 
     // print parameters
     manager.print(std::cerr);

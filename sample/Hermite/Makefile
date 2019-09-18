@@ -14,8 +14,8 @@ use_x86=yes
 ## compiler-------------------------------------------#
 ifeq ($(use_x86),yes)
 CXX= g++
-#CXXFLAGS += -O2 -Wall
-CXXFLAGS += -g -fbounds-check -Wall -O0
+CXXFLAGS += -O2 -Wall
+#CXXFLAGS += -g -fbounds-check -Wall -O0
 endif
 
 ifeq ($(use_k_computer),yes)
@@ -42,7 +42,7 @@ CXXFLAGS += -D ADJUST_GROUP_DEBUG
 CXXFLAGS += -I../../src -I./
 CXXFLAGS += -std=c++11
 CXXFLAGS += -D SLOWDOWN_TIMESCALE
-CXXFLAGS += -D SLOWDOWN_MASSRATIO
+#CXXFLAGS += -D SLOWDOWN_MASSRATIO
 CXXFLAGS += -D AR_TTL
 CXXFLAGS += -D AR_TTL_SLOWDOWN_INNER
 CXXFLAGS += -D AR_TTL_GT_BINARY_INNER
