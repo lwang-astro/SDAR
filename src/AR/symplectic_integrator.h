@@ -366,20 +366,24 @@ namespace AR {
                 ASSERT(sdi.bin!=NULL);
                 Float kappa = sdi.slowdown.getSlowDownFactor();
                 Float kappa_inv = 1.0/kappa;
+                Float* velcm = sdi.bin->getVel();
                 for (int k=0; k<2; k++) {
                     int j = sdi.bin->getMemberIndex(k);
                     if (j>=0) {
                         ASSERT(j<particles.getSize());
                         Float* gtgrad=force_[j].gtgrad;
                         Float* vel = particles[j].getVel();
+                        Float vrel[3] = { vel[0] - velcm[0], 
+                                          vel[1] - velcm[1], 
+                                          vel[2] - velcm[2]}; 
 #ifdef AR_TTL_GT_BINARY_INNER
-                        dg +=  (vel[0] * kappa_inv* gtgrad[0] +
-                                vel[1] * kappa_inv* gtgrad[1] +
-                                vel[2] * kappa_inv* gtgrad[2]);
+                        dg +=  ((vrel[0] * kappa_inv + velcm[0])* gtgrad[0] +
+                                (vrel[1] * kappa_inv + velcm[1])* gtgrad[1] +
+                                (vrel[2] * kappa_inv + velcm[2])* gtgrad[2]);
 #else
-                        dg +=  (vel[0] * (kappa_inv-1)* gtgrad[0] +
-                                vel[1] * (kappa_inv-1)* gtgrad[1] +
-                                vel[2] * (kappa_inv-1)* gtgrad[2]);
+                        dg +=  (vrel[0] * (kappa_inv-1)* gtgrad[0] +
+                                vrel[1] * (kappa_inv-1)* gtgrad[1] +
+                                vrel[2] * (kappa_inv-1)* gtgrad[2]);
 #endif
                     }
                 }
@@ -809,6 +813,10 @@ namespace AR {
                 // back up gt_kick 
                 gt_kick_ = gt_kick;
 
+#ifdef AR_TTL_SLOWDOWN_INNER
+                // update c.m. of binaries 
+                updateCenterOfMassForBinaryWithSlowDownInner();
+#endif
                 // kick total energy and time transformation factor for drift
                 kickEtotAndGTDrift(dt_kick);
 #else
