@@ -1288,14 +1288,11 @@ namespace H4{
             for (int k=0; k<_n_break; k++) {
                 const int i = _break_group_index_with_offset[k] - index_offset_group_;
                 ASSERT(i>=0&&i<groups.getSize());
-                auto& groupi = groups[i];
 
                 // before break group, first accummulating de_sd_cum_
-                de_sd_cum_ += groupi.getDESlowDownCum();
-                // add the change due to the shutdown of slowdown (inner/outer)
-                Float kappa = groupi.slowdown.getSlowDownFactor();
-                de_sd_cum_ += groupi.getEkin() + groupi.getEpot() - (groupi.getEkinSlowDownInner() + groupi.getEpotSlowDownInner())/kappa;
+                accumDESlowDownBreakGroup(i);
 
+                auto& groupi = groups[i];
                 const int n_member =groupi.particles.getSize();
                 int particle_index_origin[n_member];
                 int ibreak = groupi.info.getTwoBranchParticleIndexOriginFromBinaryTree(particle_index_origin, groupi.particles.getDataAddress());
@@ -1376,6 +1373,10 @@ namespace H4{
             // only clear case
             for (int k=_n_break; k<_n_break+_n_break_no_add; k++) {
                 const int i = _break_group_index_with_offset[k] - index_offset_group_;
+
+                // before break group, first accummulating de_sd_cum_
+                accumDESlowDownBreakGroup(i);
+
                 auto& groupi = groups[i];
                 groupi.particles.shiftToOriginFrame();
                 groupi.particles.template writeBackMemberAll<Tparticle>();
@@ -2214,7 +2215,20 @@ namespace H4{
         }
 
         //! correct Etot slowdown reference due to the groups change
-        void correctEtotSlowDownRef() {
+        /*! @param[in] _igroup: group index to accumulative de_sd_cum
+         */
+        void accumDESlowDownBreakGroup(const int _igroup) {
+            auto& groupi = groups[_igroup];
+            de_sd_cum_ += groupi.getDESlowDownCum();
+            // add the change due to the shutdown of slowdown (inner/outer)
+            Float kappa = groupi.slowdown.getSlowDownFactor();
+            Float etot = groupi.getEkin() + groupi.getEpot();
+            Float etot_sdi = groupi.getEkinSlowDownInner() + groupi.getEpotSlowDownInner();
+            de_sd_cum_ += etot - etot_sdi/kappa;
+        }
+
+        //! correct Etot slowdown reference due to the groups change
+        void accumDESlowDown() {
             for (int i=0; i<groups.getSize(); i++) {
                 auto& gi = groups[i];
                 de_sd_cum_ += gi.getDESlowDownCum();
@@ -2228,7 +2242,7 @@ namespace H4{
         void calcEnergySlowDown(const bool _initial_flag = false) {
             writeBackGroupMembers();
             manager->interaction.calcEnergy(energy_, particles.getDataAddress(), particles.getSize(), groups.getDataAddress(), groups.getSize(), perturber);
-            correctEtotSlowDownRef();
+            accumDESlowDown();
             // slowdown energy
             energy_sd_.ekin = energy_.ekin;
             energy_sd_.epot = energy_.epot;

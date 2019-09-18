@@ -1026,12 +1026,14 @@ namespace AR {
             // particle data
             const int n_particle = particles.getSize();
 
+/* This must suppress since after findslowdowninner, slowdown inner is reset to 1.0, recalculate ekin_sdi give completely wrong value for energy correction for slowdown change later
 #ifdef AR_DEBUG
             Float ekin_check = ekin_;
             calcEKin();
             ASSERT(abs(ekin_check-ekin_)<1e-10);
             ekin_ = ekin_check;
 #endif
+*/
 
 #ifdef AR_DEBUG_DUMP
             // back up initial data
