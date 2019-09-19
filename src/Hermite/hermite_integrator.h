@@ -152,7 +152,7 @@ namespace H4{
         // Energy
         HermiteEnergy energy_; // true energy
         HermiteEnergy energy_sd_;  // slowdown energy
-        Float de_sd_cum_;   //cumulative slowdown energy change due to slowdown factor change
+        Float de_sd_change_cum_;   //cumulative slowdown energy change due to slowdown factor change
 
         // active particle number
         int n_act_single_;    /// active particle number of singles
@@ -214,7 +214,7 @@ namespace H4{
         //! constructor
         HermiteIntegrator(): time_(0.0), time_next_min_(0.0), 
                              energy_(), energy_sd_(),
-                             de_sd_cum_(0.0),
+                             de_sd_change_cum_(0.0),
                              n_act_single_(0), n_act_group_(0), 
                              n_init_single_(0), n_init_group_(0), 
                              index_offset_group_(0), 
@@ -231,7 +231,7 @@ namespace H4{
             time_next_min_ = 0.0;
             energy_.clear();
             energy_sd_.clear();
-            de_sd_cum_ = 0.0;
+            de_sd_change_cum_ = 0.0;
             n_act_single_ = n_act_group_ = n_init_single_ = n_init_group_ = 0;
             index_offset_group_ = 0;
             initial_system_flag_ = false;
@@ -1289,8 +1289,8 @@ namespace H4{
                 const int i = _break_group_index_with_offset[k] - index_offset_group_;
                 ASSERT(i>=0&&i<groups.getSize());
 
-                // before break group, first accummulating de_sd_cum_
-                accumDESlowDownBreakGroup(i);
+                // before break group, first accummulating de_sd_change_cum_
+                accumDESlowDownChangeBreakGroup(i);
 
                 auto& groupi = groups[i];
                 const int n_member =groupi.particles.getSize();
@@ -1374,8 +1374,8 @@ namespace H4{
             for (int k=_n_break; k<_n_break+_n_break_no_add; k++) {
                 const int i = _break_group_index_with_offset[k] - index_offset_group_;
 
-                // before break group, first accummulating de_sd_cum_
-                accumDESlowDownBreakGroup(i);
+                // before break group, first accummulating de_sd_change_cum_
+                accumDESlowDownChangeBreakGroup(i);
 
                 auto& groupi = groups[i];
                 groupi.particles.shiftToOriginFrame();
@@ -1589,11 +1589,11 @@ namespace H4{
                                         // if slowdown factor is large, break the group
                                         if (kappa_in_max>5.0) {
                                             // avoid quit at high energy error phase
-                                            if (abs(groupk.getEnergyError()/groupk.getEtot())<100.0/(1-std::min(bin_sub->ecc,bin_root.ecc))*groupk.manager->energy_error_relative_max) {
+                                            if (abs(groupk.getEnergyError()/groupk.getEtotRef())<100.0/(1-std::min(bin_sub->ecc,bin_root.ecc))*groupk.manager->energy_error_relative_max) {
 #ifdef ADJUST_GROUP_DEBUG
                                                 std::cerr<<"Break group: inner kappa large, time: "<<time_<<" i_group: "<<k<<" i_member: "<<j<<" kappa_in:"<<kappa_in<<" kappa_in(max):"<<kappa_in_max
                                                          <<" Energy error:"<<groupk.getEnergyError()
-                                                         <<" Etot:"<<groupk.getEtot()
+                                                         <<" Etot ref:"<<groupk.getEtotRef()
                                                          <<" ecc(in):"<<bin_sub->ecc
                                                          <<" ecc(out):"<<bin_root.ecc
                                                          <<std::endl;
@@ -2217,24 +2217,24 @@ namespace H4{
         }
 
         //! correct Etot slowdown reference due to the groups change
-        /*! @param[in] _igroup: group index to accumulative de_sd_cum
+        /*! @param[in] _igroup: group index to accumulative de_sd_change_cum
          */
-        void accumDESlowDownBreakGroup(const int _igroup) {
+        void accumDESlowDownChangeBreakGroup(const int _igroup) {
             auto& groupi = groups[_igroup];
-            de_sd_cum_ += groupi.getDESlowDownCum();
+            de_sd_change_cum_ += groupi.getDESlowDownChangeCum();
             // add the change due to the shutdown of slowdown (inner/outer)
             Float kappa = groupi.slowdown.getSlowDownFactor();
             Float etot = groupi.getEkin() + groupi.getEpot();
             Float etot_sdi = groupi.getEkinSlowDownInner() + groupi.getEpotSlowDownInner();
-            de_sd_cum_ += etot - etot_sdi/kappa;
+            de_sd_change_cum_ += etot - etot_sdi/kappa;
         }
 
         //! correct Etot slowdown reference due to the groups change
-        void accumDESlowDown() {
+        void accumDESlowDownChange() {
             for (int i=0; i<groups.getSize(); i++) {
                 auto& gi = groups[i];
-                de_sd_cum_ += gi.getDESlowDownCum();
-                gi.resetDESlowDownCum();
+                de_sd_change_cum_ += gi.getDESlowDownChangeCum();
+                gi.resetDESlowDownChangeCum();
             } 
         }
 
@@ -2244,7 +2244,7 @@ namespace H4{
         void calcEnergySlowDown(const bool _initial_flag = false) {
             writeBackGroupMembers();
             manager->interaction.calcEnergy(energy_, particles.getDataAddress(), particles.getSize(), groups.getDataAddress(), groups.getSize(), perturber);
-            accumDESlowDown();
+            accumDESlowDownChange();
             // slowdown energy
             energy_sd_.ekin = energy_.ekin;
             energy_sd_.epot = energy_.epot;
@@ -2266,7 +2266,7 @@ namespace H4{
             if (_initial_flag) {
                 energy_.etot_ref = energy_.getEtot();
             }
-            energy_sd_.etot_ref = energy_.etot_ref + de_sd_cum_;
+            energy_sd_.etot_ref = energy_.etot_ref + de_sd_change_cum_;
         }
 
         //! get slowdown energy error
@@ -2290,13 +2290,33 @@ namespace H4{
         }
 
         //! get slowdown energy error
-        Float getDESlowDownCum() const {
-            return de_sd_cum_;
+        Float getEkin() const {
+            return energy_.ekin;
         }
 
         //! get slowdown energy error
-        void resetDESlowDownCum()  {
-            de_sd_cum_ = 0.0;
+        Float getEkinSlowDown() const {
+            return energy_sd_.ekin;
+        }
+
+        //! get slowdown energy error
+        Float getEpot() const {
+            return energy_.epot;
+        }
+
+        //! get slowdown energy error
+        Float getEpotSlowDown() const {
+            return energy_sd_.epot;
+        }
+
+        //! get slowdown energy error
+        Float getDESlowDownChangeCum() const {
+            return de_sd_change_cum_;
+        }
+
+        //! get slowdown energy error
+        void resetDESlowDownChangeCum()  {
+            de_sd_change_cum_ = 0.0;
         }
 
         //! get next time for intergration
