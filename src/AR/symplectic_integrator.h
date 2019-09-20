@@ -1128,7 +1128,14 @@ namespace AR {
                 Float energy_error = getEnergyError();
 #endif
                 Float energy_error_diff = energy_error - energy_error_bk;
-                Float energy_error_rel_abs = abs(energy_error_diff/etot_ref_bk);
+
+                // get energy error for extended Hamiltonian
+#ifdef AR_TTL
+                Float energy_error_rel_abs = abs(energy_error_diff*gt_drift_inv_/etot_ref_bk);
+#else
+                Float gt_drift = manager->interaction.calcGTDrift(ekin_-etot_ref_);
+                Float energy_error_rel_abs = abs(energy_error_diff/(gt_drift*etot_ref_bk));
+#endif
 
                 // time error
                 Float time_diff_real_rel = (_time_end_real - time_real)/dt_real_full;
@@ -1145,6 +1152,7 @@ namespace AR {
                                  <<" ds(used): "<<ds[ds_switch]
                                  <<" ds(next): "<<ds[1-ds_switch]
                                  <<" Energy_error_rel_abs: "<<energy_error_rel_abs
+                                 <<" Fix step option: "<<static_cast<typename std::underlying_type<FixStepOption>::type>(info.fix_step_option)
                                  <<std::endl;
                         printColumnTitle(std::cerr);
                         std::cerr<<std::endl;
@@ -1167,6 +1175,7 @@ namespace AR {
                              <<" ds_backup: "<<ds_backup
                              <<" Energy_error_rel_abs: "<<energy_error_rel_abs
                              <<" Step_count: "<<step_count
+                             <<" Fix step option: "<<static_cast<typename std::underlying_type<FixStepOption>::type>(info.fix_step_option)
                              <<std::endl;
                     printColumnTitle(std::cerr);
                     std::cerr<<std::endl;

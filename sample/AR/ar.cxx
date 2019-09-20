@@ -73,9 +73,9 @@ int main(int argc, char **argv){
             time_zero.value = atof(optarg);
             break;
         case 2:
-            if (!strcmp(optarg,"none")) fix_step_option.value=0;
-            else if (!strcmp(optarg,"always")) fix_step_option.value=1;
-            else if (!strcmp(optarg,"later")) fix_step_option.value=2;
+            if (!strcmp(optarg,"none")) fix_step_option.value=2;
+            else if (!strcmp(optarg,"always")) fix_step_option.value=0;
+            else if (!strcmp(optarg,"later")) fix_step_option.value=1;
             else {
                 std::cerr<<"Error: fix step option unknown ("<<optarg<<"), should be always, later, none\n";
                 abort();
@@ -245,13 +245,13 @@ int main(int argc, char **argv){
     // use input fix step option
     if (fix_step_option.value>=0) {
         switch (fix_step_option.value) {
-        case 0:
+        case 2:
             sym_int.info.fix_step_option = FixStepOption::none;
             break;
-        case 1:
+        case 0:
             sym_int.info.fix_step_option = FixStepOption::always;
             break;
-        case 2:
+        case 1:
             sym_int.info.fix_step_option = FixStepOption::later;
             break;
         }
