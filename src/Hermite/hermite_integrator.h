@@ -2231,7 +2231,12 @@ namespace H4{
 
         //! correct Etot slowdown reference due to the groups change
         void accumDESlowDownChange() {
-            for (int i=0; i<groups.getSize(); i++) {
+            const int n_group = index_dt_sorted_group_.getSize();
+            ASSERT(n_group <= groups.getSize());
+            for (int k=0; k<n_group; k++) {
+                const int i = index_dt_sorted_group_[k];
+                ASSERT(i<groups.getSize());
+                ASSERT(i>=0);
                 auto& gi = groups[i];
                 de_sd_change_cum_ += gi.getDESlowDownChangeCum();
                 gi.resetDESlowDownChangeCum();
@@ -2243,7 +2248,7 @@ namespace H4{
          */
         void calcEnergySlowDown(const bool _initial_flag = false) {
             writeBackGroupMembers();
-            manager->interaction.calcEnergy(energy_, particles.getDataAddress(), particles.getSize(), groups.getDataAddress(), groups.getSize(), perturber);
+            manager->interaction.calcEnergy(energy_, particles.getDataAddress(), particles.getSize(), groups.getDataAddress(), index_dt_sorted_group_.getDataAddress(), index_dt_sorted_group_.getSize(), perturber);
             accumDESlowDownChange();
             // slowdown energy
             energy_sd_.ekin = energy_.ekin;
@@ -2274,47 +2279,75 @@ namespace H4{
             return energy_sd_.getEnergyError();
         }
 
-        //! get slowdown energy error
+        //! get energy error 
+        /*! \return energy error
+         */
         Float getEnergyError() const {
             return energy_.getEnergyError();
         }
 
-        //! get slowdown energy error
+        //! Get current total energy from ekin and epot
+        /*! \return total integrated energy 
+         */
         Float getEtot() const {
             return energy_.getEtot();
         }
 
-        //! get slowdown energy error
+        //! Get current total integrated energy 
+        /*! \return total integrated energy 
+         */
+        Float getEtotRef() const {
+            return energy_.etot_ref;
+        }
+
+        //! Get current total energy with slowdown from ekin_sd and epot_sd
+        /*! \return total energy with slowdown
+         */
         Float getEtotSlowDown() const {
             return energy_sd_.getEtot();
         }
 
-        //! get slowdown energy error
+        //! Get current total integrated energy with inner slowdown
+        /*! \return total integrated energy with inner slowdown
+         */
+        Float getEtotSlowDownRef() const {
+            return energy_sd_.etot_ref;
+        }
+
+        //! Get current kinetic energy
+        /*! \return current kinetic energy
+         */
         Float getEkin() const {
             return energy_.ekin;
         }
 
-        //! get slowdown energy error
+        //! Get current kinetic energy with slowdown
+        /*! \return current slowdown kinetic energy
+         */
         Float getEkinSlowDown() const {
             return energy_sd_.ekin;
         }
 
-        //! get slowdown energy error
+        //! Get current potential energy
+        /*! \return current potetnial energy (negative value for bounded systems)
+         */
         Float getEpot() const {
             return energy_.epot;
         }
 
-        //! get slowdown energy error
+        //! Get current potential energy with slowdown
+        /*! \return current potetnial energy with slowdown (negative value for bounded systems)
+         */
         Float getEpotSlowDown() const {
             return energy_sd_.epot;
         }
 
-        //! get slowdown energy error
+        //! get cumulative energy change due to slowdown change
         Float getDESlowDownChangeCum() const {
             return de_sd_change_cum_;
         }
 
-        //! get slowdown energy error
+        //! reset cumulative energy change due to slowdown change
         void resetDESlowDownChangeCum()  {
             de_sd_change_cum_ = 0.0;
         }

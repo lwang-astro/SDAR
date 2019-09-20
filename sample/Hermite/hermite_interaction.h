@@ -339,11 +339,12 @@ public:
       @param[in] _particles: (all) particle list
       @param[in] _n_particle: number of particles
       @param[in] _groups: group list
+      @param[in] _group_index: active groups index array for energy calculation
       @param[in] _n_group: number of groups
       @param[in] _perturber: perturber 
      */
     template<class Tp, class Tgroup, class Tpert>
-    inline void calcEnergy(H4::HermiteEnergy& _energy, const Tp* _particles, const int _n_particle, const Tgroup* _groups, const int _n_group, const Tpert& _perturber) {
+    inline void calcEnergy(H4::HermiteEnergy& _energy, const Tp* _particles, const int _n_particle, const Tgroup* _groups, const int* _group_index, const int _n_group, const Tpert& _perturber) {
         _energy.ekin = _energy.epot = _energy.epert = 0.0;
         for (int i=0; i<_n_particle; i++) {
             auto& pi = _particles[i];

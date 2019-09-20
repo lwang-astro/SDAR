@@ -189,7 +189,19 @@ namespace AR {
          */
         void clear() {
             time_ = 0.0;
+            etot_ref_ =0.0;
+            ekin_ = 0.0;
+            epot_ = 0.0;
             de_sd_change_cum_ = 0.0;
+#ifdef AR_TTL
+            gt_drift_inv_ = 0.0;
+            gt_kick_ = 0.0;
+#ifdef AR_TTL_SLOWDOWN_INNER
+            ekin_sdi_ = 0.0;
+            epot_sdi_ = 0.0;
+            etot_sdi_ref_ = 0.0;
+#endif
+#endif
             force_.clear();
             particles.clear();
 #ifdef AR_TTL_SLOWDOWN_INNER
@@ -1570,35 +1582,35 @@ namespace AR {
 
 #ifdef AR_TTL_SLOWDOWN_INNER
         //! Get current kinetic energy with inner slowdown
-        /*! \return current kinetic energy
+        /*! \return current kinetic energy with inner slowdown
          */
         Float getEkinSlowDownInner() const {
             return ekin_sdi_;
         }
 
         //! Get current potential energy with inner slowdown
-        /*! \return current potetnial energy (negative value for bounded systems)
+        /*! \return current potetnial energy with inner slowdown (negative value for bounded systems)
          */
         Float getEpotSlowDownInner() const {
             return epot_sdi_;
         }
 
         //! Get current total integrated energy with inner slowdown
-        /*! \return total integrated energy 
+        /*! \return total integrated energy with inner slowdown
          */
         Float getEtotSlowDownInnerRef() const {
             return etot_sdi_ref_;
         }
 
         //! Get current total energy with inner slowdown from ekin_sdi and epot_sdi
-        /*! \return total integrated energy 
+        /*! \return total energy with inner slowdown
          */
         Float getEtotSlowDownInner() const {
             return ekin_sdi_ + epot_sdi_;
         }
 
         //! get energy error with inner slowdown
-        /*! \return energy error
+        /*! \return energy error with inner slowdown
          */
         Float getEnergyErrorSlowDownInner() const {
             return ekin_sdi_ + epot_sdi_ - etot_sdi_ref_;
