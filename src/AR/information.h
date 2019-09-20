@@ -61,8 +61,8 @@ namespace AR {
             ds = getBinaryTreeRoot().processRootIter(ds, calcDsKeplerIter);
             // Avoid too small step
             //if (_sd_org<1.0) ds *= std::max(1.0/8.0*pow(_sd_org, 1.0/Float(_int_order)),0.125);
-            auto& bin_root = getBinaryTreeRoot();
-            const int n_particle = bin_root.getMemberN();
+            //auto& bin_root = getBinaryTreeRoot();
+            //const int n_particle = bin_root.getMemberN();
 
             // determine the fix step option
             fix_step_option = FixStepOption::later;
