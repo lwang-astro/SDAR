@@ -65,21 +65,21 @@ namespace AR {
             const int n_particle = bin_root.getMemberN();
 
             // determine the fix step option
-            fix_step_option = FixStepOption::none;
-            // for two-body case, determine the step at begining then fix
-            if (n_particle==2) fix_step_option = AR::FixStepOption::later;
-            // for multiple case, check whether outer peri-center is close to inner apo-center, if not, use fix step
-            if (n_particle>2) {
-                Float apo_in_max = 0;
-                for (int j=0; j<2; j++) {
-                    if (bin_root.getMember(j)->id<0) {
-                        auto* bin_sub = (COMM::BinaryTree<Tparticle>*) bin_root.getMember(j);
-                        apo_in_max = std::max(apo_in_max,bin_sub->semi*(1+bin_sub->ecc));
-                    }
-                }
-                Float peri_out = bin_root.semi*(1-bin_root.ecc);
-                if (peri_out>3*apo_in_max) fix_step_option = FixStepOption::later;
-            }
+            fix_step_option = FixStepOption::later;
+            //// for two-body case, determine the step at begining then fix
+            //if (n_particle==2) fix_step_option = AR::FixStepOption::later;
+            //// for multiple case, check whether outer peri-center is close to inner apo-center, if not, use fix step
+            //if (n_particle>2) {
+            //    Float apo_in_max = 0;
+            //    for (int j=0; j<2; j++) {
+            //        if (bin_root.getMember(j)->id<0) {
+            //            auto* bin_sub = (COMM::BinaryTree<Tparticle>*) bin_root.getMember(j);
+            //            apo_in_max = std::max(apo_in_max,bin_sub->semi*(1+bin_sub->ecc));
+            //        }
+            //    }
+            //    Float peri_out = bin_root.semi*(1-bin_root.ecc);
+            //    if (peri_out>3*apo_in_max) fix_step_option = FixStepOption::later;
+            //}
         }
 
         //! generate binary tree for a particle group
