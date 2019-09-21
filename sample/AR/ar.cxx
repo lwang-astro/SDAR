@@ -10,6 +10,7 @@
 #include <cassert>
 
 #define ASSERT(x) assert(x)
+#define DATADUMP(expr) 
 
 #include "Common/Float.h"
 #include "Common/binary_tree.h"

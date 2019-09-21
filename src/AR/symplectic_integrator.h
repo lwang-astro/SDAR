@@ -1129,31 +1129,44 @@ namespace AR {
 #endif
                 Float energy_error_diff = energy_error - energy_error_bk;
 
-                // get energy error for extended Hamiltonian
+                Float energy_error_rel_abs = abs(energy_error_diff/etot_ref_bk);
+
+                // get integration error for extended Hamiltonian
 #ifdef AR_TTL
-                Float energy_error_rel_abs = abs(energy_error_diff*gt_drift_inv_/etot_ref_bk);
+                Float integration_error_rel_abs = energy_error_rel_abs*gt_drift_inv_;
+                Float integration_error_rel_cum_abs = abs(energy_error*gt_drift_inv_/etot_ref_bk);
 #else
                 Float gt_drift = manager->interaction.calcGTDrift(ekin_-etot_ref_);
-                Float energy_error_rel_abs = abs(energy_error_diff/(gt_drift*etot_ref_bk));
+                Float integration_error_rel_abs = energy_error_rel_abs/gt_drift;
+                Float integration_error_rel_cum_abs = abs(energy_error/(gt_drift*etot_ref_bk));
 #endif
 
                 // time error
                 Float time_diff_real_rel = (_time_end_real - time_real)/dt_real_full;
+
+                // error message print
+                auto printMessage = [&]() {
+                    std::cerr<<"  T: "<<this->time_
+                             <<"  T_real: "<<time_real
+                             <<"  dT_err/T: "<<time_diff_real_rel
+                             <<"  ds: "<<ds[ds_switch]
+                             <<"  ds(in): "<<info.ds
+                             <<"  |Int_err/E|: "<<integration_error_rel_abs
+                             <<"  |Int_err_cum/E|: "<<integration_error_rel_cum_abs
+                             <<"  |dE/E|: "<<energy_error_rel_abs
+                             <<"  dE_cum: "<<energy_error
+                             <<"  Etot(SD): "<<etot_ref_bk
+                             <<"  T_end: "<<time_end_flag
+                             <<"  Fix: "<<static_cast<typename std::underlying_type<FixStepOption>::type>(info.fix_step_option)
+                             <<std::endl;
+                };
 
 #ifdef AR_WARN
                 // warning for large number of steps
                 if(step_count>=manager->step_count_max) {
                     if(step_count%manager->step_count_max==0) {
                         std::cerr<<"Warning: step count is signficiant large "<<step_count<<std::endl;
-                        std::cerr<<"Time(int): "<<time_
-                                 <<" Time(real): "<<time_real
-                                 <<" Time_end(real): "<<_time_end_real
-                                 <<" Time_diff_rel(real): "<<time_diff_real_rel
-                                 <<" ds(used): "<<ds[ds_switch]
-                                 <<" ds(next): "<<ds[1-ds_switch]
-                                 <<" Energy_error_rel_abs: "<<energy_error_rel_abs
-                                 <<" Fix step option: "<<static_cast<typename std::underlying_type<FixStepOption>::type>(info.fix_step_option)
-                                 <<std::endl;
+                        printMessage();
                         printColumnTitle(std::cerr);
                         std::cerr<<std::endl;
                         printColumn(std::cerr);
@@ -1166,23 +1179,13 @@ namespace AR {
                 // When time sychronization steps too large, abort
                 if(step_count_tsyn>manager->step_count_max) {
                     std::cerr<<"Error! step count after time synchronization is too large "<<step_count_tsyn<<std::endl;
-                    std::cerr<<" Time(int): "<<time_
-                             <<" Time(real): "<<time_real
-                             <<" Time_end(real): "<<_time_end_real
-                             <<" Time_error_rel(real): "<<time_diff_real_rel
-                             <<" ds(used): "<<ds[ds_switch]
-                             <<" ds(next): "<<ds[1-ds_switch]
-                             <<" ds_backup: "<<ds_backup
-                             <<" Energy_error_rel_abs: "<<energy_error_rel_abs
-                             <<" Step_count: "<<step_count
-                             <<" Fix step option: "<<static_cast<typename std::underlying_type<FixStepOption>::type>(info.fix_step_option)
-                             <<std::endl;
+                    printMessage();
                     printColumnTitle(std::cerr);
                     std::cerr<<std::endl;
                     printColumn(std::cerr);
                     std::cerr<<std::endl;
 #ifdef AR_DEBUG_DUMP
-                    restoreIntData(backup_data_init);
+//                    restoreIntData(backup_data_init);
                     DATADUMP("dump_large_step");
 #endif
                     abort();
@@ -1190,32 +1193,23 @@ namespace AR {
 
 
 #ifdef AR_DEEP_DEBUG
-                std::cerr<<" Time(int): "<<time_
-                         <<" Time(real): "<<time_real
-                         <<" Time_end(real): "<<_time_end_real
-                         <<" Time_error_rel(real): "<<time_diff_real_rel
-                         <<" ds(used): "<<ds[ds_switch]
-                         <<" ds(next): "<<ds[1-ds_switch]
-                         <<" ds_backup: "<<ds_backup
-                         <<" Energy_error_rel_abs: "<<energy_error_rel_abs
-                         <<" Step_count: "<<step_count
-                         <<std::endl;
+                printMessage();
                 std::cerr<<"Timetable: ";
                 for (int i=0; i<cd_pair_size; i++) std::cerr<<" "<<time_table[manager->step.getSortCumSumCKIndex(i)];
                 std::cerr<<std::endl;
 #endif
 
                 // modify step if energy error is large
-                if(energy_error_rel_abs>energy_error_rel_max) {
+                if(integration_error_rel_abs>energy_error_rel_max) {
                     if(info.fix_step_option!=FixStepOption::always) {
 
                         // energy error zero case, continue to avoid problem
-                        if (energy_error_rel_abs==0.0) continue;
+                        if (integration_error_rel_abs==0.0) continue;
 
                         // estimate the modification factor based on the symplectic order
-                        Float energy_error_ratio = energy_error_rel_max/energy_error_rel_abs;
+                        Float integration_error_ratio = energy_error_rel_max/integration_error_rel_abs;
                         // limit modify_factor to 0.125
-                        Float modify_factor = std::max(manager->step.calcStepModifyFactorFromErrorRatio(energy_error_ratio), Float(0.125));
+                        Float modify_factor = std::max(manager->step.calcStepModifyFactorFromErrorRatio(integration_error_ratio), Float(0.125));
                         ASSERT(modify_factor>0.0);
 
                         // for initial steps
@@ -1226,12 +1220,12 @@ namespace AR {
                             ASSERT(!isinf(ds[ds_switch]));
                             backup_flag = false;
 #ifdef AR_DEEP_DEBUG
-                            std::cerr<<"Detected energy error too large, energy_error/max ="<<1.0/energy_error_ratio<<" energy_error_rel_abs ="<<energy_error_rel_abs<<" modify_factor ="<<modify_factor<<std::endl;
+                            std::cerr<<"Detected energy error too large, integration_error/energy_error_max ="<<1.0/integration_error_ratio<<" integration_error_rel_abs ="<<integration_error_rel_abs<<" modify_factor ="<<modify_factor<<std::endl;
 #endif
                             continue;
                         }
                         // for big energy error
-                        else if (info.fix_step_option==FixStepOption::none && energy_error_ratio<0.1) {
+                        else if (info.fix_step_option==FixStepOption::none && integration_error_ratio<0.1) {
                             if(backup_flag) ds_backup = ds[ds_switch];
                             ds[ds_switch] *= modify_factor;
                             ds[1-ds_switch] = ds[ds_switch];
@@ -1239,7 +1233,7 @@ namespace AR {
                             backup_flag = false;
                             n_step_wait = 2*to_int(1.0/modify_factor);
 #ifdef AR_DEEP_DEBUG
-                            std::cerr<<"Detected energy error too large, energy_error/max ="<<1.0/energy_error_ratio<<" energy_error_rel_abs ="<<energy_error_rel_abs<<" modify_factor ="<<modify_factor<<" n_step_wait ="<<n_step_wait<<std::endl;
+                            std::cerr<<"Detected energy error too large, integration_error/energy_error_max ="<<1.0/integration_error_ratio<<" integration_error_rel_abs ="<<integration_error_rel_abs<<" modify_factor ="<<modify_factor<<" n_step_wait ="<<n_step_wait<<std::endl;
 #endif
                             continue;
                         }
@@ -1247,27 +1241,17 @@ namespace AR {
                 }
 // too much output
 //#ifdef AR_WARN
-//                if(energy_error_rel_abs>100.0*energy_error_rel_max) {
-//                    std::cerr<<"Warning: symplectic integrator error > 100*criterion:"<<energy_error_rel_abs<<std::endl;
+//                if(integration_error_rel_abs>100.0*energy_error_rel_max) {
+//                    std::cerr<<"Warning: symplectic integrator error > 100*criterion:"<<integration_error_rel_abs<<std::endl;
 //                }
 //#endif
 
                 // abort when too small step found
                 if(!time_end_flag&&dt_real<dt_real_min) {
                     std::cerr<<"Error! symplectic integrated time step ("<<dt_real<<") < minimum step ("<<dt_real_min<<")!\n";
-                    std::cerr<<" Time(int): "<<time_
-                             <<" Time(real): "<<time_real
-                             <<" Time_end(real): "<<_time_end_real
-                             <<" Time_error_rel(real): "<<(_time_end_real - time_real)/dt_real_full
-                             <<" ds(used): "<<ds[ds_switch]
-                             <<" ds(next): "<<ds[1-ds_switch]
-                             <<" ds_backup: "<<ds_backup
-                             <<" Energy_error_rel_abs: "<<energy_error_rel_abs
-                             <<" Step_count: "<<step_count
-                             <<std::endl;
-
+                    printMessage();
 #ifdef AR_DEBUG_DUMP
-                    restoreIntData(backup_data_init);
+//                    restoreIntData(backup_data_init);
                     DATADUMP("dump_negative_time");
 #endif
                     abort();
@@ -1286,14 +1270,14 @@ namespace AR {
                             ASSERT(!isinf(ds[1-ds_switch]));
                         }
                         // increase step size if energy error is small
-                        else if(energy_error_rel_abs<energy_error_rel_max_half_step&&energy_error_rel_abs>0.0) {
-                            Float energy_error_ratio = energy_error_rel_max/energy_error_rel_abs;
-                            Float modify_factor = manager->step.calcStepModifyFactorFromErrorRatio(energy_error_ratio);
+                        else if(integration_error_rel_abs<energy_error_rel_max_half_step&&integration_error_rel_abs>0.0) {
+                            Float integration_error_ratio = energy_error_rel_max/integration_error_rel_abs;
+                            Float modify_factor = manager->step.calcStepModifyFactorFromErrorRatio(integration_error_ratio);
                             ASSERT(modify_factor>0.0);
                             ds[1-ds_switch] *= modify_factor;
                             ASSERT(!isinf(ds[1-ds_switch]));
 #ifdef AR_DEEP_DEBUG
-                            std::cerr<<"Energy error is small enought for increase step, energy_error_rel_abs="<<energy_error_rel_abs
+                            std::cerr<<"Energy error is small enought for increase step, integration_error_rel_abs="<<integration_error_rel_abs
                                      <<" energy_error_rel_max="<<energy_error_rel_max<<" step_modify_factor="<<modify_factor<<" new ds="<<ds[1-ds_switch]<<std::endl;
 #endif
                         }
@@ -1370,34 +1354,16 @@ namespace AR {
                 }
                 else {
 #ifdef AR_DEEP_DEBUG
-                    std::cerr<<"Finish, time_diff_real_rel = "<<time_diff_real_rel<<" energy_error_rel_abs = "<<energy_error_rel_abs<<std::endl;
+                    std::cerr<<"Finish, time_diff_real_rel = "<<time_diff_real_rel<<" integration_error_rel_abs = "<<integration_error_rel_abs<<std::endl;
 #endif
 #ifdef AR_WARN
-                    if (energy_error_rel_abs>energy_error_rel_max) {
-                        std::cerr<<"AR large energy error, error_rel: "<<energy_error_rel_abs
-                                 <<" N_members: "<<n_particle<<" Fix step option: "<<static_cast<typename std::underlying_type<FixStepOption>::type>(info.fix_step_option);
-                        Float etot_ref_init = getEtotRefFromBackup(backup_data_init);
-                        std::cerr<<" etot_init: "<<etot_ref_init
-                                 <<" etot_end: "<<etot_ref_
-                                 <<" etot_diff: "<<etot_ref_- etot_ref_init;
-#ifdef AR_TTL_SLOWDOWN_INNER
-                        Float etot_sdi_ref_init = getEtotSlowDownInnerRefFromBackup(backup_data_init);
-                        std::cerr<<" etot_sdi_init: "<<etot_sdi_ref_init
-                                 <<" etot_sdi_end: "<<etot_sdi_ref_
-                                 <<" etot_sdi_diff: "<<etot_sdi_ref_- etot_sdi_ref_init;
-#else
-                        Float error_init = getEnergyErrorFromBackup(backup_data_init);
-                        std::cerr<<" ekin+epot(init): "<<error_init+etot_ref_init
-                                 <<" ekin+epot(end): "<<etot_ref_ + energy_error
-                                 <<" ekin+epot(diff): "<<etot_ref_ + energy_error - (error_init+etot_ref_init);
-
-#endif                      
-                        std::cerr<<std::endl;
-//#ifdef AR_DEBUG_DUMP
+                    if (integration_error_rel_cum_abs>energy_error_rel_max) {
+                        std::cerr<<"AR large energy error at the end! ";
+                        printMessage();
+#ifdef AR_DEBUG_DUMP
 //                        restoreIntData(backup_data_init);
-//                        DATADUMP("dump_large_error");
-//#endif
-//                        abort
+                        DATADUMP("dump_large_error");
+#endif
                     }
 #endif
                     break;
