@@ -32,7 +32,8 @@ endif
 ## for debug------------------------------------------#
 #CXXFLAGS += -D DEBUG 
 CXXFLAGS += -D BINARY_DEBUG
-#CXXFLAGS += -D AR_DEBUG
+CXXFLAGS += -D AR_DEBUG
+CXXFLAGS += -D AR_WARN
 #CXXFLAGS += -D AR_DEEP_DEBUG
 
 ## Flag ----------------------------------------------#

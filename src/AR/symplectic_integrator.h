@@ -1055,11 +1055,26 @@ namespace AR {
 #endif
 */
 
+
 #ifdef AR_DEBUG_DUMP
             // back up initial data
             backupIntData(backup_data_init);
 #endif
       
+#ifdef AR_TTL_SLOWDOWN_INNER
+            // find new inner slowdown binaries, the binary tree data may be modified, thus it is safer to recheck slowdown inner binary at beginning to avoid memory issue (bin is pointer).
+            if (n_particle >2) {
+                int nold = slowdown_inner.getSize();
+                findSlowDownInner(time_);
+                int nnew = slowdown_inner.getSize();
+                // in case slowdown is disabled in the next step, gt_drift_inv_ should be re-initialized
+                if (nold>0&&nnew==0) {
+                    gt_kick_ = manager->interaction.calcAccPotAndGTKick(force_.getDataAddress(), epot_, particles.getDataAddress(), particles.getSize(), particles.cm, perturber, slowdown.getRealTime());
+                    gt_drift_inv_ = 1.0/gt_kick_;
+                }
+            }
+#endif
+
             // integration loop
             while(true) {
                 // backup data
@@ -1356,33 +1371,20 @@ namespace AR {
 #ifdef AR_DEEP_DEBUG
                     std::cerr<<"Finish, time_diff_real_rel = "<<time_diff_real_rel<<" integration_error_rel_abs = "<<integration_error_rel_abs<<std::endl;
 #endif
-#ifdef AR_WARN
-                    if (integration_error_rel_cum_abs>energy_error_rel_max) {
-                        std::cerr<<"AR large energy error at the end! ";
-                        printMessage();
-#ifdef AR_DEBUG_DUMP
-//                        restoreIntData(backup_data_init);
-                        DATADUMP("dump_large_error");
-#endif
-                    }
-#endif
+//#ifdef AR_WARN
+//                    if (integration_error_rel_cum_abs>energy_error_rel_max) {
+//                        std::cerr<<"AR large energy error at the end! ";
+//                        printMessage();
+//#ifdef AR_DEBUG_DUMP
+////                        restoreIntData(backup_data_init);
+//                        DATADUMP("dump_large_error");
+//#endif
+//                    }
+//#endif
                     break;
                 }
             }
 
-#ifdef AR_TTL_SLOWDOWN_INNER
-            // find new inner slowdown binaries
-            if (n_particle >2) {
-                int nold = slowdown_inner.getSize();
-                findSlowDownInner(time_);
-                int nnew = slowdown_inner.getSize();
-                // in case slowdown is disabled in the next step, gt_drift_inv_ should be re-initialized
-                if (nold>0&&nnew==0) {
-                    gt_kick_ = manager->interaction.calcAccPotAndGTKick(force_.getDataAddress(), epot_, particles.getDataAddress(), particles.getSize(), particles.cm, perturber, slowdown.getRealTime());
-                    gt_drift_inv_ = 1.0/gt_kick_;
-                }
-            }
-#endif
             // cumulative step count 
             profile.step_count = step_count;
             profile.step_count_tsyn = step_count_tsyn;

@@ -1784,9 +1784,11 @@ namespace H4{
 
                     auto& pi = groupi.particles.cm;
 
-                    // avoid kappa>1.0
                     Float kappa_org_i = groupi.slowdown.getSlowDownFactorOrigin();
+#ifndef AR_TTL_SLOWDOWN_INNER
+                    // avoid kappa>1.0
                     if (kappa_org_i>1.0) continue;
+#endif
 
                     ParticleH4<Tparticle>* pj;
                     // neighbor is single 
@@ -1796,8 +1798,10 @@ namespace H4{
                     }
                     else {
                         const int jg = j-index_offset_group_;
+#ifndef AR_TTL_SLOWDOWN_INNER
                         Float kappa_org_j = groups[jg].slowdown.getSlowDownFactorOrigin();
                         if (kappa_org_j>1.0) continue;
+#endif
 
                         //if (kappa_org_i>1.0&&kappa_org_j>1.0) continue;
                         pj = &groups[jg].particles.cm;
