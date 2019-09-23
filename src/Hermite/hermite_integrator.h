@@ -1784,9 +1784,9 @@ namespace H4{
 
                     auto& pi = groupi.particles.cm;
 
-                    Float kappa_org_i = groupi.slowdown.getSlowDownFactorOrigin();
 #ifndef AR_TTL_SLOWDOWN_INNER
                     // avoid kappa>1.0
+                    Float kappa_org_i = groupi.slowdown.getSlowDownFactorOrigin();
                     if (kappa_org_i>1.0) continue;
 #endif
 
@@ -1845,7 +1845,7 @@ namespace H4{
                                  <<"\n       index        slowdown         apo  \n"
                                  <<"i1 "
                                  <<std::setw(8)<<i
-                                 <<std::setw(16)<<kappa_org_i
+                                 <<std::setw(16)<<groupi.slowdown.getSlowDownFactorOrigin()
                                  <<std::setw(16)<<bini.semi*(1.0+bini.ecc);
                         if(j<index_offset_group_) {
                             std::cerr<<"\ni2 "
