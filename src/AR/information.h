@@ -13,6 +13,20 @@ namespace AR {
     template <class Tparticle, class Tpcm>
     class Information{
     private:
+        struct DsDat{ Float tov,r; };
+
+#ifdef AR_TTL_GT_MULTI
+        //! calculate average kepler ds for ARC
+        static DsDat calcDsKeplerIter(DsDat& _ds, COMM::BinaryTree<Tparticle>& _bin) {
+            // ecca [v/r]
+            Float tov2 = 0.03855314219*_bin.semi*_bin.semi*_bin.semi/(_bin.m1+_bin.m2);
+            // semi cum
+            DsDat ds;
+            ds.tov = std::min(_ds.tov,tov2);
+            ds.r   = 2.0*_ds.r*_bin.semi;
+            return ds;
+        }
+#else
         //! calculate minimum kepler ds for ARC
         static Float calcDsKeplerIter(Float& _ds, COMM::BinaryTree<Tparticle>& _bin) {
             Float ds;
@@ -22,6 +36,7 @@ namespace AR {
             else ds = 0.0245436926*sqrt(-_bin.semi/(_bin.m1+_bin.m2))*(_bin.m1*_bin.m2);
             return std::min(ds, _ds);
         }
+#endif
 
     public:
         Float ds;  ///> estimated step size for AR integration
@@ -57,8 +72,17 @@ namespace AR {
           @param[in] _int_order: integrator order 
          */
         void calcDsAndStepOption(const Float _sd_org, const int _int_order) {
+            auto& bin_root = getBinaryTreeRoot();
+#ifdef AR_TTL_GT_MULTI
+            DsDat ds_dat;
+            ds_dat.tov = NUMERIC_FLOAT_MAX;
+            ds_dat.r = 1.0;
+            ds_dat = bin_root.processRootIter(ds_dat, calcDsKeplerIter);
+            ds = sqrt(ds_dat.tov)/ds_dat.r;
+#else
             ds = NUMERIC_FLOAT_MAX;
-            ds = getBinaryTreeRoot().processRootIter(ds, calcDsKeplerIter);
+            ds = bin_root.processRootIter(ds, calcDsKeplerIter);
+#endif
             // Avoid too small step
             //if (_sd_org<1.0) ds *= std::max(1.0/8.0*pow(_sd_org, 1.0/Float(_int_order)),0.125);
             //auto& bin_root = getBinaryTreeRoot();

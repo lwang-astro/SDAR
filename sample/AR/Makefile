@@ -66,6 +66,9 @@ ar.logh: ar.cxx  ${SOURCE}
 ar.ttl: ar.cxx ${SOURCE}
 	$(CXX) $(CXXFLAGS) -D AR_TTL $< -o $@ $(CXXLIBS)
 
+ar.ttl.m: ar.cxx ${SOURCE}
+	$(CXX) $(CXXFLAGS) -D AR_TTL -D AR_TTL_GT_MULTI $< -o $@ $(CXXLIBS)
+
 ar.ttl.sd: ar.cxx ${SOURCE}
 #	$(CXX) $(CXXFLAGS) -D AR_TTL -D AR_TTL_SLOWDOWN_INNER -D AR_TTL_GT_BINARY_INNER -D SLOWDOWN_TIMESCALE $< -o $@ $(CXXLIBS)
 	$(CXX) $(CXXFLAGS) -D AR_TTL -D AR_TTL_SLOWDOWN_INNER -D SLOWDOWN_TIMESCALE  $< -o $@ $(CXXLIBS)

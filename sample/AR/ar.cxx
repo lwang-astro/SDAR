@@ -41,6 +41,7 @@ int main(int argc, char **argv){
     COMM::IOParams<int>   nstep        (input_par_store, 1000, "number of integration steps"); // total step size
     COMM::IOParams<double> s            (input_par_store, 0.0,  "step size, not physical time step","auto");    // step size
     COMM::IOParams<double> dt_min       (input_par_store, 1e-13,"minimum physical time step"); // minimum physical time step
+    COMM::IOParams<double> dt_out       (input_par_store, 0.0,"output time interval"); // output time interval
     COMM::IOParams<double> slowdown_ref (input_par_store, 1e-6, "slowdown perturbation ratio reference"); // slowdown reference factor
     COMM::IOParams<double> slowdown_mass_ref (input_par_store, 0.0, "slowdowm mass reference","averaged mass"); // slowdown mass reference
     COMM::IOParams<double> slowdown_timescale_max (input_par_store, 0.0, "maximum timescale for maximum slowdown factor","time-end"); // slowdown timescale
@@ -68,7 +69,7 @@ int main(int argc, char **argv){
     };
   
     int option_index;
-    while ((copt = getopt_long(argc, argv, "N:n:t:s:k:e:p:lh", long_options, &option_index)) != -1)
+    while ((copt = getopt_long(argc, argv, "N:n:t:s:k:e:p:o:lh", long_options, &option_index)) != -1)
         switch (copt) {
         case 0:
             time_zero.value = atof(optarg);
@@ -134,6 +135,9 @@ int main(int argc, char **argv){
             input_par_store.readAscii(fpar_in);
             fclose(fpar_in);
             break;
+        case 'o':
+            dt_out.value = atof(optarg);
+            break;
         case 'h':
             std::cout<<"chain [option] data_filename\n"
                      <<"Input data file format: each line: mass, x, y, z, vx, vy, vz\n"
@@ -146,6 +150,7 @@ int main(int argc, char **argv){
                      <<"          --load-data (same as -l)\n"
                      <<"    -k [int]:    "<<sym_order<<"\n"
                      <<"    -n [int]:    "<<nstep<<"\n"
+                     <<"    -o [float]:  "<<dt_out<<"\n"
                      <<"    -p [string]: "<<filename_par<<"\n"
                      <<"          --print-width     [int]  : "<<print_width<<"\n"
                      <<"          --print-precision [int]  : "<<print_precision<<"\n"
@@ -281,12 +286,16 @@ int main(int argc, char **argv){
     // integration loop
     const int n_particle = sym_int.particles.getSize();
     if (time_end.value<0.0) {
+        float time_out = time_zero.value;
         Float time_table[manager.step.getCDPairSize()];
         for (int i=0; i<nstep.value; i++) {
             if(n_particle==2) sym_int.integrateTwoOneStep(sym_int.info.ds, time_table);
             else sym_int.integrateOneStep(sym_int.info.ds, time_table);
-            sym_int.printColumn(std::cout, print_width.value, n_sd);
-            std::cout<<std::endl;
+            if (sym_int.slowdown.getRealTime()>=time_out) {
+                sym_int.printColumn(std::cout, print_width.value, n_sd);
+                std::cout<<std::endl;
+                time_out += dt_out.value;
+            }
         }
     }
     else {
