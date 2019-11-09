@@ -1128,7 +1128,7 @@ namespace AR {
                 // real step size
                 Float time_real = slowdown.getRealTime();
                 dt_real =  time_real - dt_real;
-                ASSERT(dt_real>0.0);
+//                ASSERT(dt_real>0.0);
                 
                 step_count++;
 
