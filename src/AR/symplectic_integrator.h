@@ -23,7 +23,9 @@ namespace AR {
         Float energy_error_relative_max; ///> maximum energy error requirement 
         Float time_step_real_min;        ///> minimum real time step allown
         Float slowdown_pert_ratio_ref;   ///> slowdown perturbation /inner ratio reference factor
+#ifdef SLOWDOWN_MASSRATIO
         Float slowdown_mass_ref;         ///> slowdown mass factor reference
+#endif
         Float slowdown_timescale_max;       ///> slowdown maximum timescale to calculate maximum slowdown factor
         long long unsigned int step_count_max; ///> maximum step counts
         
@@ -31,7 +33,12 @@ namespace AR {
         SymplecticStep step;  ///> class to manager kick drift step
 
         //! constructor
-        SymplecticManager(): time_error_max_real(Float(-1.0)), energy_error_relative_max(Float(-1.0)), time_step_real_min(Float(-1.0)), slowdown_pert_ratio_ref(Float(-1.0)), slowdown_mass_ref(Float(-1.0)), step_count_max(-1), interaction(), step() {}
+        SymplecticManager(): time_error_max_real(Float(-1.0)), energy_error_relative_max(Float(-1.0)), time_step_real_min(Float(-1.0)), slowdown_pert_ratio_ref(Float(-1.0)), 
+#ifdef SLOWDOWN_MASSRATIO
+                             slowdown_mass_ref(Float(-1.0)), 
+#endif
+                             slowdown_timescale_max(0.0),
+                             step_count_max(-1), interaction(), step() {}
 
         //! check whether parameters values are correct
         /*! \return true: all correct
@@ -43,7 +50,9 @@ namespace AR {
             //ASSERT(time_step_real_min>ROUND_OFF_ERROR_LIMIT);
             ASSERT(time_step_real_min>0.0);
             ASSERT(slowdown_pert_ratio_ref>0.0);
+#ifdef SLOWDOWN_MASSRATIO
             ASSERT(slowdown_mass_ref>0.0);
+#endif
             ASSERT(slowdown_timescale_max>0);
             ASSERT(step_count_max>0);
             ASSERT(step.getOrder()>0);
@@ -81,7 +90,9 @@ namespace AR {
                  <<"energy_error_relative_max : "<<energy_error_relative_max<<std::endl 
                  <<"time_step_real_min        : "<<time_step_real_min<<std::endl
                  <<"slowdown_pert_ratio_ref   : "<<slowdown_pert_ratio_ref<<std::endl
+#ifdef SLOWDOWN_MASSRATIO
                  <<"slowdown_mass_ref         : "<<slowdown_mass_ref<<std::endl
+#endif
                  <<"slowdown_timescale_max    : "<<slowdown_timescale_max<<std::endl
                  <<"step_count_max            : "<<step_count_max<<std::endl;
             interaction.print(_fout);
@@ -1234,7 +1245,7 @@ namespace AR {
                             ds[1-ds_switch] = ds[ds_switch];
                             ASSERT(!isinf(ds[ds_switch]));
                             backup_flag = false;
-#ifdef AR_DEEP_DEBUG
+#ifdef AR_WARN
                             std::cerr<<"Detected energy error too large, integration_error/energy_error_max ="<<1.0/integration_error_ratio<<" integration_error_rel_abs ="<<integration_error_rel_abs<<" modify_factor ="<<modify_factor<<std::endl;
 #endif
                             continue;
@@ -1266,7 +1277,6 @@ namespace AR {
                     std::cerr<<"Error! symplectic integrated time step ("<<dt_real<<") < minimum step ("<<dt_real_min<<")!\n";
                     printMessage();
 #ifdef AR_DEBUG_DUMP
-//                    restoreIntData(backup_data_init);
                     DATADUMP("dump_negative_time");
 #endif
                     abort();
