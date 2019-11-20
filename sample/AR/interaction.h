@@ -162,7 +162,7 @@ public:
 #ifdef AR_TTL_GT_MULTI
             gt_kick_inv *= gtki*massi;
 #else
-            gt_kick_inv += gtki;
+            gt_kick_inv += gtki*massi;
 #endif
         }
         _epot   *= 0.5;
