@@ -295,9 +295,10 @@ int main(int argc, char **argv){
     // integration loop
     const int n_particle = sym_int.particles.getSize();
     if (time_end.value<0.0) {
-        float time_out = time_zero.value;
+        float time_out = time_zero.value + dt_out.value;
         Float time_table[manager.step.getCDPairSize()];
         for (int i=0; i<nstep.value; i++) {
+            sym_int.updateSlowDownAndCorrectEnergy();
             if(n_particle==2) sym_int.integrateTwoOneStep(sym_int.info.ds, time_table);
             else sym_int.integrateOneStep(sym_int.info.ds, time_table);
             if (sym_int.slowdown.getRealTime()>=time_out) {

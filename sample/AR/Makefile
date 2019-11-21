@@ -6,7 +6,7 @@ SOURCE=${shell ls ../../src/AR/*.h} ${shell ls ../../src/Common/*.h} ${shell ls 
 
 use_x86=yes
 #use_k_computer=yes
-#QD_PATH=/opt/qd-2.3.22
+QD_PATH=/opt/qd-2.3.22
 #GPERF_PATH = /opt/gperftools-2.6.1
 
 
@@ -31,9 +31,9 @@ endif
 
 ## for debug------------------------------------------#
 #CXXFLAGS += -D DEBUG 
-CXXFLAGS += -D BINARY_DEBUG
-CXXFLAGS += -D AR_DEBUG
-CXXFLAGS += -D AR_WARN
+#CXXFLAGS += -D BINARY_DEBUG
+#CXXFLAGS += -D AR_DEBUG
+#CXXFLAGS += -D AR_WARN
 #CXXFLAGS += -D AR_DEEP_DEBUG
 
 ## Flag ----------------------------------------------#

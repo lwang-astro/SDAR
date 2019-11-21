@@ -788,6 +788,31 @@ namespace AR {
 #endif
         }
 
+        //! update slowdown factor based on perturbation and record slowdown energy change
+        /*! Update slowdown inner and global.
+            Record cumulative slowdown energy change.
+            update gt_inv
+         */
+        void updateSlowDownAndCorrectEnergy() {
+            //if (time_>=slowdown.getUpdateTime()) {
+            // backup old slowdown factor
+            Float sd_old = slowdown.getSlowDownFactor();
+            manager->interaction.calcSlowDownPert(slowdown, particles.cm, info.getBinaryTreeRoot(), perturber);
+            // add energy change due to slowdown change
+            Float sd_new = slowdown.getSlowDownFactor();
+#ifdef AR_TTL_SLOWDOWN_INNER
+            de_sd_change_cum_ += (1.0/sd_new-1.0/sd_old)*(ekin_sdi_ + epot_sdi_);
+#else
+            de_sd_change_cum_ += (1.0/sd_new-1.0/sd_old)*(ekin_ + epot_);
+#endif
+            slowdown.increaseUpdateTimeOnePeriod();
+            //}
+#ifdef AR_TTL_SLOWDOWN_INNER
+            // inner binary slowdown
+            calcSlowDownInnerAndCorrectGTInvEnergy(time_);
+#endif
+        }
+
         //! integration for one step
         /*!
           @param[in] _ds: step size
@@ -1090,27 +1115,8 @@ namespace AR {
             while(true) {
                 // backup data
                 if(backup_flag) {
-                    // update slowdown
-                    if (!time_end_flag) {
-                        // system slowdown
-                        //if (time_>=slowdown.getUpdateTime()) {
-                            // backup old slowdown factor
-                            Float sd_old = slowdown.getSlowDownFactor();
-                            manager->interaction.calcSlowDownPert(slowdown, particles.cm, info.getBinaryTreeRoot(), perturber);
-                            // add energy change due to slowdown change
-                            Float sd_new = slowdown.getSlowDownFactor();
-#ifdef AR_TTL_SLOWDOWN_INNER
-                            de_sd_change_cum_ += (1.0/sd_new-1.0/sd_old)*(ekin_sdi_ + epot_sdi_);
-#else
-                            de_sd_change_cum_ += (1.0/sd_new-1.0/sd_old)*(ekin_ + epot_);
-#endif
-                            slowdown.increaseUpdateTimeOnePeriod();
-                            //}
-#ifdef AR_TTL_SLOWDOWN_INNER
-                        // inner binary slowdown
-                        calcSlowDownInnerAndCorrectGTInvEnergy(time_);
-#endif
-                    }
+                    // update slowdown and correct slowdown energy and gt_inv
+                    if (!time_end_flag) updateSlowDownAndCorrectEnergy();
 
                     int bk_return_size = backupIntData(backup_data);
                     ASSERT(bk_return_size == bk_data_size);
