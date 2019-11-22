@@ -1,4 +1,4 @@
-TARGET: ar.logh ar.ttl ar.ttl.sd
+TARGET: ar.logh ar.logh.sd ar.ttl ar.ttl.sd
 
 VPATH=../../src 
 
@@ -63,6 +63,9 @@ endif
 ar.logh: ar.cxx  ${SOURCE}
 	$(CXX) $(CXXFLAGS) $< -o $@ $(CXXLIBS)
 
+ar.logh.sd: ar.cxx ${SOURCE}
+	$(CXX) $(CXXFLAGS) -D AR_SLOWDOWN_INNER -D SLOWDOWN_TIMESCALE  $< -o $@ $(CXXLIBS)
+
 ar.ttl: ar.cxx ${SOURCE}
 	$(CXX) $(CXXFLAGS) -D AR_TTL $< -o $@ $(CXXLIBS)
 
@@ -70,8 +73,8 @@ ar.ttl.m: ar.cxx ${SOURCE}
 	$(CXX) $(CXXFLAGS) -D AR_TTL -D AR_TTL_GT_MULTI $< -o $@ $(CXXLIBS)
 
 ar.ttl.sd: ar.cxx ${SOURCE}
-#	$(CXX) $(CXXFLAGS) -D AR_TTL -D AR_TTL_SLOWDOWN_INNER -D AR_TTL_GT_BINARY_INNER -D SLOWDOWN_TIMESCALE $< -o $@ $(CXXLIBS)
-	$(CXX) $(CXXFLAGS) -D AR_TTL -D AR_TTL_SLOWDOWN_INNER -D SLOWDOWN_TIMESCALE  $< -o $@ $(CXXLIBS)
+#	$(CXX) $(CXXFLAGS) -D AR_TTL -D AR_SLOWDOWN_INNER -D AR_TTL_GT_BINARY_INNER -D SLOWDOWN_TIMESCALE $< -o $@ $(CXXLIBS)
+	$(CXX) $(CXXFLAGS) -D AR_TTL -D AR_SLOWDOWN_INNER -D SLOWDOWN_TIMESCALE  $< -o $@ $(CXXLIBS)
 
 clean:
 	rm -f $(TARGET)

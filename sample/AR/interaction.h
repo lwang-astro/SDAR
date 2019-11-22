@@ -224,7 +224,7 @@ public:
 #endif
     }
 
-#ifdef AR_TTL_SLOWDOWN_INNER
+#ifdef AR_SLOWDOWN_INNER
     //! (Necessary) calculate slowdown factor for inner binary based on other particles and slowdown of system c.m.
     /*!
       @param[in,out] _slowdown: slowdown paramters for inner binary.

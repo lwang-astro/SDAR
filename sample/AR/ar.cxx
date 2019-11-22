@@ -278,7 +278,7 @@ int main(int argc, char **argv){
     // precision
     std::cout<<std::setprecision(print_precision.value);
 
-#ifdef AR_TTL_SLOWDOWN_INNER
+#ifdef AR_SLOWDOWN_INNER
     int n_sd = sym_int.slowdown_inner.getSize();
 #else
     int n_sd = 0;
