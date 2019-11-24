@@ -1547,7 +1547,7 @@ namespace H4{
                             }
                         }
                     }
-#ifndef AR_TTL_SLOWDOWN_INNER
+#ifndef AR_SLOWDOWN_INNER
                     // check few-body inner perturbation (suppress when use slowdown inner AR)
                     else {
                         for (int j=0; j<2; j++) {
@@ -1689,7 +1689,7 @@ namespace H4{
                     }
                     else {
                         const int jg = j-index_offset_group_;
-#ifndef AR_TTL_SLOWDOWN_INNER
+#ifndef AR_SLOWDOWN_INNER
                         // in case without AR slowdown inner, avoid form AR when inner kappa is >1.0
                         Float kappa_org_j = groups[jg].slowdown.getSlowDownFactorOrigin();
                         if (kappa_org_j>1.0) continue;
@@ -1707,7 +1707,7 @@ namespace H4{
 
                         AR::SlowDown sd;
                         Float mcm = pi.mass + pj->mass;
-#ifdef SLOWDOWN_MASSRATIO
+#ifdef AR_SLOWDOWN_MASSRATIO
                         const Float mass_ratio = ar_manager->slowdown_mass_ref/mcm;
                         sd.initialSlowDownReference(mass_ratio*ar_manager->slowdown_pert_ratio_ref, ar_manager->slowdown_timescale_max);
 #else
@@ -1784,7 +1784,7 @@ namespace H4{
 
                     auto& pi = groupi.particles.cm;
 
-#ifndef AR_TTL_SLOWDOWN_INNER
+#ifndef AR_SLOWDOWN_INNER
                     // avoid kappa>1.0
                     Float kappa_org_i = groupi.slowdown.getSlowDownFactorOrigin();
                     if (kappa_org_i>1.0) continue;
@@ -1798,7 +1798,7 @@ namespace H4{
                     }
                     else {
                         const int jg = j-index_offset_group_;
-#ifndef AR_TTL_SLOWDOWN_INNER
+#ifndef AR_SLOWDOWN_INNER
                         Float kappa_org_j = groups[jg].slowdown.getSlowDownFactorOrigin();
                         if (kappa_org_j>1.0) continue;
 #endif
@@ -1820,7 +1820,7 @@ namespace H4{
 
                         AR::SlowDown sd;
                         Float mcm = pi.mass + pj->mass;
-#ifdef SLOWDOWN_MASSRATIO
+#ifdef AR_SLOWDOWN_MASSRATIO
                         const Float mass_ratio = ar_manager->slowdown_mass_ref/mcm;
                         sd.initialSlowDownReference(mass_ratio*ar_manager->slowdown_pert_ratio_ref, ar_manager->slowdown_timescale_max);
 #else
@@ -2264,7 +2264,7 @@ namespace H4{
                 Float kappa_inv = 1.0/kappa;
                 energy_sd_.ekin -= gi.getEkin();
                 energy_sd_.epot -= gi.getEpot(); 
-#ifdef AR_TTL_SLOWDOWN_INNER
+#ifdef AR_SLOWDOWN_INNER
                 energy_sd_.ekin += kappa_inv * gi.getEkinSlowDownInner();
                 energy_sd_.epot += kappa_inv * gi.getEpotSlowDownInner();
 #else

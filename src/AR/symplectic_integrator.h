@@ -23,7 +23,7 @@ namespace AR {
         Float energy_error_relative_max; ///> maximum energy error requirement 
         Float time_step_real_min;        ///> minimum real time step allown
         Float slowdown_pert_ratio_ref;   ///> slowdown perturbation /inner ratio reference factor
-#ifdef SLOWDOWN_MASSRATIO
+#ifdef AR_SLOWDOWN_MASSRATIO
         Float slowdown_mass_ref;         ///> slowdown mass factor reference
 #endif
         Float slowdown_timescale_max;       ///> slowdown maximum timescale to calculate maximum slowdown factor
@@ -34,7 +34,7 @@ namespace AR {
 
         //! constructor
         SymplecticManager(): time_error_max_real(Float(-1.0)), energy_error_relative_max(Float(-1.0)), time_step_real_min(Float(-1.0)), slowdown_pert_ratio_ref(Float(-1.0)), 
-#ifdef SLOWDOWN_MASSRATIO
+#ifdef AR_SLOWDOWN_MASSRATIO
                              slowdown_mass_ref(Float(-1.0)), 
 #endif
                              slowdown_timescale_max(0.0),
@@ -50,7 +50,7 @@ namespace AR {
             //ASSERT(time_step_real_min>ROUND_OFF_ERROR_LIMIT);
             ASSERT(time_step_real_min>0.0);
             ASSERT(slowdown_pert_ratio_ref>0.0);
-#ifdef SLOWDOWN_MASSRATIO
+#ifdef AR_SLOWDOWN_MASSRATIO
             ASSERT(slowdown_mass_ref>0.0);
 #endif
             ASSERT(slowdown_timescale_max>0);
@@ -90,7 +90,7 @@ namespace AR {
                  <<"energy_error_relative_max : "<<energy_error_relative_max<<std::endl 
                  <<"time_step_real_min        : "<<time_step_real_min<<std::endl
                  <<"slowdown_pert_ratio_ref   : "<<slowdown_pert_ratio_ref<<std::endl
-#ifdef SLOWDOWN_MASSRATIO
+#ifdef AR_SLOWDOWN_MASSRATIO
                  <<"slowdown_mass_ref         : "<<slowdown_mass_ref<<std::endl
 #endif
                  <<"slowdown_timescale_max    : "<<slowdown_timescale_max<<std::endl
@@ -515,7 +515,7 @@ namespace AR {
             ASSERT(nsd==slowdown_inner.getSize());
 
             for (int i=0; i<nsd; i++) {
-#ifdef SLOWDOWN_MASSRATIO
+#ifdef AR_SLOWDOWN_MASSRATIO
                 const Float mass_ratio = manager->slowdown_mass_ref/slowdown_inner[i].bin->mass;
 #else 
                 const Float mass_ratio = 1.0;
@@ -773,7 +773,7 @@ namespace AR {
             }
 
             // set slowdown reference
-#ifdef SLOWDOWN_MASSRATIO
+#ifdef AR_SLOWDOWN_MASSRATIO
             const Float mass_ratio = manager->slowdown_mass_ref/particles.cm.mass;
 #else 
             const Float mass_ratio = 1.0;

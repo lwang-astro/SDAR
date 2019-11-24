@@ -43,7 +43,7 @@ int main(int argc, char **argv){
     COMM::IOParams<double> dt_min       (input_par_store, 1e-13,"minimum physical time step"); // minimum physical time step
     COMM::IOParams<double> dt_out       (input_par_store, 0.0,"output time interval"); // output time interval
     COMM::IOParams<double> slowdown_ref (input_par_store, 1e-6, "slowdown perturbation ratio reference"); // slowdown reference factor
-#ifdef SLOWDOWN_MASSRATIO
+#ifdef AR_SLOWDOWN_MASSRATIO
     COMM::IOParams<double> slowdown_mass_ref (input_par_store, 0.0, "slowdowm mass reference","averaged mass"); // slowdown mass reference
 #endif
     COMM::IOParams<double> slowdown_timescale_max (input_par_store, 0.0, "maximum timescale for maximum slowdown factor","time-end"); // slowdown timescale
@@ -70,7 +70,7 @@ int main(int argc, char **argv){
         {"dt-min",required_argument, 0, 5},
         {"n-step-max",required_argument, 0, 6},
         {"slowdown-ref",required_argument, 0, 7},
-#ifdef SLOWDOWN_MASSRATIO
+#ifdef AR_SLOWDOWN_MASSRATIO
         {"slowdown-mass-ref",required_argument, 0, 8},
 #endif
         {"slowdown-timescale-max",required_argument, 0, 9},
@@ -108,7 +108,7 @@ int main(int argc, char **argv){
         case 7:
             slowdown_ref.value = atof(optarg);
             break;
-#ifdef SLOWDOWN_MASSRATIO
+#ifdef AR_SLOWDOWN_MASSRATIO
         case 8:
             slowdown_mass_ref.value = atof(optarg);
             break;
@@ -171,7 +171,7 @@ int main(int argc, char **argv){
                      <<"          --print-precision [int]  : "<<print_precision<<"\n"
                      <<"    -s [Float]:  "<<s<<"\n"
                      <<"          --slowdown-ref:           [Float]: "<<slowdown_ref<<"\n"
-#ifdef SLOWDOWN_MASSRATIO
+#ifdef AR_SLOWDOWN_MASSRATIO
                      <<"          --slowdown-mass-ref       [Float]: "<<slowdown_mass_ref<<"\n"
 #endif
                      <<"          --slowdown-timescale-max: [Float]: "<<slowdown_timescale_max<<"\n"
@@ -247,7 +247,7 @@ int main(int argc, char **argv){
 
     }
     sym_int.particles.calcCenterOfMass();
-#ifdef SLOWDOWN_MASSRATIO
+#ifdef AR_SLOWDOWN_MASSRATIO
     Float m_ave = sym_int.particles.cm.mass/sym_int.particles.getSize();
     if (slowdown_mass_ref.value<=0.0) manager.slowdown_mass_ref = m_ave;
     else manager.slowdown_mass_ref = slowdown_mass_ref.value;

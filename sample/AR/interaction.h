@@ -207,7 +207,7 @@ public:
     Float calcPertFromBinary(const COMM::BinaryTree<Particle>& _bin) {
         Float apo = _bin.semi*(1.0+_bin.ecc);
         Float apo2 = apo*apo;
-#ifdef SLOWDOWN_PERT_R4
+#ifdef AR_SLOWDOWN_PERT_R4
         return (_bin.m1*_bin.m2)/(apo2*apo2);
 #else
         return (_bin.m1*_bin.m2)/(apo2*apo);
@@ -217,7 +217,7 @@ public:
     //! calculate perturbation from distance to perturber and masses of particle and perturber 
     inline Float calcPertFromMR(const Float _r, const Float _mp, const Float _mpert) {
         Float r2 = _r*_r;
-#ifdef SLOWDOWN_PERT_R4
+#ifdef AR_SLOWDOWN_PERT_R4
         return _mp*_mpert/(r2*r2);
 #else
         return (_mp*_mpert)/(r2*_r);
@@ -240,7 +240,7 @@ public:
         const Float* xcm = _bin_root.pos;
         const Float  mcm = _bin_root.mass;
         Float pert_pot = 0.0;
-#ifdef SLOWDOWN_TIMESCALE
+#ifdef AR_SLOWDOWN_TIMESCALE
         const Float* vcm = _bin_root.vel;
         Float trf2_min = NUMERIC_FLOAT_MAX;
         Float mvor[3] = {0.0,0.0,0.0};
@@ -259,7 +259,7 @@ public:
             Float r = sqrt(r2);
             pert_pot += calcPertFromMR(r, mcm, mj);
 
-#ifdef SLOWDOWN_TIMESCALE
+#ifdef AR_SLOWDOWN_TIMESCALE
             const Float* vp = _particles[i].vel;
             Float dv[3] = {vp[0] - vcm[0],
                            vp[1] - vcm[1],
@@ -281,7 +281,7 @@ public:
 #endif
         }            
         _slowdown.pert_out = pert_pot + _slowdown_cm.pert_out;
-#ifdef SLOWDOWN_TIMESCALE
+#ifdef AR_SLOWDOWN_TIMESCALE
         // velocity dependent method
         Float trv_ave = mtot/sqrt(mvor[0]*mvor[0] + mvor[1]*mvor[1] + mvor[2]*mvor[2]);
         // get min of velocity and force dependent values
