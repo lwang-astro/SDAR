@@ -51,6 +51,15 @@ int main(int argc, char **argv){
     COMM::IOParams<std::string> filename_par (input_par_store, "", "filename to load manager parameters","input name"); // par dumped filename
     bool load_flag=false; // if true; load dumped data
 
+#ifdef AR_TTL
+    std::string bin_name("ar.ttl");
+#else
+    std::string bin_name("ar.logh");
+#endif
+#ifdef AR_SLOWDOWN_INNER
+    bin_name += ".sd";
+#endif
+
     int copt;
     static struct option long_options[] = {
         {"time-start", required_argument, 0, 0},
@@ -145,7 +154,7 @@ int main(int argc, char **argv){
             dt_out.value = atof(optarg);
             break;
         case 'h':
-            std::cout<<"chain [option] data_filename\n"
+            std::cout<<bin_name<<" [option] data_filename\n"
                      <<"Input data file format: each line: mass, x, y, z, vx, vy, vz\n"
                      <<"Options: (*) show defaulted values\n"
                      <<"          --dt-min          [int]  :  "<<dt_min<<"\n"
@@ -297,6 +306,7 @@ int main(int argc, char **argv){
     if (time_end.value<0.0) {
         float time_out = time_zero.value + dt_out.value;
         Float time_table[manager.step.getCDPairSize()];
+        sym_int.profile.step_count = 1;
         for (int i=0; i<nstep.value; i++) {
             sym_int.updateSlowDownAndCorrectEnergy();
             if(n_particle==2) sym_int.integrateTwoOneStep(sym_int.info.ds, time_table);
@@ -306,6 +316,7 @@ int main(int argc, char **argv){
                 std::cout<<std::endl;
                 time_out += dt_out.value;
             }
+            sym_int.profile.step_count_sum++;
         }
     }
     else {
