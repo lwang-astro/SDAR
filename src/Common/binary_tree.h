@@ -31,12 +31,32 @@ namespace COMM{
         template <class Tptcl>
         static void orbitToParticle(Tptcl& _p1, Tptcl& _p2, const Binary& _bin, const Float& _ecca, const Float _G) {
             Float m_tot = _bin.m1 + _bin.m2;
-            Float n = sqrt(_G*m_tot / (_bin.semi*_bin.semi*_bin.semi) );
-            Float cosu = cos(_ecca);
-            Float sinu = sin(_ecca);
-            Float c0 = sqrt(1.0 - _bin.ecc*_bin.ecc);
-            Vector3<Float> pos_star(_bin.semi*(cosu - _bin.ecc), _bin.semi*c0*sinu, 0.0);
-            Vector3<Float> vel_star(-_bin.semi*n*sinu/(1.0-_bin.ecc*cosu), _bin.semi*n*c0*cosu/(1.0-_bin.ecc*cosu), 0.0);
+            Vector3<Float> pos_star, vel_star;
+            // hyper bolic orbit
+            if (_bin.semi<0) {
+                Float n = sqrt(_G*m_tot / (-_bin.semi*_bin.semi*_bin.semi) );
+                Float coshu = cosh(_ecca);
+                Float sinhu = sinh(_ecca);
+                Float c0 = sqrt(_bin.ecc*_bin.ecc - 1.0);
+                pos_star.x = _bin.semi*(_bin.ecc - coshu);
+                pos_star.y = _bin.semi*c0*sinhu;
+                pos_star.z = 0.0;
+                vel_star.x = -_bin.semi*n*sinhu/(_bin.ecc*coshu-1.0);
+                vel_star.y =  _bin.semi*n*c0*coshu/(_bin.ecc*coshu-1.0);
+                vel_star.z = 0.0;
+            }
+            else{ // ellipse orbit
+                Float n = sqrt(_G*m_tot / (_bin.semi*_bin.semi*_bin.semi) );
+                Float cosu = cos(_ecca);
+                Float sinu = sin(_ecca);
+                Float c0 = sqrt(1.0 - _bin.ecc*_bin.ecc);
+                pos_star.x = _bin.semi*(cosu - _bin.ecc);
+                pos_star.y = _bin.semi*c0*sinu;
+                pos_star.z = 0.0;
+                vel_star.x = -_bin.semi*n*sinu/(1.0-_bin.ecc*cosu);
+                vel_star.y =  _bin.semi*n*c0*cosu/(1.0-_bin.ecc*cosu);
+                vel_star.z = 0.0;
+            }
             Matrix3<Float> rot;
             rot.rotation(_bin.incline, _bin.rot_horizon, _bin.rot_self);
             Vector3<Float> pos_red = rot*pos_star;
@@ -82,12 +102,12 @@ namespace COMM{
             Float inv_dr = 1.0 / _bin.r;
             Float v_sq = vel_red * vel_red;
             _bin.semi = 1.0 / (2.0*inv_dr - v_sq /  Gm_tot);
-            //    ASSERT(semi > 0.0);
             _bin.am = pos_red ^ vel_red;
             _bin.incline = atan2( sqrt(_bin.am.x*_bin.am.x+_bin.am.y*_bin.am.y), _bin.am.z);
             _bin.rot_horizon = _bin.am.y!=0.0? atan2(_bin.am.x, -_bin.am.y) : 0.0;
-     
+
             Vector3<Float> pos_bar, vel_bar;
+            // OMG: rot_horizon; omg: rot_self; inc: incline
             Float cosOMG = cos(_bin.rot_horizon);
             Float sinOMG = sin(_bin.rot_horizon);
             Float cosinc = cos(_bin.incline);
@@ -103,15 +123,18 @@ namespace COMM{
             Float eccsinomg = -h/Gm_tot*vel_bar.x - pos_bar.y*inv_dr;
             _bin.ecc = sqrt( ecccosomg*ecccosomg + eccsinomg*eccsinomg );
             _bin.rot_self = atan2(eccsinomg, ecccosomg);
-            Float phi = atan2(pos_bar.y, pos_bar.x); // f + omg (f: true anomaly)
-            Float f = phi - _bin.rot_self;
-            Float sinu = _bin.r*sin(f) / (_bin.semi*sqrt(1.0 - _bin.ecc*_bin.ecc));
-            Float cosu = (_bin.r*cos(f) / _bin.semi) + _bin.ecc;
-            _bin.ecca = atan2(sinu, cosu); // eccentric anomaly
-            Float n = sqrt(Gm_tot/(_bin.semi*_bin.semi*_bin.semi)); // mean motion
-            _bin.period = 8.0*std::atan(1.0)/n;
-            Float l = _bin.ecca - _bin.ecc*sin(_bin.ecca);  // mean anomaly
-            _bin.t_peri = l / n; 
+            // angle of position referring to the rest frame: f + omg (f: true anomaly)
+            Float phi = atan2(pos_bar.y, pos_bar.x); 
+            Float true_anomaly = phi - _bin.rot_self;
+            // eccentric anomaly
+            //Float sin_ecca = _bin.r*sin(true_anomaly) / (_bin.semi*sqrt(1.0 - _bin.ecc*_bin.ecc));
+            //Float cos_ecca = (_bin.r*cos(true_anomaly) / _bin.semi) + _bin.ecc;
+            if (_bin.semi<0) _bin.ecca = atanh(sin(true_anomaly)*sqrt(_bin.ecc*_bin.ecc - 1.0)/(_bin.ecc+ cos(true_anomaly))); // hyperbolic
+            else             _bin.ecca = atan2(sin(true_anomaly)*sqrt(1.0 - _bin.ecc*_bin.ecc), _bin.ecc+ cos(true_anomaly));  // ellipse
+            Float mean_motion = sqrt(Gm_tot/(_bin.semi*_bin.semi*_bin.semi)); 
+            _bin.period = 8.0*std::atan(1.0)/mean_motion;
+            Float mean_anomaly = _bin.ecca - _bin.ecc*sin(_bin.ecca); 
+            _bin.t_peri = mean_anomaly / mean_motion; 
         }
 
         //! position velocity to orbit semi-major axis and eccentricity
@@ -626,7 +649,7 @@ namespace COMM{
         using ProcessFunctionTree = Tr (*) (T&, const Tr&, const Tr&, BinaryTree<Tptcl>& );
 
         //! Process tree data with extra dat iteratively (from bottom to top)
-        /*! The process go from top root to leafs from left to right
+        /*! 
           @param[in] _dat: general data type for process using
           @param[in] _return_1: return from branch 1 
           @param[in] _return_2: return from branch 2 
