@@ -203,7 +203,7 @@ int main(int argc, char **argv){
     manager.energy_error_relative_max = energy_error.value; 
     if (slowdown_timescale_max.value>0.0) manager.slowdown_timescale_max = slowdown_timescale_max.value;
     else if (time_end.value>0.0) manager.slowdown_timescale_max = time_end.value;
-    else manager.slowdown_timescale_max = 1.0;
+    else manager.slowdown_timescale_max = NUMERIC_FLOAT_MAX;
     manager.slowdown_pert_ratio_ref = slowdown_ref.value;
     manager.step_count_max = nstep_max.value;
     // set symplectic order
