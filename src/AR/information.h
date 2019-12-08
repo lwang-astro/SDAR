@@ -11,6 +11,10 @@ namespace AR {
     enum class FixStepOption {always, later, none};
 
     template <class Tparticle, class Tpcm>
+    //! A class contains the Kepler orbital parameters and initial step size
+    /*! The class has members to generate the Kepler orbital binary tree of the particle group and store the information in binarytree. \\
+      It also provides the initial step size estimator and the option of fix step.
+     */
     class Information{
     private:
         struct DsDat{ Float tov,r; };
@@ -39,10 +43,11 @@ namespace AR {
 #endif
 
     public:
-        Float ds;  ///> estimated step size for AR integration
-        FixStepOption fix_step_option; ///> fixt step option for integration
-        COMM::List<COMM::BinaryTree<Tparticle>> binarytree;
+        Float ds;  ///> initial step size for integration
+        FixStepOption fix_step_option; ///> fix step option for integration
+        COMM::List<COMM::BinaryTree<Tparticle>> binarytree; ///> a list of binary tree that contain the hierarchical orbital parameters of the particle group.
 
+        //! initializer, set ds to zero, fix_step_option to none
         Information(): ds(Float(0.0)),  fix_step_option(AR::FixStepOption::none), binarytree() {}
 
         //! check whether parameters values are correct initialized
@@ -53,23 +58,23 @@ namespace AR {
             return true;
         }
 
-        //! reserve memory
+        //! reserve memory of binarytree list
         void reserveMem(const int _nmax) {
             binarytree.setMode(COMM::ListMode::local);
             binarytree.reserveMem(_nmax);
         }
 
-        //! get binary tree root 
+        //! get the root of binary tree
         COMM::BinaryTree<Tparticle>& getBinaryTreeRoot() const {
             int n = binarytree.getSize();
             ASSERT(n>0);
             return binarytree[n-1];
         }
 
-        //! calculate ds from binary tree information and adjust by slowdown, determine the fix step option
-        /*! Estimate ds first from binary orbit (eccentricity anomaly), then adjust based on original slowdown factor and order of integrator
-          @param[in] _sd_org: original slowdown factor
-          @param[in] _int_order: integrator order 
+        //! calculate ds from the inner most binary with minimum period, determine the fix step option
+        /*! Estimate ds first from the inner most binary orbit (eccentric anomaly), set fix_step_option to later
+          @param[in] _sd_org: original slowdown factor of the group
+          @param[in] _int_order: accuracy order of the symplectic integrator.
          */
         void calcDsAndStepOption(const Float _sd_org, const int _int_order) {
             auto& bin_root = getBinaryTreeRoot();
@@ -106,7 +111,7 @@ namespace AR {
             //}
         }
 
-        //! generate binary tree for a particle group
+        //! generate binary tree for the particle group
         /*! @param[in] _particles: particle group 
          */
         void generateBinaryTree(COMM::ParticleGroup<Tparticle, Tpcm>& _particles) {
@@ -118,6 +123,7 @@ namespace AR {
             COMM::BinaryTree<Tparticle>::generateBinaryTree(binarytree.getDataAddress(), particle_index_local, n_particle, _particles.getDataAddress());
         }
 
+        //! clear function
         void clear() {
             ds=0.0;
             fix_step_option = FixStepOption::none;
