@@ -37,8 +37,8 @@ int main(int argc, char **argv){
     COMM::IOParams<double> energy_error (input_par_store, 1e-10,"relative energy error limit for AR"); // phase error requirement
     COMM::IOParams<double> time_error   (input_par_store, 0.0,  "time synchronization absolute error limit for AR","default is 0.25*dt-min"); // time synchronization error
     COMM::IOParams<double> time_zero    (input_par_store, 0.0,  "initial physical time");    // initial physical time
-    COMM::IOParams<double> time_end     (input_par_store, -1.0,  "ending physical time","determined by nstep and s"); // ending physical time
-    COMM::IOParams<int>   nstep        (input_par_store, 1000, "number of integration steps"); // total step size
+    COMM::IOParams<double> time_end     (input_par_store, 0.0,  "ending physical time"); // ending physical time
+    COMM::IOParams<int>   nstep        (input_par_store,  0, "number of integration steps (higher priority than time_end)"); // total step size
     COMM::IOParams<double> s            (input_par_store, 0.0,  "step size, not physical time step","auto");    // step size
     COMM::IOParams<double> dt_min       (input_par_store, 1e-13,"minimum physical time step"); // minimum physical time step
     COMM::IOParams<double> dt_out       (input_par_store, 0.0,"output time interval"); // output time interval
@@ -49,7 +49,8 @@ int main(int argc, char **argv){
     COMM::IOParams<double> slowdown_timescale_max (input_par_store, 0.0, "maximum timescale for maximum slowdown factor","time-end"); // slowdown timescale
     COMM::IOParams<int>   fix_step_option (input_par_store, -1, "always, later, none","auto"); // if true; use input fix step option
     COMM::IOParams<std::string> filename_par (input_par_store, "", "filename to load manager parameters","input name"); // par dumped filename
-    bool load_flag=false; // if true; load dumped data
+    bool load_flag=false;  // if true; load dumped data
+    bool synch_flag=false; // if true, switch on time synchronization
 
 #ifdef AR_TTL
     std::string bin_name("ar.ttl");
@@ -82,7 +83,7 @@ int main(int argc, char **argv){
     };
   
     int option_index;
-    while ((copt = getopt_long(argc, argv, "N:n:t:s:k:e:p:o:lh", long_options, &option_index)) != -1)
+    while ((copt = getopt_long(argc, argv, "N:n:t:s:Sk:e:p:o:lh", long_options, &option_index)) != -1)
         switch (copt) {
         case 0:
             time_zero.value = atof(optarg);
@@ -131,6 +132,9 @@ int main(int argc, char **argv){
         case 's':
             s.value = atof(optarg);
             break;
+        case 'S':
+            synch_flag = true;
+            break;
         case 'k':
             sym_order.value = atoi(optarg);
             break;
@@ -175,6 +179,7 @@ int main(int argc, char **argv){
                      <<"          --slowdown-mass-ref       [Float]: "<<slowdown_mass_ref<<"\n"
 #endif
                      <<"          --slowdown-timescale-max: [Float]: "<<slowdown_timescale_max<<"\n"
+                     <<"    -S :         Switch on time synchronization\n"
                      <<"    -t [Float]:  "<<time_end<<"\n"
                      <<"          --time-start      [Float]:  "<<time_zero<<"\n"
                      <<"          --time-end        [Float]:  same as -t\n"
@@ -303,11 +308,11 @@ int main(int argc, char **argv){
     
     // integration loop
     const int n_particle = sym_int.particles.getSize();
-    if (time_end.value<0.0) {
+    if (!synch_flag) {
         float time_out = time_zero.value + dt_out.value;
         Float time_table[manager.step.getCDPairSize()];
         sym_int.profile.step_count = 1;
-        for (int i=0; i<nstep.value; i++) {
+        auto IntegrateOneStep = [&] (){
             sym_int.updateSlowDownAndCorrectEnergy();
             if(n_particle==2) sym_int.integrateTwoOneStep(sym_int.info.ds, time_table);
             else sym_int.integrateOneStep(sym_int.info.ds, time_table);
@@ -317,12 +322,15 @@ int main(int argc, char **argv){
                 time_out += dt_out.value;
             }
             sym_int.profile.step_count_sum++;
-        }
+        };
+
+        if (nstep.value>0) for (int i=0; i<nstep.value; i++) IntegrateOneStep();
+        else while (sym_int.slowdown.getRealTime()<time_end.value) IntegrateOneStep();
     }
     else {
-        Float time_step = time_end.value/nstep.value;
-        for (int i=1; i<=nstep.value; i++) {
-            sym_int.integrateToTime(time_step*i);
+        int nstep_per_out = int(time_end.value/dt_out.value+0.5);
+        for (int i=1; i<=nstep_per_out; i++) {
+            sym_int.integrateToTime(dt_out.value*i);
             sym_int.info.generateBinaryTree(sym_int.particles);
             sym_int.printColumn(std::cout, print_width.value, n_sd);
             std::cout<<std::endl;
