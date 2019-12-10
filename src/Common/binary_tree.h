@@ -24,7 +24,8 @@ namespace COMM{
         Vector3<Float> am;        // angular momentum
 
         //! Orbit to position and velocity
-        /*! @param[out]: _p1: particle 1
+        /*! refer to the P3T code developed by Iwasawa M.
+          @param[out]: _p1: particle 1
           @param[out]: _p2: particle 2
           @param[in]: _bin: binary parameter
         */
