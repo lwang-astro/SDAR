@@ -1467,7 +1467,7 @@ namespace H4{
                         Float rp = drdv/bin_root.r*groups[k].particles.cm.dt + bin_root.r;
                         if (rp >groupk.info.r_break_crit) {
 #ifdef ADJUST_GROUP_DEBUG
-                            std::cerr<<"Break group: binary will escape, i_group: "<<k<<" N_member: "<<n_member<<" ecca: "<<bin_root.ecca<<" separation : "<<bin_root.r<<" r_pred: "<<rp<<" drdv: "<<drdv<<" dt: "<<groups[k].particles.cm.dt<<" r_crit: "<<groupk.info.r_break_crit<<std::endl;
+                            std::cerr<<"Break group: binary will escape, i_group: "<<k<<" N_member: "<<n_member<<" ecca: "<<bin_root.ecca<<" separation : "<<bin_root.r<<" apo: "<<apo<<" r_pred: "<<rp<<" drdv: "<<drdv<<" dt: "<<groups[k].particles.cm.dt<<" r_crit: "<<groupk.info.r_break_crit<<std::endl;
 #endif
                             _break_group_index_with_offset[_n_break++] = k + index_offset_group_;
                             continue;
