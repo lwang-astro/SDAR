@@ -86,7 +86,8 @@ namespace COMM{
 
 
         //! position velocity to orbit
-        /* @param[out]: _bin: binary parameter
+        /* refer to the P3T code developed by Iwasawa M.
+           @param[out]: _bin: binary parameter
            @param[in]:  _p1: particle 1
            @param[in]:  _p2: particle 2
         */
@@ -163,7 +164,7 @@ namespace COMM{
         }
 
         //! calculate eccentricy anomaly from mean anomaly
-        /*
+        /* refer to the P3T code developed by Iwasawa M.
           @param[in] _mean_anomaly: mean_anomaly
           @param[in] _ecc: eccentricity
           \return eccentric anomaly
@@ -195,7 +196,7 @@ namespace COMM{
         }
 
         //! solve kepler orbit after dt
-        /*!
+        /*! refer to the P3T code developed by Iwasawa M.
           @param[in,out] _bin: binary orbit
           @param[in] _dt: evolution time
         */
