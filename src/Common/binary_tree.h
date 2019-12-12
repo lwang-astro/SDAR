@@ -374,8 +374,7 @@ namespace COMM{
     };
 
 //! Binary tree cell 
-/*! Require id as a member in Tptcl.
-  Binary id will be the negative value of first member id
+/*! 
 */
     template <class Tptcl>
     class BinaryTree: public Tptcl, public Binary {

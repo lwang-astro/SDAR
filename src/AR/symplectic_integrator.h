@@ -1307,7 +1307,7 @@ namespace AR {
                             ds[1-ds_switch] = ds[ds_switch];
                             ASSERT(!isinf(ds[ds_switch]));
                             backup_flag = false;
-#ifdef AR_WARN
+#ifdef AR_DEEP_DEBUG
                             std::cerr<<"Detected energy error too large, integration_error/energy_error_max ="<<1.0/integration_error_ratio<<" integration_error_rel_abs ="<<integration_error_rel_abs<<" modify_factor ="<<modify_factor<<std::endl;
 #endif
                             continue;
