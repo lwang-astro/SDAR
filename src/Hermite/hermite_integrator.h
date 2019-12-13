@@ -1147,7 +1147,7 @@ namespace H4{
                     ASSERT(p_index<particles.getSize());
                     group_new.particles.addMemberAndAddress(particles[p_index]);
                     group_new.info.particle_index.addMember(p_index);
-                    group_new.info.r_break_crit = std::max(group_new.info.r_break_crit, particles[p_index].getRBreak());
+                    group_new.info.r_break_crit = std::max(group_new.info.r_break_crit, particles[p_index].getRGroup());
                     Float r_neighbor_crit = particles[p_index].getRNeighbor();
                     group_new.perturber.r_neighbor_crit_sq = std::max(group_new.perturber.r_neighbor_crit_sq, r_neighbor_crit*r_neighbor_crit);
                     // update single mask table 
@@ -1667,9 +1667,9 @@ namespace H4{
 
                 auto& pi = particles[i];
                 // distance criterion
-                Float r_crit = pi.getRBreak();
+                Float r_crit = pi.getRGroup();
                 if (j<index_offset_group_) 
-                    r_crit = std::max(particles[j].getRBreak(), r_crit);
+                    r_crit = std::max(particles[j].getRGroup(), r_crit);
                 else
                     r_crit = std::max(groups[j-index_offset_group_].info.r_break_crit, r_crit);
                 Float r_crit_sq = r_crit*r_crit;
@@ -1768,7 +1768,7 @@ namespace H4{
 
                 Float r_crit = groupi.info.r_break_crit;
                 if (j<index_offset_group_) 
-                    r_crit = std::max(particles[j].getRBreak(), r_crit);
+                    r_crit = std::max(particles[j].getRGroup(), r_crit);
                 else
                     r_crit = std::max(groups[j-index_offset_group_].info.r_break_crit, r_crit);
                 Float r_crit_sq = r_crit*r_crit;

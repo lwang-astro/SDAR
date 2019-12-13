@@ -39,8 +39,8 @@ public:
         return r_neighbor_crit;
     }
 
-    //! Get neighbor distance criterion 
-    Float getRBreak() {
+    //! Get Group distance criterion 
+    Float getRGroup() {
         return r_break_crit;
     }
 
