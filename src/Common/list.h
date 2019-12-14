@@ -4,8 +4,8 @@
 
 namespace COMM {
 
-    //! list mode indicator
-    /* copy: copy data and link original address (data_, adr_ allocated); \n
+    //! list mode identification
+    /*! copy: copy data and link original address (data_, adr_ allocated); \n
        local: allocate data_ memory locally, no allocation of adr_ (no original address); \n
        link: no allocation, link data from outside; \n
        none: initial case.
