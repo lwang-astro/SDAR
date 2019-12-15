@@ -1217,7 +1217,7 @@ namespace AR {
 
                 // get integration error for extended Hamiltonian
 #ifdef AR_TTL
-                Float integration_error_rel_abs = energy_error_rel_abs*gt_drift_inv_;
+                Float integration_error_rel_abs = abs(energy_error_rel_abs*gt_drift_inv_);
                 Float integration_error_rel_cum_abs = abs(energy_error*gt_drift_inv_/etot_ref_bk);
 #else
 #ifdef AR_SLOWDOWN_INNER

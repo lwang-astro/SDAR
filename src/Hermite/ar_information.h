@@ -123,8 +123,7 @@ namespace H4{
             bin_root.processLeafIter(p_index, calcParticleIndex);
             if (bin_root.getMemberN()==2) return 1;
             else {
-                auto* member1 = bin_root.getMember(0);
-                if (member1->id<0) return ((COMM::BinaryTree<ARPtcl>*)member1)->getMemberN();
+                if (bin_root.isMemberTree(0)) return bin_root.getLeftMemberAsTree()->getMemberN();
                 else return 1;
             }
         }

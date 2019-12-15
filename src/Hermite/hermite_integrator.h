@@ -1297,7 +1297,7 @@ namespace H4{
                 int particle_index_origin[n_member];
                 int ibreak = groupi.info.getTwoBranchParticleIndexOriginFromBinaryTree(particle_index_origin, groupi.particles.getDataAddress());
 
-#ifdef AR_DEBUG_PRINT
+#ifdef ADJUST_GROUP_DEBUG
                 std::cerr<<"Break Group:  "
                          <<" k:"<<std::setw(2)<<i
                          <<" N_member: "<<std::setw(4)<<groupi.particles.getSize()
@@ -1511,7 +1511,7 @@ namespace H4{
                     AR::SlowDown sd;
                     sd.initialSlowDownReference(groupk.slowdown.getSlowDownFactorReference(),groupk.slowdown.getSlowDownFactorMax());
                     sd.timescale = groupk.slowdown.timescale;
-                    sd.period = groupk.slowdown.period;
+                    sd.period = groupk.info.getBinaryTreeRoot().period;
 
                     if (n_member==2) {
                         // check strong perturbed binary case 
@@ -1551,8 +1551,8 @@ namespace H4{
                     // check few-body inner perturbation (suppress when use slowdown inner AR)
                     else {
                         for (int j=0; j<2; j++) {
-                            if (bin_root.getMember(j)->id<0) {
-                                auto* bin_sub = (COMM::BinaryTree<ParticleAR<Tparticle>>*) bin_root.getMember(j);
+                            if (bin_root.isMemberTree(j)) {
+                                auto* bin_sub = bin_root.getMemberAsTree(j);
 //                            Float semi_db = 2.0*bin_sub->semi;
 //                            // inner hyperbolic case
 //                            if(semi_db<0.0 && abs(groupk.getEnergyError()/groupk.getEtot())<100.0*groupk.manager->energy_error_relative_max && bin_root->ecca>0.0) {

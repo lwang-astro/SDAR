@@ -101,7 +101,7 @@ namespace AR {
             //if (n_particle>2) {
             //    Float apo_in_max = 0;
             //    for (int j=0; j<2; j++) {
-            //        if (bin_root.getMember(j)->id<0) {
+            //        if (bin_root.isMemberTree(j)) {
             //            auto* bin_sub = (COMM::BinaryTree<Tparticle>*) bin_root.getMember(j);
             //            apo_in_max = std::max(apo_in_max,bin_sub->semi*(1+bin_sub->ecc));
             //        }

@@ -709,6 +709,12 @@ namespace COMM{
             return member[i];
         }
 
+        //! get member as tree
+        BinaryTree<Tptcl>* getMemberAsTree(const size_t i) const {
+            ASSERT(i<2);
+            return (BinaryTree<Tptcl>*)member[i];
+        }
+
         //! get member index
         int getMemberIndex(const size_t i) const {
             ASSERT(i<2);
@@ -725,9 +731,19 @@ namespace COMM{
             return member[0];
         }
 
+        //! get left member as tree
+        BinaryTree<Tptcl>* getLeftMemberAsTree() const {
+            return (BinaryTree<Tptcl>*)member[0];
+        }
+
         //! get right member
         Tptcl* getRightMember() const {
             return member[1];
+        }
+
+        //! get right member as tree
+        BinaryTree<Tptcl>* getRightMemberAsTree() const {
+            return (BinaryTree<Tptcl>*)member[1];
         }
 
         ////! copy operator = 
