@@ -146,7 +146,7 @@ int main(int argc, char **argv){
             plist.push_back(ptmp);
         }
         COMM::BinaryTree<Particle> bins[plist.size()];
-        COMM::BinaryTree<Particle>::generateBinaryTree(bins, &pindex.front(), plist.size(), &plist.front());
+        COMM::BinaryTree<Particle>::generateBinaryTree(bins, &pindex.front(), plist.size(), &plist.front(),G);
         PrintInfo info;
         info.level = info.branch = 0;
         info.print_width=WIDTH;
