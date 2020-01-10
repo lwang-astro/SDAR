@@ -103,8 +103,10 @@ int main(int argc, char **argv){
                      <<"   -n [int]:  number of pairs to read (defaulted: all)\n"
                      <<"   -w [int]:  print width("<<WIDTH<<")\n"
                      <<"   -p [int]:  print precision("<<PRECISION<<")\n"
-                     <<"   -u [int]:  0: unscale; 1: x[PC], v[km/s], semi[AU], period[days]; 2: x[AU], v[km/s], semi[AU], period[days] (0)\n"
-                     <<std::endl;
+                     <<"   -u [int]:  0: unscale \n"
+                     <<"              1: x[AU], v[AU/yr], semi[AU], period[yr]\n"
+                     <<"              2: x[AU], v[km/s],  semi[AU], period[days]\n"
+                     <<"              3: x[PC], v[km/s],  semi[AU], period[days]\n";
             return 0;
         default:
             std::cerr<<"Unknown argument. check '-h' for help.\n";
@@ -164,15 +166,15 @@ int main(int argc, char **argv){
             if (fs.eof()) break;
             N++;
 
-            if (unit==1) bin.semi *= pc2au;
+            if (unit>2) bin.semi *= pc2au;
 
             Particle p[2];
             bin.calcParticles(p[0],p[1],G);
 
             for (int k=0; k<2; k++) {
                 for (int j=0; j<3; j++) {
-                    if (unit>0) p[k].vel[j] /= kms2auyr;
-                    if (unit==1) p[k].pos[j] /= pc2au;
+                    if (unit>1) p[k].vel[j] /= kms2auyr;
+                    if (unit>2) p[k].pos[j] /= pc2au;
                 }
             }
         

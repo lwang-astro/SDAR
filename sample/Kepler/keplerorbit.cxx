@@ -47,8 +47,10 @@ int main(int argc, char **argv){
                     <<"   -n [int]:  number of pairs(1)\n"
                     <<"   -w [int]:  print width(22)\n"
                     <<"   -p [int]:  print precision(15)\n"
-                    <<"   -u [int]:  0: unscale; 1: x[PC], v[km/s], semi[AU], period[days]; 2: x[AU], v[km/s], semi[AU], period[days]\n"
-                    <<std::endl;
+                    <<"   -u [int]:  0: unscale \n"
+                    <<"              1: x[AU], v[AU/yr], semi[AU], period[yr]\n"
+                    <<"              2: x[AU], v[km/s],  semi[AU], period[days]\n"
+                    <<"              3: x[PC], v[km/s],  semi[AU], period[days]\n";
            return 0;
        default:
            std::cerr<<"Unknown argument. check '-h' for help.\n";
@@ -97,17 +99,8 @@ int main(int argc, char **argv){
            bin.setMembers(&p[0],&p[1],i*2,i*2+1);
            bin.calcCenterOfMass();
 
-           // pc ->AU
-           if(unit==1) {
-               for (int k=0; k<2; k++) {
-                   for (int j=0; j<3; j++) {
-                       p[k].pos[j] *= pc2au;
-                   }
-               }
-           }
-
-           // km/s -> AU/yr
-           if(unit>0) {
+           if(unit>1) {
+               // km/s -> AU/yr
                for (int k=0; k<2; k++) {
                    for (int j=0; j<3; j++) {
                        p[k].vel[j] *= kms2auyr;
@@ -115,7 +108,19 @@ int main(int argc, char **argv){
                }
            }
 
+           if(unit>2) {
+               // pc ->AU
+               for (int k=0; k<2; k++) {
+                   for (int j=0; j<3; j++) {
+                       p[k].pos[j] *= pc2au;
+                   }
+               }
+           }
+
+
            bin.calcOrbit(G);
+           // yr -> days
+           if (unit>1) bin.period *= 365.25;
            bin.printColumn(std::cout, WIDTH);
            std::cout<<std::endl;
        }
@@ -123,7 +128,7 @@ int main(int argc, char **argv){
    else {
        for(int i=0; i<num; i++) {
            bin.readAscii(fs);
-           if(unit==1) {
+           if(unit>2) {
                for (int j=0; j<3; j++) {
                    bin.pos[j] *= pc2au;
                }
@@ -141,9 +146,9 @@ int main(int argc, char **argv){
                for (int j=0; j<3; j++) {
                    p[k].pos[j] += bin.pos[j];
                    p[k].vel[j] += bin.vel[j];
-                   if (unit>0) p[k].vel[j] /= kms2auyr;
-                   if (unit==1) p[k].pos[j] /= pc2au;
-               }
+                   if (unit>1) p[k].vel[j] /= kms2auyr;
+                   if (unit>2) p[k].pos[j] /= pc2au;
+                                  }
 
                p[k].printColumn(std::cout, WIDTH);
                std::cout<<std::endl;
