@@ -11,11 +11,15 @@
 //! a sample interaction class with newtonian acceleration
 class Interaction{
 public:
+    Float gravitational_constant; ///> gravitational constant
+
+    Interaction(): gravitational_constant(Float(-1.0)) {}
 
     //! (Necessary) check whether publicly initialized parameters are correctly set
     /*! \return true: all parmeters are correct. In this case no parameters, return true;
      */
     bool checkParams() {
+        ASSERT(gravitational_constant>0.0);
         return true;
     }
 
@@ -50,12 +54,12 @@ public:
         Float* acc1 = _f1.acc_in;
         Float* acc2 = _f2.acc_in;
 
-        Float mor3_1 = mass2*inv_r3;
+        Float mor3_1 = gravitational_constant*mass2*inv_r3;
         acc1[0] = mor3_1 * dr[0];
         acc1[1] = mor3_1 * dr[1];
         acc1[2] = mor3_1 * dr[2];
 
-        Float mor3_2 = mass1*inv_r3;
+        Float mor3_2 = gravitational_constant*mass1*inv_r3;
         acc2[0] = - mor3_2 * dr[0];
         acc2[1] = - mor3_2 * dr[1];
         acc2[2] = - mor3_2 * dr[2];
@@ -64,7 +68,7 @@ public:
 
 #ifdef AR_TTL 
         // trans formation function gradient
-        Float m1m2or3 = m1m2*inv_r3;
+        Float m1m2or3 = gravitational_constant*m1m2*inv_r3;
         Float* gtgrad1 = _f1.gtgrad;
         Float* gtgrad2 = _f2.gtgrad;
 
@@ -78,7 +82,7 @@ public:
 #endif
 
         // potential energy
-        Float m1m2or = m1m2*inv_r;
+        Float m1m2or = gravitational_constant*m1m2*inv_r;
         _epot = - m1m2or;
 
         // transformation factor for kick
@@ -130,7 +134,7 @@ public:
                 Float r2 = dr[0]*dr[0] + dr[1]*dr[1] + dr[2]*dr[2];
                 Float inv_r = 1.0/sqrt(r2);
                 Float inv_r3 = inv_r*inv_r*inv_r;
-                Float mor3 = massj*inv_r3;
+                Float mor3 = gravitational_constant*massj*inv_r3;
                 acci[0] += mor3 * dr[0];
                 acci[1] += mor3 * dr[1];
                 acci[2] += mor3 * dr[2];
@@ -142,14 +146,14 @@ public:
                 gtgradi[1] += inv_r2 * dr[1];
                 gtgradi[2] += inv_r2 * dr[2];
 #else
-                Float mimjor3 = massi*mor3;
+                Float mimjor3 = gravitational_constant*massi*mor3;
                 gtgradi[0] += mimjor3 * dr[0];
                 gtgradi[1] += mimjor3 * dr[1];
                 gtgradi[2] += mimjor3 * dr[2];
 #endif
 #endif
 
-                Float mor = massj*inv_r;
+                Float mor = gravitational_constant*massj*inv_r;
                 poti -= mor;
 #ifdef AR_TTL_GT_MULTI
                 gtki *= inv_r;
@@ -267,7 +271,7 @@ public:
 
             // velocity dependent method 
             // m_tot / |\sum m_j /|r_j| * v_j|
-            Float mor = mj/r;
+            Float mor = gravitational_constant*mj/r;
             mvor[0] += mor*dv[0];
             mvor[1] += mor*dv[1];
             mvor[2] += mor*dv[2];
@@ -275,7 +279,7 @@ public:
 
             // force dependent method
             // min sqrt(r^3/(G m))
-            Float mor3 = (mj+mcm)*r*r2/(mj*mcm);
+            Float mor3 = (mj+mcm)*r*r2/(gravitational_constant*mj*mcm);
             trf2_min =  std::min(trf2_min, mor3);
 
 #endif

@@ -17,30 +17,26 @@ namespace AR {
      */
     class Information{
     private:
-        struct DsDat{ Float tov,r; };
-
-#ifdef AR_TTL_GT_MULTI
         //! calculate average kepler ds for ARC
-        static DsDat calcDsKeplerIter(DsDat& _ds, COMM::BinaryTree<Tparticle>& _bin) {
+        template <class Tds>
+        static Tds calcDsKeplerIter(Tds& _ds, COMM::BinaryTree<Tparticle>& _bin) {
+            Tds ds;
+            ds.G   = _ds.G;
+#ifdef AR_TTL_GT_MULTI
             // ecca [v/r]
-            Float tov2 = 0.03855314219*_bin.semi*_bin.semi*_bin.semi/(_bin.m1+_bin.m2);
+            Float tov2 = 0.03855314219*_bin.semi*_bin.semi*_bin.semi/(_ds.G*_bin.m1+_bin.m2);
             // semi cum
-            DsDat ds;
             ds.tov = std::min(_ds.tov,tov2);
             ds.r   = 2.0*_ds.r*_bin.semi;
+#else
+            //kepler orbit, step ds=dt*m1*m2/r estimation (1/32 orbit): 2*pi/32*sqrt(semi/(m1+m2))*m1*m2 
+            if (_bin.semi>0) ds.min = 0.19634954084*sqrt(_ds.G*_bin.semi/(_bin.m1+_bin.m2))*(_bin.m1*_bin.m2);
+            //hyperbolic orbit, step ds=dt*m1*m2/r estimation (1/256 orbit): pi/128*sqrt(semi/(m1+m2))*m1*m2
+            else ds.min = 0.0245436926*sqrt(-_bin.semi/(_bin.m1+_bin.m2))*(_bin.m1*_bin.m2);
+            ds.min = std::min(ds.min, _ds.min);
+#endif
             return ds;
         }
-#else
-        //! calculate minimum kepler ds for ARC
-        static Float calcDsKeplerIter(Float& _ds, COMM::BinaryTree<Tparticle>& _bin) {
-            Float ds;
-            //kepler orbit, step ds=dt*m1*m2/r estimation (1/32 orbit): 2*pi/32*sqrt(semi/(m1+m2))*m1*m2 
-            if (_bin.semi>0) ds = 0.19634954084*sqrt(_bin.semi/(_bin.m1+_bin.m2))*(_bin.m1*_bin.m2);
-            //hyperbolic orbit, step ds=dt*m1*m2/r estimation (1/256 orbit): pi/128*sqrt(semi/(m1+m2))*m1*m2
-            else ds = 0.0245436926*sqrt(-_bin.semi/(_bin.m1+_bin.m2))*(_bin.m1*_bin.m2);
-            return std::min(ds, _ds);
-        }
-#endif
 
     public:
         Float ds;  ///> initial step size for integration
@@ -75,18 +71,18 @@ namespace AR {
         /*! Estimate ds first from the inner most binary orbit (eccentric anomaly), set fix_step_option to later
           @param[in] _sd_org: original slowdown factor of the group
           @param[in] _int_order: accuracy order of the symplectic integrator.
+          @param[in] _G: gravitational constant
          */
-        void calcDsAndStepOption(const Float _sd_org, const int _int_order) {
+        void calcDsAndStepOption(const Float _sd_org, const int _int_order, const Float _G) {
             auto& bin_root = getBinaryTreeRoot();
 #ifdef AR_TTL_GT_MULTI
-            DsDat ds_dat;
-            ds_dat.tov = NUMERIC_FLOAT_MAX;
-            ds_dat.r = 1.0;
-            ds_dat = bin_root.processRootIter(ds_dat, calcDsKeplerIter);
+            struct {Float G, tov, r; } ds_iter = {_G, NUMERIC_FLOAT_MAX, 1.0};
+            ds_iter = bin_root.processRootIter(ds_iter, calcDsKeplerIter);
             ds = sqrt(ds_dat.tov)/ds_dat.r;
 #else
-            ds = NUMERIC_FLOAT_MAX;
-            ds = bin_root.processRootIter(ds, calcDsKeplerIter);
+            struct {Float G, min;} ds_iter = {_G, NUMERIC_FLOAT_MAX};
+            ds_iter = bin_root.processRootIter(ds_iter, calcDsKeplerIter);
+            ds = ds_iter.min;
 #endif
             // Avoid too small step
             //if (_sd_org<1.0) ds *= std::max(1.0/8.0*pow(_sd_org, 1.0/Float(_int_order)),0.125);
@@ -114,13 +110,13 @@ namespace AR {
         //! generate binary tree for the particle group
         /*! @param[in] _particles: particle group 
          */
-        void generateBinaryTree(COMM::ParticleGroup<Tparticle, Tpcm>& _particles) {
+        void generateBinaryTree(COMM::ParticleGroup<Tparticle, Tpcm>& _particles, const Float _G) {
             const int n_particle = _particles.getSize();
             ASSERT(n_particle>1);
             binarytree.resizeNoInitialize(n_particle-1);
             int particle_index_local[n_particle];
             for (int i=0; i<n_particle; i++) particle_index_local[i] = i;
-            COMM::BinaryTree<Tparticle>::generateBinaryTree(binarytree.getDataAddress(), particle_index_local, n_particle, _particles.getDataAddress());
+            COMM::BinaryTree<Tparticle>::generateBinaryTree(binarytree.getDataAddress(), particle_index_local, n_particle, _particles.getDataAddress(), _G);
         }
 
         //! clear function

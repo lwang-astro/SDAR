@@ -40,6 +40,7 @@ int main(int argc, char **argv){
     COMM::IOParams<double> time_end     (input_par_store, 0.0,  "ending physical time"); // ending physical time
     COMM::IOParams<int>   nstep        (input_par_store,  0, "number of integration steps (higher priority than time_end)"); // total step size
     COMM::IOParams<double> s            (input_par_store, 0.0,  "step size, not physical time step","auto");    // step size
+    COMM::IOParams<double> gravitational_constant   (input_par_store, 1.0, "gravitational constant"); // gravitational constant
     COMM::IOParams<double> dt_min       (input_par_store, 1e-13,"minimum physical time step"); // minimum physical time step
     COMM::IOParams<double> dt_out       (input_par_store, 0.0,"output time interval"); // output time interval
     COMM::IOParams<double> slowdown_ref (input_par_store, 1e-6, "slowdown perturbation ratio reference"); // slowdown reference factor
@@ -83,7 +84,7 @@ int main(int argc, char **argv){
     };
   
     int option_index;
-    while ((copt = getopt_long(argc, argv, "N:n:t:s:Sk:e:p:o:lh", long_options, &option_index)) != -1)
+    while ((copt = getopt_long(argc, argv, "N:n:t:s:Sk:G:e:p:o:lh", long_options, &option_index)) != -1)
         switch (copt) {
         case 0:
             time_zero.value = atof(optarg);
@@ -122,6 +123,9 @@ int main(int argc, char **argv){
             break;
         case 11:
             print_precision.value = atoi(optarg);
+            break;
+        case 'G':
+            gravitational_constant.value = atof(optarg);
             break;
         case 'n':
             nstep.value = atoi(optarg);
@@ -165,6 +169,7 @@ int main(int argc, char **argv){
                      <<"    -e [Float]:  "<<energy_error<<"\n"
                      <<"          --energy-error    [Float]:  same as -e\n"
                      <<"          --fix-step-option [char] :  "<<fix_step_option<<"\n"
+                     <<"    -G [Float]:  "<<gravitational_constant<<"\n"
                      <<"    -l :          load dumped data for restart (if used, the input file is dumped data)\n"
                      <<"          --load-data (same as -l)\n"
                      <<"    -k [int]:    "<<sym_order<<"\n"
@@ -202,6 +207,7 @@ int main(int argc, char **argv){
 
     // manager
     SymplecticManager<Interaction> manager;
+    manager.interaction.gravitational_constant = gravitational_constant.value;
     manager.time_step_real_min = dt_min.value;
     if (time_error.value>0.0)  manager.time_error_max_real = time_error.value;
     else manager.time_error_max_real = 0.25*dt_min.value;
@@ -262,13 +268,13 @@ int main(int argc, char **argv){
     for (int i=0; i<sym_int.particles.getSize(); i++) sym_int.particles[i].id = i+1;
 
     sym_int.info.reserveMem(sym_int.particles.getSize());
-    sym_int.info.generateBinaryTree(sym_int.particles);
+    sym_int.info.generateBinaryTree(sym_int.particles,manager.interaction.gravitational_constant);
 
     // no initial when both parameters and data are load
     if(!load_flag) {
         // initialization 
         sym_int.initialIntegration(time_zero.value);
-        sym_int.info.calcDsAndStepOption(sym_int.slowdown.getSlowDownFactorOrigin(), manager.step.getOrder());
+        sym_int.info.calcDsAndStepOption(sym_int.slowdown.getSlowDownFactorOrigin(), manager.step.getOrder(), manager.interaction.gravitational_constant);
     }
 
     // use input fix step option
@@ -331,7 +337,7 @@ int main(int argc, char **argv){
         int nstep_per_out = int(time_end.value/dt_out.value+0.5);
         for (int i=1; i<=nstep_per_out; i++) {
             sym_int.integrateToTime(dt_out.value*i);
-            sym_int.info.generateBinaryTree(sym_int.particles);
+            sym_int.info.generateBinaryTree(sym_int.particles, manager.interaction.gravitational_constant);
             sym_int.printColumn(std::cout, print_width.value, n_sd);
             std::cout<<std::endl;
         }

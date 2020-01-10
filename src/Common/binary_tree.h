@@ -215,7 +215,7 @@ namespace COMM{
           @param[out]: _p2: particle 2
         */    
         template <class Tptcl>
-        void calcOrbit(const Tptcl& _p1, const Tptcl& _p2, const Float _G=1.0) {
+        void calcOrbit(const Tptcl& _p1, const Tptcl& _p2, const Float _G) {
             particleToOrbit(*this, _p1, _p2, _G);
         }
 
@@ -225,7 +225,7 @@ namespace COMM{
           @param[out]: _p2: particle 2
         */    
         template <class Tptcl>
-        void calcParticles(Tptcl& _p1, Tptcl& _p2, const Float _G=1.0) {
+        void calcParticles(Tptcl& _p1, Tptcl& _p2, const Float _G) {
             orbitToParticle(_p1, _p2, *this, this->ecca, _G);
         }
 
@@ -236,7 +236,7 @@ namespace COMM{
           @param[in]: _ecca: eccentricity anomaly
         */    
         template <class Tptcl>
-        void calcParticlesEcca(Tptcl& _p1, Tptcl& _p2, const Float _ecca, const Float _G=1.0) const {
+        void calcParticlesEcca(Tptcl& _p1, Tptcl& _p2, const Float _ecca, const Float _G) const {
             orbitToParticle(_p1, _p2, *this, _ecca, _G);
         }
 
@@ -445,12 +445,14 @@ namespace COMM{
            @param[in,out] _ptcl_list: group particle member index in _ptcl, will be reordered by the minimum distance chain.
            @param[in] _n: number of particles in _ptcl_list
            @param[in] _ptcl: particle data array
+           @param[in] _G: gravtational constant
            \return binary tree number
         */
         static void generateBinaryTree(BinaryTree<Tptcl> _bins[],  // make sure bins.size = n_members-1!
                                        int _ptcl_list[],   // make sure list.size = n_members!
                                        const int _n,
-                                       Tptcl* _ptcl) {
+                                       Tptcl* _ptcl,
+                                       const Float _G) {
 
             R2Index r2_list[_n];
             // reorder _ptcl_list by minimum distance of each particles, and save square minimum distance r2min and index i in _ptcl_list (not particle index in _ptcl) in r2_list 
@@ -505,7 +507,7 @@ namespace COMM{
                 // calculate binary parameter
                 _bins[i].setMembers(p[0], p[1], pindex[0], pindex[1]);
                 // calculate kepler orbit
-                _bins[i].calcOrbit();
+                _bins[i].calcOrbit(_G);
                 // calculate center-of-mass 
                 _bins[i].calcCenterOfMass();
             }
@@ -548,7 +550,7 @@ namespace COMM{
         }
 
         //! calculate Kepler orbit from members
-        void calcOrbit(const Float _G=1.0) {
+        void calcOrbit(const Float _G) {
             Binary::calcOrbit(*member[0], *member[1], _G);
         }
 
