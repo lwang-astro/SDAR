@@ -54,27 +54,27 @@ public:
         Float* acc1 = _f1.acc_in;
         Float* acc2 = _f2.acc_in;
 
-        Float mor3_1 = gravitational_constant*mass2*inv_r3;
-        acc1[0] = mor3_1 * dr[0];
-        acc1[1] = mor3_1 * dr[1];
-        acc1[2] = mor3_1 * dr[2];
+        Float gmor3_1 = gravitational_constant*mass2*inv_r3;
+        acc1[0] = gmor3_1 * dr[0];
+        acc1[1] = gmor3_1 * dr[1];
+        acc1[2] = gmor3_1 * dr[2];
 
-        Float mor3_2 = gravitational_constant*mass1*inv_r3;
-        acc2[0] = - mor3_2 * dr[0];
-        acc2[1] = - mor3_2 * dr[1];
-        acc2[2] = - mor3_2 * dr[2];
+        Float gmor3_2 = gravitational_constant*mass1*inv_r3;
+        acc2[0] = - gmor3_2 * dr[0];
+        acc2[1] = - gmor3_2 * dr[1];
+        acc2[2] = - gmor3_2 * dr[2];
 
-        Float m1m2 = mass1*mass2;
+        Float gm1m2 = gravitational_constant*mass1*mass2;
 
 #ifdef AR_TTL 
         // trans formation function gradient
-        Float m1m2or3 = gravitational_constant*m1m2*inv_r3;
+        Float gm1m2or3 = gm1m2*inv_r3;
         Float* gtgrad1 = _f1.gtgrad;
         Float* gtgrad2 = _f2.gtgrad;
 
-        gtgrad1[0] = m1m2or3 * dr[0];
-        gtgrad1[1] = m1m2or3 * dr[1];
-        gtgrad1[2] = m1m2or3 * dr[2];
+        gtgrad1[0] = gm1m2or3 * dr[0];
+        gtgrad1[1] = gm1m2or3 * dr[1];
+        gtgrad1[2] = gm1m2or3 * dr[2];
 
         gtgrad2[0] = - gtgrad1[0];
         gtgrad2[1] = - gtgrad1[1];
@@ -82,11 +82,11 @@ public:
 #endif
 
         // potential energy
-        Float m1m2or = gravitational_constant*m1m2*inv_r;
-        _epot = - m1m2or;
+        Float gm1m2or = gm1m2*inv_r;
+        _epot = - gm1m2or;
 
         // transformation factor for kick
-        Float gt_kick = 1.0/m1m2or;
+        Float gt_kick = 1.0/gm1m2or;
 
         return gt_kick;
     }
@@ -134,10 +134,10 @@ public:
                 Float r2 = dr[0]*dr[0] + dr[1]*dr[1] + dr[2]*dr[2];
                 Float inv_r = 1.0/sqrt(r2);
                 Float inv_r3 = inv_r*inv_r*inv_r;
-                Float mor3 = gravitational_constant*massj*inv_r3;
-                acci[0] += mor3 * dr[0];
-                acci[1] += mor3 * dr[1];
-                acci[2] += mor3 * dr[2];
+                Float gmor3 = gravitational_constant*massj*inv_r3;
+                acci[0] += gmor3 * dr[0];
+                acci[1] += gmor3 * dr[1];
+                acci[2] += gmor3 * dr[2];
 
 #ifdef AR_TTL                     
 #ifdef AR_TTL_GT_MULTI
@@ -146,19 +146,19 @@ public:
                 gtgradi[1] += inv_r2 * dr[1];
                 gtgradi[2] += inv_r2 * dr[2];
 #else
-                Float mimjor3 = gravitational_constant*massi*mor3;
+                Float mimjor3 = gravitational_constant*massi*gmor3;
                 gtgradi[0] += mimjor3 * dr[0];
                 gtgradi[1] += mimjor3 * dr[1];
                 gtgradi[2] += mimjor3 * dr[2];
 #endif
 #endif
 
-                Float mor = gravitational_constant*massj*inv_r;
-                poti -= mor;
+                Float gmor = gravitational_constant*massj*inv_r;
+                poti -= gmor;
 #ifdef AR_TTL_GT_MULTI
                 gtki *= inv_r;
 #else
-                gtki += mor;
+                gtki += gmor;
 #endif
                     
             }
@@ -271,7 +271,7 @@ public:
 
             // velocity dependent method 
             // m_tot / |\sum m_j /|r_j| * v_j|
-            Float mor = gravitational_constant*mj/r;
+            Float mor = mj/r;
             mvor[0] += mor*dv[0];
             mvor[1] += mor*dv[1];
             mvor[2] += mor*dv[2];
@@ -279,8 +279,8 @@ public:
 
             // force dependent method
             // min sqrt(r^3/(G m))
-            Float mor3 = (mj+mcm)*r*r2/(gravitational_constant*mj*mcm);
-            trf2_min =  std::min(trf2_min, mor3);
+            Float gmor3 = (mj+mcm)*r*r2/(gravitational_constant*mj*mcm);
+            trf2_min =  std::min(trf2_min, gmor3);
 
 #endif
         }            
