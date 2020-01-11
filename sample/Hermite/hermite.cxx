@@ -47,7 +47,7 @@ int main(int argc, char **argv){
     COMM::IOParams<double> eta_4th      (input_par_store, 0.1,  "time step coefficient for 4th order"); // time step coefficient 
     COMM::IOParams<double> eta_2nd      (input_par_store, 0.001,"time step coefficient for 2nd order"); // time step coefficient for 2nd order
     COMM::IOParams<double> eps_sq       (input_par_store, 0.0,  "softerning parameter");    // softening parameter
-    COMM::IOParams<double> G            (input_par_store, 1.0,  "gravitational constant");      // gravitational constant
+    COMM::IOParams<double> grav_const            (input_par_store, 1.0,  "gravitational constant");      // gravitational constant
     COMM::IOParams<double> slowdown_ref (input_par_store, 1e-6, "slowdown perturbation ratio reference"); // slowdown reference factor
 #ifdef SLOWDOWN_MASSRATIO
     COMM::IOParams<double> slowdown_mass_ref (input_par_store, 0.0, "slowdowm mass reference","averaged mass"); // slowdown mass reference
@@ -136,7 +136,7 @@ int main(int argc, char **argv){
             sym_order.value = atoi(optarg);
             break;
         case 'G':
-            G.value = atof(optarg);
+            grav_const.value = atof(optarg);
             break;
         case 'e':
             energy_error.value = atof(optarg);
@@ -168,7 +168,7 @@ int main(int argc, char **argv){
                      <<"          --eta-4th:     [Float]:  "<<eta_4th<<"\n"
                      <<"          --eta-2nd:     [Float]:  "<<eta_2nd<<"\n"
                      <<"          --eps:         [Float]:  "<<eps_sq<<"\n"
-                     <<"    -G [Float]:  "<<G<<"\n"
+                     <<"    -G [Float]:  "<<grav_const<<"\n"
                      <<"    -k [int]:    "<<sym_order<<"\n"
                      <<"          --load-par     [string]: "<<filename_par<<"\n"
                      <<"          --n-step-max   [int]  :  "<<nstep_max<<"\n"
@@ -215,9 +215,9 @@ int main(int argc, char **argv){
     Float dt_max = pow(Float(0.5), Float(dt_max_power_index.value));
     manager.step.setDtRange(dt_max, dt_min_power_index.value);
     manager.interaction.eps_sq = eps_sq.value;
-    manager.interaction.G = G.value;
+    manager.interaction.gravitational_constant = grav_const.value;
     ar_manager.interaction.eps_sq = eps_sq.value;
-    ar_manager.interaction.G = G.value;
+    ar_manager.interaction.gravitational_constant = grav_const.value;
     ar_manager.time_step_real_min = manager.step.getDtMin();
     if (time_error.value == 0.0) ar_manager.time_error_max_real = 0.25*ar_manager.time_step_real_min;
     else ar_manager.time_error_max_real = time_error.value;

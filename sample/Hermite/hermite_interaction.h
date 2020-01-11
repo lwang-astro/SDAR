@@ -6,24 +6,24 @@
 class HermiteInteraction{
 public:
     Float eps_sq; // softening parameter
-    Float G;      // gravitational constant
+    Float gravitational_constant; ///> gravitational constant
 
     // constructor
-    HermiteInteraction(): eps_sq(Float(-1.0)), G(Float(-1.0)) {}
+    HermiteInteraction(): eps_sq(Float(-1.0)), gravitational_constant(Float(-1.0)) {}
 
     //! check whether parameters values are correct
     /*! \return true: all correct
      */
     bool checkParams() {
         ASSERT(eps_sq>=0.0);
-        ASSERT(G>0.0);
+        ASSERT(gravitational_constant>0.0);
         return true;
     }        
 
     //! print parameters
     void print(std::ostream & _fout) const{
         _fout<<"eps_sq: "<<eps_sq<<std::endl
-             <<"G     : "<<G<<std::endl;
+             <<"G     : "<<gravitational_constant<<std::endl;
     }    
 
     //! calculate separation square between i and j particles
@@ -68,7 +68,7 @@ public:
         const Float rinv2 = rinv*rinv;
         const Float rinv3 = rinv2*rinv;
 
-        const Float mor3 = G*_pj.mass*rinv3;
+        const Float mor3 = gravitational_constant*_pj.mass*rinv3;
         const Float acc0[3] = {mor3*dr[0], mor3*dr[1], mor3*dr[2]};
         const Float acc1[3] = {mor3*dv[0] - 3.0*drdv*rinv2*acc0[0],
                                mor3*dv[1] - 3.0*drdv*rinv2*acc0[1],
@@ -81,7 +81,7 @@ public:
         _fi.acc1[1] += acc1[1];
         _fi.acc1[2] += acc1[2];
 
-        _fi.pot += G*_pj.mass*rinv;
+        _fi.pot += gravitational_constant*_pj.mass*rinv;
 
         return dr2;
     }
@@ -118,7 +118,7 @@ public:
             const Float rinv2 = rinv*rinv;
             const Float rinv3 = rinv2*rinv;
 
-            const Float mor3 = G*pj.mass*rinv3;
+            const Float mor3 = gravitational_constant*pj.mass*rinv3;
             const Float acc0[3] = {mor3*dr[0], mor3*dr[1], mor3*dr[2]};
             const Float acc1[3] = {mor3*dv[0] - 3.0*drdv*rinv2*acc0[0],
                                    mor3*dv[1] - 3.0*drdv*rinv2*acc0[1],
@@ -131,7 +131,7 @@ public:
             _fi.acc1[1] += acc1[1];
             _fi.acc1[2] += acc1[2];
 
-            _fi.pot += G*pj.mass*rinv;
+            _fi.pot += gravitational_constant*pj.mass*rinv;
 
             r2_min = std::min(r2_min, dr2);
         }
@@ -166,7 +166,7 @@ public:
         const Float rinv2 = rinv*rinv;
         const Float rinv3 = rinv2*rinv;
 
-        const Float mor3 = G*_pj.mass*rinv3;
+        const Float mor3 = gravitational_constant*_pj.mass*rinv3;
         const Float acc0[3] = {mor3*dr[0], mor3*dr[1], mor3*dr[2]};
         const Float acc1[3] = {mor3*dv[0] - 3.0*drdv*rinv2*acc0[0],
                                mor3*dv[1] - 3.0*drdv*rinv2*acc0[1],
@@ -180,7 +180,7 @@ public:
         _fi.acc1[2] += acc1[2];
 
 
-        _fi.pot += G*_pj.mass*rinv;
+        _fi.pot += gravitational_constant*_pj.mass*rinv;
 
         return dr2;
     }
@@ -213,7 +213,7 @@ public:
         const Float rinv2 = rinv*rinv;
         const Float rinv3 = rinv2*rinv;
 
-        const Float mor3 = G*_pj.mass*rinv3;
+        const Float mor3 = gravitational_constant*_pj.mass*rinv3;
         const Float acc0[3] = {mor3*dr[0], mor3*dr[1], mor3*dr[2]};
         const Float acc1[3] = {mor3*dv[0] - 3.0*drdv*rinv2*acc0[0],
                                mor3*dv[1] - 3.0*drdv*rinv2*acc0[1],
@@ -226,7 +226,7 @@ public:
         _fi.acc1[1] += acc1[1];
         _fi.acc1[2] += acc1[2];
 
-        _fi.pot += G*_pj.mass*rinv;
+        _fi.pot += gravitational_constant*_pj.mass*rinv;
 
         return dr2;
     }
@@ -265,7 +265,7 @@ public:
             const Float rinv2 = rinv*rinv;
             const Float rinv3 = rinv2*rinv;
 
-            const Float mor3 = G*pj.mass*rinv3;
+            const Float mor3 = gravitational_constant*pj.mass*rinv3;
             const Float acc0[3] = {mor3*dr[0], mor3*dr[1], mor3*dr[2]};
             const Float acc1[3] = {mor3*dv[0] - 3.0*drdv*rinv2*acc0[0],
                                    mor3*dv[1] - 3.0*drdv*rinv2*acc0[1],
@@ -278,7 +278,7 @@ public:
             _fi.acc1[1] += acc1[1];
             _fi.acc1[2] += acc1[2];
 
-            _fi.pot += G*pj.mass*rinv;
+            _fi.pot += gravitational_constant*pj.mass*rinv;
 
             r2_min = std::min(r2_min, dr2);
         }
@@ -315,7 +315,7 @@ public:
         const Float rinv2 = rinv*rinv;
         const Float rinv3 = rinv2*rinv;
 
-        const Float mor3 = G*_pj.mass*rinv3;
+        const Float mor3 = gravitational_constant*_pj.mass*rinv3;
         const Float acc0[3] = {mor3*dr[0], mor3*dr[1], mor3*dr[2]};
         const Float acc1[3] = {mor3*dv[0] - 3.0*drdv*rinv2*acc0[0],
                                mor3*dv[1] - 3.0*drdv*rinv2*acc0[1],
@@ -328,7 +328,7 @@ public:
         _fi.acc1[1] += acc1[1];
         _fi.acc1[2] += acc1[2];
 
-        _fi.pot += G*_pj.mass*rinv;
+        _fi.pot += gravitational_constant*_pj.mass*rinv;
 
         return dr2;
     }
@@ -361,7 +361,7 @@ public:
                 const Float r = sqrt(dr2_eps);
                 ASSERT(r>0.0);
                 const Float rinv = 1.0/r;
-                poti += -G*pj.mass*rinv;
+                poti += -gravitational_constant*pj.mass*rinv;
             }
             _energy.epot += poti*pi.mass;
         }

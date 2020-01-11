@@ -1163,7 +1163,7 @@ namespace H4{
                 group_new.particles.shiftToCenterOfMassFrame();
 
                 // get binarytree
-                group_new.info.generateBinaryTree(group_new.particles);
+                group_new.info.generateBinaryTree(group_new.particles,ar_manager->interaction.gravitational_constant);
 
                 // set hermite time limit
                 group_new.info.dt_limit = manager->step.getDtMax();
@@ -1435,7 +1435,7 @@ namespace H4{
 
                 const int n_member = groupk.particles.getSize();
                 // generate binary tree
-                groupk.info.generateBinaryTree(groupk.particles);
+                groupk.info.generateBinaryTree(groupk.particles,ar_manager->interaction.gravitational_constant);
                 
                 auto& bin_root = groupk.info.binarytree.getLastMember();
                 bool outgoing_flag = false; // Indicate whether it is a outgoing case or income case
@@ -2039,7 +2039,7 @@ namespace H4{
                 //}
 
                 // get ds estimation
-                group_ptr[k].info.calcDsAndStepOption(group_ptr[k].slowdown.getSlowDownFactorOrigin(), ar_manager->step.getOrder());
+                group_ptr[k].info.calcDsAndStepOption(group_ptr[k].slowdown.getSlowDownFactorOrigin(), ar_manager->step.getOrder(), ar_manager->interaction.gravitational_constant);
 
                 // check parameters
                 ASSERT(group_ptr[k].info.checkParams());
