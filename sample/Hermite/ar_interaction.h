@@ -311,9 +311,9 @@ public:
     Float calcPertFromForce(const Float* _force, const Float _mp, const Float _mpert) {
         Float force2 = _force[0]*_force[0]+_force[1]*_force[1]+_force[2]*_force[2];
 #ifdef AR_SLOWDOWN_PERT_R4
-        return force2/(_mp*_mpert);
+        return force2/(gravitational_constant*_mp*_mpert);
 #else
-        Float force = sqrt(force2);
+        Float force = sqrt(force2)/gravitational_constant;
         return sqrt(force/(_mp*_mpert))*force;
 #endif
     }
