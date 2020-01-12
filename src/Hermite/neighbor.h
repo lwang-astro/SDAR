@@ -203,10 +203,12 @@ namespace H4 {
                 initial_step_flag = true;
             }
             // _kappa>3.0 seems cause oscillation 
+            /* suppress unresolved flag 
             if (_kappa>11.0 && need_resolve_flag) {
                 need_resolve_flag = false;
                 initial_step_flag = true;
             }
+            */
         }
 
     };
