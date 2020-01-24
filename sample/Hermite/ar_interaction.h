@@ -39,9 +39,9 @@ public:
       @param[out] _epot: total inner potential energy
       @param[in] _p1: particle 1
       @param[in] _p2: particle 2
-      \return the time transformation factor (gt_kick) for kick step
+      \return the time transformation factor (gt_kick_inv) for kick step
     */
-    inline Float calcInnerAccPotAndGTKickTwo(AR::Force& _f1, AR::Force& _f2, Float& _epot, const ARPtcl& _p1, const Particle& _p2) {
+    inline Float calcInnerAccPotAndGTKickInvTwo(AR::Force& _f1, AR::Force& _f2, Float& _epot, const ARPtcl& _p1, const Particle& _p2) {
         // acceleration
         const Float mass1 = _p1.mass;
         const Float* pos1 = _p1.pos;
@@ -92,9 +92,9 @@ public:
         _epot = - gm1m2or;
 
         // transformation factor for kick
-        Float gt_kick = 1.0/gm1m2or;
+        Float gt_kick_inv = gm1m2or;
 
-        return gt_kick;
+        return gt_kick_inv;
     }
 
     //! calculate inner member acceleration, potential and time transformation function gradient and factor for kick
@@ -103,11 +103,11 @@ public:
       @param[out] _epot: total inner potential energy
       @param[in] _particles: member particle array
       @param[in] _n_particle: number of member particles
-      \return the time transformation factor (gt_kick) for kick step
+      \return the time transformation factor (gt_kick_inv) for kick step
     */
-    inline Float calcInnerAccPotAndGTKick(AR::Force* _force, Float& _epot, const ARPtcl* _particles, const int _n_particle) {
+    inline Float calcInnerAccPotAndGTKickInv(AR::Force* _force, Float& _epot, const ARPtcl* _particles, const int _n_particle) {
         _epot = Float(0.0);
-        Float gt_kick = Float(0.0);
+        Float gt_kick_inv = Float(0.0);
         for (int i=0; i<_n_particle; i++) {
             const Float massi = _particles[i].mass;
             const Float* posi = _particles[i].pos;
@@ -150,12 +150,12 @@ public:
                     
             }
             _epot += poti * massi;
-            gt_kick += gtki * massi;
+            gt_kick_inv += gtki * massi;
         }
         _epot   *= 0.5;
-        gt_kick = 2.0/gt_kick;
+        gt_kick_inv *= 0.5;
 
-        return gt_kick;
+        return gt_kick_inv;
     }
 
     //! (Necessary) calculate acceleration from perturber and the perturbation factor for slowdown calculation
@@ -169,12 +169,12 @@ public:
       @param[in] _time: current time
       \return perturbation energy to calculate slowdown factor
     */
-    Float calcAccPotAndGTKick(AR::Force* _force, Float& _epot, const ARPtcl* _particles, const int _n_particle, const H4Ptcl& _particle_cm, const H4::Neighbor<Particle>& _perturber, const Float _time) {
+    Float calcAccPotAndGTKickInv(AR::Force* _force, Float& _epot, const ARPtcl* _particles, const int _n_particle, const H4Ptcl& _particle_cm, const H4::Neighbor<Particle>& _perturber, const Float _time) {
         static const Float inv3 = 1.0 / 3.0;
 
-        Float gt_kick;
-        if (_n_particle==2) gt_kick = calcInnerAccPotAndGTKickTwo(_force[0], _force[1], _epot, _particles[0], _particles[1]);
-        else gt_kick = calcInnerAccPotAndGTKick(_force, _epot, _particles, _n_particle);
+        Float gt_kick_inv;
+        if (_n_particle==2) gt_kick_inv = calcInnerAccPotAndGTKickInvTwo(_force[0], _force[1], _epot, _particles[0], _particles[1]);
+        else gt_kick_inv = calcInnerAccPotAndGTKickInv(_force, _epot, _particles, _n_particle);
 
         const int n_pert = _perturber.neighbor_address.getSize();
         if (n_pert>0) {
@@ -302,7 +302,7 @@ public:
 
             }
         }
-        return gt_kick;
+        return gt_kick_inv;
         
     }
 
@@ -527,8 +527,8 @@ public:
     /*! The time transformation factor for drift only depends on (kinetic energy - total energy)
       @param[in] _ekin_minus_etot: ekin - etot
     */
-    Float calcGTDrift(Float _ekin_minus_etot) {
-        return 1.0/_ekin_minus_etot;
+    Float calcGTDriftInv(Float _ekin_minus_etot) {
+        return _ekin_minus_etot;
     }
 
     //! (Necessary) calculate the time transformed Hamiltonian
