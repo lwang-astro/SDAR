@@ -13,11 +13,11 @@
   All major ARC classes and related acceleration functions (typedef) are defined
 */
 namespace AR {
-    //! Symplectic integrator manager
+    //! Time Transformed Symplectic integrator manager
     /*! Tmethod is the class contain the interaction function, see sample of interaction.h:\n
      */
     template <class Tmethod>
-    class SymplecticManager {
+    class TimeTransformedSymplecticManager {
     public:
         Float time_error_max_real; ///> maximum time error (absolute), should be positive and larger than round-off error 
         Float energy_error_relative_max; ///> maximum energy error requirement 
@@ -33,7 +33,7 @@ namespace AR {
         SymplecticStep step;  ///> class to manager kick drift step
 
         //! constructor
-        SymplecticManager(): time_error_max_real(Float(-1.0)), energy_error_relative_max(Float(-1.0)), time_step_real_min(Float(-1.0)), slowdown_pert_ratio_ref(Float(-1.0)), 
+        TimeTransformedSymplecticManager(): time_error_max_real(Float(-1.0)), energy_error_relative_max(Float(-1.0)), time_step_real_min(Float(-1.0)), slowdown_pert_ratio_ref(Float(-1.0)), 
 #ifdef AR_SLOWDOWN_MASSRATIO
                              slowdown_mass_ref(Float(-1.0)), 
 #endif
@@ -100,7 +100,7 @@ namespace AR {
         }
     };
 
-    //! Symplectic integrator class for a group of particles
+    //! Time Transformed Symplectic integrator class for a group of particles
     /*! The basic steps to use the integrator \n
       1. Add particles (particles.addParticle/particles.linkParticleList)  \n
       2. Initial system (initial) \n
@@ -109,7 +109,7 @@ namespace AR {
       Template dependence: Tparticle: particle type; Tpcm: particle cm type  Tpert: perturber class type, Tmethod: interaction class;
     */
     template <class Tparticle, class Tpcm, class Tpert, class Tmethod, class Tinfo>
-    class SymplecticIntegrator {
+    class TimeTransformedSymplecticIntegrator {
     private:
         //! slowdown with pair particle index
         struct SlowDownPair{
@@ -147,7 +147,7 @@ namespace AR {
         COMM::List<Force> force_; ///< acceleration array 
 
     public:
-        SymplecticManager<Tmethod>* manager; ///< integration manager
+        TimeTransformedSymplecticManager<Tmethod>* manager; ///< integration manager
         COMM::ParticleGroup<Tparticle,Tpcm> particles; ///< particle group manager
 #ifdef AR_SLOWDOWN_INNER
         COMM::List<SlowDownPair> slowdown_inner; /// inner binary slowdown
@@ -158,7 +158,7 @@ namespace AR {
         Profile  profile;  ///< profile to measure the performance
         
         //! Constructor
-        SymplecticIntegrator(): time_(0), etot_ref_(0), ekin_(0), epot_(0), de_sd_change_cum_(0), dH_sd_change_cum_(0),
+        TimeTransformedSymplecticIntegrator(): time_(0), etot_ref_(0), ekin_(0), epot_(0), de_sd_change_cum_(0), dH_sd_change_cum_(0),
 #ifdef AR_SLOWDOWN_INNER
                                 ekin_sdi_(0), epot_sdi_(0), etot_sdi_ref_(0), 
 #endif
@@ -228,14 +228,14 @@ namespace AR {
         }
 
         //! destructor
-        ~SymplecticIntegrator() {
+        ~TimeTransformedSymplecticIntegrator() {
             clear();
         }
 
         //! operator = 
         /*! Copy function will remove the local data and also copy the particle data or the link
          */
-        SymplecticIntegrator& operator = (const SymplecticIntegrator& _sym) {
+        TimeTransformedSymplecticIntegrator& operator = (const TimeTransformedSymplecticIntegrator& _sym) {
             clear();
             time_   = _sym.time_;
             etot_ref_   = _sym.etot_ref_;

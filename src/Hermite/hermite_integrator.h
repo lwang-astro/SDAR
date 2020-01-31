@@ -142,7 +142,7 @@ namespace H4{
     template <class Tparticle, class Tpcm, class Tpert, class TARpert, class Tacc, class TARacc, class Tinfo>
     class HermiteIntegrator{
     private:
-        typedef AR::SymplecticIntegrator<ParticleAR<Tparticle>, ParticleH4<Tparticle>, TARpert, TARacc, ARInformation<Tparticle>> ARSym;
+        typedef AR::TimeTransformedSymplecticIntegrator<ParticleAR<Tparticle>, ParticleH4<Tparticle>, TARpert, TARacc, ARInformation<Tparticle>> ARSym;
 
         // time 
         Float time_;   ///< integrated time 
@@ -190,7 +190,7 @@ namespace H4{
 
     public:
         HermiteManager<Tacc>* manager; ///< integration manager
-        AR::SymplecticManager<TARacc>* ar_manager; ///< integration manager
+        AR::TimeTransformedSymplecticManager<TARacc>* ar_manager; ///< integration manager
         COMM::ParticleGroup<ParticleH4<Tparticle>, Tpcm> particles; // particles
         COMM::List<ARSym> groups; // integrator for sub-groups
         COMM::List<Neighbor<Tparticle>> neighbors; // neighbor information of particles

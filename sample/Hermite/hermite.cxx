@@ -206,7 +206,7 @@ int main(int argc, char **argv){
 
     // manager
     HermiteManager<HermiteInteraction> manager;
-    AR::SymplecticManager<ARInteraction> ar_manager;
+    AR::TimeTransformedSymplecticManager<ARInteraction> ar_manager;
 
     Particle::r_break_crit = r_break.value;
     Particle::r_neighbor_crit = r_search.value;

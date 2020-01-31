@@ -206,7 +206,7 @@ int main(int argc, char **argv){
     char* filename = argv[argc-1];
 
     // manager
-    SymplecticManager<Interaction> manager;
+    TimeTransformedSymplecticManager<Interaction> manager;
     manager.interaction.gravitational_constant = gravitational_constant.value;
     manager.time_step_real_min = dt_min.value;
     if (time_error.value>0.0)  manager.time_error_max_real = time_error.value;
@@ -232,7 +232,7 @@ int main(int argc, char **argv){
     fclose(fout);
     
     // integrator
-    SymplecticIntegrator<Particle, Particle, Perturber, Interaction, Information<Particle,Particle>> sym_int;
+    TimeTransformedSymplecticIntegrator<Particle, Particle, Perturber, Interaction, Information<Particle,Particle>> sym_int;
     sym_int.manager = &manager;
 
     if(load_flag) {
