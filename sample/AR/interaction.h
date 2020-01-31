@@ -12,6 +12,7 @@
 class Interaction{
 public:
     Float gravitational_constant; ///> gravitational constant
+    Float merger_radius_square; ///> merger distance
 
     Interaction(): gravitational_constant(Float(-1.0)) {}
 
@@ -340,6 +341,24 @@ public:
         return log(_ekin_minus_etot) - log(-_epot);
     }
 #endif   
+
+    //! (Necessary) interupt check 
+    /*! check the inner left binary whether their separation is smaller than merger_radius, if true, record their binary tree address
+     */
+    static int checkInteruptIter(BinaryTree<Particle>*& _bin_interupt, const int& _n_interupt_left, const int& _n_interupt_right, COMM::BinaryTree<Particle>& _bin) {
+        if (_bin.getMemberN()==2&&_bin_interupt!=NULL) {
+            Particle* p[2];
+            p[0] = _bin.getLeftMember();
+            p[1] = _bin.getRightMember();
+            Float dr[3] = {p[0].pos[0] - p[1].pos[0], p[0].pos[1] - p[1].pos[1], p[0].pos[2] - p[1].pos[2]};
+            Float dr2 = dr[0]*dr[0] + dr[1]*dr[1] + dr[2]*dr[2];
+            if (dr2<merger_radius_square) {
+                _bin_interupt = &_bin;
+                return _n_interupt_left + _n_interupt_right + 1;
+            }
+        }
+        return _n_interupt_left + _n_interupt_right;
+    }
 
     //! write class data to file with binary format
     /*! @param[in] _fp: FILE type file for output

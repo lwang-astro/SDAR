@@ -1079,8 +1079,9 @@ namespace AR {
         /*!
           @param[in] _ds: the integration step size
           @param[in] _time_end_real: the expected finishing real time 
+          \return binary tree of the pair which triggers interuption condition
          */
-        void integrateToTime(const Float _time_end_real) {
+        COMM::BinaryTree<Tparticle>* integrateToTime(const Float _time_end_real) {
             ASSERT(checkParams());
 
             // real full time step
@@ -1388,6 +1389,22 @@ namespace AR {
 #endif
                     abort();
                 }
+
+                // check interupt condiction
+                if (!time_end_flag) {
+                    int n_interupt_init[2]={0,0};
+                    COMM::BinaryTree<Tparticle>* bin_interupt = NULL;
+                    int n_interupt = bin_root.processTreeIter(bin_interupt, n_interupt_init[0], n_interupt_init[1], manager->interaction.checkInteruptIter);
+                    if (n_interupt>0) {
+                        // cumulative step count 
+                        profile.step_count = step_count;
+                        profile.step_count_tsyn = step_count_tsyn;
+                        profile.step_count_sum += step_count;
+                        profile.step_count_tsyn_sum += step_count_tsyn;
+
+                        return bin_interupt;
+                    }
+                }
           
                 // check integration time
                 if(time_real < _time_end_real - time_error_real){
@@ -1508,6 +1525,8 @@ namespace AR {
             profile.step_count_tsyn = step_count_tsyn;
             profile.step_count_sum += step_count;
             profile.step_count_tsyn_sum += step_count_tsyn;
+
+            return NULL;
         }
 
         //! correct CM drift
