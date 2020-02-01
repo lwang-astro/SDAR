@@ -1,5 +1,6 @@
 #pragma once
 
+#include <functional>
 #include "Common/list.h"
 #include "Common/particle_group.h"
 #include "AR/symplectic_step.h"
@@ -1084,6 +1085,8 @@ namespace AR {
         COMM::BinaryTree<Tparticle>* integrateToTime(const Float _time_end_real) {
             ASSERT(checkParams());
 
+            using namespace std::placeholders;  // for _1, _2, _3...
+
             // real full time step
             const Float dt_real_full = _time_end_real - slowdown.getRealTime();
 
@@ -1392,10 +1395,10 @@ namespace AR {
 
                 // check interupt condiction
                 if (!time_end_flag) {
-                    int n_interupt_init[2]={0,0};
                     COMM::BinaryTree<Tparticle>* bin_interupt = NULL;
-                    int n_interupt = bin_root.processTreeIter(bin_interupt, n_interupt_init[0], n_interupt_init[1], manager->interaction.checkInteruptIter);
-                    if (n_interupt>0) {
+                    auto& bin_root = info.getBinaryTreeRoot();
+                    bin_interupt = bin_root.processRootIter(bin_interupt, Tmethod::checkInteruptIter);
+                    if (bin_interupt!=NULL) {
                         // cumulative step count 
                         profile.step_count = step_count;
                         profile.step_count_tsyn = step_count_tsyn;

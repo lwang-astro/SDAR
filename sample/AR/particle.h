@@ -6,6 +6,8 @@
 #define NAN_CHECK(val) ASSERT((val) == (val));
 #endif
 
+enum Status{touch, split};
+
 //! A sample particle class
 /*! A particle class should contain public members:
   Float mass, Float pos[3], Float vel[3], 
@@ -16,6 +18,10 @@ public:
     Float mass;
     Float pos[3];
     Float vel[3];
+    Float radius;
+    Status status;
+
+    Particle(): id(-1), mass(0.0), pos{0,0,0}, vel{0,0,0}, radius(0.0), status(Status::split) {}
 
     //! Get position (required for \ref ARC::chain)
     /*! \return position vector (Float[3])
@@ -84,14 +90,15 @@ public:
              <<pos[2]<<" " 
              <<vel[0]<<" " 
              <<vel[1]<<" " 
-             <<vel[2]<<" ";
+             <<vel[2]<<" "
+             <<radius<<" ";
     }
 
     //! read class data to file with ASCII format
     /*! @param[in] _fin: std::istream file for input
      */
     void readAscii(std::istream&  _fin) {
-        _fin>>mass>>pos[0]>>pos[1]>>pos[2]>>vel[0]>>vel[1]>>vel[2];
+        _fin>>mass>>pos[0]>>pos[1]>>pos[2]>>vel[0]>>vel[1]>>vel[2]>>radius;
     }
     
     //! print titles of class members using column style
@@ -99,7 +106,7 @@ public:
       @param[out] _fout: std::ostream output object
       @param[in] _width: print width (defaulted 20)
     */
-    void printColumnTitle(std::ostream & _fout, const int _width=20) {
+    static void printColumnTitle(std::ostream & _fout, const int _width=20) {
         _fout<<std::setw(_width)<<"mass"
              <<std::setw(_width)<<"pos.x"
              <<std::setw(_width)<<"pos.y"
@@ -107,6 +114,7 @@ public:
              <<std::setw(_width)<<"vel.x"
              <<std::setw(_width)<<"vel.y"
              <<std::setw(_width)<<"vel.z"
+             <<std::setw(_width)<<"radius"
              <<std::setw(_width)<<"id";
     }
 
@@ -123,6 +131,7 @@ public:
              <<std::setw(_width)<<vel[0]
              <<std::setw(_width)<<vel[1]
              <<std::setw(_width)<<vel[2]
+             <<std::setw(_width)<<radius
              <<std::setw(_width)<<id;
     }
     

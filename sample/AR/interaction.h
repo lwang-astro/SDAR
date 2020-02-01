@@ -345,19 +345,37 @@ public:
     //! (Necessary) interupt check 
     /*! check the inner left binary whether their separation is smaller than merger_radius, if true, record their binary tree address
      */
-    static int checkInteruptIter(BinaryTree<Particle>*& _bin_interupt, const int& _n_interupt_left, const int& _n_interupt_right, COMM::BinaryTree<Particle>& _bin) {
+    static COMM::BinaryTree<Particle>* checkInteruptIter(COMM::BinaryTree<Particle>*& _bin_interupt, COMM::BinaryTree<Particle>& _bin) {
         if (_bin.getMemberN()==2&&_bin_interupt!=NULL) {
-            Particle* p[2];
-            p[0] = _bin.getLeftMember();
-            p[1] = _bin.getRightMember();
-            Float dr[3] = {p[0].pos[0] - p[1].pos[0], p[0].pos[1] - p[1].pos[1], p[0].pos[2] - p[1].pos[2]};
-            Float dr2 = dr[0]*dr[0] + dr[1]*dr[1] + dr[2]*dr[2];
-            if (dr2<merger_radius_square) {
-                _bin_interupt = &_bin;
-                return _n_interupt_left + _n_interupt_right + 1;
+            Particle *p1,*p2;
+            p1 = _bin.getLeftMember();
+            p2 = _bin.getRightMember();
+            Float dr[3] = {p1->pos[0] - p2->pos[0], 
+                           p1->pos[1] - p2->pos[1], 
+                           p1->pos[2] - p2->pos[2]};
+            Float dv[3] = {p1->vel[0] - p2->vel[0], 
+                           p1->vel[1] - p2->vel[1], 
+                           p1->vel[2] - p2->vel[2]};
+            Float dr2  = dr[0]*dr[0] + dr[1]*dr[1] + dr[2]*dr[2];
+            Float drdv = dr[0]*dv[0] + dr[1]*dv[1] + dr[2]*dv[2];
+            Float radius = p1->radius + p2->radius;
+            Float radius_sq = radius*radius;
+            if (!(p1->status == Status::touch && p2->status == Status::touch)) {
+                if (dr2<radius_sq&&drdv<0) {
+                    _bin_interupt = &_bin;
+                    p1->status = Status::touch;
+                    p2->status = Status::touch;
+                }
+            }
+            else {
+                if (dr2>radius_sq&&drdv>0) {
+                    _bin_interupt = &_bin;
+                    p1->status = Status::split;
+                    p2->status = Status::split;
+                }
             }
         }
-        return _n_interupt_left + _n_interupt_right;
+        return _bin_interupt;
     }
 
     //! write class data to file with binary format

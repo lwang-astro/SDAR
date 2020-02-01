@@ -336,14 +336,21 @@ int main(int argc, char **argv){
     else {
         int nstep_per_out = int(time_end.value/dt_out.value+0.5);
         for (int i=1; i<=nstep_per_out; i++) {
-            auto& bin_interupt = sym_int.integrateToTime(dt_out.value*i);
+            auto* bin_interupt = sym_int.integrateToTime(dt_out.value*i);
             if (bin_interupt!=NULL) {
-                std::cerr<<"Interupt condition triggered! \n";
+                std::cerr<<"Interupt condition triggered! ";
+                Particle* p1 = bin_interupt->getLeftMember();
+                Particle* p2 = bin_interupt->getRightMember();
+                if (p1->status==Status::touch) std::cerr<<" Touch-";
+                else std::cerr<<" Split-";
+                if (p2->status==Status::touch) std::cerr<<"Touch, ";
+                else std::cerr<<"Split, ";
+                std::cerr<<" Time: "<<sym_int.slowdown.getRealTime()<<std::endl;
                 bin_interupt->printColumnTitle(std::cerr);
                 bin_interupt->printColumn(std::cerr);
                 std::cerr<<std::endl;
-                bin_interupt->getMember(0)->printColumnTitle(std::cerr);
-                for (int j=0; j<2; j++) bin_interupt->getMember(j)->printColumn(std::cerr)
+                Particle::printColumnTitle(std::cerr);
+                for (int j=0; j<2; j++) bin_interupt->getMember(j)->printColumn(std::cerr);
             }
             sym_int.info.generateBinaryTree(sym_int.particles, manager.interaction.gravitational_constant);
             sym_int.printColumn(std::cout, print_width.value, n_sd);
