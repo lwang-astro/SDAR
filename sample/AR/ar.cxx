@@ -184,7 +184,7 @@ int main(int argc, char **argv){
                      <<"          --slowdown-mass-ref       [Float]: "<<slowdown_mass_ref<<"\n"
 #endif
                      <<"          --slowdown-timescale-max: [Float]: "<<slowdown_timescale_max<<"\n"
-                     <<"    -S :         Switch on time synchronization (use with -o)\n"
+                     <<"    -S :         Switch on time synchronization (use with -o or -n)\n"
                      <<"    -t [Float]:  "<<time_end<<"\n"
                      <<"          --time-start      [Float]:  "<<time_zero<<"\n"
                      <<"          --time-end        [Float]:  same as -t\n"
@@ -334,8 +334,9 @@ int main(int argc, char **argv){
         else while (sym_int.slowdown.getRealTime()<time_end.value) IntegrateOneStep();
     }
     else {
-        int nstep_per_out = int(time_end.value/dt_out.value+0.5);
-        for (int i=1; i<=nstep_per_out; i++) {
+        if (dt_out.value>0.0) nstep.value = int(time_end.value/dt_out.value+0.5);
+        else if (nstep.value>0) dt_out.value = time_end.value/nstep.value;
+        for (int i=1; i<=nstep.value; i++) {
             auto* bin_interupt = sym_int.integrateToTime(dt_out.value*i);
             if (bin_interupt!=NULL) {
                 std::cerr<<"Interupt condition triggered! ";
