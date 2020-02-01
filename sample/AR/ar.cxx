@@ -184,7 +184,7 @@ int main(int argc, char **argv){
                      <<"          --slowdown-mass-ref       [Float]: "<<slowdown_mass_ref<<"\n"
 #endif
                      <<"          --slowdown-timescale-max: [Float]: "<<slowdown_timescale_max<<"\n"
-                     <<"    -S :         Switch on time synchronization\n"
+                     <<"    -S :         Switch on time synchronization (use with -o)\n"
                      <<"    -t [Float]:  "<<time_end<<"\n"
                      <<"          --time-start      [Float]:  "<<time_zero<<"\n"
                      <<"          --time-end        [Float]:  same as -t\n"
@@ -347,10 +347,15 @@ int main(int argc, char **argv){
                 else std::cerr<<"Split, ";
                 std::cerr<<" Time: "<<sym_int.slowdown.getRealTime()<<std::endl;
                 bin_interupt->printColumnTitle(std::cerr);
+                std::cerr<<std::endl;
                 bin_interupt->printColumn(std::cerr);
                 std::cerr<<std::endl;
                 Particle::printColumnTitle(std::cerr);
-                for (int j=0; j<2; j++) bin_interupt->getMember(j)->printColumn(std::cerr);
+                std::cerr<<std::endl;
+                for (int j=0; j<2; j++) {
+                    bin_interupt->getMember(j)->printColumn(std::cerr);
+                    std::cerr<<std::endl;
+                }
             }
             sym_int.info.generateBinaryTree(sym_int.particles, manager.interaction.gravitational_constant);
             sym_int.printColumn(std::cout, print_width.value, n_sd);

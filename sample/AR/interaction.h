@@ -346,7 +346,7 @@ public:
     /*! check the inner left binary whether their separation is smaller than merger_radius, if true, record their binary tree address
      */
     static COMM::BinaryTree<Particle>* checkInteruptIter(COMM::BinaryTree<Particle>*& _bin_interupt, COMM::BinaryTree<Particle>& _bin) {
-        if (_bin.getMemberN()==2&&_bin_interupt!=NULL) {
+        if (_bin.getMemberN()==2&&_bin_interupt==NULL) {
             Particle *p1,*p2;
             p1 = _bin.getLeftMember();
             p2 = _bin.getRightMember();

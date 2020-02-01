@@ -1393,8 +1393,9 @@ namespace AR {
                     abort();
                 }
 
-                // check interupt condiction
-                if (!time_end_flag) {
+                // check integration time
+                if(time_real < _time_end_real - time_error_real){
+                    // check interupt condiction
                     COMM::BinaryTree<Tparticle>* bin_interupt = NULL;
                     auto& bin_root = info.getBinaryTreeRoot();
                     bin_interupt = bin_root.processRootIter(bin_interupt, Tmethod::checkInteruptIter);
@@ -1407,10 +1408,7 @@ namespace AR {
 
                         return bin_interupt;
                     }
-                }
-          
-                // check integration time
-                if(time_real < _time_end_real - time_error_real){
+
                     // step increase depend on n_step_wait or energy_error
                     if(info.fix_step_option==FixStepOption::none && !time_end_flag) {
                         // waiting step count reach
