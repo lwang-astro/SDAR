@@ -12,7 +12,6 @@
 class Interaction{
 public:
     Float gravitational_constant; ///> gravitational constant
-    Float merger_radius_square; ///> merger distance
 
     Interaction(): gravitational_constant(Float(-1.0)) {}
 
@@ -343,7 +342,9 @@ public:
 #endif   
 
     //! (Necessary) interupt check 
-    /*! check the inner left binary whether their separation is smaller than merger_radius, if true, record their binary tree address
+    /*! check the inner left binary whether their separation is smaller than particle radius sum and become close, if true, record their binary tree address and set particle status to touch; in the opposite condition, also report the address and set particle status to split
+      @param[in] _bin_interupt: interupt binary tree address 
+      @param[in] _bin: binarytree to check iteratively
      */
     static COMM::BinaryTree<Particle>* checkInteruptIter(COMM::BinaryTree<Particle>*& _bin_interupt, COMM::BinaryTree<Particle>& _bin) {
         if (_bin.getMemberN()==2&&_bin_interupt==NULL) {

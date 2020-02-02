@@ -47,7 +47,7 @@ int main(int argc, char **argv){
     COMM::IOParams<double> eta_4th      (input_par_store, 0.1,  "time step coefficient for 4th order"); // time step coefficient 
     COMM::IOParams<double> eta_2nd      (input_par_store, 0.001,"time step coefficient for 2nd order"); // time step coefficient for 2nd order
     COMM::IOParams<double> eps_sq       (input_par_store, 0.0,  "softerning parameter");    // softening parameter
-    COMM::IOParams<double> grav_const            (input_par_store, 1.0,  "gravitational constant");      // gravitational constant
+    COMM::IOParams<double> grav_const   (input_par_store, 1.0,  "gravitational constant");      // gravitational constant
     COMM::IOParams<double> slowdown_ref (input_par_store, 1e-6, "slowdown perturbation ratio reference"); // slowdown reference factor
 #ifdef SLOWDOWN_MASSRATIO
     COMM::IOParams<double> slowdown_mass_ref (input_par_store, 0.0, "slowdowm mass reference","averaged mass"); // slowdown mass reference
@@ -320,7 +320,29 @@ int main(int argc, char **argv){
 
     // integration loop
     while (h4_int.getTime()<time_end.value) {
-        h4_int.integrateOneStepAct();
+        auto* bin_interupt = h4_int.integrateGroupsOneStep();
+        if (bin_interupt!=NULL) {
+            std::cerr<<"Interupt condition triggered! ";
+            Particle* p1 = bin_interupt->getLeftMember();
+            Particle* p2 = bin_interupt->getRightMember();
+            if (p1->status==Status::touch) std::cerr<<" Touch-";
+            else std::cerr<<" Split-";
+            if (p2->status==Status::touch) std::cerr<<"Touch, ";
+            else std::cerr<<"Split, ";
+            std::cerr<<" Time: "<<h4_int.getInteruptTime()<<std::endl;
+            bin_interupt->printColumnTitle(std::cerr);
+            std::cerr<<std::endl;
+            bin_interupt->printColumn(std::cerr);
+            std::cerr<<std::endl;
+            Particle::printColumnTitle(std::cerr);
+            std::cerr<<std::endl;
+            for (int j=0; j<2; j++) {
+                bin_interupt->getMember(j)->printColumn(std::cerr);
+                std::cerr<<std::endl;
+            }
+            continue;
+        }
+        h4_int.integrateSingleOneStepAct();
         h4_int.adjustGroups(false);
         h4_int.initialIntegration();
         h4_int.sortDtAndSelectActParticle();

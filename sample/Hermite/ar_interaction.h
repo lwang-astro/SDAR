@@ -540,6 +540,44 @@ public:
     }
 #endif   
 
+    //! (Necessary) interupt check 
+    /*! check the inner left binary whether their separation is smaller than particle radius sum and become close, if true, record their binary tree address and set particle status to touch; in the opposite condition, also report the address and set particle status to split
+      @param[in] _bin_interupt: interupt binary tree address 
+      @param[in] _bin: binarytree to check iteratively
+     */
+    static COMM::BinaryTree<ARPtcl>* checkInteruptIter(COMM::BinaryTree<ARPtcl>*& _bin_interupt, COMM::BinaryTree<ARPtcl>& _bin) {
+        if (_bin.getMemberN()==2&&_bin_interupt==NULL) {
+            ARPtcl *p1,*p2;
+            p1 = _bin.getLeftMember();
+            p2 = _bin.getRightMember();
+            Float dr[3] = {p1->pos[0] - p2->pos[0], 
+                           p1->pos[1] - p2->pos[1], 
+                           p1->pos[2] - p2->pos[2]};
+            Float dv[3] = {p1->vel[0] - p2->vel[0], 
+                           p1->vel[1] - p2->vel[1], 
+                           p1->vel[2] - p2->vel[2]};
+            Float dr2  = dr[0]*dr[0] + dr[1]*dr[1] + dr[2]*dr[2];
+            Float drdv = dr[0]*dv[0] + dr[1]*dv[1] + dr[2]*dv[2];
+            Float radius = p1->radius + p2->radius;
+            Float radius_sq = radius*radius;
+            if (!(p1->status == Status::touch && p2->status == Status::touch)) {
+                if (dr2<radius_sq&&drdv<0) {
+                    _bin_interupt = &_bin;
+                    p1->status = Status::touch;
+                    p2->status = Status::touch;
+                }
+            }
+            else {
+                if (dr2>radius_sq&&drdv>0) {
+                    _bin_interupt = &_bin;
+                    p1->status = Status::split;
+                    p2->status = Status::split;
+                }
+            }
+        }
+        return _bin_interupt;
+    }
+
     //! write class data to file with binary format
     /*! @param[in] _fp: FILE type file for output
      */

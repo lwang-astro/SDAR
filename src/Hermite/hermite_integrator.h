@@ -142,7 +142,9 @@ namespace H4{
     template <class Tparticle, class Tpcm, class Tpert, class TARpert, class Tacc, class TARacc, class Tinfo>
     class HermiteIntegrator{
     private:
-        typedef AR::TimeTransformedSymplecticIntegrator<ParticleAR<Tparticle>, ParticleH4<Tparticle>, TARpert, TARacc, ARInformation<Tparticle>> ARSym;
+        typedef ParticleAR<Tparticle> ARPtcl;
+        typedef ParticleH4<Tparticle> H4Ptcl;
+        typedef AR::TimeTransformedSymplecticIntegrator<ARPtcl, H4Ptcl, TARpert, TARacc, ARInformation<Tparticle>> ARSym;
 
         // time 
         Float time_;   ///< integrated time 
@@ -164,6 +166,11 @@ namespace H4{
 
         // group offset
         int index_offset_group_; /// offset of group index in pred_, force_ and time_next_
+
+        // interupt group 
+        int interupt_time_;        /// interupt time
+        int interupt_group_dt_sorted_group_index_; /// interupt group position in index_dt_sorted_group_
+        COMM::BinaryTree<ARPtcl>* interupt_binary_adr_; /// interupt binary tree address
 
         // flags
         bool initial_system_flag_; /// flag to indicate whether the system is initialized with all array size defined (reest in initialSystem)
@@ -191,7 +198,7 @@ namespace H4{
     public:
         HermiteManager<Tacc>* manager; ///< integration manager
         AR::TimeTransformedSymplecticManager<TARacc>* ar_manager; ///< integration manager
-        COMM::ParticleGroup<ParticleH4<Tparticle>, Tpcm> particles; // particles
+        COMM::ParticleGroup<H4Ptcl, Tpcm> particles; // particles
         COMM::List<ARSym> groups; // integrator for sub-groups
         COMM::List<Neighbor<Tparticle>> neighbors; // neighbor information of particles
         Tpert perturber; // external perturber
@@ -218,6 +225,7 @@ namespace H4{
                              n_act_single_(0), n_act_group_(0), 
                              n_init_single_(0), n_init_group_(0), 
                              index_offset_group_(0), 
+                             interupt_time_(-1.0), interupt_group_dt_sorted_group_index_(-1), interupt_binary_adr_(NULL),
                              initial_system_flag_(false), modify_system_flag_(false),
                              index_dt_sorted_single_(), index_dt_sorted_group_(), 
                              index_group_resolve_(), index_group_cm_(), 
@@ -234,6 +242,9 @@ namespace H4{
             de_sd_change_cum_ = 0.0;
             n_act_single_ = n_act_group_ = n_init_single_ = n_init_group_ = 0;
             index_offset_group_ = 0;
+            interupt_time_ = -1.0;
+            interupt_group_dt_sorted_group_index_ = -1;
+            interupt_binary_adr_ = NULL;
             initial_system_flag_ = false;
             modify_system_flag_ = false;
 
@@ -397,7 +408,7 @@ namespace H4{
           @param[in] _dt_limit: maximum step size allown
           @param[in] _inti_step_flag: true: only calculate dt 2nd instead of 4th
          */
-        void correctAndCalcDt4thOne(ParticleH4<Tparticle>& _pi, ForceH4& _fi, const Float _dt_limit, const bool _init_step_flag) {
+        void correctAndCalcDt4thOne(H4Ptcl& _pi, ForceH4& _fi, const Float _dt_limit, const bool _init_step_flag) {
             static thread_local const Float inv3 = 1.0 / 3.0;
             const Float dt = _pi.dt;
             const Float h = 0.5 * dt;
@@ -931,7 +942,7 @@ namespace H4{
           @param[in] _p1: particle 1
           @param[in] _p2: particle 2
          */
-        Float calcDrDv(const ParticleH4<Tparticle>& _p1, const ParticleH4<Tparticle>& _p2) {
+        Float calcDrDv(const H4Ptcl& _p1, const H4Ptcl& _p2) {
             Float dx[3],dv[3];
             dx[0] = _p1.pos[0] - _p2.pos[0];
             dx[1] = _p1.pos[1] - _p2.pos[1];
@@ -1682,7 +1693,7 @@ namespace H4{
                     // avoid double count
                     if(used_mask[i]>=0 && used_mask[j]>=0) continue;
 
-                    ParticleH4<Tparticle>* pj;
+                    H4Ptcl* pj;
                     // neighbor is single 
                     if (j<index_offset_group_) {
                         pj = &particles[j];
@@ -1790,7 +1801,7 @@ namespace H4{
                     if (kappa_org_i>1.0) continue;
 #endif
 
-                    ParticleH4<Tparticle>* pj;
+                    H4Ptcl* pj;
                     // neighbor is single 
                     if (j<index_offset_group_) {
                         //if (kappa_org_i>1.0) continue;
@@ -1881,6 +1892,7 @@ namespace H4{
             ASSERT(checkParams());
             ASSERT(!particles.isModified());
             ASSERT(initial_system_flag_);
+            ASSERT(interupt_binary_adr_==NULL);
             modify_system_flag_=true;
 
             // check
@@ -2054,36 +2066,78 @@ namespace H4{
             // reset n_init
             n_init_single_ = n_init_group_ = 0;
         }
-
-
-        //! Integration active particles
-        /*! Integrated to time_sys
-        */
-        void integrateOneStepAct() {
+        
+        //! Integrate groups
+        /*! Integrate all groups to time
+          \return interupted binarytree if exist
+         */
+        COMM::BinaryTree<ARPtcl>* integrateGroupsOneStep() {
             ASSERT(checkParams());
             ASSERT(!particles.isModified());
             ASSERT(initial_system_flag_);
             ASSERT(!modify_system_flag_);
             ASSERT(n_init_group_==0&&n_init_single_==0);
+
+            // get next time
+            Float time_next = getNextTime();
+
+#ifdef HERMITE_DEBUG            
+            if (interupt_binary_adr_!=NULL) ASSERT(interupt_group_dt_sorted_group_index_>=0);
+#endif
+
+            // integrate groups loop 
+            const int n_group_tot = index_dt_sorted_group_.getSize();
+            const int i_start = interupt_group_dt_sorted_group_index_>=0 ? interupt_group_dt_sorted_group_index_ : 0;
+
+            for (int i=i_start; i<n_group_tot; i++) {
+                const int k = index_dt_sorted_group_[i];
+
+#ifdef HERMITE_DEBUG            
+                ASSERT(table_group_mask_[k]==false);
+                if (i!=interupt_group_dt_sorted_group_index_) 
+                    ASSERT(abs(groups[k].slowdown.getRealTime()-time_)<=ar_manager->time_error_max_real);
+#endif
+                // group integration 
+                interupt_binary_adr_ = groups[k].integrateToTime(time_next);
+
+                // profile
+                profile.ar_step_count += groups[k].profile.step_count;
+                profile.ar_step_count_tsyn += groups[k].profile.step_count_tsyn;
+
+                // record interupt group and quit
+                if (interupt_binary_adr_!=NULL) {
+                    interupt_time_ = groups[k].slowdown.getRealTime();
+                    ASSERT(time_next - interupt_time_ + ar_manager->time_error_max_real >= 0.0);
+                    interupt_group_dt_sorted_group_index_ = i;
+                    return interupt_binary_adr_;
+                }
+
+                ASSERT(abs(groups[k].slowdown.getRealTime()-time_next)<=ar_manager->time_error_max_real);
+            }
+
+            // when no interupt, clear interupt records
+            interupt_time_ = -1.0;
+            interupt_group_dt_sorted_group_index_ = -1;
+            interupt_binary_adr_ = NULL;
+
+            return interupt_binary_adr_;
+        }
+
+        //! Integration single active particles and update steps 
+        /*! Integrated to next time given by minimum step particle
+        */
+        void integrateSingleOneStepAct() {
+            ASSERT(checkParams());
+            ASSERT(!particles.isModified());
+            ASSERT(initial_system_flag_);
+            ASSERT(!modify_system_flag_);
+            ASSERT(n_init_group_==0&&n_init_single_==0);
+            ASSERT(interupt_binary_adr_==NULL);
             
             // get next time
             Float time_next = getNextTime();
 
             dt_limit_ = manager->step.calcNextDtLimit(time_next);
-
-            // integrate groups first
-            const int n_group_tot = index_dt_sorted_group_.getSize();
-            for (int i=0; i<n_group_tot; i++) {
-                const int k = index_dt_sorted_group_[i];
-                ASSERT(table_group_mask_[k]==false);
-                //const Float ds = groups[k].info.ds;
-                ASSERT(abs(groups[k].slowdown.getRealTime()-time_)<=ar_manager->time_error_max_real);
-                groups[k].integrateToTime(time_next);
-                ASSERT(abs(groups[k].slowdown.getRealTime()-time_next)<=ar_manager->time_error_max_real);
-                // profile
-                profile.ar_step_count += groups[k].profile.step_count;
-                profile.ar_step_count_tsyn += groups[k].profile.step_count_tsyn;
-            }
 
             // prediction positions
             predictAll(time_next);
@@ -2364,6 +2418,29 @@ namespace H4{
         //! get current time
         Float getTime() const {
             return time_;
+        }
+
+        //! get interupt group time
+        /*! if not exist, return -1.0
+         */
+        Float getInteruptTime() const {
+            return interupt_time_;
+        }
+
+        //! get interupt group index
+        /*! if not exist, return -1
+         */
+        int getInteruptGroupIndex() const {
+            if (interupt_group_dt_sorted_group_index_>=0) 
+                return index_dt_sorted_group_[interupt_group_dt_sorted_group_index_];
+            else return -1;
+        }
+
+        //! get interupt binary (tree) address
+        /*! if not exist, return NULL
+         */
+        COMM::BinaryTree<ARPtcl>* getInteruptBinaryAddress() {
+            return interupt_binary_adr_;
         }
 
         //! get active number of particles of singles
