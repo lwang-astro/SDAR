@@ -24,6 +24,8 @@
 
 using namespace H4;
 
+typedef HermiteIntegrator<Particle, Particle, HermitePerturber, Neighbor<Particle>, HermiteInteraction, ARInteraction, HermiteInformation> H4Int;
+
 int main(int argc, char **argv){
 
     //unsigned int oldcw;
@@ -155,7 +157,7 @@ int main(int argc, char **argv){
             fclose(fpar_in);
             break;
         case 'h':
-            std::cout<<"chain [option] data_filename\n"
+            std::cout<<"hermite [option] data_filename\n"
                      <<"Input data file format: \n"
                      <<"  First   line:  number of particles(N)\n"
                      <<"  2-(N+1) line:  mass, x, y, z, vx, vy, vz\n"
@@ -190,6 +192,7 @@ int main(int argc, char **argv){
                      <<"          --time-error   [Float]:  "<<time_error<<"\n"
                      <<"    -h :         print option information\n"
                      <<"          --help:                 same as -h\n";
+            std::cout<<"Size of integrator: (bytes)"<<sizeof(H4Int)<<std::endl;
             return 0;
         default:
             std::cerr<<"Unknown argument. check '-h' for help.\n";
@@ -243,7 +246,7 @@ int main(int argc, char **argv){
     fclose(fout);
 
     // integrator
-    HermiteIntegrator<Particle, Particle, HermitePerturber, Neighbor<Particle>, HermiteInteraction, ARInteraction, HermiteInformation> h4_int;
+    H4Int h4_int;
     h4_int.manager = &manager;
     h4_int.ar_manager = &ar_manager;
 

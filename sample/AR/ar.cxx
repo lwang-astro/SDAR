@@ -23,6 +23,8 @@
 
 using namespace AR;
 
+typedef TimeTransformedSymplecticIntegrator<Particle, Particle, Perturber, Interaction, Information<Particle,Particle>> ARInt;
+
 int main(int argc, char **argv){
 
     //unsigned int oldcw;
@@ -191,6 +193,7 @@ int main(int argc, char **argv){
                      <<"          --time-error      [Float]:  "<<time_error<<"\n"
                      <<"    -h :          print option information\n"
                      <<"          --help (same as -h)\n";
+            std::cout<<"Size of integrator class: (bytes) "<<sizeof(ARInt)<<std::endl;
             return 0;
         default:
             std::cerr<<"Unknown argument. check '-h' for help.\n";
@@ -232,7 +235,7 @@ int main(int argc, char **argv){
     fclose(fout);
     
     // integrator
-    TimeTransformedSymplecticIntegrator<Particle, Particle, Perturber, Interaction, Information<Particle,Particle>> sym_int;
+    ARInt sym_int;
     sym_int.manager = &manager;
 
     if(load_flag) {
