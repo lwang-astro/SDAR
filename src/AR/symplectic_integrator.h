@@ -29,6 +29,7 @@ namespace AR {
 #endif
         Float slowdown_timescale_max;       ///> slowdown maximum timescale to calculate maximum slowdown factor
         long long unsigned int step_count_max; ///> maximum step counts
+        int interupt_detection_option;    ///> 1: detect interuption; 0: no detection
         
         Tmethod interaction; ///> class contain interaction function
         SymplecticStep step;  ///> class to manager kick drift step
@@ -36,10 +37,10 @@ namespace AR {
         //! constructor
         TimeTransformedSymplecticManager(): time_error_max_real(Float(-1.0)), energy_error_relative_max(Float(-1.0)), time_step_real_min(Float(-1.0)), slowdown_pert_ratio_ref(Float(-1.0)), 
 #ifdef AR_SLOWDOWN_MASSRATIO
-                             slowdown_mass_ref(Float(-1.0)), 
+                                            slowdown_mass_ref(Float(-1.0)), 
 #endif
-                             slowdown_timescale_max(0.0),
-                             step_count_max(-1), interaction(), step() {}
+                                            slowdown_timescale_max(0.0),
+                                            step_count_max(-1), interupt_detection_option(0), interaction(), step() {}
 
         //! check whether parameters values are correct
         /*! \return true: all correct
@@ -1396,17 +1397,19 @@ namespace AR {
                 // check integration time
                 if(time_real < _time_end_real - time_error_real){
                     // check interupt condiction
-                    COMM::BinaryTree<Tparticle>* bin_interupt = NULL;
-                    auto& bin_root = info.getBinaryTreeRoot();
-                    bin_interupt = bin_root.processRootIter(bin_interupt, Tmethod::checkInteruptIter);
-                    if (bin_interupt!=NULL) {
-                        // cumulative step count 
-                        profile.step_count = step_count;
-                        profile.step_count_tsyn = step_count_tsyn;
-                        profile.step_count_sum += step_count;
-                        profile.step_count_tsyn_sum += step_count_tsyn;
+                    if (manager->interupt_detection_option==1) {
+                        COMM::BinaryTree<Tparticle>* bin_interupt = NULL;
+                        auto& bin_root = info.getBinaryTreeRoot();
+                        bin_interupt = bin_root.processRootIter(bin_interupt, Tmethod::checkInteruptIter);
+                        if (bin_interupt!=NULL) {
+                            // cumulative step count 
+                            profile.step_count = step_count;
+                            profile.step_count_tsyn = step_count_tsyn;
+                            profile.step_count_sum += step_count;
+                            profile.step_count_tsyn_sum += step_count_tsyn;
 
-                        return bin_interupt;
+                            return bin_interupt;
+                        }
                     }
 
                     // step increase depend on n_step_wait or energy_error

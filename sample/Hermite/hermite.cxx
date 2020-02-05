@@ -40,6 +40,7 @@ int main(int argc, char **argv){
     COMM::IOParams<int> dt_min_power_index (input_par_store, 40, "power index to calculate mimimum hermite time step: dt_max*0.5^n"); // power index to calculate minimum physical time step
     COMM::IOParams<int> dt_max_power_index (input_par_store, 2, "power index of 0.5 for maximum hermite time step"); // maximum physical time step
     COMM::IOParams<int> dt_out_power_index (input_par_store, 2, "power index of 0.5 for output time interval"); // output time interval
+    COMM::IOParams<int> interupt_detection_option(input_par_store, 0, "detect interuption: on/off", "off");  // if on, check interuption
     COMM::IOParams<double> energy_error (input_par_store, 1e-10,"relative energy error limit for AR"); // phase error requirement
     COMM::IOParams<double> time_error   (input_par_store, 0.0, "time synchronization absolute error limit for AR","default is 0.25*dt-min"); // time synchronization error
     COMM::IOParams<double> time_zero    (input_par_store, 0.0, "initial physical time");    // initial physical time
@@ -82,7 +83,7 @@ int main(int argc, char **argv){
     };
   
     int option_index;
-    while ((copt = getopt_long(argc, argv, "t:r:R:k:G:e:o:p:h", long_options, &option_index)) != -1)
+    while ((copt = getopt_long(argc, argv, "t:r:R:k:G:e:o:i:p:h", long_options, &option_index)) != -1)
         switch (copt) {
         case 0:
             time_zero.value = atof(optarg);
@@ -146,6 +147,14 @@ int main(int argc, char **argv){
         case 'o':
             dt_out_power_index.value = atoi(optarg);
             break;
+        case 'i':
+            if (!strcmp(optarg,"off")) interupt_detection_option.value = 0;
+            else if (!strcmp(optarg,"on")) interupt_detection_option.value = 1;
+            else {
+                std::cerr<<"Error: interupt detection option unknown ("<<optarg<<"), should be on, off\n";
+                abort();
+            }
+            break;
         case 'p':
             filename_par.value = optarg;
             FILE* fpar_in;
@@ -171,6 +180,7 @@ int main(int argc, char **argv){
                      <<"          --eta-2nd:     [Float]:  "<<eta_2nd<<"\n"
                      <<"          --eps:         [Float]:  "<<eps_sq<<"\n"
                      <<"    -G [Float]:  "<<grav_const<<"\n"
+                     <<"    -i [string]: "<<interupt_detection_option<<"\n"
                      <<"    -k [int]:    "<<sym_order<<"\n"
                      <<"          --load-par     [string]: "<<filename_par<<"\n"
                      <<"          --n-step-max   [int]  :  "<<nstep_max<<"\n"
@@ -234,6 +244,7 @@ int main(int argc, char **argv){
     ar_manager.step_count_max = nstep_max.value;
     // set symplectic order
     ar_manager.step.initialSymplecticCofficients(sym_order.value);
+    ar_manager.interupt_detection_option = interupt_detection_option.value;
 
     // store input parameters
     std::string fpar_out = std::string(filename) + ".par";

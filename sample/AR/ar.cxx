@@ -50,7 +50,8 @@ int main(int argc, char **argv){
     COMM::IOParams<double> slowdown_mass_ref (input_par_store, 0.0, "slowdowm mass reference","averaged mass"); // slowdown mass reference
 #endif
     COMM::IOParams<double> slowdown_timescale_max (input_par_store, 0.0, "maximum timescale for maximum slowdown factor","time-end"); // slowdown timescale
-    COMM::IOParams<int>   fix_step_option (input_par_store, -1, "always, later, none","auto"); // if true; use input fix step option
+    COMM::IOParams<int>   interupt_detection_option(input_par_store, 0, "detect interuption: on/off", "off");  // if on, check interuption
+    COMM::IOParams<int>   fix_step_option (input_par_store, -1, "fix step options: always, later, none","auto"); // if true; use input fix step option
     COMM::IOParams<std::string> filename_par (input_par_store, "", "filename to load manager parameters","input name"); // par dumped filename
     bool load_flag=false;  // if true; load dumped data
     bool synch_flag=false; // if true, switch on time synchronization
@@ -86,7 +87,7 @@ int main(int argc, char **argv){
     };
   
     int option_index;
-    while ((copt = getopt_long(argc, argv, "N:n:t:s:Sk:G:e:p:o:lh", long_options, &option_index)) != -1)
+    while ((copt = getopt_long(argc, argv, "N:n:t:s:Sk:G:e:p:o:i:lh", long_options, &option_index)) != -1)
         switch (copt) {
         case 0:
             time_zero.value = atof(optarg);
@@ -163,6 +164,14 @@ int main(int argc, char **argv){
         case 'o':
             dt_out.value = atof(optarg);
             break;
+        case 'i':
+            if (!strcmp(optarg,"off")) interupt_detection_option.value = 0;
+            else if (!strcmp(optarg,"on")) interupt_detection_option.value = 1;
+            else {
+                std::cerr<<"Error: interupt detection option unknown ("<<optarg<<"), should be on, off\n";
+                abort();
+            }
+            break;
         case 'h':
             std::cout<<bin_name<<" [option] data_filename\n"
                      <<"Input data file format: each line: mass, x, y, z, vx, vy, vz\n"
@@ -172,6 +181,7 @@ int main(int argc, char **argv){
                      <<"          --energy-error    [Float]:  same as -e\n"
                      <<"          --fix-step-option [char] :  "<<fix_step_option<<"\n"
                      <<"    -G [Float]:  "<<gravitational_constant<<"\n"
+                     <<"    -i [string]: "<<interupt_detection_option<<"\n"
                      <<"    -l :          load dumped data for restart (if used, the input file is dumped data)\n"
                      <<"          --load-data (same as -l)\n"
                      <<"    -k [int]:    "<<sym_order<<"\n"
@@ -222,6 +232,7 @@ int main(int argc, char **argv){
     manager.step_count_max = nstep_max.value;
     // set symplectic order
     manager.step.initialSymplecticCofficients(sym_order.value);
+    manager.interupt_detection_option = interupt_detection_option.value;
 
 
     // store input parameters
