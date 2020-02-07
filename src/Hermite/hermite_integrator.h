@@ -168,8 +168,8 @@ namespace H4{
         int index_offset_group_; /// offset of group index in pred_, force_ and time_next_
 
         // interupt group 
-        int interupt_time_;        /// interupt time
         int interupt_group_dt_sorted_group_index_; /// interupt group position in index_dt_sorted_group_
+        Float interupt_time_;        /// interupt time
         COMM::BinaryTree<ARPtcl>* interupt_binary_adr_; /// interupt binary tree address
 
         // flags
@@ -225,7 +225,7 @@ namespace H4{
                              n_act_single_(0), n_act_group_(0), 
                              n_init_single_(0), n_init_group_(0), 
                              index_offset_group_(0), 
-                             interupt_time_(-1.0), interupt_group_dt_sorted_group_index_(-1), interupt_binary_adr_(NULL),
+                             interupt_group_dt_sorted_group_index_(-1), interupt_time_(-1.0), interupt_binary_adr_(NULL),
                              initial_system_flag_(false), modify_system_flag_(false),
                              index_dt_sorted_single_(), index_dt_sorted_group_(), 
                              index_group_resolve_(), index_group_cm_(), 
@@ -242,8 +242,8 @@ namespace H4{
             de_sd_change_cum_ = 0.0;
             n_act_single_ = n_act_group_ = n_init_single_ = n_init_group_ = 0;
             index_offset_group_ = 0;
-            interupt_time_ = -1.0;
             interupt_group_dt_sorted_group_index_ = -1;
+            interupt_time_ = -1.0;
             interupt_binary_adr_ = NULL;
             initial_system_flag_ = false;
             modify_system_flag_ = false;
@@ -2106,9 +2106,9 @@ namespace H4{
 
                 // record interupt group and quit
                 if (interupt_binary_adr_!=NULL) {
+                    interupt_group_dt_sorted_group_index_ = i;
                     interupt_time_ = groups[k].slowdown.getRealTime();
                     ASSERT(time_next - interupt_time_ + ar_manager->time_error_max_real >= 0.0);
-                    interupt_group_dt_sorted_group_index_ = i;
                     return interupt_binary_adr_;
                 }
 
@@ -2116,8 +2116,8 @@ namespace H4{
             }
 
             // when no interupt, clear interupt records
-            interupt_time_ = -1.0;
             interupt_group_dt_sorted_group_index_ = -1;
+            interupt_time_ = -1.0;
             interupt_binary_adr_ = NULL;
 
             return interupt_binary_adr_;
