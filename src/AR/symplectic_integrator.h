@@ -29,7 +29,7 @@ namespace AR {
 #endif
         Float slowdown_timescale_max;       ///> slowdown maximum timescale to calculate maximum slowdown factor
         long long unsigned int step_count_max; ///> maximum step counts
-        int interupt_detection_option;    ///> 1: detect interuption; 0: no detection
+        int interrupt_detection_option;    ///> 1: detect interruption; 0: no detection
         
         Tmethod interaction; ///> class contain interaction function
         SymplecticStep step;  ///> class to manager kick drift step
@@ -40,7 +40,7 @@ namespace AR {
                                             slowdown_mass_ref(Float(-1.0)), 
 #endif
                                             slowdown_timescale_max(0.0),
-                                            step_count_max(-1), interupt_detection_option(0), interaction(), step() {}
+                                            step_count_max(-1), interrupt_detection_option(0), interaction(), step() {}
 
         //! check whether parameters values are correct
         /*! \return true: all correct
@@ -1081,7 +1081,7 @@ namespace AR {
         /*!
           @param[in] _ds: the integration step size
           @param[in] _time_end_real: the expected finishing real time 
-          \return binary tree of the pair which triggers interuption condition
+          \return binary tree of the pair which triggers interruption condition
          */
         COMM::BinaryTree<Tparticle>* integrateToTime(const Float _time_end_real) {
             ASSERT(checkParams());
@@ -1396,19 +1396,19 @@ namespace AR {
 
                 // check integration time
                 if(time_real < _time_end_real - time_error_real){
-                    // check interupt condiction
-                    if (manager->interupt_detection_option==1) {
-                        COMM::BinaryTree<Tparticle>* bin_interupt = NULL;
+                    // check interrupt condiction
+                    if (manager->interrupt_detection_option==1) {
+                        COMM::BinaryTree<Tparticle>* bin_interrupt = NULL;
                         auto& bin_root = info.getBinaryTreeRoot();
-                        bin_interupt = bin_root.processRootIter(bin_interupt, Tmethod::checkInteruptIter);
-                        if (bin_interupt!=NULL) {
+                        bin_interrupt = bin_root.processRootIter(bin_interrupt, Tmethod::checkInterruptIter);
+                        if (bin_interrupt!=NULL) {
                             // cumulative step count 
                             profile.step_count = step_count;
                             profile.step_count_tsyn = step_count_tsyn;
                             profile.step_count_sum += step_count;
                             profile.step_count_tsyn_sum += step_count_tsyn;
 
-                            return bin_interupt;
+                            return bin_interrupt;
                         }
                     }
 

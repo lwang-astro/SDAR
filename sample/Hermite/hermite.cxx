@@ -40,7 +40,7 @@ int main(int argc, char **argv){
     COMM::IOParams<int> dt_min_power_index (input_par_store, 40, "power index to calculate mimimum hermite time step: dt_max*0.5^n"); // power index to calculate minimum physical time step
     COMM::IOParams<int> dt_max_power_index (input_par_store, 2, "power index of 0.5 for maximum hermite time step"); // maximum physical time step
     COMM::IOParams<int> dt_out_power_index (input_par_store, 2, "power index of 0.5 for output time interval"); // output time interval
-    COMM::IOParams<int> interupt_detection_option(input_par_store, 0, "detect interuption: on/off", "off");  // if on, check interuption
+    COMM::IOParams<int> interrupt_detection_option(input_par_store, 0, "detect interruption: on/off", "off");  // if on, check interruption
     COMM::IOParams<double> energy_error (input_par_store, 1e-10,"relative energy error limit for AR"); // phase error requirement
     COMM::IOParams<double> time_error   (input_par_store, 0.0, "time synchronization absolute error limit for AR","default is 0.25*dt-min"); // time synchronization error
     COMM::IOParams<double> time_zero    (input_par_store, 0.0, "initial physical time");    // initial physical time
@@ -148,10 +148,10 @@ int main(int argc, char **argv){
             dt_out_power_index.value = atoi(optarg);
             break;
         case 'i':
-            if (!strcmp(optarg,"off")) interupt_detection_option.value = 0;
-            else if (!strcmp(optarg,"on")) interupt_detection_option.value = 1;
+            if (!strcmp(optarg,"off")) interrupt_detection_option.value = 0;
+            else if (!strcmp(optarg,"on")) interrupt_detection_option.value = 1;
             else {
-                std::cerr<<"Error: interupt detection option unknown ("<<optarg<<"), should be on, off\n";
+                std::cerr<<"Error: interrupt detection option unknown ("<<optarg<<"), should be on, off\n";
                 abort();
             }
             break;
@@ -180,7 +180,7 @@ int main(int argc, char **argv){
                      <<"          --eta-2nd:     [Float]:  "<<eta_2nd<<"\n"
                      <<"          --eps:         [Float]:  "<<eps_sq<<"\n"
                      <<"    -G [Float]:  "<<grav_const<<"\n"
-                     <<"    -i [string]: "<<interupt_detection_option<<"\n"
+                     <<"    -i [string]: "<<interrupt_detection_option<<"\n"
                      <<"    -k [int]:    "<<sym_order<<"\n"
                      <<"          --load-par     [string]: "<<filename_par<<"\n"
                      <<"          --n-step-max   [int]  :  "<<nstep_max<<"\n"
@@ -244,7 +244,7 @@ int main(int argc, char **argv){
     ar_manager.step_count_max = nstep_max.value;
     // set symplectic order
     ar_manager.step.initialSymplecticCofficients(sym_order.value);
-    ar_manager.interupt_detection_option = interupt_detection_option.value;
+    ar_manager.interrupt_detection_option = interrupt_detection_option.value;
 
     // store input parameters
     std::string fpar_out = std::string(filename) + ".par";
@@ -334,24 +334,24 @@ int main(int argc, char **argv){
 
     // integration loop
     while (h4_int.getTime()<time_end.value) {
-        auto* bin_interupt = h4_int.integrateGroupsOneStep();
-        if (bin_interupt!=NULL) {
-            std::cerr<<"Interupt condition triggered! ";
-            Particle* p1 = bin_interupt->getLeftMember();
-            Particle* p2 = bin_interupt->getRightMember();
+        auto* bin_interrupt = h4_int.integrateGroupsOneStep();
+        if (bin_interrupt!=NULL) {
+            std::cerr<<"Interrupt condition triggered! ";
+            Particle* p1 = bin_interrupt->getLeftMember();
+            Particle* p2 = bin_interrupt->getRightMember();
             if (p1->status==Status::touch) std::cerr<<" Touch-";
             else std::cerr<<" Split-";
             if (p2->status==Status::touch) std::cerr<<"Touch, ";
             else std::cerr<<"Split, ";
-            std::cerr<<" Time: "<<h4_int.getInteruptTime()<<std::endl;
-            bin_interupt->printColumnTitle(std::cerr);
+            std::cerr<<" Time: "<<h4_int.getInterruptTime()<<std::endl;
+            bin_interrupt->printColumnTitle(std::cerr);
             std::cerr<<std::endl;
-            bin_interupt->printColumn(std::cerr);
+            bin_interrupt->printColumn(std::cerr);
             std::cerr<<std::endl;
             Particle::printColumnTitle(std::cerr);
             std::cerr<<std::endl;
             for (int j=0; j<2; j++) {
-                bin_interupt->getMember(j)->printColumn(std::cerr);
+                bin_interrupt->getMember(j)->printColumn(std::cerr);
                 std::cerr<<std::endl;
             }
             continue;

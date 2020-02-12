@@ -167,10 +167,10 @@ namespace H4{
         // group offset
         int index_offset_group_; /// offset of group index in pred_, force_ and time_next_
 
-        // interupt group 
-        int interupt_group_dt_sorted_group_index_; /// interupt group position in index_dt_sorted_group_
-        Float interupt_time_;        /// interupt time
-        COMM::BinaryTree<ARPtcl>* interupt_binary_adr_; /// interupt binary tree address
+        // interrupt group 
+        int interrupt_group_dt_sorted_group_index_; /// interrupt group position in index_dt_sorted_group_
+        Float interrupt_time_;        /// interrupt time
+        COMM::BinaryTree<ARPtcl>* interrupt_binary_adr_; /// interrupt binary tree address
 
         // flags
         bool initial_system_flag_; /// flag to indicate whether the system is initialized with all array size defined (reest in initialSystem)
@@ -225,7 +225,7 @@ namespace H4{
                              n_act_single_(0), n_act_group_(0), 
                              n_init_single_(0), n_init_group_(0), 
                              index_offset_group_(0), 
-                             interupt_group_dt_sorted_group_index_(-1), interupt_time_(-1.0), interupt_binary_adr_(NULL),
+                             interrupt_group_dt_sorted_group_index_(-1), interrupt_time_(-1.0), interrupt_binary_adr_(NULL),
                              initial_system_flag_(false), modify_system_flag_(false),
                              index_dt_sorted_single_(), index_dt_sorted_group_(), 
                              index_group_resolve_(), index_group_cm_(), 
@@ -242,9 +242,9 @@ namespace H4{
             de_sd_change_cum_ = 0.0;
             n_act_single_ = n_act_group_ = n_init_single_ = n_init_group_ = 0;
             index_offset_group_ = 0;
-            interupt_group_dt_sorted_group_index_ = -1;
-            interupt_time_ = -1.0;
-            interupt_binary_adr_ = NULL;
+            interrupt_group_dt_sorted_group_index_ = -1;
+            interrupt_time_ = -1.0;
+            interrupt_binary_adr_ = NULL;
             initial_system_flag_ = false;
             modify_system_flag_ = false;
 
@@ -1892,7 +1892,7 @@ namespace H4{
             ASSERT(checkParams());
             ASSERT(!particles.isModified());
             ASSERT(initial_system_flag_);
-            ASSERT(interupt_binary_adr_==NULL);
+            ASSERT(interrupt_binary_adr_==NULL);
             modify_system_flag_=true;
 
             // check
@@ -2069,7 +2069,7 @@ namespace H4{
         
         //! Integrate groups
         /*! Integrate all groups to time
-          \return interupted binarytree if exist
+          \return interrupted binarytree if exist
          */
         COMM::BinaryTree<ARPtcl>* integrateGroupsOneStep() {
             ASSERT(checkParams());
@@ -2082,45 +2082,45 @@ namespace H4{
             Float time_next = getNextTime();
 
 #ifdef HERMITE_DEBUG            
-            if (interupt_binary_adr_!=NULL) ASSERT(interupt_group_dt_sorted_group_index_>=0);
+            if (interrupt_binary_adr_!=NULL) ASSERT(interrupt_group_dt_sorted_group_index_>=0);
 #endif
 
             // integrate groups loop 
             const int n_group_tot = index_dt_sorted_group_.getSize();
-            const int i_start = interupt_group_dt_sorted_group_index_>=0 ? interupt_group_dt_sorted_group_index_ : 0;
+            const int i_start = interrupt_group_dt_sorted_group_index_>=0 ? interrupt_group_dt_sorted_group_index_ : 0;
 
             for (int i=i_start; i<n_group_tot; i++) {
                 const int k = index_dt_sorted_group_[i];
 
 #ifdef HERMITE_DEBUG            
                 ASSERT(table_group_mask_[k]==false);
-                if (i!=interupt_group_dt_sorted_group_index_) 
+                if (i!=interrupt_group_dt_sorted_group_index_) 
                     ASSERT(abs(groups[k].slowdown.getRealTime()-time_)<=ar_manager->time_error_max_real);
 #endif
                 // group integration 
-                interupt_binary_adr_ = groups[k].integrateToTime(time_next);
+                interrupt_binary_adr_ = groups[k].integrateToTime(time_next);
 
                 // profile
                 profile.ar_step_count += groups[k].profile.step_count;
                 profile.ar_step_count_tsyn += groups[k].profile.step_count_tsyn;
 
-                // record interupt group and quit
-                if (interupt_binary_adr_!=NULL) {
-                    interupt_group_dt_sorted_group_index_ = i;
-                    interupt_time_ = groups[k].slowdown.getRealTime();
-                    ASSERT(time_next - interupt_time_ + ar_manager->time_error_max_real >= 0.0);
-                    return interupt_binary_adr_;
+                // record interrupt group and quit
+                if (interrupt_binary_adr_!=NULL) {
+                    interrupt_group_dt_sorted_group_index_ = i;
+                    interrupt_time_ = groups[k].slowdown.getRealTime();
+                    ASSERT(time_next - interrupt_time_ + ar_manager->time_error_max_real >= 0.0);
+                    return interrupt_binary_adr_;
                 }
 
                 ASSERT(abs(groups[k].slowdown.getRealTime()-time_next)<=ar_manager->time_error_max_real);
             }
 
-            // when no interupt, clear interupt records
-            interupt_group_dt_sorted_group_index_ = -1;
-            interupt_time_ = -1.0;
-            interupt_binary_adr_ = NULL;
+            // when no interrupt, clear interrupt records
+            interrupt_group_dt_sorted_group_index_ = -1;
+            interrupt_time_ = -1.0;
+            interrupt_binary_adr_ = NULL;
 
-            return interupt_binary_adr_;
+            return interrupt_binary_adr_;
         }
 
         //! Integration single active particles and update steps 
@@ -2132,7 +2132,7 @@ namespace H4{
             ASSERT(initial_system_flag_);
             ASSERT(!modify_system_flag_);
             ASSERT(n_init_group_==0&&n_init_single_==0);
-            ASSERT(interupt_binary_adr_==NULL);
+            ASSERT(interrupt_binary_adr_==NULL);
             
             // get next time
             Float time_next = getNextTime();
@@ -2420,27 +2420,27 @@ namespace H4{
             return time_;
         }
 
-        //! get interupt group time
+        //! get interrupt group time
         /*! if not exist, return -1.0
          */
-        Float getInteruptTime() const {
-            return interupt_time_;
+        Float getInterruptTime() const {
+            return interrupt_time_;
         }
 
-        //! get interupt group index
+        //! get interrupt group index
         /*! if not exist, return -1
          */
-        int getInteruptGroupIndex() const {
-            if (interupt_group_dt_sorted_group_index_>=0) 
-                return index_dt_sorted_group_[interupt_group_dt_sorted_group_index_];
+        int getInterruptGroupIndex() const {
+            if (interrupt_group_dt_sorted_group_index_>=0) 
+                return index_dt_sorted_group_[interrupt_group_dt_sorted_group_index_];
             else return -1;
         }
 
-        //! get interupt binary (tree) address
+        //! get interrupt binary (tree) address
         /*! if not exist, return NULL
          */
-        COMM::BinaryTree<ARPtcl>* getInteruptBinaryAddress() {
-            return interupt_binary_adr_;
+        COMM::BinaryTree<ARPtcl>* getInterruptBinaryAddress() {
+            return interrupt_binary_adr_;
         }
 
         //! get active number of particles of singles

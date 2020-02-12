@@ -341,13 +341,13 @@ public:
     }
 #endif   
 
-    //! (Necessary) interupt check 
+    //! (Necessary) interrupt check 
     /*! check the inner left binary whether their separation is smaller than particle radius sum and become close, if true, record their binary tree address and set particle status to touch; in the opposite condition, also report the address and set particle status to split
-      @param[in] _bin_interupt: interupt binary tree address 
+      @param[in] _bin_interrupt: interrupt binary tree address 
       @param[in] _bin: binarytree to check iteratively
      */
-    static COMM::BinaryTree<Particle>* checkInteruptIter(COMM::BinaryTree<Particle>*& _bin_interupt, COMM::BinaryTree<Particle>& _bin) {
-        if (_bin.getMemberN()==2&&_bin_interupt==NULL) {
+    static COMM::BinaryTree<Particle>* checkInterruptIter(COMM::BinaryTree<Particle>*& _bin_interrupt, COMM::BinaryTree<Particle>& _bin) {
+        if (_bin.getMemberN()==2&&_bin_interrupt==NULL) {
             Particle *p1,*p2;
             p1 = _bin.getLeftMember();
             p2 = _bin.getRightMember();
@@ -363,20 +363,20 @@ public:
             Float radius_sq = radius*radius;
             if (!(p1->status == Status::touch && p2->status == Status::touch)) {
                 if (dr2<radius_sq&&drdv<0) {
-                    _bin_interupt = &_bin;
+                    _bin_interrupt = &_bin;
                     p1->status = Status::touch;
                     p2->status = Status::touch;
                 }
             }
             else {
                 if (dr2>radius_sq&&drdv>0) {
-                    _bin_interupt = &_bin;
+                    _bin_interrupt = &_bin;
                     p1->status = Status::split;
                     p2->status = Status::split;
                 }
             }
         }
-        return _bin_interupt;
+        return _bin_interrupt;
     }
 
     //! write class data to file with binary format

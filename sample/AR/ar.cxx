@@ -50,7 +50,7 @@ int main(int argc, char **argv){
     COMM::IOParams<double> slowdown_mass_ref (input_par_store, 0.0, "slowdowm mass reference","averaged mass"); // slowdown mass reference
 #endif
     COMM::IOParams<double> slowdown_timescale_max (input_par_store, 0.0, "maximum timescale for maximum slowdown factor","time-end"); // slowdown timescale
-    COMM::IOParams<int>   interupt_detection_option(input_par_store, 0, "detect interuption: on/off", "off");  // if on, check interuption
+    COMM::IOParams<int>   interrupt_detection_option(input_par_store, 0, "detect interruption: on/off", "off");  // if on, check interruption
     COMM::IOParams<int>   fix_step_option (input_par_store, -1, "fix step options: always, later, none","auto"); // if true; use input fix step option
     COMM::IOParams<std::string> filename_par (input_par_store, "", "filename to load manager parameters","input name"); // par dumped filename
     bool load_flag=false;  // if true; load dumped data
@@ -165,10 +165,10 @@ int main(int argc, char **argv){
             dt_out.value = atof(optarg);
             break;
         case 'i':
-            if (!strcmp(optarg,"off")) interupt_detection_option.value = 0;
-            else if (!strcmp(optarg,"on")) interupt_detection_option.value = 1;
+            if (!strcmp(optarg,"off")) interrupt_detection_option.value = 0;
+            else if (!strcmp(optarg,"on")) interrupt_detection_option.value = 1;
             else {
-                std::cerr<<"Error: interupt detection option unknown ("<<optarg<<"), should be on, off\n";
+                std::cerr<<"Error: interrupt detection option unknown ("<<optarg<<"), should be on, off\n";
                 abort();
             }
             break;
@@ -181,7 +181,7 @@ int main(int argc, char **argv){
                      <<"          --energy-error    [Float]:  same as -e\n"
                      <<"          --fix-step-option [char] :  "<<fix_step_option<<"\n"
                      <<"    -G [Float]:  "<<gravitational_constant<<"\n"
-                     <<"    -i [string]: "<<interupt_detection_option<<"\n"
+                     <<"    -i [string]: "<<interrupt_detection_option<<"\n"
                      <<"    -l :          load dumped data for restart (if used, the input file is dumped data)\n"
                      <<"          --load-data (same as -l)\n"
                      <<"    -k [int]:    "<<sym_order<<"\n"
@@ -232,7 +232,7 @@ int main(int argc, char **argv){
     manager.step_count_max = nstep_max.value;
     // set symplectic order
     manager.step.initialSymplecticCofficients(sym_order.value);
-    manager.interupt_detection_option = interupt_detection_option.value;
+    manager.interrupt_detection_option = interrupt_detection_option.value;
 
 
     // store input parameters
@@ -351,24 +351,24 @@ int main(int argc, char **argv){
         if (dt_out.value>0.0) nstep.value = int(time_end.value/dt_out.value+0.5);
         else if (nstep.value>0) dt_out.value = time_end.value/nstep.value;
         for (int i=1; i<=nstep.value; i++) {
-            auto* bin_interupt = sym_int.integrateToTime(dt_out.value*i);
-            if (bin_interupt!=NULL) {
-                std::cerr<<"Interupt condition triggered! ";
-                Particle* p1 = bin_interupt->getLeftMember();
-                Particle* p2 = bin_interupt->getRightMember();
+            auto* bin_interrupt = sym_int.integrateToTime(dt_out.value*i);
+            if (bin_interrupt!=NULL) {
+                std::cerr<<"Interrupt condition triggered! ";
+                Particle* p1 = bin_interrupt->getLeftMember();
+                Particle* p2 = bin_interrupt->getRightMember();
                 if (p1->status==Status::touch) std::cerr<<" Touch-";
                 else std::cerr<<" Split-";
                 if (p2->status==Status::touch) std::cerr<<"Touch, ";
                 else std::cerr<<"Split, ";
                 std::cerr<<" Time: "<<sym_int.slowdown.getRealTime()<<std::endl;
-                bin_interupt->printColumnTitle(std::cerr);
+                bin_interrupt->printColumnTitle(std::cerr);
                 std::cerr<<std::endl;
-                bin_interupt->printColumn(std::cerr);
+                bin_interrupt->printColumn(std::cerr);
                 std::cerr<<std::endl;
                 Particle::printColumnTitle(std::cerr);
                 std::cerr<<std::endl;
                 for (int j=0; j<2; j++) {
-                    bin_interupt->getMember(j)->printColumn(std::cerr);
+                    bin_interrupt->getMember(j)->printColumn(std::cerr);
                     std::cerr<<std::endl;
                 }
             }
