@@ -1,7 +1,7 @@
 # SDAR: A library for solving few-body problems
 Please read this short manual before start to use the code. 
 Any questions that are already answered here won't get reply from developers and GitHub Issue.
-Check the [GitHub-pages](https://lwang-astro.github.io/SDAR/) and find the [SDAR documentation](https://github.com/lwang-astro/SDAR/blob/master/docs/html/index.html)
+You can find the [SDAR documentation](https://lwang-astro.github.io/SDAR/docs/html/index.html) written in the Doxygen style.
 
 ## User Guide
 This c++11 library contains three components: _BinaryTree_, _AR_ and _Hermite_.
