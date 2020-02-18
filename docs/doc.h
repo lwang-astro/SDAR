@@ -1,21 +1,39 @@
-/*! \mainpage ARC Introduction
+/*! \mainpage Introduction
   
-\section AR_sec Algorithmic Regularization (AR)
+\section Algorithm
 
-The algorithm used in this code is based on the literatures of <A HREF="http://adsabs.harvard.edu/abs/1999MNRAS.310..745M">Mikkola & Tanikawa (1999)</A> and <A HREF="http://adsabs.harvard.edu/abs/1999AJ....118.2532P">Preto & Tremaine (1999)</A>. The development of this code refers to the Chapter 2 (Mikkola) in book <A HREF="http://www.springer.com/us/book/9781402084300">The Cambridge N-body Lectures</A>. Here the basic idea of AR is described.
+The slow-down time-transformed explicit symplectic method (SDAR) combines the benefit of the symplectic integrator which conserves the Hamiltonian and angular momentum and the high efficiency of the slow-down method to handle the long-term evolution of hierarchical systems and close encounters.
+The details of the algorithm can be found in Wang, Nitadori & Makino (2020).
+Here the idea is briefly introduced.
 
-The numerical simulations of gravitational N-body systems dynamical evolutions are frequently used in astrophysics. 
-However, due to the singularity of two-body gravitational potential when these two particles become infinite close lead to the difficulty in the highly accurately integration of two-body bounded system with very high eccentricity. 
-To get high accuracy of integration when two particles are very close, the time step for integration should be reduced significantly.
-This result in time consuming computation if number of particles is large.
-On the other hand, for a long-term integration, the total energy of the systems may be systematiclly drifted due to the numerical accuracy of integrators. 
-Thus the sympletic methods are suggested to be used since it can keep the energy conservation for long-term integration.
+The slow-down method is introduced by <A HREF="http://adsabs.harvard.edu/abs/1996CeMDA..64..197M">Mikkola & Aarseth (1996)</A>.
+For a perturbed binary, by artificially slowing down the orbital motion (scaling the time) while keeping the orbital parameters unchanged, the external perturbation is effectively enlarged.
+In such case, the effect of perturbation on one binary orbit can represent the average effect of several orbits.
+When the perturbation is weak, this method can properly approximate the secular evolution.
 
-However, the sympletic methods are difficult to be applied for gravitational systems due to the required time step (integration step) shrinking when two particle get close.
-Thus Mikkola & Tanikawa (1999) and Preto & Tremaine (1999) develop the special time transformation method based on the extended phase space Hamiltonian. 
-The time \f$t\f$ become a general coordinate in Hamiltonian with corresponding general momentum \f$Pt\f$.
-The integration of the equation of motion then depends on the new differential variable \f$ s\f$.
-In this case, time and the motion of the system can be integrated with a fixed step size of s, which allow the usage of sympletic methods.
+The symplectic integrator can conserve the Hamiltonian and the angular momentum of a system.
+Thus it is very suitable for simulating the long-term evolution of a system.
+However, it requires a constant integration step.
+In the classical symplectic method, time step, \f$ \mathrm{d} t \f$, is also the integration step, \f$ \mathrm{d} s \f$.
+This leads to a low efficiency in integrating an eccentric Kepler orbit.
+In order to be accurately enough, \f$ \mathrm{d} t \f$ has to be fixed to the smallest value determined at the pericenter.
+The solution is to apply a time transformation, \f$\mathrm{d} t=g \mathrm{d} s\f$, which decouples \f$\mathrm{d} s\f$ and \f$\mathrm{d} t\f$ with a function \f$g\f$ (see <A HREF="http://www.sciencedirect.com/science/article/pii/S0168927497000615"> Hairer, 1997 </A>).
+Thus, \f$ \mathrm{d} t \f$ can vary to avoid the issue of low efficiency while \f$ \mathrm{d} s \f$ is fixed to keep the symplectic property.
+This method can be described by the extended phase space Hamiltonian:
+
+(1) \f$ \Gamma(\mathbf{P},\mathbf{Q}) = H'(\mathbf{P},\mathbf{Q}) \frac{d t}{d s} = g(\mathbf{Q},\mathbf{P}) (H(\mathbf{p},\mathbf{q},t) + Pt) \f$
+
+where \f$ H(\mathbf{p},\mathbf{q},t) \f$ is the standard Hamiltonian.
+The extended phase-space vector, \f$ (\mathbf{P},\mathbf{Q}) \f$, is defined by the standard coordinate and momentum pair \f$(\mathbf{p},\mathbf{q})\f$ with an additional pair of the coordinate, \f$ t \f$, and the conjugate momentum, \f$ Pt = - H(\mathbf{p},\mathbf{q},0) \f$ (negative initial Hamiltonian).
+
+The equation of motion with the differential on \f$ s \f$ describe the symplectic map in the extended phase-space.
+The disadvantage is that the time transformation usually results in an inseparable Hamiltonian and only the expensive implicit integrator can be used.
+<A HREF="http://adsabs.harvard.edu/abs/1999MNRAS.310..745M">Mikkola & Tanikawa (1999)</A> and <A HREF="http://adsabs.harvard.edu/abs/1999AJ....118.2532P">Preto & Tremaine (1999)</A> find a solution by defining a specific type of time transformation function:
+
+(2) \f$ g(\mathbf{Q},\mathbf{P}) = \frac{f(T(\mathbf{P})) - f(-U(\mathbf{Q}))}{T(\mathbf{P}) + U(\mathbf{Q})} \f$
+
+that the Hamiltonian can be written in a separable style, in order to use the explicit symplectic integrator.
+Especially, for an isolated binary system, if \f$ f(x) = log(x) \f$, so that $\mathrm{d} t \approx \mathrm{d} s/ |U|$, where $|U|$ is the absolute value of the binary potential energy (similar like the Burdet-Heggie time transformation), the integrator behaviors dramatically well for the Kepler orbit, i.e., the numerical trajectory follows the exact one with a phase error of time.
 
 \subsection H_sec Hamiltonian in Extended Phase Space
 
@@ -114,7 +132,7 @@ Thus
 
 \subsubsection logH_sec Logarithmic Hamintonian method (LogH)
 
-Mikkola & Tanikawa (1999) suggests to use the function \f$ f(x) = \log{x} \f$ (Logarithmic Hamintonian method).
+Mikkola & Tanikawa (1999) and Preto & Tremaine (1999) suggest to use the function \f$ f(x) = \log{x} \f$ (Logarithmic Hamintonian method).
 In this case, the time transformation based on (14) is:
 
 (15) \f$ g(\mathbf{Q},\mathbf{P}) \approx \frac{1}{-U(\mathbf{Q})} \f$
@@ -124,7 +142,7 @@ Then the equation of motions can be written as:
 (16) \f$ \frac{d \mathbf{q} }{d s} = \frac{1}{T(\mathbf{p})+Pt} \frac{\partial T(\mathbf{p})}{\partial {\mathbf{p}}} \f$;
      \f$ \frac{d t }{d s} = \frac{1}{T(\mathbf{p})+Pt} \f$;
      \f$ \frac{d \mathbf{p} }{d s} = \frac{1}{-U(\mathbf{q},t)} \frac{\partial U(\mathbf{q},t)}{\partial {\mathbf{q}}} \f$;
-     \f$ \frac{d Pt}{d s} = \frac{1}{-U(\mathbf{q},t)} \frac{\partial U(\mathbf{q},t)}{\partial t}} \f$;
+     \f$ \frac{d Pt}{d s} = \frac{1}{-U(\mathbf{q},t)} \frac{\partial U(\mathbf{q},t)}{\partial t} \f$;
 
 For the point mass systems with Newtonian gravity 
 
@@ -135,291 +153,196 @@ where G is gravitational constant and \f$ m_i, m_j \f$ are masses of point-mass 
 From (17) we see \f$ \frac{d Pt}{d s} = 0 \f$. 
 This is only for the isolated system. If the system has external force from perturbers or external potential. The energy of system (\f$-Pt\f$) may not be conserved any more. Thus the energy change should be added into \f$Pt\f$ during the integration.
 
-\subsubsection TTL_sec Time-Transformed Leapfrog (TTL)
 
-The regularization methods where energy explicitly appear in the equation of motions cannot solve the few-body systems with large mass ratio (for example, planetary systems and super massive black hole with surrounding stars), because the energy is dominated by the massive bodies, and this introduce the systematic error during the integration. To solve this kind of issue, <A HREF="http://adsabs.harvard.edu/abs/2002CeMDA..84..343M">Mikkola & Aarseth (2002)</A> developed the so-called Time-Transformed Leapfrog (TTL) method. This method is also based on time transformation. The major difference compared with the LogH method is that the time transformation function also need to be integrated.
+<A HREF="http://adsabs.harvard.edu/abs/2002CeMDA..84..343M">Mikkola & Aarseth (2002)</A> introduced a modified version of time transformed symplectic method.
+Instead of calculating $T(\mathbf{P})$, one can also define a variable,
 
-The time transformation (10) leads to the equations of motion (12) where time transformation \f$ f'(T(\mathbf{p})+Pt) \f$ and \f$ f'(-U(\mathbf{q},t))\f$ explicitly depend on kinetic energy, binding energy and potential. 
-If we want to replace \f$ -U(\mathbf{q},t) \f$ to other quantity \f$ W(\mathbf{q})\f$ (here \f$ W(\mathbf{q})\f$ is positive), considering the requirement \f$ f(T(\mathbf{P})) - f(-U(\mathbf{Q})) \approx 0 \f$, we should also find another quantity \f$ w(\mathbf{p}) \f$ that allow \f$ f(w(\mathbf{p})) - f(W(\mathbf{q})) \approx 0 \f$. and 
+(18) \f$  u = \int \frac{\partial U(\mathbf{q})}{\partial \mathbf{q}} \cdot \frac{\mathrm{d} \mathbf{q}}{\mathrm{d} t} \f$
 
-(18) \f$ g(\mathbf{Q},\mathbf{P}) = \frac{f(w(\mathbf{p})) - f(-W(\mathbf{q}))}{T(\mathbf{P}) + U(\mathbf{Q})} \approx f'(W(\mathbf{q})) \f$
+Then \f$ f'(u) = f'(T(\mathbf{P})) \f$. The equation of motion has the form:
 
-Instead of finding the \f$ w(\mathbf{p}) \f$ for each kind of \f$ W(\mathbf{q})\f$, Mikkola & Aarseth (2002) suggest to use the differential equation 
+(19) \f$ \frac{d \mathbf{q} }{d s} = \frac{1}{u} \frac{\partial T(\mathbf{p})}{\partial {\mathbf{p}}} \f$;
+     \f$ \frac{d t }{d s} = \frac{1}{u} \f$;
+     \f$ \frac{d \mathbf{p} }{d s} = \frac{1}{-U(\mathbf{q})} \frac{\partial U(\mathbf{q})}{\partial {\mathbf{q}}} \f$;
+     \f$ \frac{d u}{d s} = \frac{1}{-U(\mathbf{q})} \frac{\partial U(\mathbf{q})}{\partial \mathbf{q}} \cdot \frac{\langle \mathbf{p} \rangle} {m} \f$;
 
-(19) \f$  \frac{d W(\mathbf{q})}{d s} = \frac{\partial W(\mathbf{q})}{\partial \mathbf{q}} \cdot \frac{d \mathbf{q}} {d s} \f$
+\section code_sec Implementation 
 
-and integrate this equation to approximate \f$ w(\mathbf{p}) = \int \frac{d W(\mathbf{q})}{d s} d s\f$ simultaneously with integration of \f$ \frac{d \mathbf{p} }{d s} \f$.
+We implememted the SDAR method in this code by using the C++ programming Language. 
+This code contains three modules: AR, H4 and COMM.
 
-However 
+The AR module provides an c++ integrator class AR::TimeTransformedSymplecticIntegrator.
+It is a template class that depends on the class types of particle, interaction, perturbation and extra-information.
+AR::TimeTransformedSymplecticManager is the manager class contain the pair interaction class and parameters to control the integration.
+One manager can be shared with multiple integrators.
 
-(20) \f$ \frac{d \mathbf{q}}{d s} = \frac{d \mathbf{q}}{d t} \frac{d t}{d s} = \frac {\mathbf{p}}{m} f'(W(\mathbf{q}))\f$
+The <A HREF="http://www.sciencedirect.com/science/article/pii/0375960190900923"> Yoshida high-order symplectic method </A> is used together with the SDAR method.
+The drift-kick-drift mode must be used as the base of the 2nd order method for a high accuracy.
+The reason is described in Preto & Tremaine (1999) and <A HREF="https://github.com/nitadori/Grad4th/blob/master/logH.pdf">Nitadori (2018) </A>.
 
-Thus \f$ \frac{d W(\mathbf{q})}{d s} \f$ explicitly depends on the momemtum. The integration in principle are not separatable. 
-To solve this issue, Mikkole & Aarseth (2002) recommend to use averaged momemtums \f$ \langle \mathbf{p} \rangle \f$ (velocities) between previous and current step's during the Leapfrog integration, because the averaged values can represent the momemtums at the D (half) step when \f$\mathbf{q}\f$ is integrated.
+The Hermite module provides an c++ integrator class H4::HermiteIntegrator that combine a 4th-order Hermite method with block time steps and multiple SDAR integrators.
+The former deals with the global particle system and the latter handle the compact subgroups in the system.
+The criterion to determine the members in subgroups are based on a distance given by the input parameters.
+H4::HermiteManager provides the pair interaction and parameters to control the Hermite integration.
 
-Then if we take \f$ f(x) = \log{x}\f$ again, we have the equations of motion like:
+The COMM module provides the basic data type and the tool to construct a Hierarchical (Kepler) binary tree for a group of particles.
+It is used to identify the subgroups in the Hermite integrator and to calculate the slow-down factor in the AR integrator.
 
-(21) \f$ \frac{d \mathbf{q} }{d s} = \frac{1}{w} \frac{\partial T(\mathbf{p})}{\partial {\mathbf{p}}} \f$;
-     \f$ \frac{d t }{d s} = \frac{1}{w} \f$;
-     \f$ \frac{d \mathbf{p} }{d s} = \frac{1}{W(\mathbf{q})} \frac{\partial U(\mathbf{q},t)}{\partial {\mathbf{q}}} \f$;
-     \f$ \frac{d w}{d s} = \frac{1}{W(\mathbf{q})} \frac{\partial W(\mathbf{q})}{\partial \mathbf{q}} \cdot \frac{\langle \mathbf{p} \rangle} {m} \f$;
+\section sample_sec Use sample codes
 
-This solution avoid use the energy (potential) as a time transformation dependence, thus with a suitable choice of \f$ W(\mathbf{q}) \f$, the high mass ratio systems can be integrated with high accuracy.
+To help the users to understand how to use the library, a few sample codes are provided in the sample directory.
+In the three subdirectory: AR, Hermite and Kepler, users can find the instance of code.
+For example, AR/ar.cxx is an SDAR integrator, that read a particle set and integrate the system to a given time or a number of steps.
+Similarly, Hermite/hermite.cxx is a Hermite integrator.
+In Kepler subdirectory, keplerorbit.cxx provides a transformation tool to calculate the Kepler orbital paramters from a particle pair and vice versa.
+Keplertree.cxx can construct the Hierarchical Kepler binary tree for a given particle set and vice versa.
 
-\section code_sec Implementation of ARC
+Use commander "make" in each subdirectory to create the excutable files and use the sample code.
+For example, in AR after make, four ar.** binary files are created.
+For any of them (e.g. ar.logh), use 
 
-We implememted AR method together with Chain (discussed below) for few-body systems by using C++ programming Language. 
-The idea is make the integrator a C++ class thus can be easily used as a module for other codes. 
-In this section we describe the details of the implementation.
+ar.logh -h
 
-\subsection chain_sec Particle Chain
+will output the help and describe the input parameters to use the integrator.
+Similary, -h options can be used to all other sample codes.
+Please refer to the help information for the details of the usage of the sample codes.
 
-If the bounded few-body systems are inside a big cluster enviroment, the average distance between these particles can be much smaller than the scale of cluster. 
-Thus the round off error can be large if the positions of these particles are in the cluster center-of-mass frame.
-To avoid this issue, <A HREF="http://adsabs.harvard.edu/abs/1993CeMDA..57..439M">Mikkola & Aarseth (1993)</A> suggested to use Chain method.
+\section library_sec For developers
 
-The idea is to connect all particles in one chain and using relative position and velocity for integration.
-Firstly, one particle is selected as a starting point of the chain, then the nearest particle is selected as the next chain member, the relative position \f$ X \f$ and velocity \f$ V \f$ between these neighbors are calculated and stored.
-After that, we found the nearest particle to this second member from the remaining particles and calculate relative positions and velocites and do this iterately until all particles are connected in this chain.
-The relative positions and velocites can be described by absolute positions and velocities in a ordered chain as:
+Each c++ class in this library are detailed described in the documantion in order to help the users to develop their own N-body codes.
+The developers can use the functions provided in three namespaces: AR, H4 and COMM located in three subdirectories in src.
+The sample directory provide the good examples showing how to use the code as a library.
 
-(22) \f$ \mathbf{X}_i = \mathbf{q}_{i+1} - \mathbf{q}_i \f$; \f$ \mathbf{V}_i = \mathbf{v}_{i+1} - \mathbf{v}_i \f$
+\subsection ar_sec AR module
 
-The integration is done with these relative quantities to reduce round off error. The equations of motion can be written as 
+The AR namespace contains the template classes to construct the SDAR integrator.
+The major class that contains the particle data and the integration functions is AR::TimeTransformedSymplecticIntegrator.
+It depends on five template types:
+- particle type of members
+- particle type of the center-of-the-mass of the particle group
+- perturber class that handles the external perturbation to the members
+- interaction class that defines the pair interaction and the method to calculate slow-down perturbation and timescales
+- information class that contains user-defined information, it should inherit from the defaulted AR::Information class.
 
-(23) \f$ \frac{d \mathbf{X}_i}{d t} = \mathbf{V}_i \f$; \f$ \frac{d \mathbf{V}_i}{d t} = \mathbf{A}_{i+1} - \mathbf{A}_i \f$
+To create a SDAR integrator, it is necessary to provide these five types.
+Thus, the user should first define the particle type.
+The example is shown in the class Particle in sample/AR/particle.h.
+A few necessary members and member functions should be defined as shown in the sample, please follow the link to check the details.
 
-where \f$ \mathbf{A}_i \f$ is the acceleration of particle \f$ i\f$.
+The particle type of the center-of-the-mass can be different from the type of the member.
+One example is shown in the sample/Hermite/hermite.cxx.
 
-When the particles are moved, the nearest neighbor of each particle may become different, thus the update of chain order should be performed with a suitable time interval. 
+If interaction between the members of the particle groups and the external sources is needed.
+In the sample of ar.cxx, there is no external perturbation, thus the class Perturber defined in sample/AR/perturber.h is emplty with only a few necessary IO functions
 
-\subsection leap_sec Leapfrog Integrator
+The interaction class is important and necessary to be provided to calculate the pair interaction between the members.
+Also the interaction between perturbers and members also also defined in this class.
+The example Interaction in sample/AR/interaction.h shows the necessary member functions used in the SDAR method.
+For the SDAR method, it is also required to calculate the time tranformation function together with the force and potential calculations.
+Besides, if the slow-down method is used, the slow-down inner force and perturbation should also be calculated to calculate the next slow-down factor.
 
-By combining the AR algorithm and Chain scheme, we can construct a Leapfrog integrator of equations of motion for $N$-body systems like:
-- D mode:
+The information class should inherit from AR::Information. 
+The latter contain the method to calculate the integration step size based on the Kepler orbital information of the system.
+Also it contains the binary tree of the particle members, which records the hierarchical relations between particles and the corresponding Kepler orbital elements.
 
-(24)      \f$ \Delta t = \Delta s / (\alpha (T(\mathbf{p}) + Pt) + \beta w + \gamma) \f$;
-          \f$ t += \Delta t \f$;
-          \f$ \mathbf{X}_i += \Delta t \mathbf{V}_i \f$ 
+Once all these 5 types are defined.
+Use
 
-- K mode:
+    AR::TimeTransformedSymplecticIntegrator<Particle, Particle, Perturber, Interaction, Information<Particle,Particle>> sym_int;
+    AR::TimeTransformedSymplecticManager<Interaction> manager;
 
-(25)      \f$ \delta t = \Delta s / (\alpha U(\mathbf{q},t) + \beta W(\mathbf{q}) + \gamma) \f$;
-          \f$ \mathbf{V}_i += \delta t (\mathbf{A}_{i+1} - \mathbf{A}_{i}) \f$;
-          \f$ Pt += \delta t \sum_i (-m_i \langle \mathbf{v}_i \rangle \cdot f_{ext,i}) \f$;
-          \f$ w += \delta t \sum_i \frac{\partial W}{\partial \mathbf{q}_i} \cdot \langle \mathbf{v}_i \rangle \f$ 
+to create the integrator ARint and the manager.
+A few parameters in the manager should be initialized before the integration. Please check the link of AR::TimeTransformedSymplecticManager for details.
 
-where \f$ f_{ext,i} \f$ is the external force from outside the system (e.g., perturber force or tidal force) of each particle \f$ i\f$, and \f$ \langle \mathbf{v}_i \rangle\f$ is obtained by averaging the velocities of the initial and the final \f$ \mathbf{v}_i \f$ of this K mode step. \f$ \alpha, \beta, \gamma \f$ are the coefficients representing the weights of the LogH, TTL and non-time-transformation modes separately. For example, if \f$ \alpha=0\f$, then no LogH will be performed, and if \f$ \alpha =1, \beta=0, \gamma=0 \f$ it is LogH ARC.
+There are two way to assign a particle group to the integrator.
+use 
 
-The initial value of \f$ Pt \f$ should be the initial binding energy of the system \f$ U(\mathbf{q},t) - T(\mathbf{p}) \f$. 
-If the system is isolated, \f$ Pt \f$ is constant.
-The initial value of \f$ w\f$ is set to initial \f$ W(\mathbf{q}) \f$.
+    sym_int.particles.setMode([COMM::ListMode::[types]);
+    
+to set the mode:
+- COMM::ListMode::local indicates that the particle data is stored in the local allocated array in particles.
+- COMM::ListMode::link indicates that the particle data is not stored in particles but only the address pointing to an existed particle data array is stored.
+- COMM::ListMode::copy indicates that the particle data are copied from an existed particle array and also the addresses to original particle are saved in order to writeback the data.
 
-The Leapfrog step start with half-step D and then loop full-step K-D-K and stop with half-step D:
+After set mode, the particles can be added based on the mode.
+For example
 
-(26) \f$ D(\Delta s/2)K(\Delta s)D(\Delta s)....K(\Delta s)D(\Delta s/2) \f$
+    sym_int.particles.setMode(COMM::ListMode::local);
+    sym_int.particles.readMemberAscii(fin);
 
-This provide a second order integrator of ARC. Trying this integrator for a two-body bounded system can result in an energy and eccentricity conserved kepler orbit. Only the time phase can have cumulative error after long-term integration.
+will read the particle data from a std::fstream file IO fin.
 
-\subsection extrapolation_sec Extrapolation Integrator
+The details of the mode can be found in COMM::List.
 
-The Leapfrog integrator only has second order accuracy, which is not enough for many applications. One can reduce the step size of integration to obtain higher accuracy. 
-However, as energy is always conserved for two-body motions, we don't have good checker to indicate whether the integration is accurate enough. 
-A better and more efficient way is to extrapolate the integration results to infinite small step \f$ \Delta s\approx 0\f$, thus the high accuracy result can be obtained.
-The idea of extrapolation integration is well summarized in <A HREF="http://link.springer.com/book/10.1007%2F978-0-387-21738-3"> Stoer & Bulirsch</A>. 
-Here the basic algorithm is shown.
+The center-of-the-mass can be calculated after all particle data are read.
+    
+    sym_int.particles.calcCenterOfMass();
 
-First, if we integrate the equations of motion with Leapfrog integrator by step \f$ \Delta s\f$. 
-we get the first result with a certain accuracy. Now we keep the total step constant but divide the integration into several sub-steps with equal sizes by \f$ n \f$, we can obtain higher accuracy of the integration. When we use a sequence of dividers \f$ (n_1, n_2, n_3 ...)\f$ (\f$ n_{i+1}>n_i\f$) and do the integration with each of them, we can obtain a series of results with increasing accuracy. Then we can extrapolate these results to obtain the value of \f$ \Delta s/n_{\infty}=0 \f$.
+Before starting the integration, it is useful to construct the binary tree by using
 
-There are two major methods of extrapolation: polynomial and rational.
-Both methods can be described as recursive functions:
+    sym_int.info.reserveMem(sym_int.particles.getSize());
+    sym_int.info.generateBinaryTree(sym_int.particles,manager.interaction.gravitational_constant);
 
-- Polynomial: 
+The first line allocate the necessary memory space to store the binary tree.
+The second line generate the binary tree. The second argument is the gravitatinal constant, based on the units used in the particle data.
 
-(27) \f$ T_{i,k} = T_{i,k-1} + \frac{T_{i,k-1} - T_{i-1,k-1}}{( h_{i-k} / {h_i} )^2 -1} \f$, \f$ 1 \le k \le i \le m \f$ 
+Then the initialization of integration will calculate the initial state of the system (e.g. energy and slow-down factor)
 
-- Rational:
+    sym_int.initialIntegration(time_zero.value);
+    sym_int.info.calcDsAndStepOption(sym_int.slowdown.getSlowDownFactorOrigin(), manager.step.getOrder(), manager.interaction.gravitational_constant);
 
-(28) \f$ T_{i,k} = T_{i,k-1} + \frac{T_{i,k-1} - T_{i-1,k-1}}{\left[ \frac{h_{i-k}}{h_i} \right]^2 \left[ 1 - \frac{T_{i,k-1} - T_{i-1,k-1}}{T_{i,k-1}- T_{i-1,k-2}} \right]-1} \f$, \f$ 1 \le k \le i \le m \f$ 
+The second line estimate the initial step, see AR::Information for details.
 
-Here \f$ i\f$ indicate the integration with sub-step size \f$ h_i = s/n_i\f$, and \f$ k \f$ indicate the extrapolation order.
-The \f$ T_{i,0} \f$ are results of Leapfrog integrations, and for each order \f$ i\f$, the \f$ T_{i,i} \f$ is final extrapolation result we want. 
-The \f$ T_{i,i} \f$ can be obtained by calculating \f$ T_{i,k} \f$ from \f$ k=1 \f$ to \f$ k=i \f$ using the recursive functions.
+Finally, the integration can be excuted by:
 
-One benefit of these recursive functions is that a higher order extrapolation \f$ T_{i+1,i+1} \f$ can be established based on current existing \f$ T_{i,k}, k=0\sim i \f$  with a new higher order integration result \f$ T_{i+1,0} \f$. 
-Then it is easy to estimate the error by comparing \f$ T_{i+1,i+1} \f$ and \f$ T_{i,i} \f$ to determine whether another higher order result is necessary. 
-For example, in ARC integration, we can check the time or position phase error and energy error to determine how many orders we need to integrate and extrapolate due to the accuracy requirment.
+    sym_int.integrateToTime(time);
 
-The sequences of dividers \f$ n_i \f$ have several choices for different applications:
-- <A HREF="https://en.wikipedia.org/wiki/Romberg's_method">Romberg</A>: (1, 2, 4, 8 ...)
-- <A HREF="http://link.springer.com/article/10.1007%2FBF02165234">Bulirsch & Stoer</A> (BS): (1, 2, 3, 4, 6, 8 ...)
-- <A HREF="http://link.springer.com/article/10.1007%2FBF01385634">Hairer</A> (4k): (2, 6, 10, 14 ...)
-- Harmonic:  (1, 2, 3, 4 ...)
+which integrate the system to given time.
+If interruption function is triggered, the integration can break in the middle and return the binary tree address of the interrupted pair.
+See Interaction class for the interruption function.
+Instead of integrating to a given time, it can also only integrate one step by
+    
+    sym_int.integrateTwoOneStep(sym_int.info.ds, time_table);
 
-Different seuqnces and recursive functions can be combined together for extrapolation integration. 
-We implement all sequences shown above. Later we discuss the special application of some sequences.
+or
 
-\subsection dense_sec Dense Output for Time Synchronization
+    sym_int.integrateOneStep(sym_int.info.ds, time_table);
 
-Although the ARC can make the integration of $N$-body systems accurately, the side-effect of time transformation is that the physical time become unpredictable.
-With the Leapfrog integrator, we cannot know what will be the final physical time before one integration step finish.
-This result in difficulty if we want to use the ARC together with a $N$-body code to simulate a particle cluster including dense sub-systems.
-The integration of the motions of particles surrounding this sub-system need to obtain the acceleration from this sub-system at a certain physical time, but with ARC the integration of this sub-system cannot exactly reach the required time.
-Especially with extrapolation method, the large integration step is used frequently, thus the physical time error can be significant.
+The first is the fast method to integrate two body system. The second is general for multiple systems.
 
-To solve this issue, we apply the dense output of extrapolation method introduced by <A HREF="http://link.springer.com/article/10.1007%2FBF01385634">Hairer & Ostermann (1990)</A>. 
-The idea of this scheme is using interpolation to obtain the integrated variable at any sub-step inside an extrapolation integration step.
-The interpolation should have the similar order of accuracy as the extrapolation and the internal integration results during extrapolation should be used for interpolation to save computational effort.
+The state of particles can be directly accessed by checking the sym_int.particles or write to std::ostream using the IO functions.
+The details of output is defined by users in the writeBinary, readBinary, writeAscii and ReadAscii functions in each class.
 
-The physical time \f$ t\f$ as a function of integration step variable \f$ s \f$ then can be interpolated as \f$ T(s) \f$. 
-If the required ending physical time \f$ t_{off} \f$ is inside one integration step, we can solve the equation \f$ T(s)=t_{off} \f$ to obtain the correct step size \f$\Delta s_{off} \f$ to reach the exact \f$ t_{off} \f$.
-Then by redoing this integration step with \f$\Delta s_{off}\f$, we can get correct results.
+\subsection h4_sec H4 module
 
-One can also try to do dense ouput for all variables (\f$t\f$, \f$Pt\f$, \f$w\f$, \f$\mathbf{q}\f$, \f$\mathbf{p}\f$), thus the results at correct physical time can be directly calculated instead of redoing the integration.
-However, as the computation of dense output is quite heavy (many extrapolation is needed; see below), redoing the integration can be cheaper if particle number is not large (\f$<=4\f$).
+The way to use Hermite integrator is similar to the SDAR integrator.
+The users should provide the additional interaction class which define the interactions between AR members and Hermite members, and the corresponding perturber, information types for Hermite integrator.
 
+To read the particle data, the subgroups that need SDAR methods can be pre-defined in the input data file.
+H4::HermiteIntegrator::readGroupConfigureAscii function is used to read the configuration of the subgroups.
 
-Hairer & Ostermann (1990) introduced two dense output methods.
-One is for explicit Euler integrator using Harmonic sequences and another is for Gragg-Bulirsch-Stoer (GBS) method with 4k sequences (shown above).
-Here the brief algorithms are shown without mathematical proof.
+The intergration contain four steps (see hermite.cxx sample)
 
-\subsubsection euler_dense_sec Dense Output for explicit Euler
+    auto* bin_interrupt = h4_int.integrateGroupsOneStep();
+    h4_int.integrateSingleOneStepAct();
+    h4_int.adjustGroups(false);
+    h4_int.initialIntegration();
+    h4_int.sortDtAndSelectActParticle();
 
-If the integrated variable is \f$ y \f$ and its first derivate (acceleration) is \f$ f \f$ which can be calculated directly, we can use explicit Euler together with Harmonic sequence \f$ n_i = i\f$ for extrapolation.
-Then during each integration step, we have the initial \f$ y_i(0) \f$ and the final \f$ y_i(\Delta s) \f$.
-In addition, \f$ f_i(\Delta s* k/n_i) (k=0,n_i)\f$ are also calculated.
-Thus we can obtain the high order derivates of \f$ f_i \f$ at the left and right edges using forward and backward differences:
+The first line integrate all subgroups using SDAR method, if interreupt appears, the address is returned.
+In such case, h4_int.integrateGroupsOneStep() should be called again until no new interruption appear.
+Then the single particles are integrated by Hermite method.
+After one step integration.
+H4::HermiteIntegrator::adjustGroups function checks the structure of the system and decide whether subgroups need to form or disrupt.
+H4::hermiteIntegrator::initialIntegration renews the system after the adjustment of groups.
+The finall step H4::hermiteIntegrator::sortDtAndSelectActParticle sorts the time steps of particles and determine the next active block step lists.
 
-(29) \f$ f_i^{(k)}(0) = \left[\frac{n_i}{\Delta s}\right]^k \sum_{j=0}^k (-1)^j B_j^k f( \Delta s*\frac{k-j}{n_i}) \f$;  \f$ f_i^{(k)}(\Delta s) = \left[\frac{n_i}{\Delta s}\right]^k \sum_{j=0}^k (-1)^j B_j^k f(\Delta s*(1-\frac{j}{n_i})) \f$; \f$(k=1, n_i) \f$
+\subsection comm_sec COMM module
 
-where \f$ B_j^k = \frac{j!}{k!(j-k)!}\f$ is the binomial sequence.
-
-Then if the last sequence index used in extrapolation is \f$i=\kappa\f$, the maximum order of derivate is \f$ n_\kappa\f$.
-Besides, for each order of derivate \f$ f_i^{(k)}(0) \f$ and \f$ f_i^{(k)}(\Delta s)\f$ (\f$ k=1,n_\kappa\f$), we also have the values of different order of accuracy corresponding to difference step size \f$(\Delta s/n_i)\f$ (\f$ i=k,n_\kappa\f$). 
-Thus the extrapolation can be done with these different order of accuracy (the same way as the extrapolation of \f$y(\Delta s)\f$) to get high accurate derivates \f$f^{(k)}(0)\f$ and \f$f^{(k)}(\Delta s)\f$.
-
-Since now the \f$ y(0)\f$, \f$y(\Delta s)\f$, \f$f^{(k)}(0)\f$ and \f$f^{(k)}(\Delta s)\f$ are avaiable, then Hermite interpolation can be used to get the interpolation polynomial function \f$ Y(x) \f$ and
-
-(30) \f$ Y(x) - y(x) = O(\Delta s^{n_\kappa+1}) \f$
-
-where \f$ n_\kappa = \kappa \f$ in the case of Harmonic sequence.
-
-\subsubsection gbs_dense_sec Dense Output for Gragg-Bulirsch-Stoer
-
-Similar as the dense output method described above, for mordified middle point integrator used in GBS method, we can construct the interpolation using high order derivates of \f$ f \f$ at the middle position (\f$\Delta s/2\f$) instead of edges.
-However, differing from the edge differences, the middle difference is sensitive to the data point number.
-If \f$ n_i\f$ is even, to obtain the derivate order with odd \f$ k \f$ (which means \f$k+1\f$ points are needed), we have to use values every two sub-steps.
-
-For example, when \f$ n_i = 6 \f$, there are 6 sub-steps and 7 points (\f$ \Delta s*j/n_i \f$ with \f$j=0,6\f$).
-If \f$ k = 3 \f$, 4 points are needed to obtain the derivate \f$ f_i^{(3)}(\Delta s/2) \f$. 
-Since we need the derivate at \f$ \Delta s/2 \f$, only \f$ f \f$ at \f$ j = 0,2,4,6 \f$ can be used.
-If \f$ k = 4 \f$, values at \f$ j= 1,2,3,4,5\f$ are OK.
-But the difference step sizes in this case are different for odd and even \f$ k\f$.
-
-To keep accuracy order consistent, we only allow every two points to be used for both odd and even order of derivates.
-The formular then should be
-
-(31) \f$ f_i^{(k)}(\Delta s/2) = \left[ \frac{2n_i}{\Delta s} \right]^k \sum_{j=0}^k (-1)^j B_j^k f(\Delta s*(\frac{1}{2}+\frac{z_j-2j}{n_i})) \f$; \f$ k=1,2i-1 \f$
-- if \f$k\f$ is odd, \f$ z_j = k+1 \f$
-- if \f$k\f$ is even, \f$ z_j = k \f$
-
-together with the 4k sequence \f$ n_i =(2, 6, 10, 14 ...) \f$.
-
-Then again the extrapolation of the derivates and also the middle point integrated variable \f$ y(\Delta s/2) \f$ can be done and \f$ y(0) \f$, \f$ y(\Delta s) \f$, \f$ y(\Delta s/2) \f$ and derivates \f$ f^{(k)}(\Delta s/2) \f$ (\f$ k =1,2\kappa-1 \f$) are avaiable for Hermite interpolation.
-This method can provide the interpolation polynomial function with accuracy
-
-(32) \f$ Y(x) - y(x) = O(\Delta s^{2\kappa-1}) \f$
-
-\subsubsection gbs_dense_instab Instability Issue
-
-Sometimes, when the integrated step size \f$ \Delta s \f$ is large, the interpolation may fails near the edges of the interval. 
-Especially when the maximum derivative order is high (>10), the instability may happen and create sharp peaks around the starting and ending points.
-To avoid this, the integrated step size should be controlled.
-Since there is no theoretical formula to define what is a good step size, the user should try to adjust the step size depending on the problem to solve.
-One method that can help to reduce the error is to include edge derivatives to improve the interpolation accuracy around the edges. 
-But this require more computational effort and cannot remove this issue completely.
-
-If the variables depending on \f$ s \f$ is monotonic, to detect whether an instability happen, a monotonic test can be performed when using the interpolating polynomial function. 
-Since physical time monotonically depends on \f$ s \f$, this method is very useful to avoid serious errors.
-
-\subsection step_sec Integration Step Control
-
-If we use the automatical accuracy order in extrapolation integration (the maximum sequence index \f$\kappa \f$ is determined by the error criterion), the step size \f$\Delta s\f$ can be constant with a suitable initial value.
-On the other hand, \f$ \Delta s\f$ can be also adjusted based on integration error to approach better performance.
-
-\subsubsection step_error Step Estimation Based On Extrapolation Error
-
-The integration error during extrapolation at sequence index \f$ i\f$ can be estimated as
-
-(33) \f$ err_i = \frac{2|T_{i,i-1} - T_{i,i}|}{\sqrt{T_{i,i-1}^2 + T_{i,i}^2}}\f$ 
-
-If we want the expected error appear at sequence index \f$ i\f$ after the next integration step, the step modification factor can be estimated as:
-
-(34) \f$ \frac{\Delta s_{new,i}}{\Delta s} \approx \left(\frac{exp}{err_{i}}\right)^{1/(2i-1)} \f$
-
-with the assumption \f$ err_i \propto (\Delta s)^{2i-1} \f$. 
-To determine which \f$ i\f$ is best for performance, the computational effort 
-
-(35) \f$ C_i = \frac{\sum_{k=0}^i n_i}{\Delta s_{new,i}} \f$
-
-is calculated for each \f$ i \f$, then we choose index \f$ i=k \f$ which corresponds to the mimimum \f$ C_i \f$.
-The next step is \f$ \Delta s_{new,i} \f$.
-
-This method should work with fixed accuracy order (\f$ \kappa \f$ is constant).
-But in some critial situation (close encounter), the step change may not be reduced enough to obtain accurate results. 
-This need to be treated carefully during the simulations.
-On the other hand, in some special cases that the integration cannot reach the energy criterion when reducing the step size, this algorithm will lead to an continuing decreasing of step sizes and significantly influence the performance.
-Thus the user should be very careful to use this method.
-
-\subsubsection step_kepler Step Estimation Based On Kepler Period
-
-If we assume every neighbor members in the chain are two-body systems, we can calculate the Kepler period of each pair.
-Then the mimimum period can be used to estimate the next step size (a few steps should be carried out for one period).
-This may fail if the systems are chaotic or suffering hyperbolic encounters.
-
-In the case of hyperbolic encounters, the free-fall time scale 
-
-(36) \f$ t_f = \frac{\pi}{2} \sqrt{\frac{|\mathbf{X}|^3}{2 m}} \f$
-
-can be used to estimate the next step.
-However, the instability of interpolation during dense output can easily happen with this time estimation.
-Users should be very careful when treat hyperbolic encounters.
-
-\subsection perf_sec Performance Analysis
-
-Here the performance analysis of the code is provided.
-For one step of Leapfrog integration, we need two half-step integration of \f$ \mathbf{q} \f$ and \f$ t \f$, one full-step integration of \f$ \mathbf{p} \f$, \f$ Pt \f$ and \f$ w \f$.
-Before \f$ \mathbf{p} \f$ is integrated, the acceleration \f$ \mathbf{A} \f$ is calculated.
-If the particle number is \f$ N \f$, the computational cost is:
-
-(37) \f$ C_{LF} = C_{A,P}*N^2 + C_{Pt}*N + C_{w}*N +  2C_{p}*N + 2*C_{t} + C_{T}*N \f$
-
-where \f$ C_* \f$ correspond to the number of operations of different parts. If there is no perturbation and external force, \f$ Pt \f$ is constant and \f$ C_{Pt} = 0\f$. If TTL method is switched off, \f$ C_{w} = 0\f$.
-
-During the extrapolation integration, the Leapfrog integration is performed many times. After integration finished at each sequence \f$ n_i \f$, the extrapolation is performed.
-Thus the total cost is:
-
-(38) \f$ C_{EINT} = \sum_{i=1}^\kappa n_i*(C_{LF} + C_{EX}*(6N+3))\f$
-
-where \f$ C_{EX} \f$ is the number of operations of (polynomial or rational) extrapolation function. The \f$ (6N+3) \f$ includes the variables of \f$ t \f$, \f$ Pt \f$, \f$ w \f$, \f$ \mathbf{q} \f$ and \f$ \mathbf{p} \f$.
-
-For the dense output, the high order derivates of \f$ dt/ds \f$ and their extrapolation are calculated.
-The cost is:
-
-(39) \f$ C_{DEN} = \sum_{i=1}^\kappa \sum_{j=1}^{2i-1} [2j*C_{DIFF} +  C_{EX}] \f$
-
-where \f$ C_{DIFF} \f$ is the number of operations for adding one \f$ f(x) \f$ value during the computation of difference (31). 
-For the two dense output methods discussed Section \ref dense_sec, the cost formula is similar (but the \f$ \kappa \f$ can be significant difference in practice).
-
-As we discussed in Section \ref dense_sec, we can do interpolation for all variables and the cost of dense output is \f$ C_{DEN}*(6N+3) \f$. 
-Then the cost of dense output over extrapolation integration is
-
-(40) \f$ \frac{C_{DEN}}{C_{EINT}} \approx \frac{O(\kappa^3)}{O(\langle n_i\rangle*N)} \f$
-
-where \f$\langle n_i\rangle\f$ is the average \f$ n_i \f$ from \f$ i=1,\kappa\f$.
-In the case of 4k sequence, \f$\langle n_i\rangle  \propto \kappa\f$.
-The value of \f$\kappa\f$ depends on the computational error criterion and the integration step size \f$ \Delta s\f$. 
-Usually \f$ \kappa>4 \f$, thus if \f$ N \f$ is not large (\f$ N < 5 \f$), the full dense output with all variables can be more computational expensive.
+In src/Common, a few header files define the common tools used in AR and H4 modules.
+- Float.h defines the floating point type, if the QD library is used, high-precision floating point can be switched on.
+- list.h define the allocateble array type list, used to manage the particle array.
+- binary_tree.h defines the COMM::BinaryTree class that can be used to generate the binary tree of a particle group and COMM::Binary class that can be used to transform particle pair to kepler orbits and vice versa.
+- particle_group.h is based on list.h and used as the particle data container for AR and H4 methods.
 
 */

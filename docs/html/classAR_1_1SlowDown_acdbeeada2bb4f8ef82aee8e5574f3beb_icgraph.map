@@ -1,0 +1,6 @@
+<map id="AR::SlowDown::getSlowDownFactor" name="AR::SlowDown::getSlowDownFactor">
+<area shape="rect" id="node2" href="$classAR_1_1TimeTransformedSymplecticIntegrator.html#aa655bbfc4e9f9af1ae7f7a09fc193443" title="operator = " alt="" coords="264,5,475,47"/>
+<area shape="rect" id="node3" href="$classAR_1_1TimeTransformedSymplecticIntegrator.html#a4db984abe326fd1a30b3d52f6537e5eb" title="initialization for integration " alt="" coords="264,71,475,112"/>
+<area shape="rect" id="node4" href="$classAR_1_1TimeTransformedSymplecticIntegrator.html#aef58e7b1ec25846a506b9b0281522a1f" title="update slowdown factor based on perturbation and record slowdown energy change " alt="" coords="246,135,493,191"/>
+<area shape="rect" id="node5" href="$classAR_1_1TimeTransformedSymplecticIntegrator.html#ad24173534adac2b1e58a40de5e525baf" title="write back particles with slowdown velocity " alt="" coords="244,215,495,256"/>
+</map>

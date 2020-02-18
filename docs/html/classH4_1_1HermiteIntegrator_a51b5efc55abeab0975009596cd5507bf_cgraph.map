@@ -1,0 +1,7 @@
+<map id="H4::HermiteIntegrator::checkNewGroup" name="H4::HermiteIntegrator::checkNewGroup">
+<area shape="rect" id="node2" href="$classCOMM_1_1List.html#af1c92acd831f62c52f3385a71d6403e7" title="get current member number " alt="" coords="220,5,371,47"/>
+<area shape="rect" id="node3" href="$classAR_1_1SlowDown.html#ab9436a956d9925171387b0cfe4ffbb0f" title="initialize slow&#45;down parameters " alt="" coords="210,71,381,112"/>
+<area shape="rect" id="node4" href="$classAR_1_1SlowDown.html#a7cae8bcc039bb158497e2f9bb6efbd78" title="calculate slowdown factor based on perturbation and inner acceleration " alt="" coords="197,136,393,177"/>
+<area shape="rect" id="node5" href="$classAR_1_1SlowDown.html#a1f153e07b27376eb86bffb7756199b6a" title="Get original slow&#45;down factor. " alt="" coords="200,201,391,243"/>
+<area shape="rect" id="node6" href="$classCOMM_1_1List.html#abcdc25c6ecaf2d352583fa75f9fa1180" title="return last member " alt="" coords="203,267,387,294"/>
+</map>

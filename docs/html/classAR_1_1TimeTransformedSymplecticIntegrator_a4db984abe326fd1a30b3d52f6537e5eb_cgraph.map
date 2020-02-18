@@ -1,0 +1,13 @@
+<map id="AR::TimeTransformedSymplecticIntegrator::initialIntegration" name="AR::TimeTransformedSymplecticIntegrator::initialIntegration">
+<area shape="rect" id="node2" href="$classAR_1_1TimeTransformedSymplecticManager.html#a8921a86541d095de3a8685f4aad2da48" title="check whether parameters values are correct " alt="" coords="264,5,475,47"/>
+<area shape="rect" id="node3" href="$classCOMM_1_1List.html#af1c92acd831f62c52f3385a71d6403e7" title="get current member number " alt="" coords="294,71,445,112"/>
+<area shape="rect" id="node4" href="$classCOMM_1_1List.html#a125e4f93ee02b677f8377bd541f2105d" title="return member data array address " alt="" coords="294,136,445,177"/>
+<area shape="rect" id="node5" href="$classCOMM_1_1List.html#a0f3dd09ceff0ce9b3ffd15f48a9ea9c4" title="increase size without initialization " alt="" coords="274,202,465,229"/>
+<area shape="rect" id="node6" href="$classAR_1_1SlowDown.html#a96bbb1913537669fc970a149028acdfd" title="set real time value " alt="" coords="277,253,461,279"/>
+<area shape="rect" id="node7" href="$classCOMM_1_1List.html#afe063c29e3ae8df95f65db67d7d8ba81" title="Reset modified status to false. " alt="" coords="294,304,445,345"/>
+<area shape="rect" id="node8" href="$classCOMM_1_1ParticleGroup.html#a04903afdcfee09b36b30600a2683c99e" title="return true if the system is the in their origin frame " alt="" coords="295,369,443,411"/>
+<area shape="rect" id="node9" href="$classCOMM_1_1ParticleGroup.html#ae6aeae77c0ba7d3fe9a48e55c8db4c82" title="calculate center&#45;of&#45;mass " alt="" coords="295,435,443,476"/>
+<area shape="rect" id="node10" href="$classCOMM_1_1ParticleGroup.html#a46a5186631babb11c1be415ba740315d" title="shift particle to their c.m. frame " alt="" coords="276,500,463,541"/>
+<area shape="rect" id="node11" href="$classAR_1_1SlowDown.html#ab9436a956d9925171387b0cfe4ffbb0f" title="initialize slow&#45;down parameters " alt="" coords="284,565,455,607"/>
+<area shape="rect" id="node12" href="$classAR_1_1SlowDown.html#acdbeeada2bb4f8ef82aee8e5574f3beb" title="Get slow&#45;down factor. " alt="" coords="274,631,465,672"/>
+</map>

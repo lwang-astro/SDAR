@@ -23,21 +23,21 @@ public:
 
     Particle(): id(-1), mass(0.0), pos{0,0,0}, vel{0,0,0}, radius(0.0), status(Status::split) {}
 
-    //! Get position (required for \ref ARC::chain)
+    //! Get position (required)
     /*! \return position vector (Float[3])
      */
     Float* getPos() {
         return pos;
     }
 
-    //! Get velocity (required for \ref ARC::chain)
+    //! Get velocity (required)
     /*! \return velocity vector (Float[3])
      */
     Float* getVel() {
         return vel;
     }
 
-    //! write class data to file with binary format
+    //! write class data to file with binary format (required)
     /*! @param[in] _fp: FILE type file for output
      */
     void writeBinary(FILE *_fout) const {
@@ -45,7 +45,7 @@ public:
     }
 
 
-    //! read class data to file with binary format
+    //! read class data to file with binary format (required)
     /*! @param[in] _fp: FILE type file for reading
      */
     void readBinary(FILE *_fin) {
@@ -56,31 +56,7 @@ public:
         }
     }
 
-    ////! write class data to file with ASCII format
-    ///*! @param[in] _fp: FILE type file for output
-    // */
-    //void writeAscii(FILE *_fout) const {
-    //    fprintf(_fout, "%26.17e %26.17e %26.17e %26.17e %26.17e %26.17e %26.17e ",
-    //            this->mass, 
-    //            this->pos[0], this->pos[1], this->pos[2],  
-    //            this->vel[0], this->vel[1], this->vel[2]);
-    //}
-    // 
-    ////! read class data to file with ASCII format
-    ///*! @param[in] _fin: FILE type file for input
-    // */
-    //void readAscii(FILE* _fin) {
-    //    int rcount=fscanf(_fin, "%lf %lf %lf %lf %lf %lf %lf ",
-    //                      &this->mass, 
-    //                      &this->pos[0], &this->pos[1], &this->pos[2],
-    //                      &this->vel[0], &this->vel[1], &this->vel[2]);
-    //    if(rcount<7) {
-    //        std::cerr<<"Error: Data reading fails! requiring data number is 7, only obtain "<<rcount<<".\n";
-    //        abort();
-    //    }
-    //}
-
-    //! write class data to file with ASCII format
+    //! write class data to file with ASCII format (required)
     /*! @param[in] _fout: std:osteram file for output
      */
     void writeAscii(std::ostream& _fout) const {
@@ -94,14 +70,14 @@ public:
              <<radius<<" ";
     }
 
-    //! read class data to file with ASCII format
+    //! read class data to file with ASCII format (required)
     /*! @param[in] _fin: std::istream file for input
      */
     void readAscii(std::istream&  _fin) {
         _fin>>mass>>pos[0]>>pos[1]>>pos[2]>>vel[0]>>vel[1]>>vel[2]>>radius;
     }
     
-    //! print titles of class members using column style
+    //! print titles of class members using column style (required)
     /*! print titles of class members in one line for column style
       @param[out] _fout: std::ostream output object
       @param[in] _width: print width (defaulted 20)
@@ -118,7 +94,7 @@ public:
              <<std::setw(_width)<<"id";
     }
 
-    //! print data of class members using column style
+    //! print data of class members using column style (required)
     /*! print data of class members in one line for column style. Notice no newline is printed at the end
       @param[out] _fout: std::ostream output object
       @param[in] _width: print width (defaulted 20)

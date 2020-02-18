@@ -1,0 +1,5 @@
+<map id="AR::SlowDown::calcSlowDownFactor" name="AR::SlowDown::calcSlowDownFactor">
+<area shape="rect" id="node2" href="$classH4_1_1HermiteIntegrator.html#aa2e53961f55ac16a239a07471cbe6110" title="Check break condition. " alt="" coords="283,5,427,47"/>
+<area shape="rect" id="node3" href="$classH4_1_1HermiteIntegrator.html#a51b5efc55abeab0975009596cd5507bf" title="check the pair with distance below r_crit for ptcl in adr_dt_sorted_ " alt="" coords="283,71,427,112"/>
+<area shape="rect" id="node4" href="$classAR_1_1TimeTransformedSymplecticIntegrator.html#aa9bc3285b782123da733df7d123a4ad6" title="integration for two body one step " alt="" coords="249,136,460,177"/>
+</map>

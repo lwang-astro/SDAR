@@ -1,0 +1,7 @@
+<map id="AR::TimeTransformedSymplecticIntegrator::writeBackParticlesOriginFrame" name="AR::TimeTransformedSymplecticIntegrator::writeBackParticlesOriginFrame">
+<area shape="rect" id="node2" href="$classCOMM_1_1List.html#a53cc90f6633ba9fed844442fc5b36b47" title="COMM::List\&lt; Tparticle\l \&gt;::getMode" alt="" coords="323,5,473,47"/>
+<area shape="rect" id="node3" href="$classCOMM_1_1List.html#a432ae1abc33765666f627149c0982c3a" title="return member original address array " alt="" coords="315,71,481,112"/>
+<area shape="rect" id="node4" href="$classCOMM_1_1List.html#a125e4f93ee02b677f8377bd541f2105d" title="return member data array address " alt="" coords="323,136,473,177"/>
+<area shape="rect" id="node5" href="$classCOMM_1_1ParticleGroup.html#a04903afdcfee09b36b30600a2683c99e" title="return true if the system is the in their origin frame " alt="" coords="324,201,472,243"/>
+<area shape="rect" id="node6" href="$classCOMM_1_1List.html#af1c92acd831f62c52f3385a71d6403e7" title="get current member number " alt="" coords="323,267,473,308"/>
+</map>
