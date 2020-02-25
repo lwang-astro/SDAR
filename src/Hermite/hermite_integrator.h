@@ -1902,11 +1902,13 @@ namespace H4{
             int n_break_no_add = 0;
             // new index
             int new_group_particle_index[particles.getSize()];
-            int new_n_group_offset[groups.getSize()+1];
+            int new_n_group_offset[groups.getSizeMax()+1];
             int new_n_group = 0;
 
             checkBreak(break_group_index_with_offset, n_break, _start_flag);
             checkNewGroup(new_group_particle_index, new_n_group_offset, new_n_group, break_group_index_with_offset, n_break_no_add, n_break, _start_flag);
+            ASSERT(n_break<=groups.getSize());
+            ASSERT(new_n_group<=groups.getSizeMax());
             profile.break_group_count += n_break;
             profile.new_group_count += new_n_group;
 
