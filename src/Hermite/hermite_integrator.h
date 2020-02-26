@@ -2475,6 +2475,11 @@ namespace H4{
             return index_dt_sorted_single_.getSize();
         }
 
+        //! get group index offset (group index + N_single_max)
+        int getIndexOffsetGroup() const {
+            return index_offset_group_;
+        }
+
         //! get sorted dt index of singles
         int* getSortDtIndexSingle() {
             return index_dt_sorted_single_.getDataAddress();
