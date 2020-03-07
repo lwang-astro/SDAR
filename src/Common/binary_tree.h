@@ -162,14 +162,32 @@ namespace COMM{
             _ecc = sqrt(p*p + _rv*_rv/_semi/Gm_tot);
         }
 
-        //! calculate eccentricy anomaly from mean anomaly
+        //! calculate eccentric anomaly from separation
+        Float calcEccAnomaly(const Float _r) {
+            if (semi>0) {
+                Float cos_ecca = (1.0-_r/semi)/ecc;
+                return acos(cos_ecca);
+            }
+            else {
+                Float cosh_ecca = (1.0-_r/semi)/ecc;
+                return acosh(cosh_ecca);
+            }
+        }
+
+        //! calculate mean anomaly from eccentric anomaly
+        static Float calcMeanAnomaly(const Float _ecca, const Float _ecc) {
+            if (_ecc<1.0) return _ecca - _ecc*sin(_ecca); 
+            else return _ecc*sinh(_ecca) - _ecca;
+        }
+
+        //! calculate eccentric anomaly from mean anomaly
         /* refer to the P3T code developed by Iwasawa M.
           @param[in] _mean_anomaly: mean_anomaly
           @param[in] _ecc: eccentricity
           \return eccentric anomaly
         */
         static Float calcEccAnomaly(const Float _mean_anomaly,
-                             const Float _ecc){
+                                    const Float _ecc){
             // a: semi-major axis
             // l: mean anomaly
             // e: eccentricity

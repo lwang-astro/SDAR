@@ -28,7 +28,7 @@ namespace AR {
         Float slowdown_mass_ref;         ///> slowdown mass factor reference
 #endif
         Float slowdown_timescale_max;       ///> slowdown maximum timescale to calculate maximum slowdown factor
-        long long unsigned int step_count_max; ///> maximum step counts
+        long long int step_count_max; ///> maximum step counts
         int interrupt_detection_option;    ///> 1: detect interruption; 0: no detection
         
         Tmethod interaction; ///> class contain interaction function
@@ -1125,8 +1125,8 @@ namespace AR {
             bool time_end_flag=false; // indicate whether time reach the end
 
             // step count
-            long long unsigned int step_count=0; // integration step 
-            long long unsigned int step_count_tsyn=0; // time synchronization step
+            long long int step_count=0; // integration step 
+            long long int step_count_tsyn=0; // time synchronization step
             
             // particle data
             const int n_particle = particles.getSize();

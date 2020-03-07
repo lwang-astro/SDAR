@@ -1176,21 +1176,6 @@ namespace H4{
                 // get binarytree
                 group_new.info.generateBinaryTree(group_new.particles,ar_manager->interaction.gravitational_constant);
 
-                // set hermite time limit
-                group_new.info.dt_limit = manager->step.getDtMax();
-                // in the case of wide binary, make sure the next time step not exceed r_in
-                auto& bin_root = group_new.info.binarytree.getLastMember();
-                if (bin_root.semi*(1.0+bin_root.ecc)>group_new.info.r_break_crit) {
-                    // ecca <0 indicate binary go to peri-center, ecca=0.0 indicate peri-center, 0-t_peri indicate the time to peri-center
-                    // In the initial step, ecca can >0.0 
-                    //ASSERT(bin_root.ecca<0.0);
-                    //ASSERT(bin_root.t_peri<0.0);
-                    Float t_peri2 = abs(2.0*bin_root.t_peri);
-                    Float dt_limit = group_new.info.dt_limit;
-                    while(dt_limit > t_peri2) dt_limit *= 0.5;
-                    group_new.info.dt_limit = dt_limit;
-                }
-
 #ifdef ADJUST_GROUP_DEBUG
                 std::cerr<<"Add new group, index: "<<group_index[i]<<" Member_index: ";
                 for (int k=0; k<group_new.particles.getSize(); k++) 
@@ -2051,6 +2036,25 @@ namespace H4{
                 //    group_ptr[k].slowdown.calcPertInBinary(bin_root.semi, bin_root.m1, bin_root.m2);
                 //    group_ptr[k].slowdown.calcSlowDownFactor();
                 //}
+
+                // set hermite time limit
+                group_ptr[k].info.dt_limit = manager->step.getDtMax();
+                // in the case of wide binary, make sure the next time step not exceed r_in
+                auto& bin_root = group_ptr[k].info.binarytree.getLastMember();
+                if (bin_root.semi*(1.0+bin_root.ecc)>group_ptr[k].info.r_break_crit) {
+                    // ecca <0 indicate binary go to peri-center, ecca=0.0 indicate peri-center, 0-t_peri indicate the time to peri-center
+                    // In the initial step, ecca can >0.0 
+                    // get boundary position ecca
+                    Float ecc_anomaly = bin_root.calcEccAnomaly(group_ptr[k].info.r_break_crit);
+                    Float mean_anomaly = bin_root.calcMeanAnomaly(ecc_anomaly, bin_root.ecc);
+                    Float kappa = group_ptr[k].slowdown.getSlowDownFactor();
+                    // get cross boundary position timescale (half the time to peri-center from boundary), notice slowdown factor should be included
+                    // the integrated orbital phase is slow-down by kappa
+                    Float t_peri = abs(mean_anomaly/12.5663706144*bin_root.period)*kappa;
+                    Float dt_limit = group_ptr[k].info.dt_limit;
+                    while(dt_limit > t_peri) dt_limit *= 0.5;
+                    group_ptr[k].info.dt_limit = dt_limit;
+                }
 
                 // get ds estimation
                 group_ptr[k].info.calcDsAndStepOption(group_ptr[k].slowdown.getSlowDownFactorOrigin(), ar_manager->step.getOrder(), ar_manager->interaction.gravitational_constant);
