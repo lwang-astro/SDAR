@@ -1190,7 +1190,7 @@ namespace H4{
 #endif
 
                 // initial perturber
-                group_new.perturber.need_resolve_flag = false;
+                group_new.perturber.need_resolve_flag = true;
             }
                 
             // modify the sorted_dt array 
