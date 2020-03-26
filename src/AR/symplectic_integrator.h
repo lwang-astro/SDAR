@@ -855,6 +855,28 @@ namespace AR {
 #endif
         }
 
+        //! correct energy due to the change of orbits
+        void CorrectEnergyAfterOrbitChange() {
+            Float etot_sdi_old = ekin_sdi_ + epot_sdi_;
+#ifdef AR_TTL
+            gt_kick_inv_ = manager->interaction.calcAccPotAndGTKickInv(force_data, epot_, particle_data, n_particle, particles.cm,  perturber, _time_real);
+
+            // initially gt_drift 
+            gt_drift_inv_ = gt_kick_inv_;
+
+#else
+            manager->interaction.calcAccPotAndGTKickInv(force_data, epot_, particle_data, n_particle, particles.cm,  perturber, _time_real);
+#endif
+            // calculate kinetic energy
+            calcEKin();
+
+            etot_ref_ = ekin_ + epot_;
+
+            // add slowdown energy change
+            de_sd_change_cum_ += (etot_sdi_ref_-etot_sdi_old)/slowdown.getSlowDownFactor();
+            
+        }
+
         //! integration for one step
         /*!
           @param[in] _ds: step size
@@ -927,6 +949,35 @@ namespace AR {
                 // calculate kinetic energy
                 calcEKin();
             }
+        }
+
+        void integrateSingleToTime(const int _index, const Float _dt, Float _dt_end) {
+            ASSERT(checkParams());
+
+            ASSERT(!particles.isModified());
+            ASSERT(_ds>0);
+
+            // symplectic step coefficent group number
+            const int nloop = manager->step.getCDPairSize();
+
+            const int n_particle = particles.getSize();
+            Tparticle* particle_data = particles.getDataAddress();
+            Tparticle* particle_target = NULL;
+            for (int i=0; i<n_particle; i++) {
+                if (particles[i].mass>0) {
+                    ASSERT(particle_target==NULL);
+                    particle_target = &(particles[i]);
+                }
+            }
+
+            Float* pos = pnew.getPos();
+            Float* vel = pnew.getVel();
+            pos[0] += dt * vel[0];
+            pos[1] += dt * vel[1];
+            pos[2] += dt * vel[2];
+
+            slowdown.setRealTime(_time_end_real);
+            
         }
 
         //! integration for two body one step
@@ -1397,18 +1448,43 @@ namespace AR {
                 // check integration time
                 if(time_real < _time_end_real - time_error_real){
                     // check interrupt condiction
-                    if (manager->interrupt_detection_option==1) {
+                    if (manager->interrupt_detection_option>0) {
                         COMM::BinaryTree<Tparticle>* bin_interrupt = NULL;
                         auto& bin_root = info.getBinaryTreeRoot();
                         bin_interrupt = bin_root.processRootIter(bin_interrupt, Tmethod::checkInterruptIter);
                         if (bin_interrupt!=NULL) {
-                            // cumulative step count 
-                            profile.step_count = step_count;
-                            profile.step_count_tsyn = step_count_tsyn;
-                            profile.step_count_sum += step_count;
-                            profile.step_count_tsyn_sum += step_count_tsyn;
+                            // the mode return back to the root scope
+                            if (manager->interrupt_detection_option==2) {
+                                // cumulative step count 
+                                profile.step_count = step_count;
+                                profile.step_count_tsyn = step_count_tsyn;
+                                profile.step_count_sum += step_count;
+                                profile.step_count_tsyn_sum += step_count_tsyn;
 
-                            return bin_interrupt;
+                                return bin_interrupt;
+                            }
+                            else {
+                                ASSERT(!bin_interrupt->isMemberTree(0));
+                                ASSERT(!bin_interrupt->isMemberTree(1));
+                                Tparticle* p1 = bin_interrupt->getLeftMember();
+                                Tparticle* p2 = bin_interrupt->getRightMember();
+                                // check merger case
+                                if (n_particle==2 && (p1->mass==0.0 || p2->mass=0.0)) {
+                                    integrateSingleToTime(_time_end_real);
+                                    correctEnergyAfterOrbitChange();
+
+                                    // cumulative step count 
+                                    profile.step_count = step_count;
+                                    profile.step_count_tsyn = step_count_tsyn;
+                                    profile.step_count_sum += step_count;
+                                    profile.step_count_tsyn_sum += step_count_tsyn;
+
+                                    return NULL;
+                                }
+
+                                correctEnergyAfterOrbitChange();
+                                bin_interrupt = NULL;
+                            }
                         }
                     }
 
@@ -1523,7 +1599,7 @@ namespace AR {
                     break;
                 }
             }
-
+p
             // cumulative step count 
             profile.step_count = step_count;
             profile.step_count_tsyn = step_count_tsyn;
