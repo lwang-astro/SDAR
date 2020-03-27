@@ -50,7 +50,7 @@ int main(int argc, char **argv){
     COMM::IOParams<double> slowdown_mass_ref (input_par_store, 0.0, "slowdowm mass reference","averaged mass"); // slowdown mass reference
 #endif
     COMM::IOParams<double> slowdown_timescale_max (input_par_store, 0.0, "maximum timescale for maximum slowdown factor","time-end"); // slowdown timescale
-    COMM::IOParams<int>   interrupt_detection_option(input_par_store, 0, "detect interruption: on/off", "off");  // if on, check interruption
+    COMM::IOParams<int>   interrupt_detection_option(input_par_store, 0, "modify orbits and check interruption: 0: turn off; 1: modify the binary orbits based on detetion criterion; 2. modify and also interrupt integrations");  // modify orbit or check interruption using modifyAndInterruptIter function
     COMM::IOParams<int>   fix_step_option (input_par_store, -1, "fix step options: always, later, none","auto"); // if true; use input fix step option
     COMM::IOParams<std::string> filename_par (input_par_store, "", "filename to load manager parameters","input name"); // par dumped filename
     bool load_flag=false;  // if true; load dumped data
@@ -165,12 +165,7 @@ int main(int argc, char **argv){
             dt_out.value = atof(optarg);
             break;
         case 'i':
-            if (!strcmp(optarg,"off")) interrupt_detection_option.value = 0;
-            else if (!strcmp(optarg,"on")) interrupt_detection_option.value = 1;
-            else {
-                std::cerr<<"Error: interrupt detection option unknown ("<<optarg<<"), should be on, off\n";
-                abort();
-            }
+            interrupt_detection_option.value = atoi(optarg);
             break;
         case 'h':
             std::cout<<bin_name<<" [option] data_filename\n"
@@ -356,10 +351,17 @@ int main(int argc, char **argv){
                 std::cerr<<"Interrupt condition triggered! ";
                 Particle* p1 = bin_interrupt->getLeftMember();
                 Particle* p2 = bin_interrupt->getRightMember();
-                if (p1->status==Status::touch) std::cerr<<" Touch-";
-                else std::cerr<<" Split-";
-                if (p2->status==Status::touch) std::cerr<<"Touch, ";
-                else std::cerr<<"Split, ";
+                switch (p1->status) {
+                case Status::merge:
+                    std::cerr<<" Merge";
+                    break;
+                case Status::single:
+                    std::cerr<<" Single";
+                    break;
+                case Status::unused:
+                    std::cerr<<" Unused";
+                    break;
+                }
                 std::cerr<<" Time: "<<sym_int.slowdown.getRealTime()<<std::endl;
                 bin_interrupt->printColumnTitle(std::cerr);
                 std::cerr<<std::endl;
@@ -370,6 +372,13 @@ int main(int argc, char **argv){
                 for (int j=0; j<2; j++) {
                     bin_interrupt->getMember(j)->printColumn(std::cerr);
                     std::cerr<<std::endl;
+                }
+
+                // merger case, quit integration
+                if (n_particle==2&&(p1->mass==0||p2->mass==0)) {
+                    sym_int.printColumn(std::cout, print_width.value, n_sd);
+                    std::cout<<std::endl;
+                    break;
                 }
             }
             sym_int.info.generateBinaryTree(sym_int.particles, manager.interaction.gravitational_constant);

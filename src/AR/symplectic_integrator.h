@@ -544,10 +544,9 @@ namespace AR {
                 // back up old ekin_sdi and epot_sdi
                 Float ekin_sdi_bk = ekin_sdi_;
                 Float epot_sdi_bk = epot_sdi_;
+                Float etot_sdi_ref_bk = etot_sdi_ref_;
 #ifdef AR_TTL
                 Float gt_drift_inv_bk = gt_drift_inv_;
-#else
-                Float etot_sdi_ref_bk = etot_sdi_ref_;
 #endif
 
                 // initialize the gt_drift_inv_ with new slowdown factor
@@ -567,7 +566,7 @@ namespace AR {
                 Float de_sdi = (ekin_sdi_ - ekin_sdi_bk) + (epot_sdi_ - epot_sdi_bk);
                 etot_sdi_ref_ += de_sdi;
 #ifdef AR_TTL
-                Float dH_sdi = (ekin_sdi_ + epot_sdi_)/gt_drift_inv_ - (ekin_sdi_bk + epot_sdi_bk)/gt_drift_inv_bk;
+                Float dH_sdi = (ekin_sdi_ + epot_sdi_ - etot_sdi_ref_)*gt_drift_inv_ - (ekin_sdi_bk + epot_sdi_bk - etot_sdi_ref_bk)*gt_drift_inv_bk;
 #else
                 Float dH_sdi = manager->interaction.calcH(ekin_sdi_ - etot_sdi_ref_, epot_sdi_) 
                     - manager->interaction.calcH(ekin_sdi_bk - etot_sdi_ref_bk, epot_sdi_bk);
@@ -799,7 +798,7 @@ namespace AR {
             // add slowdown energy change due to turning on of slowdown.
             de_sd_change_cum_ += etot_ref_/slowdown.getSlowDownFactor() - etot_ref_;
 #ifdef AR_TTL
-            dH_sd_change_cum_ += etot_ref_*gt_drift_inv_*(1.0/slowdown.getSlowDownFactor()-1.0);
+            dH_sd_change_cum_ += (ekin_ + epot_ - etot_ref_)*gt_drift_inv_*(1.0/slowdown.getSlowDownFactor()-1.0);
 #else
             dH_sd_change_cum_ += manager->interaction.calcH(ekin_-etot_ref_, epot_)*(1.0/slowdown.getSlowDownFactor()-1.0);
 #endif
@@ -835,14 +834,14 @@ namespace AR {
 #ifdef AR_SLOWDOWN_INNER
             de_sd_change_cum_ += (1.0/sd_new-1.0/sd_old)*(ekin_sdi_ + epot_sdi_);
 #ifdef AR_TTL
-            dH_sd_change_cum_ += (1.0/sd_new-1.0/sd_old)*(ekin_sdi_ + epot_sdi_)/gt_drift_inv_;
+            dH_sd_change_cum_ += (1.0/sd_new-1.0/sd_old)*(ekin_sdi_ + epot_sdi_ - etot_sdi_ref_)*gt_drift_inv_;
 #else
             dH_sd_change_cum_ += (1.0/sd_new-1.0/sd_old)*manager->interaction.calcH(ekin_sdi_-etot_sdi_ref_, epot_sdi_);
 #endif
 #else
             de_sd_change_cum_ += (1.0/sd_new-1.0/sd_old)*(ekin_ + epot_);
 #ifdef AR_TTL
-            dH_sd_change_cum_ += (1.0/sd_new-1.0/sd_old)*(ekin_ + epot_)/gt_drift_inv_;
+            dH_sd_change_cum_ += (1.0/sd_new-1.0/sd_old)*(ekin_ + epot_ - etot_ref_)*gt_drift_inv_;
 #else
             dH_sd_change_cum_ += (1.0/sd_new-1.0/sd_old)*manager->interaction.calcH(ekin_-etot_ref_, epot_);
 #endif
@@ -853,28 +852,6 @@ namespace AR {
             // inner binary slowdown
             calcSlowDownInnerAndCorrectGTInvEnergy(time_);
 #endif
-        }
-
-        //! correct energy due to the change of orbits
-        void CorrectEnergyAfterOrbitChange() {
-            Float etot_sdi_old = ekin_sdi_ + epot_sdi_;
-#ifdef AR_TTL
-            gt_kick_inv_ = manager->interaction.calcAccPotAndGTKickInv(force_data, epot_, particle_data, n_particle, particles.cm,  perturber, _time_real);
-
-            // initially gt_drift 
-            gt_drift_inv_ = gt_kick_inv_;
-
-#else
-            manager->interaction.calcAccPotAndGTKickInv(force_data, epot_, particle_data, n_particle, particles.cm,  perturber, _time_real);
-#endif
-            // calculate kinetic energy
-            calcEKin();
-
-            etot_ref_ = ekin_ + epot_;
-
-            // add slowdown energy change
-            de_sd_change_cum_ += (etot_sdi_ref_-etot_sdi_old)/slowdown.getSlowDownFactor();
-            
         }
 
         //! integration for one step
@@ -951,34 +928,6 @@ namespace AR {
             }
         }
 
-        void integrateSingleToTime(const int _index, const Float _dt, Float _dt_end) {
-            ASSERT(checkParams());
-
-            ASSERT(!particles.isModified());
-            ASSERT(_ds>0);
-
-            // symplectic step coefficent group number
-            const int nloop = manager->step.getCDPairSize();
-
-            const int n_particle = particles.getSize();
-            Tparticle* particle_data = particles.getDataAddress();
-            Tparticle* particle_target = NULL;
-            for (int i=0; i<n_particle; i++) {
-                if (particles[i].mass>0) {
-                    ASSERT(particle_target==NULL);
-                    particle_target = &(particles[i]);
-                }
-            }
-
-            Float* pos = pnew.getPos();
-            Float* vel = pnew.getVel();
-            pos[0] += dt * vel[0];
-            pos[1] += dt * vel[1];
-            pos[2] += dt * vel[2];
-
-            slowdown.setRealTime(_time_end_real);
-            
-        }
 
         //! integration for two body one step
         /*! For two-body problem the calculation can be much symplified to improve performance. 
@@ -1451,7 +1400,7 @@ namespace AR {
                     if (manager->interrupt_detection_option>0) {
                         COMM::BinaryTree<Tparticle>* bin_interrupt = NULL;
                         auto& bin_root = info.getBinaryTreeRoot();
-                        bin_interrupt = bin_root.processRootIter(bin_interrupt, Tmethod::checkInterruptIter);
+                        bin_interrupt = bin_root.processRootIter(bin_interrupt, Tmethod::modifyAndInterruptIter);
                         if (bin_interrupt!=NULL) {
                             // the mode return back to the root scope
                             if (manager->interrupt_detection_option==2) {
@@ -1468,21 +1417,113 @@ namespace AR {
                                 ASSERT(!bin_interrupt->isMemberTree(1));
                                 Tparticle* p1 = bin_interrupt->getLeftMember();
                                 Tparticle* p2 = bin_interrupt->getRightMember();
+
+
+                                Float epot_bk = epot_;
+
+                                // correct gt_drift_inv_ 
+#if (defined AR_TTL_GT_BINARY_INNER) && (defined AR_SLOWDOWN_INNER)
+                                Float gt_kick_inv_new = 0.0;
+#elif (defined AR_TTL) || (defined AR_SLOWDOWN_INNER)
+                                Float gt_kick_inv_new = manager->interaction.calcAccPotAndGTKickInv(force_.getDataAddress(), epot_, particles.getDataAddress(), n_particle, particles.cm, perturber, time_real);
+#else 
+                                manager->interaction.calcAccPotAndGTKickInv(force_.getDataAddress(), epot_, particles.getDataAddress(), n_particle, particles.cm, perturber, time_real);
+#endif
+
+#ifdef AR_SLOWDOWN_INNER
+                                //! correct energy due to the change of orbits
+                                Float epot_sdi_bk = epot_sdi_;
+                                correctAccPotGTKickInvSlowDownInner(gt_kick_inv_new, epot_);
+#endif
+
+#ifdef AR_TTL
+                                Float gt_drift_inv_bk = gt_drift_inv_;
+                                gt_drift_inv_ += gt_kick_inv_new - gt_kick_inv_;
+                                gt_kick_inv_ = gt_kick_inv_new;
+#endif
+
+                                // calculate kinetic energy
+                                Float ekin_bk = ekin_;
+                                calcEKin();
+
+                                // get energy change
+                                Float de_sdi = (ekin_ - ekin_bk) + (epot_ - epot_bk);
+#ifndef AR_SLOWDOWN_INNER
+                                Float etot_ref_bk = etot_ref_;
+#endif
+                                etot_ref_ += de_sdi;
+
+#ifndef AR_SLOWDOWN_INNER
+
+#ifdef AR_TTL
+                                Float dH_sdi = (ekin_ + epot_ - etot_ref_)*gt_drift_inv_ - (ekin_bk + epot_bk - etot_ref_bk)*gt_drift_inv_bk;
+#else // AR_TTL
+                                Float dH_sdi = manager->interaction.calcH(ekin_ - etot_ref_, epot_) 
+                                    - manager->interaction.calcH(ekin_bk - etot_ref_bk, epot_bk);
+#endif // AR_TTL
+
+#else //AR_SLOWDOWN_INNER
+                                Float ekin_sdi_bk = ekin_sdi_;
+                                calcEkinSlowDownInner(ekin_);
+
+                                // correct etot_sdi_ref_ with new ekin
+                                de_sdi = (ekin_sdi_ - ekin_sdi_bk) + (epot_sdi_ - epot_sdi_bk);
+                                Float etot_sdi_ref_bk = etot_sdi_ref_;
+                                etot_sdi_ref_ += de_sdi;
+                                
+#ifdef AR_TTL
+                                Float dH_sdi = (ekin_sdi_ + epot_sdi_ - etot_sdi_ref_)*gt_drift_inv_ - (ekin_sdi_bk + epot_sdi_bk - etot_sdi_ref_bk)*gt_drift_inv_bk;
+#else // AR_TTL
+                                Float dH_sdi = manager->interaction.calcH(ekin_sdi_ - etot_sdi_ref_, epot_sdi_) 
+                                    - manager->interaction.calcH(ekin_sdi_bk - etot_sdi_ref_bk, epot_sdi_bk);
+#endif // AR_TTL
+
+#endif //AR_SLOWDOWN_INNER
+
+                                // add slowdown change to the global slowdown energy
+                                Float kappa_inv = 1.0/slowdown.getSlowDownFactor();
+                                de_sd_change_cum_ += de_sdi*kappa_inv;
+                                dH_sd_change_cum_ += dH_sdi*kappa_inv;
+
+
+#ifdef AR_DEBUG_PRINT
+                                std::cerr<<"Interrupt condition triggered! Merge";
+                                std::cerr<<" Time: "<<time_real;
+                                std::cerr<<" Energy change: dE_SD: "<<de_sdi<<" dH_SD: "<<dH_sdi;
+                                std::cerr<<" Slowdown: "<<slowdown.getSlowDownFactor()<<std::endl;
+                                bin_interrupt->printColumnTitle(std::cerr);
+                                std::cerr<<std::endl;
+                                bin_interrupt->printColumn(std::cerr);
+                                std::cerr<<std::endl;
+                                Tparticle::printColumnTitle(std::cerr);
+                                std::cerr<<std::endl;
+                                for (int j=0; j<2; j++) {
+                                    bin_interrupt->getMember(j)->printColumn(std::cerr);
+                                    std::cerr<<std::endl;
+                                }
+#endif
+
                                 // check merger case
-                                if (n_particle==2 && (p1->mass==0.0 || p2->mass=0.0)) {
-                                    integrateSingleToTime(_time_end_real);
-                                    correctEnergyAfterOrbitChange();
+                                if (n_particle==2) {
+                                    Tparticle* p = NULL;
+                                    if (p1->mass==0.0) p=p2;
+                                    else if (p2->mass==0.0) p=p1;
+                                    if (p!=NULL){
+                                        Float dt = _time_end_real - time_real;
+                                        p->pos[0] += dt * p->vel[0];
+                                        p->pos[1] += dt * p->vel[1];
+                                        p->pos[2] += dt * p->vel[2];
 
-                                    // cumulative step count 
-                                    profile.step_count = step_count;
-                                    profile.step_count_tsyn = step_count_tsyn;
-                                    profile.step_count_sum += step_count;
-                                    profile.step_count_tsyn_sum += step_count_tsyn;
+                                        // cumulative step count 
+                                        profile.step_count = step_count;
+                                        profile.step_count_tsyn = step_count_tsyn;
+                                        profile.step_count_sum += step_count;
+                                        profile.step_count_tsyn_sum += step_count_tsyn;
 
-                                    return NULL;
+                                        return bin_interrupt;
+                                    }
                                 }
 
-                                correctEnergyAfterOrbitChange();
                                 bin_interrupt = NULL;
                             }
                         }
@@ -1599,7 +1640,7 @@ namespace AR {
                     break;
                 }
             }
-p
+
             // cumulative step count 
             profile.step_count = step_count;
             profile.step_count_tsyn = step_count_tsyn;
@@ -1965,7 +2006,7 @@ p
                  <<std::setw(_width)<<epot_;
 #ifdef AR_TTL
             _fout<<std::setw(_width)<<1.0/gt_drift_inv_
-                 <<std::setw(_width)<<etot_ref_/gt_drift_inv_;
+                 <<std::setw(_width)<<getEnergyError()/gt_drift_inv_;
 #else
 #ifdef AR_SLOWDOWN_INNER
             _fout<<std::setw(_width)<<1.0/manager->interaction.calcGTDriftInv(ekin_sdi_-etot_sdi_ref_)

@@ -6,7 +6,7 @@
 #define NAN_CHECK(val) ASSERT((val) == (val));
 #endif
 
-enum Status{touch, split};
+enum Status{single, merge, unused};
 
 //! A sample particle class
 /*! A particle class should contain public members:
@@ -21,7 +21,7 @@ public:
     Float radius;
     Status status;
 
-    Particle(): id(-1), mass(0.0), pos{0,0,0}, vel{0,0,0}, radius(0.0), status(Status::split) {}
+    Particle(): id(-1), mass(0.0), pos{0,0,0}, vel{0,0,0}, radius(0.0), status(Status::single) {}
 
     //! Get position (required)
     /*! \return position vector (Float[3])

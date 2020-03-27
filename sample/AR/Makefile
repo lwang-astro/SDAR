@@ -1,4 +1,6 @@
-TARGET: ar.logh ar.logh.sd ar.ttl ar.ttl.sd
+TARGET= ar.logh ar.logh.sd ar.ttl ar.ttl.sd
+
+all: $(TARGET)
 
 VPATH=../../src 
 
@@ -13,8 +15,8 @@ use_x86=yes
 ## compiler-------------------------------------------#
 ifeq ($(use_x86),yes)
 CXX= g++
-CXXFLAGS += -O2 -Wall
-#CXXFLAGS += -g -fbounds-check -Wall -O0
+#CXXFLAGS += -O2 -Wall
+CXXFLAGS += -g -fbounds-check -Wall -O0
 endif
 
 ifeq ($(use_k_computer),yes)
@@ -32,7 +34,7 @@ endif
 ## for debug------------------------------------------#
 #CXXFLAGS += -D DEBUG 
 #CXXFLAGS += -D BINARY_DEBUG
-#CXXFLAGS += -D AR_DEBUG
+#CXXFLAGS += -D AR_DEBUG_PRINT
 #CXXFLAGS += -D AR_WARN
 #CXXFLAGS += -D AR_DEEP_DEBUG
 
@@ -75,6 +77,9 @@ ar.ttl.m: ar.cxx ${SOURCE}
 ar.ttl.sd: ar.cxx ${SOURCE}
 #	$(CXX) $(CXXFLAGS) -D AR_TTL -D AR_SLOWDOWN_INNER -D AR_TTL_GT_BINARY_INNER -D AR_SLOWDOWN_TIMESCALE $< -o $@ $(CXXLIBS)
 	$(CXX) $(CXXFLAGS) -D AR_TTL -D AR_SLOWDOWN_INNER -D AR_SLOWDOWN_TIMESCALE  $< -o $@ $(CXXLIBS)
+
+install: $(TARGET)
+	mv $(TARGET) ~/bin
 
 clean:
 	rm -f $(TARGET)
