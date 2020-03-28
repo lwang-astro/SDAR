@@ -115,8 +115,11 @@ namespace AR {
             ASSERT(n_particle>1);
             binarytree.resizeNoInitialize(n_particle-1);
             int particle_index_local[n_particle];
-            for (int i=0; i<n_particle; i++) particle_index_local[i] = i;
-            COMM::BinaryTree<Tparticle>::generateBinaryTree(binarytree.getDataAddress(), particle_index_local, n_particle, _particles.getDataAddress(), _G);
+            int n_particle_real = 0;
+            for (int i=0; i<n_particle; i++) {
+                if (_particles[i].mass>0.0) particle_index_local[n_particle_real++] = i;
+            }
+            COMM::BinaryTree<Tparticle>::generateBinaryTree(binarytree.getDataAddress(), particle_index_local, n_particle_real, _particles.getDataAddress(), _G);
         }
 
         //! clear function
