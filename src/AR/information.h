@@ -115,11 +115,40 @@ namespace AR {
             ASSERT(n_particle>1);
             binarytree.resizeNoInitialize(n_particle-1);
             int particle_index_local[n_particle];
+            int particle_index_unused[n_particle];
             int n_particle_real = 0;
+            int n_particle_unused=0;
             for (int i=0; i<n_particle; i++) {
                 if (_particles[i].mass>0.0) particle_index_local[n_particle_real++] = i;
+                else particle_index_unused[n_particle_unused++] = i;
             }
-            COMM::BinaryTree<Tparticle>::generateBinaryTree(binarytree.getDataAddress(), particle_index_local, n_particle_real, _particles.getDataAddress(), _G);
+            if (n_particle_real>1) 
+                COMM::BinaryTree<Tparticle>::generateBinaryTree(binarytree.getDataAddress(), particle_index_local, n_particle_real, _particles.getDataAddress(), _G);
+
+            // Add unused particles to the outmost orbit
+            if (n_particle_real==0) {
+                binarytree[0].setMembers(&(_particles[0]), &(_particles[1]), 0, 1);
+                for (int i=2; i<n_particle; i++) {
+                    binarytree[i-1].setMembers((Tparticle*)&(binarytree[i-2]), &( _particles[i]), -1, i);
+                }
+            }
+            else if (n_particle_real==1) {
+                int i1 = particle_index_local[0];
+                int i2 = particle_index_unused[0];
+                binarytree[0].setMembers(&(_particles[i1]), &(_particles[i2]), i1 ,i2);
+                for (int i=1; i<n_particle_unused; i++) {
+                    int k = particle_index_unused[i];
+                    binarytree[i].setMembers((Tparticle*)&(binarytree[i-1]), &(_particles[k]), -1, k);
+                }
+            }
+            else {
+                for (int i=0; i<n_particle_unused; i++) {
+                    int ilast = n_particle_real-1+i;
+                    ASSERT(ilast<n_particle-1);
+                    int k = particle_index_unused[i];
+                    binarytree[ilast].setMembers((Tparticle*)&(binarytree[ilast-1]), &(_particles[k]), -1, k);
+                }
+            }
         }
 
         //! clear function

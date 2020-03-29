@@ -1084,7 +1084,7 @@ namespace AR {
           @param[in] _time_end_real: the expected finishing real time 
           \return binary tree of the pair which triggers interruption condition
          */
-        BinaryInterrupt<Tparticle> integrateToTime(const Float _time_end_real) {
+        InterruptBinary<Tparticle> integrateToTime(const Float _time_end_real) {
             ASSERT(checkParams());
 
             // real full time step
@@ -1126,8 +1126,8 @@ namespace AR {
             // step count
             long long int step_count=0; // integration step 
             long long int step_count_tsyn=0; // time synchronization step
-            BinaryInterrupt<Tparticle> bin_interrupt = {NULL, slowdown.getRealTime(), _time_end_real, InterruptStatus::none};
-            BinaryInterrupt<Tparticle> bin_interrupt_return = bin_interrupt;
+            InterruptBinary<Tparticle> bin_interrupt = {NULL, slowdown.getRealTime(), _time_end_real, InterruptStatus::none};
+            InterruptBinary<Tparticle> bin_interrupt_return = bin_interrupt;
             
             // particle data
             const int n_particle = particles.getSize();
@@ -1401,7 +1401,7 @@ namespace AR {
                     if (manager->interrupt_detection_option>0) {
                         auto& bin_root = info.getBinaryTreeRoot();
                         bin_interrupt.time_now = time_real;
-                        BinaryInterrupt<Tparticle>* bin_intr_ptr = &bin_interrupt;
+                        InterruptBinary<Tparticle>* bin_intr_ptr = &bin_interrupt;
                         bin_intr_ptr = bin_root.processRootIter(bin_intr_ptr, Tmethod::modifyAndInterruptIter);
                         ASSERT(bin_interrupt.checkParams());
                         if (bin_interrupt.status!=InterruptStatus::none) {
@@ -1422,6 +1422,7 @@ namespace AR {
                                 Tparticle* p2 = bin_interrupt.adr->getRightMember();
 
 
+                                Float ekin_bk = ekin_;
                                 Float epot_bk = epot_;
 
                                 // correct gt_drift_inv_ 
@@ -1435,6 +1436,7 @@ namespace AR {
 
 #ifdef AR_SLOWDOWN_INNER
                                 //! correct energy due to the change of orbits
+                                Float ekin_sdi_bk = ekin_sdi_;
                                 Float epot_sdi_bk = epot_sdi_;
                                 correctAccPotGTKickInvSlowDownInner(gt_kick_inv_new, epot_);
 #endif
@@ -1446,7 +1448,6 @@ namespace AR {
 #endif
 
                                 // calculate kinetic energy
-                                Float ekin_bk = ekin_;
                                 calcEKin();
 
                                 // get energy change
@@ -1466,8 +1467,6 @@ namespace AR {
 #endif // AR_TTL
 
 #else //AR_SLOWDOWN_INNER
-                                Float ekin_sdi_bk = ekin_sdi_;
-                                calcEkinSlowDownInner(ekin_);
 
                                 // correct etot_sdi_ref_ with new ekin
                                 de_sdi = (ekin_sdi_ - ekin_sdi_bk) + (epot_sdi_ - epot_sdi_bk);
@@ -1523,6 +1522,8 @@ namespace AR {
                                             profile.step_count_tsyn = step_count_tsyn;
                                             profile.step_count_sum += step_count;
                                             profile.step_count_tsyn_sum += step_count_tsyn;
+
+                                            slowdown.setRealTime(_time_end_real);
 
                                             return bin_interrupt;
                                         }
@@ -1709,7 +1710,7 @@ namespace AR {
             auto* particle_data= particles.getDataAddress();
             const Float kappa_inv = 1.0/slowdown.getSlowDownFactor();
             for (int i=0; i<particles.getSize(); i++) {
-                ASSERT(particle_adr[i]->mass == particle_data[i].mass);
+                //ASSERT(particle_adr[i]->mass == particle_data[i].mass);
                 particle_adr[i]->mass = particle_data[i].mass;
 
                 particle_adr[i]->pos[0] = particle_data[i].pos[0] + _particle_cm.pos[0];

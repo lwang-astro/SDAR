@@ -347,7 +347,7 @@ public:
       @param[in] _bin_interrupt: interrupt binary information: adr: binary tree address; time_now: current physical time; time_end: integration finishing time; status: interrupt status: change, merge,none
       @param[in] _bin: binarytree to check iteratively
      */
-    static AR::BinaryInterrupt<Particle>* modifyAndInterruptIter(AR::BinaryInterrupt<Particle>*& _bin_interrupt, COMM::BinaryTree<Particle>& _bin) {
+    static AR::InterruptBinary<Particle>* modifyAndInterruptIter(AR::InterruptBinary<Particle>*& _bin_interrupt, COMM::BinaryTree<Particle>& _bin) {
         if (_bin.getMemberN()==2&&_bin_interrupt->status==AR::InterruptStatus::none) {
             Particle *p1,*p2;
             p1 = _bin.getLeftMember();

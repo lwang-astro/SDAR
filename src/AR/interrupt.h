@@ -7,15 +7,15 @@ namespace AR {
 
     //! Binary interrupt recoreder
     template <class Tparticle>
-    struct BinaryInterrupt {
+    struct InterruptBinary {
         COMM::BinaryTree<Tparticle>* adr;
         Float time_now;
         Float time_end;
         InterruptStatus status;
 
-        BinaryInterrupt(): adr(NULL), time_now(0.0), time_end(0.0), status(InterruptStatus::none) {}
+        InterruptBinary(): adr(NULL), time_now(0.0), time_end(0.0), status(InterruptStatus::none) {}
 
-        BinaryInterrupt(COMM::BinaryTree<Tparticle>* _adr, Float _time_now, Float _time_end, InterruptStatus _status): adr(_adr), time_now(_time_now), time_end(_time_end), status(_status) {}
+        InterruptBinary(COMM::BinaryTree<Tparticle>* _adr, Float _time_now, Float _time_end, InterruptStatus _status): adr(_adr), time_now(_time_now), time_end(_time_end), status(_status) {}
 
         void clear() { 
             adr=NULL; 

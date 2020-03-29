@@ -25,6 +25,8 @@ public:
     static Float r_neighbor_crit;
     static Float r_break_crit;
 
+    Particle(): id(-1), mass(0.0), pos{0,0,0}, vel{0,0,0}, radius(0.0), time_check(0.0), status(Status::single) {}
+
     //! Get position 
     /*! \return position vector (Float[3])
      */

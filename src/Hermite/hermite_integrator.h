@@ -169,7 +169,8 @@ namespace H4{
 
         // interrupt group 
         int interrupt_group_dt_sorted_group_index_; /// interrupt group position in index_dt_sorted_group_
-        AR::BinaryInterrupt<ARPtcl> interrupt_binary_; /// interrupt binary tree address
+        AR::InterruptBinary<ARPtcl> interrupt_binary_; /// interrupt binary tree address
+        COMM::List<int> index_group_merger_; /// merger group index
 
         // flags
         bool initial_system_flag_; /// flag to indicate whether the system is initialized with all array size defined (reest in initialSystem)
@@ -224,7 +225,7 @@ namespace H4{
                              n_act_single_(0), n_act_group_(0), 
                              n_init_single_(0), n_init_group_(0), 
                              index_offset_group_(0), 
-                             interrupt_group_dt_sorted_group_index_(-1), interrupt_binary_(),
+                             interrupt_group_dt_sorted_group_index_(-1), interrupt_binary_(), index_group_merger_(),
                              initial_system_flag_(false), modify_system_flag_(false),
                              index_dt_sorted_single_(), index_dt_sorted_group_(), 
                              index_group_resolve_(), index_group_cm_(), 
@@ -243,6 +244,7 @@ namespace H4{
             index_offset_group_ = 0;
             interrupt_group_dt_sorted_group_index_ = -1;
             interrupt_binary_.clear();
+            index_group_merger_.clear();
             initial_system_flag_ = false;
             modify_system_flag_ = false;
 
@@ -276,6 +278,7 @@ namespace H4{
 
             index_dt_sorted_single_.setMode(COMM::ListMode::local);
             index_dt_sorted_group_.setMode(COMM::ListMode::local);
+            index_group_merger_.setMode(COMM::ListMode::local);
             index_group_resolve_.setMode(COMM::ListMode::local);
             index_group_cm_.setMode(COMM::ListMode::local);
             index_group_mask_.setMode(COMM::ListMode::local);
@@ -285,6 +288,8 @@ namespace H4{
             force_.setMode(COMM::ListMode::local);
             time_next_.setMode(COMM::ListMode::local);
             neighbors.setMode(COMM::ListMode::local);
+
+            index_group_merger_.reserveMem(nmax_group);
             
             index_dt_sorted_single_.reserveMem(nmax);
             index_dt_sorted_group_.reserveMem(nmax_group);
@@ -1323,7 +1328,8 @@ namespace H4{
                     ASSERT(particle_index_origin[0]<particles.getSize());
                     ASSERT(table_single_mask_[particle_index_origin[0]]==true);
                     table_single_mask_[particle_index_origin[0]] = false;
-                    new_index_single[n_single_new++] = particle_index_origin[0];
+                    if (particles[particle_index_origin[0]].mass > 0.0) // no zero mass particle
+                        new_index_single[n_single_new++] = particle_index_origin[0];
                 }
                 else {
                     int offset = _new_n_group_offset[_new_n_group];
@@ -1339,7 +1345,8 @@ namespace H4{
                     ASSERT(particle_index_origin[ibreak]<particles.getSize());
                     ASSERT(table_single_mask_[particle_index_origin[ibreak]]==true);
                     table_single_mask_[particle_index_origin[ibreak]] = false;
-                    new_index_single[n_single_new++] = particle_index_origin[ibreak];
+                    if (particles[particle_index_origin[ibreak]].mass >0.0) 
+                        new_index_single[n_single_new++] = particle_index_origin[ibreak];
                 }
                 else {
                     int offset = _new_n_group_offset[_new_n_group];
@@ -1418,16 +1425,48 @@ namespace H4{
           @param[in] _start_flag: indicate this is the first adjust of the groups in the integration
         */
         void checkBreak(int* _break_group_index_with_offset, int& _n_break, const bool _start_flag) {
+            const int n_group_tot = index_dt_sorted_group_.getSize();
+            if (n_group_tot==0) return;
+
+            bool merge_mask[n_group_tot];
+            for (int k=0; k<n_group_tot; k++) merge_mask[k] = false;
+
+            // check merger case
+            const int n_merger = index_group_merger_.getSize();
+            for (int i=0; i<n_merger; i++) {
+                const int k = index_group_merger_[i];
+                ASSERT(k<n_group_tot);
+                ASSERT(table_group_mask_[k]==false);
+#ifdef ADJUST_GROUP_DEBUG
+                auto& groupk = groups[k];
+                auto& bin_root = groupk.info.getBinaryTreeRoot();
+                std::cerr<<"Break merger group: i_group: "<<k
+                         <<" N_member: "<<groupk.particles.getSize()
+                         <<" ecca: "<<bin_root.ecca
+                         <<" separation : "<<bin_root.r
+                         <<" apo: "<<bin_root.semi*(1.0+bin_root.ecc)
+                         <<" dt: "<<groupk.particles.cm.dt
+                         <<" r_crit: "<<groupk.info.r_break_crit
+                         <<std::endl;
+#endif
+                // generate binary tree in order to move zero mass to the outer most
+                groupk.info.generateBinaryTree(groupk.particles,ar_manager->interaction.gravitational_constant);
+                _break_group_index_with_offset[_n_break++] = k + index_offset_group_;
+                merge_mask[k] = true;
+                
+            }
+            index_group_merger_.resizeNoInitialize(0);
+
             // kappa_org criterion for break group kappa_org>kappa_org_crit
             const Float kappa_org_crit = 1e-2;
-
-            const int n_group_tot = index_dt_sorted_group_.getSize();
             for (int i=0; i<n_group_tot; i++) {
                 const int k = index_dt_sorted_group_[i];
                 ASSERT(table_group_mask_[k]==false);
+                if (merge_mask[k]) continue;
                 auto& groupk = groups[k];
 
                 const int n_member = groupk.particles.getSize();
+
                 // generate binary tree
                 groupk.info.generateBinaryTree(groupk.particles,ar_manager->interaction.gravitational_constant);
                 
@@ -1945,7 +1984,7 @@ namespace H4{
                 if (table_group_mask_[i]) group_index_count[i]++;
             }
             for (int i=0; i<particles.getSize(); i++) 
-                ASSERT(particle_index_count[i]==1);
+                ASSERT(particle_index_count[i]==1||(particle_index_count[i]==0&&particles[i].mass==0.0));
             for (int i=0; i<groups.getSize(); i++) 
                 ASSERT(group_index_count[i]==1);
 
@@ -2075,7 +2114,7 @@ namespace H4{
         /*! Integrate all groups to time
           \return interrupted binarytree if exist
          */
-        AR::BinaryInterrupt<ARPtcl>& integrateGroupsOneStep() {
+        AR::InterruptBinary<ARPtcl>& integrateGroupsOneStep() {
             ASSERT(checkParams());
             ASSERT(!particles.isModified());
             ASSERT(initial_system_flag_);
@@ -2110,9 +2149,14 @@ namespace H4{
 
                 // record interrupt group and quit
                 if (interrupt_binary_.status!=AR::InterruptStatus::none) {
-                    interrupt_group_dt_sorted_group_index_ = i;
-                    ASSERT(time_next - interrupt_binary_.time_now + ar_manager->time_error_max_real >= 0.0);
-                    return interrupt_binary_;
+                    if (interrupt_binary_.status==AR::InterruptStatus::merge) {
+                        index_group_merger_.addMember(i);
+                    }
+                    if (ar_manager->interrupt_detection_option==2) {
+                        interrupt_group_dt_sorted_group_index_ = i;
+                        ASSERT(time_next - interrupt_binary_.time_now + ar_manager->time_error_max_real >= 0.0);
+                        return interrupt_binary_;
+                    }
                 }
 
                 ASSERT(abs(groups[k].slowdown.getRealTime()-time_next)<=ar_manager->time_error_max_real);
@@ -2434,7 +2478,7 @@ namespace H4{
         //! get interrupt binary (tree) address
         /*! if not exist, return NULL
          */
-        AR::BinaryInterrupt<ARPtcl>& getInterruptBinary() {
+        AR::InterruptBinary<ARPtcl>& getInterruptBinary() {
             return interrupt_binary_;
         }
 
