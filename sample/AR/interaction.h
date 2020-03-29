@@ -381,19 +381,17 @@ public:
                                        p1->vel[1] - p2->vel[1], 
                                        p1->vel[2] - p2->vel[2]};
                         Float drdv = dr[0]*dv[0] + dr[1]*dv[1] + dr[2]*dv[2];
-                        if (drdv<0) {
-                            Float dr2  = dr[0]*dr[0] + dr[1]*dr[1] + dr[2]*dr[2];
-                            Float dr = std::sqrt(dr2);
-                            Float ecc_anomaly=_bin.calcEccAnomaly(dr);
-                            Float mean_anomaly = _bin.calcMeanAnomaly(ecc_anomaly, _bin.ecc);
-                            Float t_peri = abs(mean_anomaly/6.28318530718*_bin.period);
-                            if (t_peri<_bin_interrupt->time_end-_bin_interrupt->time_now) merge();
-                            else {
-                                p1->status = Status::premerge;
-                                p2->status = Status::premerge;
-                                p1->time_check = _bin_interrupt->time_now + t_peri;
-                                p2->time_check = p1->time_check;
-                            }
+                        Float dr2  = dr[0]*dr[0] + dr[1]*dr[1] + dr[2]*dr[2];
+                        Float drm = std::sqrt(dr2);
+                        Float ecc_anomaly=_bin.calcEccAnomaly(drm);
+                        Float mean_anomaly = _bin.calcMeanAnomaly(ecc_anomaly, _bin.ecc);
+                        Float t_peri = mean_anomaly/6.28318530718*_bin.period;
+                        if (drdv<0 && t_peri<_bin_interrupt->time_end-_bin_interrupt->time_now) merge();
+                        else {
+                            p1->status = Status::premerge;
+                            p2->status = Status::premerge;
+                            p1->time_check = _bin_interrupt->time_now + drdv<0 ? t_peri : (_bin.period - t_peri);
+                            p2->time_check = p1->time_check;
                         }
                     }
                 }

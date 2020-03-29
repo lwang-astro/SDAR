@@ -1127,6 +1127,7 @@ namespace AR {
             long long int step_count=0; // integration step 
             long long int step_count_tsyn=0; // time synchronization step
             BinaryInterrupt<Tparticle> bin_interrupt = {NULL, slowdown.getRealTime(), _time_end_real, InterruptStatus::none};
+            BinaryInterrupt<Tparticle> bin_interrupt_return = bin_interrupt;
             
             // particle data
             const int n_particle = particles.getSize();
@@ -1506,27 +1507,30 @@ namespace AR {
 #endif
 
                                 // check merger case
-                                if (n_particle==2&&bin_interrupt.status==InterruptStatus::merge) {
-                                    Tparticle* p = NULL;
-                                    if (p1->mass==0.0) p=p2;
-                                    else if (p2->mass==0.0) p=p1;
-                                    if (p!=NULL){
-                                        Float dt = _time_end_real - time_real;
-                                        p->pos[0] += dt * p->vel[0];
-                                        p->pos[1] += dt * p->vel[1];
-                                        p->pos[2] += dt * p->vel[2];
+                                if (bin_interrupt.status==InterruptStatus::merge) {
+                                    if (n_particle==2) {
+                                        Tparticle* p = NULL;
+                                        if (p1->mass==0.0) p=p2;
+                                        else if (p2->mass==0.0) p=p1;
+                                        if (p!=NULL){
+                                            Float dt = _time_end_real - time_real;
+                                            p->pos[0] += dt * p->vel[0];
+                                            p->pos[1] += dt * p->vel[1];
+                                            p->pos[2] += dt * p->vel[2];
 
-                                        // cumulative step count 
-                                        profile.step_count = step_count;
-                                        profile.step_count_tsyn = step_count_tsyn;
-                                        profile.step_count_sum += step_count;
-                                        profile.step_count_tsyn_sum += step_count_tsyn;
+                                            // cumulative step count 
+                                            profile.step_count = step_count;
+                                            profile.step_count_tsyn = step_count_tsyn;
+                                            profile.step_count_sum += step_count;
+                                            profile.step_count_tsyn_sum += step_count_tsyn;
 
-                                        return bin_interrupt;
+                                            return bin_interrupt;
+                                        }
                                     }
+                                    bin_interrupt_return = bin_interrupt;
                                 }
                             }
-                            bin_interrupt.status = InterruptStatus::none;
+                            bin_interrupt.clear();
                         }
                     }
 
@@ -1648,7 +1652,7 @@ namespace AR {
             profile.step_count_sum += step_count;
             profile.step_count_tsyn_sum += step_count_tsyn;
 
-            return bin_interrupt;
+            return bin_interrupt_return;
         }
 
         //! correct CM drift

@@ -162,7 +162,7 @@ namespace COMM{
             _ecc = sqrt(p*p + _rv*_rv/_semi/Gm_tot);
         }
 
-        //! calculate eccentric anomaly from separation
+        //! calculate eccentric anomaly from separation (0-pi)
         Float calcEccAnomaly(const Float _r) {
             if (semi>0) {
                 Float cos_ecca = (1.0-_r/semi)/ecc;
@@ -174,7 +174,7 @@ namespace COMM{
             }
         }
 
-        //! calculate mean anomaly from eccentric anomaly
+        //! calculate mean anomaly from eccentric anomaly (0-pi)
         static Float calcMeanAnomaly(const Float _ecca, const Float _ecc) {
             if (_ecc<1.0) return _ecca - _ecc*sin(_ecca); 
             else return _ecc*sinh(_ecca) - _ecca;
