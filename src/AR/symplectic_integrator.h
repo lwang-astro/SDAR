@@ -1402,6 +1402,7 @@ namespace AR {
                         bin_interrupt.time_now = time_real;
                         BinaryInterrupt<Tparticle>* bin_intr_ptr = &bin_interrupt;
                         bin_intr_ptr = bin_root.processRootIter(bin_intr_ptr, Tmethod::modifyAndInterruptIter);
+                        ASSERT(bin_interrupt.checkParams());
                         if (bin_interrupt.status!=InterruptStatus::none) {
                             // the mode return back to the root scope
                             if (manager->interrupt_detection_option==2) {

@@ -361,7 +361,7 @@ int main(int argc, char **argv){
                 case InterruptStatus::none:
                     break;
                 }
-                std::cerr<<" Time: "<<sym_int.slowdown.getRealTime()<<std::endl;
+                std::cerr<<" Time: "<<bin_interrupt.time_now<<std::endl;
                 bin_interrupt.adr->printColumnTitle(std::cerr);
                 std::cerr<<std::endl;
                 bin_interrupt.adr->printColumn(std::cerr);

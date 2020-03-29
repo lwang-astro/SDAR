@@ -7,7 +7,7 @@
 #define NAN_CHECK(val) assert((val) == (val));
 #endif
 
-enum Status{touch, split};
+enum class Status{single=1, premerge=2, unused=0};
 
 //! A sample particle class
 /*! A particle class should contain public members:
@@ -20,6 +20,7 @@ public:
     Float pos[3];
     Float vel[3];
     Float radius;
+    Float time_check; // time to check next interrupt
     Status status;
     static Float r_neighbor_crit;
     static Float r_break_crit;
