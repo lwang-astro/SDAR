@@ -346,31 +346,30 @@ int main(int argc, char **argv){
         if (dt_out.value>0.0) nstep.value = int(time_end.value/dt_out.value+0.5);
         else if (nstep.value>0) dt_out.value = time_end.value/nstep.value;
         for (int i=1; i<=nstep.value; i++) {
-            auto* bin_interrupt = sym_int.integrateToTime(dt_out.value*i);
-            if (bin_interrupt!=NULL) {
+            auto bin_interrupt = sym_int.integrateToTime(dt_out.value*i);
+            if (bin_interrupt.status!=InterruptStatus::none) {
                 std::cerr<<"Interrupt condition triggered! ";
-                Particle* p1 = bin_interrupt->getLeftMember();
-                Particle* p2 = bin_interrupt->getRightMember();
-                switch (p1->status) {
-                case Status::merge:
-                    std::cerr<<" Merge";
+                Particle* p1 = bin_interrupt.adr->getLeftMember();
+                Particle* p2 = bin_interrupt.adr->getRightMember();
+                switch (bin_interrupt.status) {
+                case InterruptStatus::change:
+                    std::cerr<<" Change";
                     break;
-                case Status::single:
-                    std::cerr<<" Single";
+                case InterruptStatus::merge:
+                    std::cerr<<" merge";
                     break;
-                case Status::unused:
-                    std::cerr<<" Unused";
+                case InterruptStatus::none:
                     break;
                 }
                 std::cerr<<" Time: "<<sym_int.slowdown.getRealTime()<<std::endl;
-                bin_interrupt->printColumnTitle(std::cerr);
+                bin_interrupt.adr->printColumnTitle(std::cerr);
                 std::cerr<<std::endl;
-                bin_interrupt->printColumn(std::cerr);
+                bin_interrupt.adr->printColumn(std::cerr);
                 std::cerr<<std::endl;
                 Particle::printColumnTitle(std::cerr);
                 std::cerr<<std::endl;
                 for (int j=0; j<2; j++) {
-                    bin_interrupt->getMember(j)->printColumn(std::cerr);
+                    bin_interrupt.adr->getMember(j)->printColumn(std::cerr);
                     std::cerr<<std::endl;
                 }
 

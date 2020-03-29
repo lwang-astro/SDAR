@@ -4,6 +4,7 @@
 #include "Common/Float.h"
 #include "Common/particle_group.h"
 #include "AR/force.h"
+#include "AR/interrupt.h"
 #include "particle.h"
 #include "perturber.h"
 
@@ -343,37 +344,58 @@ public:
 
     //! (Necessary) modify the orbits and interrupt check 
     /*! check the inner left binary whether their separation is smaller than particle radius sum and become close, if true, set one component stauts to merger with cm mass and the other unused with zero mass. Return the binary tree address 
-      @param[in] _bin_interrupt: interrupt binary tree address 
+      @param[in] _bin_interrupt: interrupt binary information: adr: binary tree address; time_now: current physical time; time_end: integration finishing time; status: interrupt status: change, merge,none
       @param[in] _bin: binarytree to check iteratively
      */
-    static COMM::BinaryTree<Particle>* modifyAndInterruptIter(COMM::BinaryTree<Particle>*& _bin_interrupt, COMM::BinaryTree<Particle>& _bin) {
-        if (_bin.getMemberN()==2&&_bin_interrupt==NULL) {
+    static BinaryInterrupt<Particle>* modifyAndInterruptIter(BinaryInterrupt<Particle>*& _bin_interrupt, COMM::BinaryTree<Particle>& _bin) {
+        if (_bin.getMemberN()==2&&_bin_interrupt->status==InterruptStatus::none) {
             Particle *p1,*p2;
             p1 = _bin.getLeftMember();
             p2 = _bin.getRightMember();
-            if (p1->status != Status::unused && p2->status != Status::unused) {
-                Float dr[3] = {p1->pos[0] - p2->pos[0], 
-                               p1->pos[1] - p2->pos[1], 
-                               p1->pos[2] - p2->pos[2]};
-                Float dv[3] = {p1->vel[0] - p2->vel[0], 
-                               p1->vel[1] - p2->vel[1], 
-                               p1->vel[2] - p2->vel[2]};
-                Float dr2  = dr[0]*dr[0] + dr[1]*dr[1] + dr[2]*dr[2];
-                Float drdv = dr[0]*dv[0] + dr[1]*dv[1] + dr[2]*dv[2];
-                Float radius = p1->radius + p2->radius;
-                Float radius_sq = radius*radius;
-                if (dr2<radius_sq&&drdv<0) {
-                    _bin_interrupt = &_bin;
-                    p1->status = Status::merge;
-                    Float mcm = p1->mass + p2->mass;
-                    for (int k=0; k<3; k++) {
-                        p1->pos[k] = (p1->mass*p1->pos[k] + p2->mass*p2->pos[k])/mcm;
-                        p1->vel[k] = (p1->mass*p1->vel[k] + p2->mass*p2->vel[k])/mcm;
-                    }
-                    p1->mass = mcm;
-                    p2->status = Status::unused;
-                    p2->mass = 0.0;
 
+            auto merge = [&]() {
+                _bin_interrupt->adr = &_bin;
+                _bin_interrupt->status = InterruptStatus::merge;
+                p1->status = Status::single;
+                Float mcm = p1->mass + p2->mass;
+                for (int k=0; k<3; k++) {
+                    p1->pos[k] = (p1->mass*p1->pos[k] + p2->mass*p2->pos[k])/mcm;
+                    p1->vel[k] = (p1->mass*p1->vel[k] + p2->mass*p2->vel[k])/mcm;
+                }
+                p1->mass = mcm;
+                p2->status = Status::unused;
+                p2->mass = 0.0;
+            };
+
+            if (p1->status != Status::unused && p2->status != Status::unused) {
+                if (p1->status==Status::premerge && p2->status==Status::premerge && 
+                    p1->time_check<_bin_interrupt->time_end && p2->time_check<_bin_interrupt->time_end) merge();
+                else {
+                    Float peri = _bin.semi*(1-_bin.ecc);
+                    Float radius = p1->radius + p2->radius;
+                    if (peri<radius&&p1->status!=Status::premerge&&p2->status!=Status::premerge) {
+                        Float dr[3] = {p1->pos[0] - p2->pos[0], 
+                                       p1->pos[1] - p2->pos[1], 
+                                       p1->pos[2] - p2->pos[2]};
+                        Float dv[3] = {p1->vel[0] - p2->vel[0], 
+                                       p1->vel[1] - p2->vel[1], 
+                                       p1->vel[2] - p2->vel[2]};
+                        Float drdv = dr[0]*dv[0] + dr[1]*dv[1] + dr[2]*dv[2];
+                        if (drdv<0) {
+                            Float dr2  = dr[0]*dr[0] + dr[1]*dr[1] + dr[2]*dr[2];
+                            Float dr = std::sqrt(dr2);
+                            Float ecc_anomaly=_bin.calcEccAnomaly(dr);
+                            Float mean_anomaly = _bin.calcMeanAnomaly(ecc_anomaly, _bin.ecc);
+                            Float t_peri = abs(mean_anomaly/6.28318530718*_bin.period);
+                            if (t_peri<_bin_interrupt->time_end-_bin_interrupt->time_now) merge();
+                            else {
+                                p1->status = Status::premerge;
+                                p2->status = Status::premerge;
+                                p1->time_check = _bin_interrupt->time_now + t_peri;
+                                p2->time_check = p1->time_check;
+                            }
+                        }
+                    }
                 }
             }
         }

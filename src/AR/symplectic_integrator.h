@@ -8,6 +8,7 @@
 #include "AR/slow_down.h"
 #include "AR/profile.h"
 #include "AR/information.h"
+#include "AR/interrupt.h"
 
 //! Algorithmic regularization chain (ARC) namespace
 /*!
@@ -1083,10 +1084,8 @@ namespace AR {
           @param[in] _time_end_real: the expected finishing real time 
           \return binary tree of the pair which triggers interruption condition
          */
-        COMM::BinaryTree<Tparticle>* integrateToTime(const Float _time_end_real) {
+        BinaryInterrupt<Tparticle> integrateToTime(const Float _time_end_real) {
             ASSERT(checkParams());
-
-            using namespace std::placeholders;  // for _1, _2, _3...
 
             // real full time step
             const Float dt_real_full = _time_end_real - slowdown.getRealTime();
@@ -1127,6 +1126,7 @@ namespace AR {
             // step count
             long long int step_count=0; // integration step 
             long long int step_count_tsyn=0; // time synchronization step
+            BinaryInterrupt<Tparticle> bin_interrupt = {NULL, slowdown.getRealTime(), _time_end_real, InterruptStatus::none};
             
             // particle data
             const int n_particle = particles.getSize();
@@ -1398,10 +1398,11 @@ namespace AR {
                 if(time_real < _time_end_real - time_error_real){
                     // check interrupt condiction
                     if (manager->interrupt_detection_option>0) {
-                        COMM::BinaryTree<Tparticle>* bin_interrupt = NULL;
                         auto& bin_root = info.getBinaryTreeRoot();
-                        bin_interrupt = bin_root.processRootIter(bin_interrupt, Tmethod::modifyAndInterruptIter);
-                        if (bin_interrupt!=NULL) {
+                        bin_interrupt.time_now = time_real;
+                        BinaryInterrupt<Tparticle>* bin_intr_ptr = &bin_interrupt;
+                        bin_intr_ptr = bin_root.processRootIter(bin_intr_ptr, Tmethod::modifyAndInterruptIter);
+                        if (bin_interrupt.status!=InterruptStatus::none) {
                             // the mode return back to the root scope
                             if (manager->interrupt_detection_option==2) {
                                 // cumulative step count 
@@ -1413,10 +1414,10 @@ namespace AR {
                                 return bin_interrupt;
                             }
                             else {
-                                ASSERT(!bin_interrupt->isMemberTree(0));
-                                ASSERT(!bin_interrupt->isMemberTree(1));
-                                Tparticle* p1 = bin_interrupt->getLeftMember();
-                                Tparticle* p2 = bin_interrupt->getRightMember();
+                                ASSERT(!bin_interrupt.adr->isMemberTree(0));
+                                ASSERT(!bin_interrupt.adr->isMemberTree(1));
+                                Tparticle* p1 = bin_interrupt.adr->getLeftMember();
+                                Tparticle* p2 = bin_interrupt.adr->getRightMember();
 
 
                                 Float epot_bk = epot_;
@@ -1487,24 +1488,24 @@ namespace AR {
 
 
 #ifdef AR_DEBUG_PRINT
-                                std::cerr<<"Interrupt condition triggered! Merge";
+                                std::cerr<<"Interrupt condition triggered!";
                                 std::cerr<<" Time: "<<time_real;
                                 std::cerr<<" Energy change: dE_SD: "<<de_sdi<<" dH_SD: "<<dH_sdi;
                                 std::cerr<<" Slowdown: "<<slowdown.getSlowDownFactor()<<std::endl;
-                                bin_interrupt->printColumnTitle(std::cerr);
+                                bin_interrupt.adr->printColumnTitle(std::cerr);
                                 std::cerr<<std::endl;
-                                bin_interrupt->printColumn(std::cerr);
+                                bin_interrupt.adr->printColumn(std::cerr);
                                 std::cerr<<std::endl;
                                 Tparticle::printColumnTitle(std::cerr);
                                 std::cerr<<std::endl;
                                 for (int j=0; j<2; j++) {
-                                    bin_interrupt->getMember(j)->printColumn(std::cerr);
+                                    bin_interrupt.adr->getMember(j)->printColumn(std::cerr);
                                     std::cerr<<std::endl;
                                 }
 #endif
 
                                 // check merger case
-                                if (n_particle==2) {
+                                if (n_particle==2&&bin_interrupt.status==InterruptStatus::merge) {
                                     Tparticle* p = NULL;
                                     if (p1->mass==0.0) p=p2;
                                     else if (p2->mass==0.0) p=p1;
@@ -1523,9 +1524,8 @@ namespace AR {
                                         return bin_interrupt;
                                     }
                                 }
-
-                                bin_interrupt = NULL;
                             }
+                            bin_interrupt.status = InterruptStatus::none;
                         }
                     }
 
@@ -1647,7 +1647,7 @@ namespace AR {
             profile.step_count_sum += step_count;
             profile.step_count_tsyn_sum += step_count_tsyn;
 
-            return NULL;
+            return bin_interrupt;
         }
 
         //! correct CM drift

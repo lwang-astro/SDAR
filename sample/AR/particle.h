@@ -6,7 +6,7 @@
 #define NAN_CHECK(val) ASSERT((val) == (val));
 #endif
 
-enum Status{single, merge, unused};
+enum class Status{single=1, premerge=2, unused=0};
 
 //! A sample particle class
 /*! A particle class should contain public members:
@@ -19,9 +19,10 @@ public:
     Float pos[3];
     Float vel[3];
     Float radius;
+    Float time_check; // time to check next interrupt
     Status status;
 
-    Particle(): id(-1), mass(0.0), pos{0,0,0}, vel{0,0,0}, radius(0.0), status(Status::single) {}
+    Particle(): id(-1), mass(0.0), pos{0,0,0}, vel{0,0,0}, radius(0.0), time_check(0.0), status(Status::single) {}
 
     //! Get position (required)
     /*! \return position vector (Float[3])
