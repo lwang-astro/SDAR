@@ -1437,8 +1437,8 @@ namespace H4{
                 const int k = index_group_merger_[i];
                 ASSERT(k<n_group_tot);
                 ASSERT(table_group_mask_[k]==false);
-#ifdef ADJUST_GROUP_DEBUG
                 auto& groupk = groups[k];
+#ifdef ADJUST_GROUP_DEBUG
                 auto& bin_root = groupk.info.getBinaryTreeRoot();
                 std::cerr<<"Break merger group: i_group: "<<k
                          <<" N_member: "<<groupk.particles.getSize()
