@@ -1314,6 +1314,7 @@ namespace AR {
                 std::cerr<<std::endl;
 #endif
 
+                ASSERT(!isnan(integration_error_rel_abs));
                 // modify step if energy error is large
                 if(integration_error_rel_abs>energy_error_rel_max) {
                     if(info.fix_step_option!=FixStepOption::always) {
@@ -1327,7 +1328,7 @@ namespace AR {
                         Float modify_factor = std::max(manager->step.calcStepModifyFactorFromErrorRatio(integration_error_ratio), Float(0.125));
                         ASSERT(modify_factor>0.0);
 
-                        // for initial steps
+                        // for initial steps, reduce step permanently 
                         if(step_count<3) {
                             n_step_wait=-1;
                             ds[ds_switch] *= modify_factor;
@@ -1344,7 +1345,7 @@ namespace AR {
 #endif
                             continue;
                         }
-                        // for big energy error
+                        // for big energy error, reduce step temparely
                         else if (info.fix_step_option==FixStepOption::none && integration_error_ratio<0.1) {
                             if(backup_flag) ds_backup = ds[ds_switch];
                             ds[ds_switch] *= modify_factor;
@@ -1366,33 +1367,33 @@ namespace AR {
 //                }
 //#endif
 
-                // abort when too small step found
-                if(!time_end_flag&&dt_real<dt_real_min) {
-                    // for initial steps
-                    if(step_count<3 && dt_real<0) {
-                        n_step_wait=-1;
-                        // limit modify_factor to 0.125
-                        Float modify_factor = std::min(std::max(manager->step.calcStepModifyFactorFromErrorRatio(abs(_time_end_real/dt_real)), Float(0.0625)),Float(0.5)); 
-                        ds[ds_switch] *= modify_factor;
-                        ds[1-ds_switch] = ds[ds_switch];
-                        info.ds = ds[ds_switch];
-                        ASSERT(!isinf(ds[ds_switch]));
-                        backup_flag = false;
+                // if negative step, reduce step size
+                if(!time_end_flag&&dt_real<0) {
+                    if(step_count>5&&backup_flag) ds_backup = ds[ds_switch];
+                    // limit modify_factor to 0.125
+                    Float modify_factor = std::min(std::max(manager->step.calcStepModifyFactorFromErrorRatio(abs(_time_end_real/dt_real)), Float(0.0625)),Float(0.5)); 
+                    ds[ds_switch] *= modify_factor;
+                    ds[1-ds_switch] = ds[ds_switch];
+                    info.ds = ds[ds_switch];
+                    ASSERT(!isinf(ds[ds_switch]));
 #ifdef AR_COLLECT_DS_MODIFY_INFO
-                        collectDsModifyInfo(modify_factor);
+                    collectDsModifyInfo(modify_factor);
 #endif
 #ifdef AR_DEEP_DEBUG
-                        std::cerr<<"Detected negative time at beginning dt_real="<<dt_real<<" stepcount="<<step_count<<std::endl;
+                    std::cerr<<"Detected negative time at beginning dt_real="<<dt_real<<" stepcount="<<step_count<<std::endl;
 #endif
-                        continue;
-                    }
+                    // for initial steps, reduce step permanently
+                    if (step_count<5) n_step_wait=-1;
+                    else n_step_wait = 2*to_int(1.0/modify_factor);
 
-                    std::cerr<<"Error! symplectic integrated time step ("<<dt_real<<") < minimum step ("<<dt_real_min<<")!\n";
-                    printMessage();
-#ifdef AR_DEBUG_DUMP
-                    DATADUMP("dump_negative_time");
-#endif
-                    abort();
+                    backup_flag = false;
+                    continue;
+//                    std::cerr<<"Error! symplectic integrated time step ("<<dt_real<<") < minimum step ("<<dt_real_min<<")!\n";
+//                    printMessage();
+//#ifdef AR_DEBUG_DUMP
+//                    DATADUMP("dump_negative_time");
+//#endif
+//                    abort();
                 }
 
                 // check integration time
@@ -1545,7 +1546,9 @@ namespace AR {
                             ds[1-ds_switch] = ds_backup;
                             ASSERT(!isinf(ds[1-ds_switch]));
                         }
-                        // increase step size if energy error is small
+
+                        // increase step size if energy error is small, not works correctly, suppress
+                        /*
                         else if(integration_error_rel_abs<energy_error_rel_max_half_step&&integration_error_rel_abs>0.0) {
                             Float integration_error_ratio = energy_error_rel_max/integration_error_rel_abs;
                             Float modify_factor = manager->step.calcStepModifyFactorFromErrorRatio(integration_error_ratio);
@@ -1558,6 +1561,7 @@ namespace AR {
                                      <<" energy_error_rel_max="<<energy_error_rel_max<<" step_modify_factor="<<modify_factor<<" new ds="<<ds[1-ds_switch]<<std::endl;
 #endif
                         }
+                        */
                         n_step_wait--;
                     }
 
