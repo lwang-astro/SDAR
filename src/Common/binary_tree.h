@@ -84,7 +84,6 @@ namespace COMM{
             _p2.vel[2] =  m1_mt * vel_red.z;
         }
 
-
         //! position velocity to orbit
         /* refer to the P3T code developed by Iwasawa M.
            @param[out]: _bin: binary parameter
@@ -255,6 +254,17 @@ namespace COMM{
         template <class Tptcl>
         void calcParticlesEcca(Tptcl& _p1, Tptcl& _p2, const Float _ecca, const Float _G) const {
             orbitToParticle(_p1, _p2, *this, _ecca, _G);
+        }
+
+        //! rotate position vector from binary rest-frame to original frame based on three angles
+        void rotateToOriginalFrame(Float* _vec ) {
+            Matrix3<Float> rot;
+            rot.rotation(incline, rot_horizon, rot_self);
+            Vector3<Float> vec (_vec[0], _vec[1], _vec[2]);
+            vec = rot*vec;
+            _vec[0] = vec.x;
+            _vec[1] = vec.y;
+            _vec[2] = vec.z;
         }
 
         //! Solve kepler motion for dt 
