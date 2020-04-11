@@ -535,7 +535,7 @@ namespace AR {
                 auto& sdi = slowdown_inner[i];
                 //if (_time>=sdi.slowdown.getUpdateTime()) {
                 sdi.bin->calcCenterOfMass();
-                manager->interaction.calcSlowDownInnerBinary(sdi.slowdown, slowdown, *sdi.bin, particles.getDataAddress(), particles.getSize());
+                manager->interaction.calcSlowDownInnerBinary(sdi.slowdown, slowdown, *sdi.bin, info.getBinaryTreeRoot());
                 sdi.slowdown.increaseUpdateTimeOnePeriod();
                 modified_flag=true;
                 //}
@@ -1096,8 +1096,8 @@ namespace AR {
             // energy error limit
             const Float energy_error_rel_max = manager->energy_error_relative_max;
             // expect energy_error using half step if energy_error_rel_max reached
-            const Float energy_error_rel_max_half_step = energy_error_rel_max * manager->step.calcErrorRatioFromStepModifyFactor(0.5);
-            const Float dt_real_min = manager->time_step_real_min;
+            //const Float energy_error_rel_max_half_step = energy_error_rel_max * manager->step.calcErrorRatioFromStepModifyFactor(0.5);
+            //const Float dt_real_min = manager->time_step_real_min;
 
             // backup data size
             const int bk_data_size = getBackupDataSize();
@@ -1335,25 +1335,29 @@ namespace AR {
                             ds[1-ds_switch] = ds[ds_switch];
                             info.ds = ds[ds_switch];
                             ASSERT(!isinf(ds[ds_switch]));
+                            ds_backup = ds[ds_switch];
                             backup_flag = false;
 #ifdef AR_COLLECT_DS_MODIFY_INFO
                             collectDsModifyInfo(modify_factor);
 #endif
 
-#ifdef AR_DEEP_DEBUG
+#ifdef AR_DEBUG_PRINT
                             std::cerr<<"Detected energy error too large, integration_error/energy_error_max ="<<1.0/integration_error_ratio<<" integration_error_rel_abs ="<<integration_error_rel_abs<<" modify_factor ="<<modify_factor<<std::endl;
 #endif
                             continue;
                         }
                         // for big energy error, reduce step temparely
                         else if (info.fix_step_option==FixStepOption::none && integration_error_ratio<0.1) {
-                            if(backup_flag) ds_backup = ds[ds_switch];
                             ds[ds_switch] *= modify_factor;
                             ds[1-ds_switch] = ds[ds_switch];
                             ASSERT(!isinf(ds[ds_switch]));
                             backup_flag = false;
                             n_step_wait = 2*to_int(1.0/modify_factor);
-#ifdef AR_DEEP_DEBUG
+#ifdef AR_COLLECT_DS_MODIFY_INFO
+                            collectDsModifyInfo(modify_factor);
+#endif
+
+#ifdef AR_DEBUG_PRINT
                             std::cerr<<"Detected energy error too large, integration_error/energy_error_max ="<<1.0/integration_error_ratio<<" integration_error_rel_abs ="<<integration_error_rel_abs<<" modify_factor ="<<modify_factor<<" n_step_wait ="<<n_step_wait<<std::endl;
 #endif
                             continue;
@@ -1369,7 +1373,6 @@ namespace AR {
 
                 // if negative step, reduce step size
                 if(!time_end_flag&&dt_real<0) {
-                    if(step_count>5&&backup_flag) ds_backup = ds[ds_switch];
                     // limit modify_factor to 0.125
                     Float modify_factor = std::min(std::max(manager->step.calcStepModifyFactorFromErrorRatio(abs(_time_end_real/dt_real)), Float(0.0625)),Float(0.5)); 
                     ds[ds_switch] *= modify_factor;
@@ -1379,11 +1382,14 @@ namespace AR {
 #ifdef AR_COLLECT_DS_MODIFY_INFO
                     collectDsModifyInfo(modify_factor);
 #endif
-#ifdef AR_DEEP_DEBUG
-                    std::cerr<<"Detected negative time at beginning dt_real="<<dt_real<<" stepcount="<<step_count<<std::endl;
+#ifdef AR_DEBUG_PRINT
+                    std::cerr<<"Detected negative time dt_real="<<dt_real<<" stepcount="<<step_count<<std::endl;
 #endif
                     // for initial steps, reduce step permanently
-                    if (step_count<5) n_step_wait=-1;
+                    if (step_count<3) {
+                        ds_backup = ds[ds_switch];
+                        n_step_wait=-1;
+                    }
                     else n_step_wait = 2*to_int(1.0/modify_factor);
 
                     backup_flag = false;
@@ -1540,11 +1546,17 @@ namespace AR {
                     if(info.fix_step_option==FixStepOption::none && !time_end_flag) {
                         // waiting step count reach
                         if(n_step_wait==0) {
-#ifdef AR_DEEP_DEBUG
-                            std::cerr<<"Recover to backup step ds_current="<<ds[ds_switch]<<" ds_next="<<ds[1-ds_switch]<<" ds_backup="<<ds_backup<<std::endl;
+#ifdef AR_COLLECT_DS_MODIFY_INFO
+                            PS::F64 modify_factor = ds_backup/ds[1-ds_switch];
 #endif
                             ds[1-ds_switch] = ds_backup;
                             ASSERT(!isinf(ds[1-ds_switch]));
+#ifdef AR_COLLECT_DS_MODIFY_INFO
+                            collectDsModifyInfo(modify_factor);
+#endif
+#ifdef AR_DEBUG_PRINT
+                            std::cerr<<"Recover to backup step ds_current="<<ds[ds_switch]<<" ds_next="<<ds[1-ds_switch]<<" ds_backup="<<ds_backup<<std::endl;
+#endif
                         }
 
                         // increase step size if energy error is small, not works correctly, suppress
