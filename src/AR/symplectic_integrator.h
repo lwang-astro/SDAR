@@ -1112,15 +1112,81 @@ namespace AR {
             const int cd_pair_size = manager->step.getCDPairSize();
             Float time_table[cd_pair_size]; // for storing sub-integrated time 
 
-            // step control
+            // two switch step control
             Float ds[2] = {info.ds,info.ds}; // step with a buffer
-            Float ds_backup = info.ds;  //backup step size
             Float ds_init   = info.ds;  //backup initial step
-            int ds_switch=0;   // 0 or 1
-            int n_step_wait=-1; // number of waiting step to change ds
-            int n_step_end=0;  // number of steps integrated to reach the time end for one during the time sychronization sub steps
+            int   ds_switch=0;   // 0 or 1
 
-            // time end flag
+            // reduce ds control, three level
+            const int n_reduce_level_max=2;
+
+            struct DsBackupManager{
+                Float ds_backup[n_reduce_level_max+1];
+                int n_step_wait_recover_ds[n_reduce_level_max+1];
+                int n_reduce_level; 
+
+                DsBackupManager(const Float _ds) { initial(_ds), n_reduce_level = -1; }
+
+                void initial(const Float _ds) {
+                    for (int i=0; i<n_reduce_level_max; i++) {
+                        ds_backup[i] = _ds;
+                        n_step_wait_recover_ds[i] = 0;
+                    }
+                }
+
+                // shift backup by one level, if successful, return true
+                bool shiftReduceLevel() {
+                    if (n_reduce_level>0) {
+                        for (int i=0; i<n_reduce_level-1; i++) {
+                            ds_backup[i] =ds_backup[i+1];
+                            n_step_wait_recover_ds[i] = n_step_wait_recover_ds[i+1];
+                        }
+                        n_reduce_level--;
+                        return true;
+                    }
+                    return false;
+                }
+
+                // record ds to backup
+                void backup(const Float _ds, const Float _modify_factor) {
+                    //if (n_reduce_level==n_reduce_level_max) shiftReduceLevel();  // not converse sometimes, becomes infinite small steps
+                    if (n_reduce_level==n_reduce_level_max) 
+                        n_step_wait_recover_ds[n_reduce_level] *= 2*to_int(1.0/_modify_factor);
+                    else {
+                        n_reduce_level++;
+                        ds_backup[n_reduce_level] = _ds;
+                        n_step_wait_recover_ds[n_reduce_level] = 2*to_int(1.0/_modify_factor);
+                    }
+                }
+
+                // count step (return false) and recover ds if necessary (return true)
+                bool countAndRecover(Float &_ds, Float &_modify_factor) {
+                    if (n_reduce_level>=0) {
+                        if (n_step_wait_recover_ds[n_reduce_level] ==0) {
+                            _modify_factor = ds_backup[n_reduce_level]/_ds;
+                            _ds = ds_backup[n_reduce_level];
+                            n_step_wait_recover_ds[n_reduce_level] = -1;
+                            n_reduce_level--;
+                            return true;
+                        }
+                        else {
+                            n_step_wait_recover_ds[n_reduce_level]--;
+                            return false;
+                        }
+                    }
+                    return false;
+                }
+
+            } ds_backup(info.ds);
+
+            int reduce_ds_count=0; // number of reduce ds (ignore first few steps)
+            Float step_modify_factor=1.0; // step modify factor 
+            Float previous_step_modify_factor=1.0; // step modify factor 
+            Float previous_error_ratio=-1; // previous error ratio when ds is reduced
+            bool previous_is_restore=false; // previous step is reduced or not
+
+            // time end control
+            int n_step_end=0;  // number of steps integrated to reach the time end for one during the time sychronization sub steps
             bool time_end_flag=false; // indicate whether time reach the end
 
             // step count
@@ -1231,11 +1297,14 @@ namespace AR {
                 Float integration_error_rel_cum_abs = abs(energy_error*gt_drift_inv/etot_ref_bk);
 #endif
 
+                Float integration_error_ratio = energy_error_rel_max/integration_error_rel_abs;
+      
                 // time error
                 Float time_diff_real_rel = (_time_end_real - time_real)/dt_real_full;
 
                 // error message print
-                auto printMessage = [&]() {
+                auto printMessage = [&](const char* message) {
+                    std::cerr<<message<<std::endl;
                     std::cerr<<"  T: "<<this->time_
                              <<"  T_real: "<<time_real
                              <<"  dT_err/T: "<<time_diff_real_rel
@@ -1253,25 +1322,27 @@ namespace AR {
                 };
 
 #ifdef AR_COLLECT_DS_MODIFY_INFO
-                auto collectDsModifyInfo = [&](Float modify_factor) {
+                auto collectDsModifyInfo = [&](const char* error_message) {
                     auto& bin = info.getBinaryTreeRoot();
-                    std::cerr<<"DsModifyInfo: "
-                             <<ds[ds_switch]<<" "
-                             <<ds_init<<" "
-                             <<modify_factor<<" "
-                             <<step_count<<" "
-                             <<integration_error_rel_abs<<" "
-                             <<dt_real<<" "
-                             <<n_particle<<" "
-                             <<bin.semi<<" "
-                             <<bin.ecc<<" "
-                             <<bin.period<<" "
-                             <<bin.m1<<" "
-                             <<bin.m2<<" "
-                             <<bin.ecca<<" "
-                             <<slowdown.getSlowDownFactorOrigin()<<" "
-                             <<slowdown.getPertIn()<<" "
-                             <<slowdown.getPertOut()<<" "
+                    std::cerr<<error_message<<": "
+                             <<"ds_new "<<ds[1-ds_switch]<<" "
+                             <<"ds_init "<<ds_init<<" "
+                             <<"modify "<<step_modify_factor<<" "
+                             <<"steps "<<step_count<<" "
+                             <<"n_mods "<<reduce_ds_count<<" "
+                             <<"err "<<integration_error_rel_abs<<" "
+                             <<"err/max "<<1.0/integration_error_ratio<<" "
+                             <<"dt "<<dt_real<<" "
+                             <<"n_ptcl "<<n_particle<<" "
+                             <<"semi "<<bin.semi<<" "
+                             <<"ecc "<<bin.ecc<<" "
+                             <<"period "<<bin.period<<" "
+                             <<"m1 "<<bin.m1<<" "
+                             <<"m2 "<<bin.m2<<" "
+                             <<"ecca "<<bin.ecca<<" "
+                             <<"sd_org "<<slowdown.getSlowDownFactorOrigin()<<" "
+                             <<"pert_in "<<slowdown.getPertIn()<<" "
+                             <<"pert_out "<<slowdown.getPertOut()<<" "
                              <<std::endl;
                 };
 #endif 
@@ -1280,21 +1351,21 @@ namespace AR {
                 // warning for large number of steps
                 if(step_count>=manager->step_count_max) {
                     if(step_count%manager->step_count_max==0) {
-                        std::cerr<<"Warning: step count is signficiant large "<<step_count<<std::endl;
-                        printMessage();
+                        printMessage("Warning: step count is signficiant large");
                         printColumnTitle(std::cerr);
                         std::cerr<<std::endl;
                         printColumn(std::cerr);
                         std::cerr<<std::endl;
+#ifdef AR_DEBUG_DUMP
                         DATADUMP("dump_large_step");
+#endif
                     }
                 }
 #endif
           
                 // When time sychronization steps too large, abort
                 if(step_count_tsyn>manager->step_count_max) {
-                    std::cerr<<"Error! step count after time synchronization is too large "<<step_count_tsyn<<std::endl;
-                    printMessage();
+                    printMessage("Error! step count after time synchronization is too large");
                     printColumnTitle(std::cerr);
                     std::cerr<<std::endl;
                     printColumn(std::cerr);
@@ -1308,57 +1379,81 @@ namespace AR {
 
 
 #ifdef AR_DEEP_DEBUG
-                printMessage();
+                printMessage("");
                 std::cerr<<"Timetable: ";
                 for (int i=0; i<cd_pair_size; i++) std::cerr<<" "<<time_table[manager->step.getSortCumSumCKIndex(i)];
                 std::cerr<<std::endl;
 #endif
 
                 ASSERT(!isnan(integration_error_rel_abs));
+
                 // modify step if energy error is large
-                if(integration_error_rel_abs>energy_error_rel_max) {
-                    if(info.fix_step_option!=FixStepOption::always) {
+                if(integration_error_rel_abs>energy_error_rel_max && info.fix_step_option!=FixStepOption::always) {
 
-                        // energy error zero case, continue to avoid problem
-                        if (integration_error_rel_abs==0.0) continue;
+                    bool check_flag = true;
 
-                        // estimate the modification factor based on the symplectic order
-                        Float integration_error_ratio = energy_error_rel_max/integration_error_rel_abs;
-                        // limit modify_factor to 0.125
-                        Float modify_factor = std::max(manager->step.calcStepModifyFactorFromErrorRatio(integration_error_ratio), Float(0.125));
-                        ASSERT(modify_factor>0.0);
+                    // check whether already modified
+                    if (previous_step_modify_factor!=1.0) {
+                        ASSERT(previous_error_ratio>0.0);
 
+                        // if error does not reduce much, do not modify step anymore
+                        if (integration_error_ratio>0.5*previous_error_ratio) check_flag=false;
+                    }
+
+                    if (check_flag) {
                         // for initial steps, reduce step permanently 
                         if(step_count<3) {
-                            n_step_wait=-1;
-                            ds[ds_switch] *= modify_factor;
+
+                            // estimate the modification factor based on the symplectic order
+                            // limit step_modify_factor to 0.125
+                            step_modify_factor = std::max(manager->step.calcStepModifyFactorFromErrorRatio(integration_error_ratio), Float(0.125));
+                            ASSERT(step_modify_factor>0.0);
+
+                            previous_step_modify_factor = step_modify_factor;
+                            previous_error_ratio = integration_error_ratio;
+
+                            ds[ds_switch] *= step_modify_factor;
                             ds[1-ds_switch] = ds[ds_switch];
+                            // permanently reduce ds
                             info.ds = ds[ds_switch];
-                            ASSERT(!isinf(ds[ds_switch]));
-                            ds_backup = ds[ds_switch];
+                            ASSERT(!isinf(info.ds));
+                            ds_backup.initial(info.ds);
+
                             backup_flag = false;
 #ifdef AR_COLLECT_DS_MODIFY_INFO
-                            collectDsModifyInfo(modify_factor);
-#endif
-
-#ifdef AR_DEBUG_PRINT
-                            std::cerr<<"Detected energy error too large, integration_error/energy_error_max ="<<1.0/integration_error_ratio<<" integration_error_rel_abs ="<<integration_error_rel_abs<<" modify_factor ="<<modify_factor<<std::endl;
+                            collectDsModifyInfo("Large_energy_error");
 #endif
                             continue;
                         }
                         // for big energy error, reduce step temparely
                         else if (info.fix_step_option==FixStepOption::none && integration_error_ratio<0.1) {
-                            ds[ds_switch] *= modify_factor;
+
+                            // estimate the modification factor based on the symplectic order
+                            // limit step_modify_factor to 0.125
+                            step_modify_factor = std::max(manager->step.calcStepModifyFactorFromErrorRatio(integration_error_ratio), Float(0.125));
+                            ASSERT(step_modify_factor>0.0);
+
+                            previous_step_modify_factor = step_modify_factor;
+                            previous_error_ratio = integration_error_ratio;
+
+                            ds_backup.backup(ds[ds_switch], step_modify_factor);
+                            if(previous_is_restore) reduce_ds_count++;
+
+                            ds[ds_switch] *= step_modify_factor;
                             ds[1-ds_switch] = ds[ds_switch];
                             ASSERT(!isinf(ds[ds_switch]));
-                            backup_flag = false;
-                            n_step_wait = 2*to_int(1.0/modify_factor);
-#ifdef AR_COLLECT_DS_MODIFY_INFO
-                            collectDsModifyInfo(modify_factor);
-#endif
 
-#ifdef AR_DEBUG_PRINT
-                            std::cerr<<"Detected energy error too large, integration_error/energy_error_max ="<<1.0/integration_error_ratio<<" integration_error_rel_abs ="<<integration_error_rel_abs<<" modify_factor ="<<modify_factor<<" n_step_wait ="<<n_step_wait<<std::endl;
+                            // if multiple times reduction happens, permanently reduce ds
+                            //if (reduce_ds_count>3) {
+                            //    bool shift_flag = ds_backup.shiftReduceLevel();
+                            //    if (!shift_flag) ds_backup.initial(ds[ds_switch]);
+                            //    info.ds = ds_backup.ds_backup[0];
+                            //    reduce_ds_count=0;
+                            //}
+
+                            backup_flag = false;
+#ifdef AR_COLLECT_DS_MODIFY_INFO
+                            collectDsModifyInfo("Large_energy_error");
 #endif
                             continue;
                         }
@@ -1373,26 +1468,30 @@ namespace AR {
 
                 // if negative step, reduce step size
                 if(!time_end_flag&&dt_real<0) {
-                    // limit modify_factor to 0.125
-                    Float modify_factor = std::min(std::max(manager->step.calcStepModifyFactorFromErrorRatio(abs(_time_end_real/dt_real)), Float(0.0625)),Float(0.5)); 
-                    ds[ds_switch] *= modify_factor;
+                    // limit step_modify_factor to 0.125
+                    step_modify_factor = std::min(std::max(manager->step.calcStepModifyFactorFromErrorRatio(abs(_time_end_real/dt_real)), Float(0.0625)),Float(0.5)); 
+                    ASSERT(step_modify_factor>0.0);
+                    previous_step_modify_factor = step_modify_factor;
+                    previous_error_ratio = integration_error_ratio;
+
+                    ds[ds_switch] *= step_modify_factor;
                     ds[1-ds_switch] = ds[ds_switch];
-                    info.ds = ds[ds_switch];
                     ASSERT(!isinf(ds[ds_switch]));
-#ifdef AR_COLLECT_DS_MODIFY_INFO
-                    collectDsModifyInfo(modify_factor);
-#endif
-#ifdef AR_DEBUG_PRINT
-                    std::cerr<<"Detected negative time dt_real="<<dt_real<<" stepcount="<<step_count<<std::endl;
-#endif
+
                     // for initial steps, reduce step permanently
                     if (step_count<3) {
-                        ds_backup = ds[ds_switch];
-                        n_step_wait=-1;
+                        info.ds = ds[ds_switch];
+                        ds_backup.initial(info.ds);
                     }
-                    else n_step_wait = 2*to_int(1.0/modify_factor);
+                    else { // reduce step temparely
+                        ds_backup.backup(ds[ds_switch], step_modify_factor);
+                    }
 
                     backup_flag = false;
+
+#ifdef AR_COLLECT_DS_MODIFY_INFO
+                    collectDsModifyInfo("Negative_step");
+#endif
                     continue;
 //                    std::cerr<<"Error! symplectic integrated time step ("<<dt_real<<") < minimum step ("<<dt_real_min<<")!\n";
 //                    printMessage();
@@ -1542,39 +1641,32 @@ namespace AR {
                         }
                     }
 
-                    // step increase depend on n_step_wait or energy_error
+                    // step increase depend on n_step_wait_recover_ds
                     if(info.fix_step_option==FixStepOption::none && !time_end_flag) {
                         // waiting step count reach
-                        if(n_step_wait==0) {
+                        previous_is_restore=ds_backup.countAndRecover(ds[1-ds_switch], step_modify_factor);
+                        if (previous_is_restore) {
+                            previous_error_ratio = -1;
+                            previous_step_modify_factor = 1.0;
 #ifdef AR_COLLECT_DS_MODIFY_INFO
-                            PS::F64 modify_factor = ds_backup/ds[1-ds_switch];
-#endif
-                            ds[1-ds_switch] = ds_backup;
-                            ASSERT(!isinf(ds[1-ds_switch]));
-#ifdef AR_COLLECT_DS_MODIFY_INFO
-                            collectDsModifyInfo(modify_factor);
-#endif
-#ifdef AR_DEBUG_PRINT
-                            std::cerr<<"Recover to backup step ds_current="<<ds[ds_switch]<<" ds_next="<<ds[1-ds_switch]<<" ds_backup="<<ds_backup<<std::endl;
+                            collectDsModifyInfo("Reuse_backup_ds");
 #endif
                         }
-
                         // increase step size if energy error is small, not works correctly, suppress
                         /*
                         else if(integration_error_rel_abs<energy_error_rel_max_half_step&&integration_error_rel_abs>0.0) {
                             Float integration_error_ratio = energy_error_rel_max/integration_error_rel_abs;
-                            Float modify_factor = manager->step.calcStepModifyFactorFromErrorRatio(integration_error_ratio);
-                            ASSERT(modify_factor>0.0);
-                            ds[1-ds_switch] *= modify_factor;
+                            Float step_modify_factor = manager->step.calcStepModifyFactorFromErrorRatio(integration_error_ratio);
+                            ASSERT(step_modify_factor>0.0);
+                            ds[1-ds_switch] *= step_modify_factor;
                             info.ds = ds[1-ds_switch];
                             ASSERT(!isinf(ds[1-ds_switch]));
 #ifdef AR_DEEP_DEBUG
                             std::cerr<<"Energy error is small enought for increase step, integration_error_rel_abs="<<integration_error_rel_abs
-                                     <<" energy_error_rel_max="<<energy_error_rel_max<<" step_modify_factor="<<modify_factor<<" new ds="<<ds[1-ds_switch]<<std::endl;
+                                     <<" energy_error_rel_max="<<energy_error_rel_max<<" step_modify_factor="<<step_modify_factor<<" new ds="<<ds[1-ds_switch]<<std::endl;
 #endif
                         }
                         */
-                        n_step_wait--;
                     }
 
                     // time sychronization on case, when step size too small to reach time end, increase step size
