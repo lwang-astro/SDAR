@@ -36,7 +36,7 @@ using std::pow;
 using std::atan2;
 using std::sin;
 using std::cos;
-//using std::isnan;
-//using std::isinf;
+using std::isnan;
+using std::isinf;
 #endif
 
