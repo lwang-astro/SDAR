@@ -36,7 +36,9 @@ using std::pow;
 using std::atan2;
 using std::sin;
 using std::cos;
+#ifndef __INTEL_COMPILER
 using std::isnan;
 using std::isinf;
+#endif
 #endif
 
