@@ -1,5 +1,7 @@
 #pragma once
 
+#include "AR/information.h"
+
 namespace AR {
 
     //! binary interrupt status
@@ -8,14 +10,14 @@ namespace AR {
     //! Binary interrupt recoreder
     template <class Tparticle>
     struct InterruptBinary {
-        COMM::BinaryTree<Tparticle>* adr;
+        AR::BinaryTree<Tparticle>* adr;
         Float time_now;
         Float time_end;
         InterruptStatus status;
 
         InterruptBinary(): adr(NULL), time_now(0.0), time_end(0.0), status(InterruptStatus::none) {}
 
-        InterruptBinary(COMM::BinaryTree<Tparticle>* _adr, Float _time_now, Float _time_end, InterruptStatus _status): adr(_adr), time_now(_time_now), time_end(_time_end), status(_status) {}
+        InterruptBinary(AR::BinaryTree<Tparticle>* _adr, Float _time_now, Float _time_end, InterruptStatus _status): adr(_adr), time_now(_time_now), time_end(_time_end), status(_status) {}
 
         void clear() { 
             adr=NULL; 

@@ -213,7 +213,7 @@ namespace AR{
           @param[out] _fout: std::ostream output object
           @param[in] _width: print width (defaulted 20)
         */
-        void printColumnTitle(std::ostream & _fout, const int _width=20) {
+        static void printColumnTitle(std::ostream & _fout, const int _width=20) {
             _fout<<std::setw(_width)<<"Time_real"
                  <<std::setw(_width)<<"SD_factor"
                  <<std::setw(_width)<<"SD_factor_org"

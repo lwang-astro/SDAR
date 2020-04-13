@@ -403,10 +403,11 @@ namespace COMM{
 //! Binary tree cell 
 /*! 
 */
-    template <class Tptcl>
-    class BinaryTree: public Tptcl, public Binary {
+    template <class Tptcl, class Tbinary>
+    class BinaryTree: public Tptcl, public Tbinary {
     private: 
         typedef std::pair<Float, int> R2Index;  // First is distance square, second is index
+        typedef BinaryTree<Tptcl,Tbinary> BinaryTreeLocal; // local defined binarytree 
 
         int n_members; ///> Total member number belong to the tree (can be more than 2)
         int member_index[2];        ///> particle index of original list, -1 indicate member is binarytree
@@ -456,12 +457,12 @@ namespace COMM{
     
 
     public:
-        BinaryTree(): Tptcl(), Binary(), n_members(-1), member_index{-1,-1}, member{NULL,NULL} {}
+        BinaryTree(): Tptcl(), Tbinary(), n_members(-1), member_index{-1,-1}, member{NULL,NULL} {}
 
 
         // copy function
-        //BinaryTree<Tptcl> & operator = (const BinaryTree<Tptcl>& _bin) {
-        //    std::memcpy(this, &_bin, sizeof(Binary)+sizeof(Tptcl)+sizeof(int));
+        //BinaryTreeLocal & operator = (const BinaryTreeLocal& _bin) {
+        //    std::memcpy(this, &_bin, sizeof(Tbinary)+sizeof(Tptcl)+sizeof(int));
         //    return *this;
         //}
 
@@ -475,7 +476,7 @@ namespace COMM{
            @param[in] _G: gravtational constant
            \return binary tree number
         */
-        static void generateBinaryTree(BinaryTree<Tptcl> _bins[],  // make sure bins.size = n_members-1!
+        static void generateBinaryTree(BinaryTreeLocal _bins[],  // make sure bins.size = n_members-1!
                                        int _ptcl_list[],   // make sure list.size = n_members!
                                        const int _n,
                                        Tptcl* _ptcl,
@@ -488,7 +489,7 @@ namespace COMM{
             if(_n>2) std::sort(r2_list, r2_list+_n-1, pairLess);
 
             // tree root for each binary pair
-            BinaryTree<Tptcl>* bin_host[_n]; 
+            BinaryTreeLocal* bin_host[_n]; 
             for(auto &p : bin_host) p=NULL;
     
             // check binary from the closest pair to longest pair
@@ -549,7 +550,7 @@ namespace COMM{
         /*! The member number should be correct 
           @param[out] _bin: binarytree array to store the data (should be size of n_members-1), the root is put last (n_members-1)
         */
-        void getherBinaryTreeIter(BinaryTree<Tptcl> _bin[]) {
+        void getherBinaryTreeIter(BinaryTreeLocal _bin[]) {
             copyDataIter(_bin, n_members-2);
         }
 
@@ -578,7 +579,7 @@ namespace COMM{
 
         //! calculate Kepler orbit from members
         void calcOrbit(const Float _G) {
-            Binary::calcOrbit(*member[0], *member[1], _G);
+            Tbinary::calcOrbit(*member[0], *member[1], _G);
         }
 
         //! calc total number of members
@@ -588,9 +589,9 @@ namespace COMM{
             ASSERT(member[1]!=NULL);
 #endif
             n_members = 0;
-            if (member_index[0]<0) n_members += ((BinaryTree<Tptcl>*)member[0])->getMemberN();
+            if (member_index[0]<0) n_members += ((BinaryTreeLocal*)member[0])->getMemberN();
             else n_members++;
-            if (member_index[1]<0) n_members += ((BinaryTree<Tptcl>*)member[1])->getMemberN();
+            if (member_index[1]<0) n_members += ((BinaryTreeLocal*)member[1])->getMemberN();
             else n_members++;
             return n_members;
         }
@@ -607,9 +608,9 @@ namespace COMM{
             ASSERT(member[1]!=NULL);
 #endif
             n_members = 0;
-            if (member_index[0]<0) n_members += (BinaryTree<Tptcl>*)member[0]->calcMemberNIter();
+            if (member_index[0]<0) n_members += (BinaryTreeLocal*)member[0]->calcMemberNIter();
             else n_members++;
-            if (member_index[1]<0) n_members += (BinaryTree<Tptcl>*)member[1]->calcMemberNIter();
+            if (member_index[1]<0) n_members += (BinaryTreeLocal*)member[1]->calcMemberNIter();
             else n_members++;
             return n_members;
         }
@@ -630,15 +631,15 @@ namespace COMM{
             ASSERT(member[0]!=NULL);
             ASSERT(member[1]!=NULL);
 #endif
-            if (member_index[0]<0) ((BinaryTree<Tptcl>*)member[0])->processLeafIter(_dat, _f);
+            if (member_index[0]<0) ((BinaryTreeLocal*)member[0])->processLeafIter(_dat, _f);
             else _f(_dat, member[0]);
-            if (member_index[1]<0) ((BinaryTree<Tptcl>*)member[1])->processLeafIter(_dat, _f);
+            if (member_index[1]<0) ((BinaryTreeLocal*)member[1])->processLeafIter(_dat, _f);
             else _f(_dat, member[1]);
         }
 
         //! iteratively root processing function template
         template <class T> 
-        using ProcessFunctionRoot = T (*) (T&, BinaryTree<Tptcl>& );
+        using ProcessFunctionRoot = T (*) (T&, BinaryTreeLocal& );
 
         //! Process root data and return result iteratively
         /*! The process go from top root to leafs from left to right
@@ -652,7 +653,7 @@ namespace COMM{
             ASSERT(member[1]!=NULL);
             T dat_new = _f(_dat, *this);
             for (int k=0; k<2; k++) 
-                if (member_index[k]<0) dat_new = ((BinaryTree<Tptcl>*)member[k])->processRootIter(dat_new, _f);
+                if (member_index[k]<0) dat_new = ((BinaryTreeLocal*)member[k])->processRootIter(dat_new, _f);
             return dat_new;
         }
 
@@ -668,7 +669,7 @@ namespace COMM{
             ASSERT(member[1]!=NULL);
             Troot dat_new = _f_root(_dat_root, *this);
             for (int k=0; k<2; k++)  {
-                if (member_index[k]<0) dat_new = ((BinaryTree<Tptcl>*)member[k])->processRootLeafIter(dat_new, _f_root, _dat_leaf, _f_leaf);
+                if (member_index[k]<0) dat_new = ((BinaryTreeLocal*)member[k])->processRootLeafIter(dat_new, _f_root, _dat_leaf, _f_leaf);
                 else _f_leaf(_dat_leaf, member[k]);
             }
             return dat_new;
@@ -676,7 +677,7 @@ namespace COMM{
 
         //! iteratively tree processing function template
         template <class T, class Tr>
-        using ProcessFunctionTree = Tr (*) (T&, const Tr&, const Tr&, BinaryTree<Tptcl>& );
+        using ProcessFunctionTree = Tr (*) (T&, const Tr&, const Tr&, BinaryTreeLocal& );
 
         //! Process tree data with extra dat iteratively (from bottom to top)
         /*! 
@@ -692,7 +693,7 @@ namespace COMM{
             ASSERT(member[1]!=NULL);
             Tr res[2] = {_res1, _res2};
             for (int k=0; k<2; k++) 
-                if (member_index[k]<0) res[k] = ((BinaryTree<Tptcl>*)member[k])->processTreeIter(_dat, _res1, _res2, _f);
+                if (member_index[k]<0) res[k] = ((BinaryTreeLocal*)member[k])->processTreeIter(_dat, _res1, _res2, _f);
             return _f(_dat, res[0], res[1], *this);
         }
     
@@ -702,7 +703,7 @@ namespace COMM{
           @param [in] _bin_out: BinaryTree array to store the data
           @param [in] _i: index in _bin_out for copying the current tree cell
         */
-        int copyDataIter(BinaryTree<Tptcl> _bin_out[], const int _i) {
+        int copyDataIter(BinaryTreeLocal _bin_out[], const int _i) {
             int n_iter = 1;
             int inow = _i; // array index to fill (backwards moving)
             _bin_out[_i] = *this;
@@ -711,7 +712,7 @@ namespace COMM{
                     inow--;
                     ASSERT(inow>=0);
                     _bin_out[_i].member[k] = &_bin_out[inow];
-                    n_iter += ((BinaryTree<Tptcl>*)member[k])->copyDataIter(_bin_out, inow);
+                    n_iter += ((BinaryTreeLocal*)member[k])->copyDataIter(_bin_out, inow);
                 }
             }
             return n_iter;
@@ -739,9 +740,9 @@ namespace COMM{
         }
 
         //! get member as tree
-        BinaryTree<Tptcl>* getMemberAsTree(const size_t i) const {
+        BinaryTreeLocal* getMemberAsTree(const size_t i) const {
             ASSERT(i<2);
-            return (BinaryTree<Tptcl>*)member[i];
+            return (BinaryTreeLocal*)member[i];
         }
 
         //! get member index
@@ -761,8 +762,8 @@ namespace COMM{
         }
 
         //! get left member as tree
-        BinaryTree<Tptcl>* getLeftMemberAsTree() const {
-            return (BinaryTree<Tptcl>*)member[0];
+        BinaryTreeLocal* getLeftMemberAsTree() const {
+            return (BinaryTreeLocal*)member[0];
         }
 
         //! get right member
@@ -771,18 +772,18 @@ namespace COMM{
         }
 
         //! get right member as tree
-        BinaryTree<Tptcl>* getRightMemberAsTree() const {
-            return (BinaryTree<Tptcl>*)member[1];
+        BinaryTreeLocal* getRightMemberAsTree() const {
+            return (BinaryTreeLocal*)member[1];
         }
 
         ////! copy operator = 
         ///*! Copy the data and member address. If member address point to a particle (id>0), copy address; else if it is a binary tree, copy the address and also correct the address difference, this assume the whole BinaryTree is stored in a continuing array, thus correct address difference also make the new binary tree have consistent member address in new array.
         // */
-        //BinaryTree<Tptcl> & operator = (const BinaryTree<Tptcl>& _bin) {
+        //BinaryTreeLocal & operator = (const BinaryTreeLocal& _bin) {
         //    // copy everything first
-        //    std::memcpy(this, &_bin, sizeof(BinaryTree<Tptcl>));
+        //    std::memcpy(this, &_bin, sizeof(BinaryTreeLocal));
         //    // get Different of address
-        //    const BinaryTree<Tptcl>* adr_diff = (const BinaryTree<Tptcl>*)this - &_bin; 
+        //    const BinaryTreeLocal* adr_diff = (const BinaryTreeLocal*)this - &_bin; 
         //    // correct member address
         //    for (int k=0; k<2; k++) {
         //        if (_bin.member[k]!=NULL)  {
@@ -803,7 +804,7 @@ namespace COMM{
         */
         static void printColumnTitle(std::ostream & _fout, const int _width=20) {
             Tptcl::printColumnTitle(_fout, _width);
-            Binary::printColumnTitle(_fout, _width);
+            Tbinary::printColumnTitle(_fout, _width);
         }
 
         //! print data of class members using column style
@@ -813,7 +814,7 @@ namespace COMM{
         */
         void printColumn(std::ostream & _fout, const int _width=20){
             Tptcl::printColumn(_fout, _width);
-            Binary::printColumn(_fout, _width);
+            Tbinary::printColumn(_fout, _width);
         }
 
         //! write class data to file with ASCII format
@@ -821,7 +822,7 @@ namespace COMM{
          */
         void writeAscii(std::ostream& _fout) const {
             Tptcl::writeAscii(_fout);
-            Binary::writeAscii(_fout);
+            Tbinary::writeAscii(_fout);
         }
 
         //! read class data to file with ASCII format
@@ -829,7 +830,7 @@ namespace COMM{
          */
         void readAscii(std::istream&  _fin) { 
             Tptcl::readAscii(_fin);
-            Binary::readAscii(_fin);
+            Tbinary::readAscii(_fin);
         }       
 
         //! print function
@@ -837,7 +838,7 @@ namespace COMM{
             printColumn(_fout, _width);
             _fout<<std::endl;
             for (int k=0; k<2; k++) {
-                if (member_index[k]<0) ((BinaryTree<Tptcl>*)member[k])->printColumnIter(_fout, _width);
+                if (member_index[k]<0) ((BinaryTreeLocal*)member[k])->printColumnIter(_fout, _width);
             }
         }
     };

@@ -298,7 +298,7 @@ int main(int argc, char **argv){
     // AR inner slowdown number
     int n_group_sub_init[n_group_init], n_group_sub_tot_init=0;
     for (int i=0; i<n_group_init; i++) {
-        n_group_sub_init[i] = h4_int.groups[i].slowdown_inner.getSize();
+        n_group_sub_init[i] = h4_int.groups[i].binary_slowdown_inner.getSize();
         n_group_sub_tot_init += n_group_sub_init[i];
     }
     h4_int.adjustGroups(true);

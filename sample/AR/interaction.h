@@ -5,6 +5,7 @@
 #include "Common/particle_group.h"
 #include "AR/force.h"
 #include "AR/interrupt.h"
+#include "AR/information.h"
 #include "particle.h"
 #include "perturber.h"
 
@@ -209,7 +210,7 @@ public:
     }    
 
     //! calculate perturbation from binary tree
-    static Float calcPertFromBinary(const COMM::BinaryTree<Particle>& _bin) {
+    static Float calcPertFromBinary(const AR::BinaryTree<Particle>& _bin) {
         Float apo = _bin.semi*(1.0+_bin.ecc);
         Float apo2 = apo*apo;
 #ifdef AR_SLOWDOWN_PERT_R4
@@ -232,14 +233,14 @@ public:
 #ifdef AR_SLOWDOWN_INNER
     //! information of perturbation for iteration function
     struct SlowDownPertCollector{
-        COMM::BinaryTree<Particle>* bin;
+        AR::BinaryTree<Particle>* bin;
         Float G;
         Float pert_pot;
         Float t_min_sq;
     }; 
 
     //! iteration function to calculate perturbation and timescale information
-    static SlowDownPertCollector* calcSlowDownPertBinIter(SlowDownPertCollector*& _sdt, COMM::BinaryTree<Particle>& _bin) {
+    static SlowDownPertCollector* calcSlowDownPertBinIter(SlowDownPertCollector*& _sdt, AR::BinaryTree<Particle>& _bin) {
         if (&_bin == _sdt->bin || (_bin.semi>0.0 && _bin.getMemberN()==2)) return _sdt;
 
         const Float* xcm = _sdt->bin->pos;
@@ -325,7 +326,7 @@ public:
       @param[in] _bin: binary tree for calculating slowdown
       @param[in] _bin_root: binary tree root of the AR group
      */
-    void calcSlowDownInnerBinary(AR::SlowDown& _slowdown, const AR::SlowDown& _slowdown_cm, COMM::BinaryTree<Particle>& _bin, COMM::BinaryTree<Particle>& _bin_root) {
+    void calcSlowDownInnerBinary(AR::SlowDown& _slowdown, const AR::SlowDown& _slowdown_cm, AR::BinaryTree<Particle>& _bin, AR::BinaryTree<Particle>& _bin_root) {
         _slowdown.pert_in = calcPertFromBinary(_bin);
         _slowdown.period = _bin_root.period;
 
@@ -359,7 +360,7 @@ public:
       @param[in] _bin_root: binary tree root
       @param[in] _perturber: pertuber container
     */
-    void calcSlowDownPert(AR::SlowDown& _slowdown, const Particle& _particle_cm, const COMM::BinaryTree<Particle>& _bin_root, const Perturber& _perturber) {
+    void calcSlowDownPert(AR::SlowDown& _slowdown, const Particle& _particle_cm, const AR::BinaryTree<Particle>& _bin_root, const Perturber& _perturber) {
         
         // slowdown inner perturbation: m1*m2/apo_in^4
         //Float apo_in = _bin_root.semi*(1.0+_bin_root.ecc);
@@ -398,7 +399,7 @@ public:
       @param[in] _bin_interrupt: interrupt binary information: adr: binary tree address; time_now: current physical time; time_end: integration finishing time; status: interrupt status: change, merge,none
       @param[in] _bin: binarytree to check iteratively
      */
-    static AR::InterruptBinary<Particle>* modifyAndInterruptIter(AR::InterruptBinary<Particle>*& _bin_interrupt, COMM::BinaryTree<Particle>& _bin) {
+    static AR::InterruptBinary<Particle>* modifyAndInterruptIter(AR::InterruptBinary<Particle>*& _bin_interrupt, AR::BinaryTree<Particle>& _bin) {
         if (_bin.getMemberN()==2&&_bin_interrupt->status==AR::InterruptStatus::none) {
             Particle *p1,*p2;
             p1 = _bin.getLeftMember();

@@ -95,7 +95,7 @@ namespace H4{
           @param[in] _particles: particle group to add particles
           @param[in] _bin: Binary tree root contain member particles
         */
-        void addParticlesAndCopyBinaryTree(COMM::ParticleGroup<ARPtcl, ParticleH4<Tparticle>>& _particles, COMM::BinaryTree<ARPtcl>& _bin) {
+        void addParticlesAndCopyBinaryTree(COMM::ParticleGroup<ARPtcl, ParticleH4<Tparticle>>& _particles, AR::BinaryTree<ARPtcl>& _bin) {
             int n_members = _bin.getMemberN();
             // copy KeplerTree first
             ARInfoBase::binarytree.resizeNoInitialize(n_members-1);

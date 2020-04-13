@@ -41,7 +41,7 @@ int main(int argc, char **argv){
                     <<"    pariticle data (two lines): \n";
            Particle::printColumnTitle(std::cout, WIDTH);
            std::cout<<"\n    orbital data (one line): (period, r, L.(x/y/z) are not used)\n";
-           COMM::BinaryTree<Particle>::printColumnTitle(std::cout, WIDTH);
+           COMM::BinaryTree<Particle,COMM::Binary>::printColumnTitle(std::cout, WIDTH);
            std::cout<<"\nOptions: (*) show defaulted values\n"
                     <<"   -i:        read particle data, output kepler orbit data (one line)\n"
                     <<"   -n [int]:  number of pairs(1)\n"
@@ -76,7 +76,7 @@ int main(int argc, char **argv){
    std::cout<<std::setprecision(PRECISION);
 
    Particle p[2];
-   COMM::BinaryTree<Particle> bin;
+   COMM::BinaryTree<Particle,COMM::Binary> bin;
 
    // unit convert 
    Float G=1.0;

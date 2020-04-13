@@ -2583,9 +2583,9 @@ namespace H4{
                 n_sd_count += _n_sd_list[i];
                 if (i<n_group_now) {
                     auto & gi = groups[i];
-                    int n_sd_in = gi.slowdown_inner.getSize();
+                    int n_sd_in = gi.binary_slowdown_inner.getSize();
                     for (int j=0; j<_n_sd_list[i]; j++) {
-                        if (j<n_sd_in) gi.slowdown_inner[j].slowdown.printColumn(_fout, _width);
+                        if (j<n_sd_in) gi.binary_slowdown_inner[j]->slowdown.printColumn(_fout, _width);
                         else sd_empty.printColumn(_fout, _width);
                     }
                     gi.slowdown.printColumn(_fout, _width);

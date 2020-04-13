@@ -40,7 +40,7 @@ void CountLevelBranch(PrintInfo& _info, Particle*& _p) {
     }
 }
 
-PrintInfo PrintParticle(PrintInfo& _info, COMM::BinaryTree<Particle>& _bin){
+PrintInfo PrintParticle(PrintInfo& _info, COMM::BinaryTree<Particle,COMM::Binary>& _bin){
     std::cout<<std::setw(_info.print_width)<<_info.level
              <<std::setw(_info.print_width)<<_info.branch
              <<std::setw(_info.print_width)<<_bin.m1
@@ -147,8 +147,8 @@ int main(int argc, char **argv){
             pindex.push_back(plist.size());
             plist.push_back(ptmp);
         }
-        COMM::BinaryTree<Particle> bins[plist.size()];
-        COMM::BinaryTree<Particle>::generateBinaryTree(bins, &pindex.front(), plist.size(), &plist.front(),G);
+        COMM::BinaryTree<Particle,COMM::Binary> bins[plist.size()];
+        COMM::BinaryTree<Particle,COMM::Binary>::generateBinaryTree(bins, &pindex.front(), plist.size(), &plist.front(),G);
         PrintInfo info;
         info.level = info.branch = 0;
         info.print_width=WIDTH;

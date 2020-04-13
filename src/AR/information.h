@@ -1,8 +1,75 @@
 #pragma once
 #include "Common/Float.h"
 #include "Common/binary_tree.h"
+#include "AR/slow_down.h"
 
 namespace AR {
+
+    //! binary parameter with slowdown
+    class BinarySlowDown: public COMM::Binary {
+    public:
+        SlowDown slowdown;
+
+        //! write class data to file with binary format
+        /*! @param[in] _fp: FILE type file for output
+         */
+        void writeBinary(FILE *_fp) const {
+            fwrite(this, sizeof(*this),1,_fp);
+        }
+
+        //! read class data to file with binary format
+        /*! @param[in] _fp: FILE type file for reading
+         */
+        void readBinary(FILE *_fin) {
+            size_t rcount = fread(this, sizeof(*this),1,_fin);
+            if (rcount<1) {
+                std::cerr<<"Error: Data reading fails! requiring data number is 1, only obtain "<<rcount<<".\n";
+                abort();
+            }
+        }
+
+        //! print titles of class members using column style
+        /*! print titles of class members in one line for column style
+          @param[out] _fout: std::ostream output object
+          @param[in] _width: print width (defaulted 20)
+        */
+        static void printColumnTitle(std::ostream & _fout, const int _width=20) {
+            Binary::printColumnTitle(_fout, _width);
+            SlowDown::printColumnTitle(_fout,_width);
+        }
+
+        //! print data of class members using column style
+        /*! print data of class members in one line for column style. Notice no newline is printed at the end
+          @param[out] _fout: std::ostream output object
+          @param[in] _width: print width (defaulted 20)
+        */
+        void printColumn(std::ostream & _fout, const int _width=20){
+            Binary::printColumn(_fout, _width);
+            slowdown.printColumn(_fout,_width);
+        }
+
+        //! write class data to file with ASCII format
+        /*! @param[in] _fout: std:osteram file for output
+         */
+        //void writeAscii(std::ostream& _fout) const {
+        //    COMM::BinaryTree<Tparticle>::writeAscii(_fout);
+        //    SlowDown::writeAscii(_fout);
+        //}
+
+        //! read class data to file with ASCII format
+        /*! @param[in] _fin: std::istream file for input
+         */
+        //void readAscii(std::istream&  _fin) { 
+        //    COMM::BinaryTree<Tparticle>::readAscii(_fin);
+        //    SlowDown::readAscii(_fin);
+        //}       
+
+    };
+    
+    //! define ar binary tree
+    template <class Tparticle>
+    using BinaryTree=COMM::BinaryTree<Tparticle,BinarySlowDown>;
+
     //! Fix step options for integration with adjusted step (not for time sychronizatio phase)
     /*! always: use the given step without change \n
         later: fix step after a few adjustment of initial steps due to energy error
@@ -10,16 +77,16 @@ namespace AR {
      */
     enum class FixStepOption {always, later, none};
 
-    template <class Tparticle, class Tpcm>
     //! A class contains the Kepler orbital parameters and initial step size
     /*! The class has members to generate the Kepler orbital binary tree of the particle group and store the information in binarytree. \\
       It also provides the initial step size estimator and the option of fix step.
      */
+    template <class Tparticle, class Tpcm>
     class Information{
     private:
         //! calculate average kepler ds for ARC
         template <class Tds>
-        static Tds calcDsKeplerIter(Tds& _ds, COMM::BinaryTree<Tparticle>& _bin) {
+        static Tds calcDsKeplerIter(Tds& _ds, COMM::BinaryTree<Tparticle,BinarySlowDown>& _bin) {
             Tds ds;
             ds.G   = _ds.G;
 #ifdef AR_TTL_GT_MULTI
@@ -41,7 +108,7 @@ namespace AR {
     public:
         Float ds;  ///> initial step size for integration
         FixStepOption fix_step_option; ///> fix step option for integration
-        COMM::List<COMM::BinaryTree<Tparticle>> binarytree; ///> a list of binary tree that contain the hierarchical orbital parameters of the particle group.
+        COMM::List<COMM::BinaryTree<Tparticle,BinarySlowDown>> binarytree; ///> a list of binary tree that contain the hierarchical orbital parameters of the particle group.
 
         //! initializer, set ds to zero, fix_step_option to none
         Information(): ds(Float(0.0)),  fix_step_option(AR::FixStepOption::none), binarytree() {}
@@ -61,7 +128,7 @@ namespace AR {
         }
 
         //! get the root of binary tree
-        COMM::BinaryTree<Tparticle>& getBinaryTreeRoot() const {
+        COMM::BinaryTree<Tparticle,BinarySlowDown>& getBinaryTreeRoot() const {
             int n = binarytree.getSize();
             ASSERT(n>0);
             return binarytree[n-1];
@@ -124,7 +191,7 @@ namespace AR {
                 else particle_index_unused[n_particle_unused++] = i;
             }
             if (n_particle_real>1) 
-                COMM::BinaryTree<Tparticle>::generateBinaryTree(binarytree.getDataAddress(), particle_index_local, n_particle_real, _particles.getDataAddress(), _G);
+                COMM::BinaryTree<Tparticle,BinarySlowDown>::generateBinaryTree(binarytree.getDataAddress(), particle_index_local, n_particle_real, _particles.getDataAddress(), _G);
 
             // Add unused particles to the outmost orbit
             if (n_particle_real==0) {
