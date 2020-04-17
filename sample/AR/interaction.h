@@ -239,6 +239,8 @@ public:
       @param[in] _pj: particle j 
      */
     void calcSlowDownPertOne(Float& _pert_out, Float& _t_min_sq, const Particle& pi, const Particle& pj) {
+        const Float factor = 100.0;
+
         Float dr[3] = {pj.pos[0] - pi.pos[0],
                        pj.pos[1] - pi.pos[1],
                        pj.pos[2] - pi.pos[2]};
@@ -260,7 +262,7 @@ public:
 
         //hyperbolic, directly use velocity v
         if (semi<0) 
-            _t_min_sq = std::min(_t_min_sq, r2/v2);
+            _t_min_sq = std::min(_t_min_sq, factor*r2/v2);
         else {
             if (r<semi) {
                 // avoid decrese of vr once the orbit pass, calculate vr max at E=pi/2 (r==semi)
@@ -269,12 +271,12 @@ public:
                 Float er = 2*gm - rv2;
                 Float vcr2 = gm - rv2;
                 Float vrmax_sq = er*(drdv*drdv*er + r*vcr2*vcr2)/(gm*gm*r2);
-                _t_min_sq = std::min(_t_min_sq, semi*semi/vrmax_sq);
+                _t_min_sq = std::min(_t_min_sq, factor*semi*semi/vrmax_sq);
             }
             else {
                 // r/vr
                 Float rovr = r2/abs(drdv);
-                _t_min_sq = std::min(_t_min_sq, rovr*rovr);
+                _t_min_sq = std::min(_t_min_sq, factor*rovr*rovr);
             }
         }
 

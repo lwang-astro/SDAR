@@ -279,18 +279,6 @@ namespace AR {
           @param[in,out] _gt_kick_inv: the inverse time transformation factor for kick step (input), be corrected with slowdown (output)
          */
         inline void correctAccPotGTKickInvSlowDownInner(Float& _gt_kick_inv) {
-            const Float kappa_inv_global = 1.0/binary_slowdown[0]->slowdown.getSlowDownFactor();
-            for (int i=0; i<force_.getSize(); i++) {
-                force_[i].acc_in[0] *= kappa_inv_global;
-                force_[i].acc_in[1] *= kappa_inv_global;
-                force_[i].acc_in[2] *= kappa_inv_global;
-#ifdef AR_TTL
-                force_[i].gtgrad[0] *= kappa_inv_global;
-                force_[i].gtgrad[1] *= kappa_inv_global;
-                force_[i].gtgrad[2] *= kappa_inv_global;
-#endif
-            }
-
             int n = binary_slowdown.getSize();
             Float gt_kick_inv_cor = 0.0;
             Float de = 0.0;
@@ -300,6 +288,7 @@ namespace AR {
                 int i1 = sdi->getMemberIndex(0);
                 int i2 = sdi->getMemberIndex(1);
                 Float kappa = sdi->slowdown.getSlowDownFactor();
+                Float kappa_inv = 1.0/kappa;
                 if (i1>=0) {
                     ASSERT(i2>=0);
                     ASSERT(i1!=i2);
@@ -310,8 +299,7 @@ namespace AR {
                     Force fi[2];
                     Float epoti;
                     Float gt_kick_inv_i = manager->interaction.calcInnerAccPotAndGTKickInvTwo(fi[0], fi[1], epoti, particles[i1], particles[i2]);
-                    Float kappa_inv = 1.0/kappa;
-                    // scale binary pair force with slowdown 
+                                    // scale binary pair force with slowdown 
                     force_[i1].acc_in[0] += fi[0].acc_in[0]*kappa_inv - fi[0].acc_in[0];
                     force_[i1].acc_in[1] += fi[0].acc_in[1]*kappa_inv - fi[0].acc_in[1];
                     force_[i1].acc_in[2] += fi[0].acc_in[2]*kappa_inv - fi[0].acc_in[2];
@@ -348,6 +336,20 @@ namespace AR {
 #endif // AR_TTL
                 }
             }
+
+            // global slowdown
+            const Float kappa_inv_global = 1.0/binary_slowdown[0]->slowdown.getSlowDownFactor();
+            for (int i=0; i<force_.getSize(); i++) {
+                force_[i].acc_in[0] *= kappa_inv_global;
+                force_[i].acc_in[1] *= kappa_inv_global;
+                force_[i].acc_in[2] *= kappa_inv_global;
+#ifdef AR_TTL
+                force_[i].gtgrad[0] *= kappa_inv_global;
+                force_[i].gtgrad[1] *= kappa_inv_global;
+                force_[i].gtgrad[2] *= kappa_inv_global;
+#endif
+            }
+
             epot_sd_ = (epot_ + de)*kappa_inv_global;
 #ifdef AR_TTL_GT_BINARY_INNER
             if(gt_kick_inv_cor!=0.0) _gt_kick_inv = gt_kick_inv_cor*kappa_inv_global;
@@ -385,51 +387,6 @@ namespace AR {
                 }
             }
         }
-
-#ifdef AR_TTL
-        //! calculate gt_drift_inv in the case of inner binary slowdown.
-        /*!
-          @param[in,out] _dgt: d gt_drift_inv_ for correction, modified the original value (from all members) with the slowdown correction
-          @param[in] _dt: time step
-          @param[in] _sd_global_inv: global slowdown inverse
-         */
-        inline void correctDGTInvSlowDownInner(Float& _dgt, const Float& _dt, const Float& _sd_global_inv) {
-            int n = binary_slowdown.getSize();
-            Float dg = Float(0.0);
-            for (int i=1; i<n; i++) {
-                auto& sdi = binary_slowdown[i];
-                ASSERT(sdi!=NULL);
-                Float kappa = sdi->slowdown.getSlowDownFactor();
-                Float kappa_inv = 1.0/kappa*_sd_global_inv;
-                Float* velcm = sdi->getVel();
-                for (int k=0; k<2; k++) {
-                    int j = sdi->getMemberIndex(k);
-                    if (j>=0) {
-                        ASSERT(j<particles.getSize());
-                        Float* gtgrad=force_[j].gtgrad;
-                        Float* vel = particles[j].getVel();
-                        Float vrel[3] = { vel[0] - velcm[0], 
-                                          vel[1] - velcm[1], 
-                                          vel[2] - velcm[2]}; 
-#ifdef AR_TTL_GT_BINARY_INNER
-                        dg +=  ((vrel[0] * kappa_inv + velcm[0])* gtgrad[0] +
-                                (vrel[1] * kappa_inv + velcm[1])* gtgrad[1] +
-                                (vrel[2] * kappa_inv + velcm[2])* gtgrad[2]);
-#else
-                        dg +=  (vrel[0] * (kappa_inv-1)* gtgrad[0] +
-                                vrel[1] * (kappa_inv-1)* gtgrad[1] +
-                                vrel[2] * (kappa_inv-1)* gtgrad[2]);
-#endif
-                    }
-                }
-            }
-#ifdef AR_TTL_GT_BINARY_INNER
-            _dgt = _dt*dg;
-#else
-            _dgt += _dt*dg;
-#endif
-        }
-#endif // AR_TTL
 
         //! update c.m. for binaries with slowdown inner
         inline void updateCenterOfMassForBinaryWithSlowDownInner() {
@@ -577,7 +534,7 @@ namespace AR {
             //Float trv_ave = sdtdat.mtot/sqrt(sdtdat.mvor[0]*sdtdat.mvor[0] + sdtdat.mvor[1]*sdtdat.mvor[1] + sdtdat.mvor[2]*sdtdat.mvor[2]);
             // get min of velocity and force dependent values
             //Float t_min = std::min(trv_ave, sqrt(sdtdat.trf2_min));
-            _bin.slowdown.timescale = std::min(_bin.slowdown.getTimescaleMax(), 10*sqrt(t_min_sq));
+            _bin.slowdown.timescale = std::min(_bin.slowdown.getTimescaleMax(), sqrt(t_min_sq));
 #else
             _bin.slowdown.timescale = _bin.slowdown.getTimescaleMax();
 #endif
@@ -1019,16 +976,38 @@ namespace AR {
                         vel[1] * gtgrad[1] +
                         vel[2] * gtgrad[2]);
             }
-            Float dgt = _dt * dg;
             etot_ref_ += _dt * de;
+
 #ifdef AR_SLOWDOWN_ARRAY
-            const Float kappa_inv_global = 1.0/binary_slowdown[0]->slowdown.getSlowDownFactor();
             etot_sd_ref_ += _dt * de;
-            correctDGTInvSlowDownInner(dgt, _dt, kappa_inv_global);
-            gt_drift_inv_ = (gt_drift_inv_ + dgt)*kappa_inv_global;
+
+            // correct gt_drift_inv
+            const Float kappa_inv_global = 1.0/binary_slowdown[0]->slowdown.getSlowDownFactor();
+            int n = binary_slowdown.getSize();
+            for (int i=1; i<n; i++) {
+                auto& sdi = binary_slowdown[i];
+                ASSERT(sdi!=NULL);
+                Float kappa = sdi->slowdown.getSlowDownFactor();
+                Float kappa_inv = 1.0/kappa;
+                Float* velcm = sdi->getVel();
+                for (int k=0; k<2; k++) {
+                    int j = sdi->getMemberIndex(k);
+                    if (j>=0) {
+                        ASSERT(j<particles.getSize());
+                        Float* gtgrad=force_[j].gtgrad;
+                        Float* vel = particles[j].getVel();
+                        Float vrel[3] = { vel[0] - velcm[0], 
+                                          vel[1] - velcm[1], 
+                                          vel[2] - velcm[2]}; 
+                        dg +=  (vrel[0] * (kappa_inv-1)* gtgrad[0] +
+                                vrel[1] * (kappa_inv-1)* gtgrad[1] +
+                                vrel[2] * (kappa_inv-1)* gtgrad[2]);
+                    }
+                }
+            }
+            gt_drift_inv_ += _dt * dg *kappa_inv_global;
 #else
-            etot_ref_ += _dt * de;
-            gt_drift_inv_ += dgt;
+            gt_drift_inv_ += _dt * dg;
 #endif
         }
 
@@ -1899,7 +1878,8 @@ namespace AR {
                         auto& bin_root = info.getBinaryTreeRoot();
                         bin_interrupt.time_now = time_;
                         InterruptBinary<Tparticle>* bin_intr_ptr = &bin_interrupt;
-                        bin_intr_ptr = bin_root.processRootIter(bin_intr_ptr, Tmethod::modifyAndInterruptIter);
+                        Tmethod::modifyAndInterruptIter(bin_intr_ptr, bin_root);
+                        //bin_intr_ptr = bin_root.processRootIter(bin_intr_ptr, Tmethod::modifyAndInterruptIter);
                         ASSERT(bin_interrupt.checkParams());
                         if (bin_interrupt.status!=InterruptStatus::none) {
                             // the mode return back to the root scope
