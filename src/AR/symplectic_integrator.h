@@ -201,7 +201,7 @@ namespace AR {
             epot_ = 0.0;
             de_sd_change_cum_ = 0.0;
             dH_sd_change_cum_ = 0.0;
-#ifdef AR_SLOWDOWN
+#if (defined AR_SLOWDOWN_ARRAY) || (defined AR_SLOWDOWN_TREE)
             ekin_sd_ = 0.0;
             epot_sd_ = 0.0;
             etot_sd_ref_ = 0.0;
@@ -237,7 +237,7 @@ namespace AR {
             epot_   = _sym.epot_;
             de_sd_change_cum_= _sym.de_sd_change_cum_;
             dH_sd_change_cum_= _sym.dH_sd_change_cum_;
-#ifdef AR_SLOWDOWN
+#if (defined AR_SLOWDOWN_ARRAY) || (defined AR_SLOWDOWN_TREE)
             ekin_sd_= _sym.ekin_sd_;
             epot_sd_= _sym.epot_sd_;
             etot_sd_ref_= _sym.etot_sd_ref_;
@@ -351,11 +351,7 @@ namespace AR {
             }
 
             epot_sd_ = (epot_ + de)*kappa_inv_global;
-#ifdef AR_TTL_GT_BINARY_INNER
-            if(gt_kick_inv_cor!=0.0) _gt_kick_inv = gt_kick_inv_cor*kappa_inv_global;
-#else
             _gt_kick_inv = (_gt_kick_inv + gt_kick_inv_cor)*kappa_inv_global;
-#endif
         }
 
         //! correct postion drift due to inner binary slowdown
@@ -1047,6 +1043,7 @@ namespace AR {
         void updateSlowDownAndCorrectEnergy() {
             
             auto& sd_root = binary_slowdown[0]->slowdown;
+            Float sd_backup = sd_root.getSlowDownFactor();
             //if (time_>=sd_root.getUpdateTime()) {
             sd_root.pert_in = manager->interaction.calcPertFromBinary(*binary_slowdown[0]);
             sd_root.period = binary_slowdown[0]->period;
@@ -1082,11 +1079,7 @@ namespace AR {
 
             if (modified_flag) {
                 // initialize the gt_drift_inv_ with new slowdown factor
-#ifdef AR_TTL_GT_BINARY_INNER
-                Float gt_kick_inv_sdi = 0.0;
-#else
                 Float gt_kick_inv_sdi = manager->interaction.calcAccPotAndGTKickInv(force_.getDataAddress(), epot_, particles.getDataAddress(), particles.getSize(), particles.cm, perturber, getTime());
-#endif
                 correctAccPotGTKickInvSlowDownInner(gt_kick_inv_sdi);
 #ifdef AR_TTL
                 gt_drift_inv_ += gt_kick_inv_sdi - gt_kick_inv_;
@@ -1096,8 +1089,13 @@ namespace AR {
                 calcEkinSlowDownInner(ekin_);
             }
             else {
-                // only need to correct the total value
                 Float kappa_inv = 1.0/sd_root.getSlowDownFactor();
+                Float gt_kick_inv_sdi = gt_kick_inv_*sd_backup*kappa_inv;
+#ifdef AR_TTL
+                gt_drift_inv_ += gt_kick_inv_sdi - gt_kick_inv_;
+                gt_kick_inv_ = gt_kick_inv_sdi;
+#endif
+                // only need to correct the total value
                 ekin_sd_ = ekin_*kappa_inv;
                 epot_sd_ = epot_*kappa_inv;
             }
@@ -1330,14 +1328,16 @@ namespace AR {
                 // update real time
                 _time_table[i] = time_;
 
-                // drift position
-                pos1[0] += dt * vel1[0];
-                pos1[1] += dt * vel1[1];
-                pos1[2] += dt * vel1[2];
+                Float dt_sd = dt*kappa_inv;
 
-                pos2[0] += dt * vel2[0];
-                pos2[1] += dt * vel2[1];
-                pos2[2] += dt * vel2[2];
+                // drift position
+                pos1[0] += dt_sd * vel1[0];
+                pos1[1] += dt_sd * vel1[1];
+                pos1[2] += dt_sd * vel1[2];
+
+                pos2[0] += dt_sd * vel2[0];
+                pos2[1] += dt_sd * vel2[1];
+                pos2[2] += dt_sd * vel2[2];
 
                 // step for kick
                 ds = manager->step.getDK(i)*_ds;
@@ -1396,12 +1396,12 @@ namespace AR {
 
 #if (defined AR_SLOWDOWN_ARRAY ) || (defined AR_SLOWDOWN_TREE)
                 // integrate gt_drift_inv
-                gt_drift_inv_ +=  2.0*dt*kappa_inv* (vel1[0] * gtgrad1[0] +
-                                                     vel1[1] * gtgrad1[1] +
-                                                     vel1[2] * gtgrad1[2] +
-                                                     vel2[0] * gtgrad2[0] +
-                                                     vel2[1] * gtgrad2[1] +
-                                                     vel2[2] * gtgrad2[2]);
+                gt_drift_inv_ +=  2.0*dt*kappa_inv*kappa_inv* (vel1[0] * gtgrad1[0] +
+                                                               vel1[1] * gtgrad1[1] +
+                                                               vel1[2] * gtgrad1[2] +
+                                                               vel2[0] * gtgrad2[0] +
+                                                               vel2[1] * gtgrad2[1] +
+                                                               vel2[2] * gtgrad2[2]);
 #else
                 // integrate gt_drift_inv
                 gt_drift_inv_ +=  2.0*dt* (vel1[0] * gtgrad1[0] +
