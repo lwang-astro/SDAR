@@ -525,15 +525,15 @@ namespace H4{
                 //const Float pert_in= groupk.slowdown.getPertIn();
                 //const Float kappa = sd.calcSlowDownFactor(pert_in, pert_out);
                 // calculate non soft perturbation
-                const Float kappa = groupk.slowdown.getSlowDownFactor();
-                groupk.perturber.checkGroupResolve(kappa);
+                groupk.perturber.checkGroupResolve();
             }
         }
 
         //! Generate j particle list from groups for force calculation
         /*! check group status, if the components are need to resolve, writeback the data with slowdown velocity, save the index to _index_group_resolve list, otherwisde save to _index_group_cm list
+          @param[in]: _write_back_flag: if true, write back slowdown particles from groups, otherwise only record group index
          */
-        void writeBackResolvedGroupAndCreateJParticleList() {
+        void writeBackResolvedGroupAndCreateJParticleList(const bool _write_back_flag) {
             index_group_resolve_.resizeNoInitialize(0);
             index_group_cm_.resizeNoInitialize(0);
             const int n_group_org = index_dt_sorted_group_.getSize();
@@ -545,7 +545,7 @@ namespace H4{
                 ASSERT(k>=0);
                 auto& group_k = group_ptr[k];
                 if (group_k.perturber.need_resolve_flag) {
-                    group_k.writeBackSlowDownParticles(ptcl[k+index_offset_group_]);
+                    if (_write_back_flag) group_k.writeBackSlowDownParticles(ptcl[k+index_offset_group_]);
                     index_group_resolve_.addMember(k);
                 }
                 else index_group_cm_.addMember(k);
@@ -1297,6 +1297,7 @@ namespace H4{
                 int ibreak = groupi.info.getTwoBranchParticleIndexOriginFromBinaryTree(particle_index_origin, groupi.particles.getDataAddress());
 
 #ifdef ADJUST_GROUP_DEBUG
+                auto& sd_root = groupi.info.getBinaryTreeRoot().slowdown;
                 std::cerr<<"Break Group:  "
                          <<" k:"<<std::setw(2)<<i
                          <<" N_member: "<<std::setw(4)<<groupi.particles.getSize()
@@ -1304,10 +1305,10 @@ namespace H4{
                          <<" step(tsyn): "<<std::setw(10)<<groupi.profile.step_count_tsyn_sum
 //                         <<" step(sum): "<<std::setw(12)<<profile.ar_step_count
 //                         <<" step_tsyn(sum): "<<std::setw(12)<<profile.ar_step_count_tsyn
-                         <<" Pert_In: "<<std::setw(20)<<groupi.slowdown.getPertIn()
-                         <<" Pert_Out: "<<std::setw(20)<<groupi.slowdown.getPertOut()
-                         <<" SD: "<<std::setw(20)<<groupi.slowdown.getSlowDownFactor()
-                         <<" SD(org): "<<std::setw(20)<<groupi.slowdown.getSlowDownFactorOrigin();
+                         <<" Pert_In: "<<std::setw(20)<<sd_root.getPertIn()
+                         <<" Pert_Out: "<<std::setw(20)<<sd_root.getPertOut()
+                         <<" SD: "<<std::setw(20)<<sd_root.getSlowDownFactor()
+                         <<" SD(org): "<<std::setw(20)<<sd_root.getSlowDownFactorOrigin();
                 auto& bin = groupi.info.getBinaryTreeRoot();
                 std::cerr<<" semi: "<<std::setw(20)<<bin.semi
                          <<" ecc: "<<std::setw(20)<<bin.ecc
@@ -1542,9 +1543,10 @@ namespace H4{
                 if (outgoing_flag) {
 
                     AR::SlowDown sd;
-                    sd.initialSlowDownReference(groupk.slowdown.getSlowDownFactorReference(),groupk.slowdown.getSlowDownFactorMax());
-                    sd.timescale = groupk.slowdown.timescale;
-                    sd.period = groupk.info.getBinaryTreeRoot().period;
+                    auto& sd_group = groupk.info.getBinaryTreeRoot().slowdown;
+                    sd.initialSlowDownReference(sd_group.getSlowDownFactorReference(),sd_group.getSlowDownFactorMax());
+                    sd.timescale = sd_group.timescale;
+                    sd.period = sd_group.period;
 
                     if (n_member==2) {
                         // check strong perturbed binary case 
@@ -1566,8 +1568,9 @@ namespace H4{
                                 std::cerr<<" index: ";
                                 for (int i=0; i<n_member; i++) 
                                     std::cerr<<groupk.info.particle_index[i]<<" ";
-                                std::cerr<<" pert_in: "<<groupk.slowdown.pert_in
-                                         <<" pert_out: "<<groupk.slowdown.pert_out
+                                auto& sd_root = groupk.info.getBinaryTreeRoot().slowdown;
+                                std::cerr<<" pert_in: "<<sd_root.pert_in
+                                         <<" pert_out: "<<sd_root.pert_out
                                          <<" kappa_org: "<<kappa_org
                                          <<" dr: "<<bin_root.r
                                          <<" semi: "<<bin_root.semi
@@ -1580,7 +1583,6 @@ namespace H4{
                             }
                         }
                     }
-#ifndef AR_SLOWDOWN_INNER
                     // check few-body inner perturbation (suppress when use slowdown inner AR)
                     else {
                         for (int j=0; j<2; j++) {
@@ -1640,7 +1642,6 @@ namespace H4{
                             }
                         }
                     }
-#endif
                 }
             }
         }
@@ -1722,9 +1723,9 @@ namespace H4{
                     }
                     else {
                         const int jg = j-index_offset_group_;
-#ifndef AR_SLOWDOWN_INNER
+#ifndef AR_SLOWDOWN_ARRAY
                         // in case without AR slowdown inner, avoid form AR when inner kappa is >1.0
-                        Float kappa_org_j = groups[jg].slowdown.getSlowDownFactorOrigin();
+                        Float kappa_org_j = groups[jg].info.getBinaryTreeRoot().slowdown.getSlowDownFactorOrigin();
                         if (kappa_org_j>1.0) continue;
 #endif
                         pj = &groups[jg].particles.cm;
@@ -1764,7 +1765,7 @@ namespace H4{
                                      <<" kappa_org: "<<kappa_org<<"\n";
                         }
                         else {
-                            auto& bin_root = groups[j-index_offset_group_].info.binarytree.getLastMember();
+                            auto& bin_root = groups[j-index_offset_group_].info.getBinaryTreeRoot();
                             std::cerr<<"Find new group: time: "<<time_
                                      <<" dr: "<<sqrt(dr2)
                                      <<" kappa_org: "<<kappa_org<<"\n"
@@ -1775,7 +1776,7 @@ namespace H4{
                                      <<std::setw(16)<<0;
                             std::cerr<<"\ni2 "
                                      <<std::setw(8)<<j
-                                     <<std::setw(16)<<groups[j-index_offset_group_].slowdown.getSlowDownFactorOrigin()
+                                     <<std::setw(16)<<bin_root.slowdown.getSlowDownFactorOrigin()
                                      <<std::setw(16)<<bin_root.semi*(1.0+bin_root.ecc);
                             std::cerr<<std::endl;
                         }
@@ -1817,9 +1818,9 @@ namespace H4{
 
                     auto& pi = groupi.particles.cm;
 
-#ifndef AR_SLOWDOWN_INNER
+#ifndef AR_SLOWDOWN_ARRAY
                     // avoid kappa>1.0
-                    Float kappa_org_i = groupi.slowdown.getSlowDownFactorOrigin();
+                    Float kappa_org_i = groupi.info.getBinaryTreeRoot().slowdown.getSlowDownFactorOrigin();
                     if (kappa_org_i>1.0) continue;
 #endif
 
@@ -1831,8 +1832,8 @@ namespace H4{
                     }
                     else {
                         const int jg = j-index_offset_group_;
-#ifndef AR_SLOWDOWN_INNER
-                        Float kappa_org_j = groups[jg].slowdown.getSlowDownFactorOrigin();
+#ifndef AR_SLOWDOWN_ARRAY
+                        Float kappa_org_j = groups[jg].getBinaryTreeRoot().slowdown.getSlowDownFactorOrigin();
                         if (kappa_org_j>1.0) continue;
 #endif
 
@@ -1871,14 +1872,14 @@ namespace H4{
                         if(kappa_org<kappa_org_crit) continue;
 
 #ifdef ADJUST_GROUP_DEBUG
-                        auto& bini = groupi.info.binarytree.getLastMember();
+                        auto& bini = groupi.info.getBinaryTreeRoot();
                         std::cerr<<"Find new group: time: "<<time_
                                  <<" dr: "<<sqrt(dr2)
                                  <<" kappa_org: "<<kappa_org
                                  <<"\n       index        slowdown         apo  \n"
                                  <<"i1 "
                                  <<std::setw(8)<<i
-                                 <<std::setw(16)<<groupi.slowdown.getSlowDownFactorOrigin()
+                                 <<std::setw(16)<<bini.slowdown.getSlowDownFactorOrigin()
                                  <<std::setw(16)<<bini.semi*(1.0+bini.ecc);
                         if(j<index_offset_group_) {
                             std::cerr<<"\ni2 "
@@ -1887,8 +1888,8 @@ namespace H4{
                                      <<std::setw(16)<<0;
                         }
                         else {
-                            auto& binj = groups[j-index_offset_group_].info.binarytree.getLastMember();
-                            Float kappaj = groups[j-index_offset_group_].slowdown.getSlowDownFactorOrigin();
+                            auto& binj = groups[j-index_offset_group_].info.getBinaryTreeRoot();
+                            Float kappaj = binj.slowdown.getSlowDownFactorOrigin();
                             std::cerr<<"\ni2 "
                                      <<std::setw(8)<<j
                                      <<std::setw(16)<<kappaj
@@ -2037,7 +2038,7 @@ namespace H4{
 
             // slowdown not yet initialized, cannot check
             // checkGroupResolve(n_init_group_);
-            writeBackResolvedGroupAndCreateJParticleList();
+            writeBackResolvedGroupAndCreateJParticleList(false);
 
             calcAccJerkNBList(index_single, n_init_single_, index_group, n_init_group_);
 
@@ -2077,14 +2078,14 @@ namespace H4{
                 // set hermite time limit
                 group_ptr[k].info.dt_limit = manager->step.getDtMax();
                 // in the case of wide binary, make sure the next time step not exceed r_in
-                auto& bin_root = group_ptr[k].info.binarytree.getLastMember();
+                auto& bin_root = group_ptr[k].info.getBinaryTreeRoot();
                 if (bin_root.semi*(1.0+bin_root.ecc)>group_ptr[k].info.r_break_crit) {
                     // ecca <0 indicate binary go to peri-center, ecca=0.0 indicate peri-center, 0-t_peri indicate the time to peri-center
                     // In the initial step, ecca can >0.0 
                     // get boundary position ecca
                     Float ecc_anomaly = bin_root.calcEccAnomaly(group_ptr[k].info.r_break_crit);
                     Float mean_anomaly = bin_root.calcMeanAnomaly(ecc_anomaly, bin_root.ecc);
-                    Float kappa = group_ptr[k].slowdown.getSlowDownFactor();
+                    Float kappa = bin_root.slowdown.getSlowDownFactor();
                     // get cross boundary position timescale (half the time to peri-center from boundary), notice slowdown factor should be included
                     // the integrated orbital phase is slow-down by kappa
                     Float t_peri = abs(mean_anomaly/12.5663706144*bin_root.period)*kappa;
@@ -2094,7 +2095,7 @@ namespace H4{
                 }
 
                 // get ds estimation
-                group_ptr[k].info.calcDsAndStepOption(group_ptr[k].slowdown.getSlowDownFactorOrigin(), ar_manager->step.getOrder(), ar_manager->interaction.gravitational_constant);
+                group_ptr[k].info.calcDsAndStepOption(ar_manager->step.getOrder(), ar_manager->interaction.gravitational_constant);
 
                 // check parameters
                 ASSERT(group_ptr[k].info.checkParams());
@@ -2138,7 +2139,7 @@ namespace H4{
 #ifdef HERMITE_DEBUG            
                 ASSERT(table_group_mask_[k]==false);
                 if (i!=interrupt_group_dt_sorted_group_index_) 
-                    ASSERT(abs(groups[k].slowdown.getRealTime()-time_)<=ar_manager->time_error_max_real);
+                    ASSERT(abs(groups[k].getTime()-time_)<=ar_manager->time_error_max);
 #endif
                 // group integration 
                 interrupt_binary_ = groups[k].integrateToTime(time_next);
@@ -2154,12 +2155,12 @@ namespace H4{
                     }
                     if (ar_manager->interrupt_detection_option==2) {
                         interrupt_group_dt_sorted_group_index_ = i;
-                        ASSERT(time_next - interrupt_binary_.time_now + ar_manager->time_error_max_real >= 0.0);
+                        ASSERT(time_next - interrupt_binary_.time_now + ar_manager->time_error_max >= 0.0);
                         return interrupt_binary_;
                     }
                 }
 
-                ASSERT(abs(groups[k].slowdown.getRealTime()-time_next)<=ar_manager->time_error_max_real);
+                ASSERT(abs(groups[k].getTime()-time_next)<=ar_manager->time_error_max);
             }
 
             // when no interrupt, clear interrupt records
@@ -2190,7 +2191,7 @@ namespace H4{
 
             // check resolve status
             checkGroupResolve(n_act_group_);
-            writeBackResolvedGroupAndCreateJParticleList();
+            writeBackResolvedGroupAndCreateJParticleList(true);
 
             int* index_single = index_dt_sorted_single_.getDataAddress();
             int* index_group = index_dt_sorted_group_.getDataAddress();
@@ -2326,11 +2327,10 @@ namespace H4{
         void accumDESlowDownChangeBreakGroup(const int _igroup) {
             auto& groupi = groups[_igroup];
             de_sd_change_cum_ += groupi.getDESlowDownChangeCum();
-            // add the change due to the shutdown of slowdown (inner/outer)
-            Float kappa = groupi.slowdown.getSlowDownFactor();
+            // add the change due to the shutdown of slowdown 
             Float etot = groupi.getEkin() + groupi.getEpot();
-            Float etot_sdi = groupi.getEkinSlowDownInner() + groupi.getEpotSlowDownInner();
-            de_sd_change_cum_ += etot - etot_sdi/kappa;
+            Float etot_sd = groupi.getEkinSlowDownInner() + groupi.getEpotSlowDownInner();
+            de_sd_change_cum_ += etot - etot_sd;
         }
 
         //! correct Etot slowdown reference due to the groups change
@@ -2360,17 +2360,11 @@ namespace H4{
             energy_sd_.epert= energy_.epert;
             for (int i=0; i<groups.getSize(); i++) {
                 auto& gi = groups[i];
-                Float kappa = gi.slowdown.getSlowDownFactor();
-                Float kappa_inv = 1.0/kappa;
                 energy_sd_.ekin -= gi.getEkin();
                 energy_sd_.epot -= gi.getEpot(); 
-#ifdef AR_SLOWDOWN_INNER
-                energy_sd_.ekin += kappa_inv * gi.getEkinSlowDownInner();
-                energy_sd_.epot += kappa_inv * gi.getEpotSlowDownInner();
-#else
-                energy_sd_.ekin += kappa_inv * gi.getEkin();
-                energy_sd_.epot += kappa_inv * gi.getEpot(); 
-#endif
+
+                energy_sd_.ekin += gi.getEkinSlowDownInner();
+                energy_sd_.epot += gi.getEpotSlowDownInner();
             }
             if (_initial_flag) {
                 energy_.etot_ref = energy_.getEtot();
@@ -2548,15 +2542,16 @@ namespace H4{
                  <<std::setw(_width)<<"Epot_SD"
                  <<std::setw(_width)<<"Epert_SD"
                  <<std::setw(_width)<<"N_SD";
+#ifdef AR_SLOWDOWN_ARRAY
             AR::SlowDown sd_empty;
             int n_sd_count = 0;
             for (int i=0; i<_n_group; i++) {
                 n_sd_count += _n_sd_list[i];
                 for (int j=0; j<_n_sd_list[i]; j++) 
                     sd_empty.printColumnTitle(_fout, _width);
-                sd_empty.printColumnTitle(_fout, _width);
             }
             ASSERT(_n_sd_tot == n_sd_count);
+#endif
             perturber.printColumnTitle(_fout, _width);
             info.printColumnTitle(_fout, _width);
             profile.printColumnTitle(_fout, _width);
@@ -2575,20 +2570,20 @@ namespace H4{
             _fout<<std::setw(_width)<<time_;
             energy_.printColumn(_fout, _width);
             energy_sd_.printColumn(_fout, _width);
-            _fout<<std::setw(_width)<<_n_sd_tot + _n_group;
+            _fout<<std::setw(_width)<<_n_sd_tot;
             AR::SlowDown sd_empty;
             int n_group_now = groups.getSize();
+#ifdef AR_SLOWDOWN_ARRAY
             int n_sd_count = 0;
             for (int i=0; i<_n_group; i++) {
                 n_sd_count += _n_sd_list[i];
                 if (i<n_group_now) {
                     auto & gi = groups[i];
-                    int n_sd_in = gi.binary_slowdown_inner.getSize();
+                    int n_sd_in = gi.binary_slowdown.getSize();
                     for (int j=0; j<_n_sd_list[i]; j++) {
-                        if (j<n_sd_in) gi.binary_slowdown_inner[j]->slowdown.printColumn(_fout, _width);
+                        if (j<n_sd_in) gi.binary_slowdown[j]->slowdown.printColumn(_fout, _width);
                         else sd_empty.printColumn(_fout, _width);
                     }
-                    gi.slowdown.printColumn(_fout, _width);
                 }
                 else {
                     for (int j=0; j<_n_sd_list[i]; j++) sd_empty.printColumn(_fout, _width);
@@ -2596,6 +2591,7 @@ namespace H4{
                 }
             }
             ASSERT(_n_sd_tot == n_sd_count);
+#endif
             perturber.printColumn(_fout, _width);
             info.printColumn(_fout, _width);
             profile.printColumn(_fout, _width);

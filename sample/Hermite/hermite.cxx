@@ -226,11 +226,11 @@ int main(int argc, char **argv){
     manager.interaction.gravitational_constant = grav_const.value;
     ar_manager.interaction.eps_sq = eps_sq.value;
     ar_manager.interaction.gravitational_constant = grav_const.value;
-    ar_manager.time_step_real_min = manager.step.getDtMin();
-    if (time_error.value == 0.0) ar_manager.time_error_max_real = 0.25*ar_manager.time_step_real_min;
-    else ar_manager.time_error_max_real = time_error.value;
+    ar_manager.time_step_min = manager.step.getDtMin();
+    if (time_error.value == 0.0) ar_manager.time_error_max = 0.25*ar_manager.time_step_min;
+    else ar_manager.time_error_max = time_error.value;
 
-    ASSERT(ar_manager.time_error_max_real>1e-14);
+    ASSERT(ar_manager.time_error_max>1e-14);
     // time error cannot be smaller than round-off error
     ar_manager.energy_error_relative_max = energy_error.value; 
     ar_manager.slowdown_pert_ratio_ref = slowdown_ref.value;
@@ -298,7 +298,11 @@ int main(int argc, char **argv){
     // AR inner slowdown number
     int n_group_sub_init[n_group_init], n_group_sub_tot_init=0;
     for (int i=0; i<n_group_init; i++) {
-        n_group_sub_init[i] = h4_int.groups[i].binary_slowdown_inner.getSize();
+#ifdef AR_SLOWDOWN_ARRAY
+        n_group_sub_init[i] = h4_int.groups[i].binary_slowdown.getSize();
+#else
+        n_group_sub_init[i] = h4_int.groups[i].info.binarytree.getSize();
+#endif
         n_group_sub_tot_init += n_group_sub_init[i];
     }
     h4_int.adjustGroups(true);

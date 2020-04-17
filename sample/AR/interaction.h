@@ -230,150 +230,74 @@ public:
 #endif
     }
 
-#ifdef AR_SLOWDOWN_INNER
-    //! information of perturbation for iteration function
-    struct SlowDownPertCollector{
-        AR::BinaryTree<Particle>* bin;
-        Float G;
-        Float pert_pot;
-        Float t_min_sq;
-    }; 
-
-    //! iteration function to calculate perturbation and timescale information
-    static SlowDownPertCollector* calcSlowDownPertBinIter(SlowDownPertCollector*& _sdt, AR::BinaryTree<Particle>& _bin) {
-        if (&_bin == _sdt->bin || (_bin.semi>0.0 && _bin.getMemberN()==2)) return _sdt;
-
-        const Float* xcm = _sdt->bin->pos;
-        const Float* vcm = _sdt->bin->vel;
-        const Float  mcm = _sdt->bin->mass;
-
-        //int imask[2] = {_bin.getMemberIndex(0), _bin.getMemberIndex(1)};
-        //ASSERT(_bin.getMemberIndex(0)!=
-
-        auto checkOneParticle=[](SlowDownPertCollector*& sdt, const Float* xcm, const Float* vcm, const Float mcm, const Float* xp, const Float* vp, const Float mp) {
-            Float dr[3] = {xp[0] - xcm[0],
-                           xp[1] - xcm[1],
-                           xp[2] - xcm[2]};
-            Float r2 = dr[0]*dr[0] + dr[1]*dr[1] + dr[2]*dr[2];
-            Float r = sqrt(r2);
-            sdt->pert_pot += calcPertFromMR(r, mcm, mp);
-
-#ifdef AR_SLOWDOWN_TIMESCALE
-            Float dv[3] = {vp[0] - vcm[0],
-                           vp[1] - vcm[1],
-                           vp[2] - vcm[2]};
-
-            Float v2 = dv[0]*dv[0] + dv[1]*dv[1] + dv[2]*dv[2];
-            Float drdv = dr[0]*dv[0] + dr[1]*dv[1] + dr[2]*dv[2];
-
-            // identify whether hyperbolic or closed orbit
-            Float gm = sdt->G*(mcm+mp);
-            Float semi = 1.0/(2.0/r - v2/gm);
-
-            //hyperbolic, directly use velocity v
-            if (semi<0) 
-                sdt->t_min_sq = std::min(sdt->t_min_sq, r2/v2);
-            else {
-                if (r<semi) {
-                    // avoid decrese of vr once the orbit pass, calculate vr max at E=pi/2 (r==semi)
-                    // vr_max = sqrt(er*(drdv^2*er + r*vcr2^2))/(G(m1+m2)r)
-                    Float rv2 = r*v2;
-                    Float er = 2*gm - rv2;
-                    Float vcr2 = gm - rv2;
-                    Float vrmax_sq = er*(drdv*drdv*er + r*vcr2*vcr2)/(gm*gm*r2);
-                    sdt->t_min_sq = std::min(sdt->t_min_sq, semi*semi/vrmax_sq);
-                }
-                else {
-                    // r/vr
-                    Float rovr = r2/abs(drdv);
-                    sdt->t_min_sq = std::min(sdt->t_min_sq, rovr*rovr);
-                }
-            }
-
-            // force dependent method
-            // min sqrt(r^3/(G m))
-            //Float gmor3 = (mp+mcm)*r*r2/(sdt->G*mp*mcm);
-            //sdt->trf2_min =  std::min(sdt->trf2_min, gmor3);
-#endif
-        };
-
-        for (int i=0; i<2; i++) {
-            if (_bin.isMemberTree(i)) {
-                auto* bini =  _bin.getMemberAsTree(i);
-                if (bini->semi>0.0&&bini!=_sdt->bin) {
-                    const Float* xp = bini->pos;
-                    const Float* vp = bini->vel;
-                    const Float  mp = bini->mass;
-                    ASSERT(bini->getMemberIndex(0)!=_sdt->bin->getMemberIndex(0));
-                    checkOneParticle(_sdt, xcm, vcm, mcm, xp, vp, mp);
-                }
-            }
-            else {
-                auto* pi =  _bin.getMember(i);
-                const Float* xp = pi->pos;
-                const Float* vp = pi->vel;
-                const Float  mp = pi->mass;
-                checkOneParticle(_sdt, xcm, vcm, mcm, xp, vp, mp);
-            }
-        }            
-        return _sdt;
-    }
-
-    //! (Necessary) calculate slowdown factor for inner binary based on other particles and slowdown of system c.m.
-    /*!
-      @param[in,out] _slowdown: slowdown paramters for inner binary.
-      @param[in] _slowdown_cm: slowdown paramters of system c.m..
-      @param[in] _bin: binary tree for calculating slowdown
-      @param[in] _bin_root: binary tree root of the AR group
+#if (defined AR_SLOWDOWN_ARRAY) || (defined AR_SLOWDOWN_TREE)
+    //! calculate slowdown perturbation and timescale from particle j to particle i
+    /*! 
+      @param[out] _pert_out: perturbation from particle j
+      @param[out] _t_min_sq: timescale limit from particle j
+      @param[in] _pi: particle i (cm of binary)
+      @param[in] _pj: particle j 
      */
-    void calcSlowDownInnerBinary(AR::SlowDown& _slowdown, const AR::SlowDown& _slowdown_cm, AR::BinaryTree<Particle>& _bin, AR::BinaryTree<Particle>& _bin_root) {
-        _slowdown.pert_in = calcPertFromBinary(_bin);
-        _slowdown.period = _bin_root.period;
-
-        SlowDownPertCollector sdtdat{&_bin, gravitational_constant, 0.0, NUMERIC_FLOAT_MAX};
-
-        auto* sdtdat_ptr = &sdtdat;
-
-        sdtdat_ptr = _bin_root.processRootIter(sdtdat_ptr, calcSlowDownPertBinIter);
-
-        _slowdown.pert_out = sdtdat.pert_pot + _slowdown_cm.pert_out;
-
+    void calcSlowDownPertOne(Float& _pert_out, Float& _t_min_sq, const Particle& pi, const Particle& pj) {
+        Float dr[3] = {pj.pos[0] - pi.pos[0],
+                       pj.pos[1] - pi.pos[1],
+                       pj.pos[2] - pi.pos[2]};
+        Float r2 = dr[0]*dr[0] + dr[1]*dr[1] + dr[2]*dr[2];
+        Float r = sqrt(r2);
+        _pert_out += calcPertFromMR(r, pi.mass, pj.mass);
+            
 #ifdef AR_SLOWDOWN_TIMESCALE
-        // velocity dependent method
-        //Float trv_ave = sdtdat.mtot/sqrt(sdtdat.mvor[0]*sdtdat.mvor[0] + sdtdat.mvor[1]*sdtdat.mvor[1] + sdtdat.mvor[2]*sdtdat.mvor[2]);
-        // get min of velocity and force dependent values
-        //Float t_min = std::min(trv_ave, sqrt(sdtdat.trf2_min));
-        _slowdown.timescale = std::min(_slowdown.getTimescaleMax(), 10*sqrt(sdtdat.t_min_sq));
-#else
-        _slowdown.timescale = _slowdown.getTimescaleMax();
-#endif
+        Float dv[3] = {pj.vel[0] - pi.vel[0],
+                       pj.vel[1] - pi.vel[1],
+                       pj.vel[2] - pi.vel[2]};
 
-        _slowdown.calcSlowDownFactor();
-        //_slowdown.setSlowDownFactor(10.0);
-    }
+        Float v2 = dv[0]*dv[0] + dv[1]*dv[1] + dv[2]*dv[2];
+        Float drdv = dr[0]*dv[0] + dr[1]*dv[1] + dr[2]*dv[2];
+
+        // identify whether hyperbolic or closed orbit
+        Float gm = gravitational_constant*(pi.mass+pj.mass);
+        Float semi = 1.0/(2.0/r - v2/gm);
+
+        //hyperbolic, directly use velocity v
+        if (semi<0) 
+            _t_min_sq = std::min(_t_min_sq, r2/v2);
+        else {
+            if (r<semi) {
+                // avoid decrese of vr once the orbit pass, calculate vr max at E=pi/2 (r==semi)
+                // vr_max = sqrt(er*(drdv^2*er + r*vcr2^2))/(G(m1+m2)r)
+                Float rv2 = r*v2;
+                Float er = 2*gm - rv2;
+                Float vcr2 = gm - rv2;
+                Float vrmax_sq = er*(drdv*drdv*er + r*vcr2*vcr2)/(gm*gm*r2);
+                _t_min_sq = std::min(_t_min_sq, semi*semi/vrmax_sq);
+            }
+            else {
+                // r/vr
+                Float rovr = r2/abs(drdv);
+                _t_min_sq = std::min(_t_min_sq, rovr*rovr);
+            }
+        }
+
+        // force dependent method
+        // min sqrt(r^3/(G m))
+        //Float gmor3 = (mp+mcm)*r*r2/(sdt->G*mp*mcm);
+        //sdt->trf2_min =  std::min(sdt->trf2_min, gmor3);
 #endif
+    }
 
     //! (Necessary) calculate slowdown factor based on perturbers
     /*!
-      @param[in,out] _slowdown: slowdown paramters.
+      @param[out] _pert_out: perturbation 
+      @param[out] _t_min_sq: timescale limit 
+      @param[in] _time: physical time for prediction
       @param[in] _particle_cm: center-of-mass particle
-      @param[in] _bin_root: binary tree root
       @param[in] _perturber: pertuber container
     */
-    void calcSlowDownPert(AR::SlowDown& _slowdown, const Particle& _particle_cm, const AR::BinaryTree<Particle>& _bin_root, const Perturber& _perturber) {
-        
-        // slowdown inner perturbation: m1*m2/apo_in^4
-        //Float apo_in = _bin_root.semi*(1.0+_bin_root.ecc);
-        //Float apo_in2 = apo_in*apo_in;
-        //_slowdown.pert_in = _bin_root.m1*_bin_root.m2/(apo_in2*apo_in2);
-        //_slowdown.period  = _bin_root.period;
-        _slowdown.pert_in = 0.0; // suppress slowdown 
-
-        _slowdown.pert_out = 0.0;
-        _slowdown.timescale = _slowdown.getTimescaleMax();
-        _slowdown.calcSlowDownFactor();
+    void calcSlowDownPert(Float& _pert_out, Float& _t_min_sq, const Float& _time, const Particle& _particle_cm, const Perturber& _perturber) {
+        _pert_out = 0.0;
+        _t_min_sq = 0.0;
     }
-
+#endif
 
 
 #ifndef AR_TTL

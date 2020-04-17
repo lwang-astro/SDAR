@@ -61,7 +61,7 @@ int main(int argc, char **argv){
 #else
     std::string bin_name("ar.logh");
 #endif
-#ifdef AR_SLOWDOWN_INNER
+#ifdef AR_SLOWDOWN_ARRAY
     bin_name += ".sd";
 #endif
 
@@ -216,9 +216,9 @@ int main(int argc, char **argv){
     // manager
     TimeTransformedSymplecticManager<Interaction> manager;
     manager.interaction.gravitational_constant = gravitational_constant.value;
-    manager.time_step_real_min = dt_min.value;
-    if (time_error.value>0.0)  manager.time_error_max_real = time_error.value;
-    else manager.time_error_max_real = 0.25*dt_min.value;
+    manager.time_step_min = dt_min.value;
+    if (time_error.value>0.0)  manager.time_error_max = time_error.value;
+    else manager.time_error_max = 0.25*dt_min.value;
     manager.energy_error_relative_max = energy_error.value; 
     if (slowdown_timescale_max.value>0.0) manager.slowdown_timescale_max = slowdown_timescale_max.value;
     else if (time_end.value>0.0) manager.slowdown_timescale_max = time_end.value;
@@ -283,7 +283,7 @@ int main(int argc, char **argv){
     if(!load_flag) {
         // initialization 
         sym_int.initialIntegration(time_zero.value);
-        sym_int.info.calcDsAndStepOption(sym_int.slowdown.getSlowDownFactorOrigin(), manager.step.getOrder(), manager.interaction.gravitational_constant);
+        sym_int.info.calcDsAndStepOption(manager.step.getOrder(), manager.interaction.gravitational_constant);
     }
 
     // use input fix step option
@@ -307,8 +307,8 @@ int main(int argc, char **argv){
     // precision
     std::cout<<std::setprecision(print_precision.value);
 
-#ifdef AR_SLOWDOWN_INNER
-    int n_sd = sym_int.binary_slowdown_inner.getSize();
+#ifdef AR_SLOWDOWN_ARRAY
+    int n_sd = sym_int.binary_slowdown.getSize();
 #else
     int n_sd = 0;
 #endif
@@ -328,10 +328,12 @@ int main(int argc, char **argv){
         Float time_table[manager.step.getCDPairSize()];
         sym_int.profile.step_count = 1;
         auto IntegrateOneStep = [&] (){
+#ifdef AR_SLOWDOWN_ARRAY
             sym_int.updateSlowDownAndCorrectEnergy();
+#endif
             if(n_particle==2) sym_int.integrateTwoOneStep(sym_int.info.ds, time_table);
             else sym_int.integrateOneStep(sym_int.info.ds, time_table);
-            if (sym_int.slowdown.getRealTime()>=time_out) {
+            if (sym_int.getTime()>=time_out) {
                 sym_int.printColumn(std::cout, print_width.value, n_sd);
                 std::cout<<std::endl;
                 time_out += dt_out.value;
@@ -340,7 +342,7 @@ int main(int argc, char **argv){
         };
 
         if (nstep.value>0) for (int i=0; i<nstep.value; i++) IntegrateOneStep();
-        else while (sym_int.slowdown.getRealTime()<time_end.value) IntegrateOneStep();
+        else while (sym_int.getTime()<time_end.value) IntegrateOneStep();
     }
     else {
         if (dt_out.value>0.0) nstep.value = int(time_end.value/dt_out.value+0.5);

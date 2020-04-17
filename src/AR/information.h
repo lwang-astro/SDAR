@@ -86,7 +86,7 @@ namespace AR {
     private:
         //! calculate average kepler ds for ARC
         template <class Tds>
-        static Tds calcDsKeplerIter(Tds& _ds, COMM::BinaryTree<Tparticle,BinarySlowDown>& _bin) {
+        static Tds calcDsKeplerIter(Tds& _ds, BinaryTree<Tparticle>& _bin) {
             Tds ds;
             ds.G   = _ds.G;
 #ifdef AR_TTL_GT_MULTI
@@ -108,7 +108,7 @@ namespace AR {
     public:
         Float ds;  ///> initial step size for integration
         FixStepOption fix_step_option; ///> fix step option for integration
-        COMM::List<COMM::BinaryTree<Tparticle,BinarySlowDown>> binarytree; ///> a list of binary tree that contain the hierarchical orbital parameters of the particle group.
+        COMM::List<BinaryTree<Tparticle>> binarytree; ///> a list of binary tree that contain the hierarchical orbital parameters of the particle group.
 
         //! initializer, set ds to zero, fix_step_option to none
         Information(): ds(Float(0.0)),  fix_step_option(AR::FixStepOption::none), binarytree() {}
@@ -128,7 +128,7 @@ namespace AR {
         }
 
         //! get the root of binary tree
-        COMM::BinaryTree<Tparticle,BinarySlowDown>& getBinaryTreeRoot() const {
+        BinaryTree<Tparticle>& getBinaryTreeRoot() const {
             int n = binarytree.getSize();
             ASSERT(n>0);
             return binarytree[n-1];
@@ -136,11 +136,10 @@ namespace AR {
 
         //! calculate ds from the inner most binary with minimum period, determine the fix step option
         /*! Estimate ds first from the inner most binary orbit (eccentric anomaly), set fix_step_option to later
-          @param[in] _sd_org: original slowdown factor of the group
           @param[in] _int_order: accuracy order of the symplectic integrator.
           @param[in] _G: gravitational constant
          */
-        void calcDsAndStepOption(const Float _sd_org, const int _int_order, const Float _G) {
+        void calcDsAndStepOption(const int _int_order, const Float _G) {
             auto& bin_root = getBinaryTreeRoot();
 #ifdef AR_TTL_GT_MULTI
             struct {Float G, tov, r; } ds_iter = {_G, NUMERIC_FLOAT_MAX, 1.0};
@@ -191,7 +190,7 @@ namespace AR {
                 else particle_index_unused[n_particle_unused++] = i;
             }
             if (n_particle_real>1) 
-                COMM::BinaryTree<Tparticle,BinarySlowDown>::generateBinaryTree(binarytree.getDataAddress(), particle_index_local, n_particle_real, _particles.getDataAddress(), _G);
+                BinaryTree<Tparticle>::generateBinaryTree(binarytree.getDataAddress(), particle_index_local, n_particle_real, _particles.getDataAddress(), _G);
 
             // Add unused particles to the outmost orbit
             if (n_particle_real==0) {
@@ -218,6 +217,26 @@ namespace AR {
                 }
             }
         }
+
+#ifdef AR_SLOWDOWN_TREE
+        //! initial slowdown reference, should be done after generation binary tree
+        /*!
+          @param[in] _ratio_ref: perturbation ratio reference
+          @param[in] _timescale: timescale max
+         */
+        void initialSlowDownReference(const Float& _ratio_ref, const Float& _timescale_max) {
+            auto initialSlowDownReferenceTreeIter= [&](BinaryTree<Tparticle>& bin) {
+                bin.slowdown.initialSlowDownReference(_ratio_ref, _timescale_max);
+                for (int i=0; i<2; i++) {
+                    if (bin.isMemberTree(i)) {
+                        auto* bini= bin.getMemberAsTree(i);
+                        bini->slowdown.initialSlowDownReference(_ratio_ref, _timescale_max);
+                    }
+                }
+            };
+            initialSlowDownReferenceTreeIter(getBinaryTreeRoot());
+        }
+#endif
 
         //! clear function
         void clear() {

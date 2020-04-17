@@ -14,8 +14,8 @@ use_x86=yes
 ## compiler-------------------------------------------#
 ifeq ($(use_x86),yes)
 CXX= g++
-CXXFLAGS += -O2 -Wall
-#CXXFLAGS += -g -fbounds-check -Wall -O0
+#CXXFLAGS += -O2 -Wall
+CXXFLAGS += -g -fbounds-check -Wall -O0
 endif
 
 ifeq ($(use_k_computer),yes)
@@ -34,6 +34,7 @@ endif
 #CXXFLAGS += -D DEBUG 
 CXXFLAGS += -D AR_DEBUG
 CXXFLAGS += -D BINARY_DEBUG
+CXXFLAGS += -D AR_COLLECT_DS_MODIFY_INFO
 #CXXFLAGS += -D AR_DEEP_DEBUG
 CXXFLAGS += -D HERMITE_DEBUG
 CXXFLAGS += -D ADJUST_GROUP_DEBUG
@@ -44,7 +45,7 @@ CXXFLAGS += -std=c++11
 CXXFLAGS += -D AR_SLOWDOWN_TIMESCALE
 #CXXFLAGS += -D AR_SLOWDOWN_MASSRATIO
 CXXFLAGS += -D AR_TTL
-CXXFLAGS += -D AR_SLOWDOWN_INNER
+CXXFLAGS += -D AR_SLOWDOWN_ARRAY
 #CXXFLAGS += -D AR_TTL_GT_BINARY_INNER
 
 ## OpenMP flag----------------------------------------#

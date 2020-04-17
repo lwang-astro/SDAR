@@ -197,8 +197,9 @@ namespace H4 {
         //! check whether members should be resolved for outside
         /*! @param[in] _kappa: slowdown factor
          */
-        void checkGroupResolve(const Float _kappa) {
-            if (_kappa<=10.0 && !need_resolve_flag) {
+        void checkGroupResolve() {
+            // always resolve
+            if (!need_resolve_flag) {
                 need_resolve_flag = true;
                 initial_step_flag = true;
             }

@@ -10,7 +10,6 @@ namespace AR{
     */
     class SlowDown{
     private:
-        Float time_real_;      // current real time
         Float time_update_;    // update time (int) for new slowdown factor
         Float kappa_;          // slow-down factor
         Float kappa_org_;      // original slow-down factor without kappa limit (1.0, kappa_max)
@@ -24,11 +23,10 @@ namespace AR{
         Float period;            // orbital period
 
         //! defaulted constructor
-        SlowDown(): time_real_(Float(0.0)), time_update_(Float(0.0)), kappa_(Float(1.0)), kappa_org_(Float(1.0)), kappa_max_(Float(1.0)), kappa_ref_(Float(1.0e-6)), timescale_max_(NUMERIC_FLOAT_MAX), pert_in(0.0), pert_out(0.0), timescale(NUMERIC_FLOAT_MAX), period(NUMERIC_FLOAT_MAX) {}
+        SlowDown(): time_update_(Float(0.0)), kappa_(Float(1.0)), kappa_org_(Float(1.0)), kappa_max_(Float(1.0)), kappa_ref_(Float(1.0e-6)), timescale_max_(NUMERIC_FLOAT_MAX), pert_in(0.0), pert_out(0.0), timescale(NUMERIC_FLOAT_MAX), period(NUMERIC_FLOAT_MAX) {}
     
         //! clear function
         void clear(){
-            time_real_ = Float(0.0);
             time_update_ = Float(0.0);
             kappa_ = kappa_org_ = kappa_max_ = Float(1.0);
             kappa_ref_ = Float(1.0e-6);
@@ -46,24 +44,6 @@ namespace AR{
             ASSERT(_timescale_max>0.0);
             kappa_ref_ = _kappa_ref;
             timescale_max_ = _timescale_max;
-        }
-
-        //! set real time value
-        void setRealTime(const Float _time_real) {
-            time_real_ = _time_real;
-        }
-
-        //! get real time value
-        Float getRealTime() const {
-            return time_real_;
-        }
-
-        //! drift real time
-        /*! drift real time with integrated time step x kappa
-          @param[in] _dt_int: integrated time step
-        */
-        void driftRealTime(const Float _dt_int) {
-            time_real_ += _dt_int * kappa_;
         }
 
         //! set update time for new slowdown factor
@@ -166,30 +146,28 @@ namespace AR{
         //! get backup data size 
         /*! \return the data array size for backupSlowDownFactorAndTimeReal()
          */
-        int getBackupDataSize() const {
-            return 3;
+        static int getBackupDataSize() {
+            return 2;
         }
 
         //! backup real time and force ratio
         /*! @param[in] _bk: backup data array, should be size of getBackupDataSize() (2)
           \return backup array size
          */
-        int backupSlowDownFactorAndTimeReal(Float* _bk) {
+        int backup(Float* _bk) {
             _bk[0] = kappa_;
-            _bk[1] = time_real_;
-            _bk[2] = time_update_;
-            return 3;
+            _bk[1] = time_update_;
+            return 2;
         }
 
         //! restore real time and force ratio
         /*! @param[in] _bk: restore data array[3]
           \return backup array size
          */
-        int restoreSlowDownFactorAndTimeReal(Float* _bk) {
+        int restore(Float* _bk) {
             kappa_       =   _bk[0];
-            time_real_   =   _bk[1];
-            time_update_ =   _bk[2];
-            return 3;
+            time_update_ =   _bk[1];
+            return 2;
         }
     
         //! print slowdown data
@@ -201,8 +179,7 @@ namespace AR{
         void print(std::ostream & fout, const int precision=15, const int width=23) {
             ASSERT(width>0);
             ASSERT(precision>0);
-            fout<<"time_real= "<<std::setw(width)<<time_real_
-                <<"kappa= "<<std::setw(width)<<kappa_
+            fout<<"kappa= "<<std::setw(width)<<kappa_
                 <<"kappa_org= "<<std::setw(width)<<kappa_org_
                 <<"kappa_max= "<<std::setw(width)<<kappa_max_
                 <<"kappa_ref= "<<std::setw(width)<<kappa_ref_;
@@ -214,8 +191,7 @@ namespace AR{
           @param[in] _width: print width (defaulted 20)
         */
         static void printColumnTitle(std::ostream & _fout, const int _width=20) {
-            _fout<<std::setw(_width)<<"Time_real"
-                 <<std::setw(_width)<<"SD_factor"
+            _fout<<std::setw(_width)<<"SD_factor"
                  <<std::setw(_width)<<"SD_factor_org"
                  <<std::setw(_width)<<"SD_factor_max";
         }
@@ -226,8 +202,7 @@ namespace AR{
           @param[in] _width: print width (defaulted 20)
         */
         void printColumn(std::ostream & _fout, const int _width=20){
-            _fout<<std::setw(_width)<<time_real_
-                 <<std::setw(_width)<<kappa_
+            _fout<<std::setw(_width)<<kappa_
                  <<std::setw(_width)<<kappa_org_
                  <<std::setw(_width)<<kappa_max_;
         }

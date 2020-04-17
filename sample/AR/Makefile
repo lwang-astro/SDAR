@@ -15,8 +15,8 @@ use_x86=yes
 ## compiler-------------------------------------------#
 ifeq ($(use_x86),yes)
 CXX= g++
-CXXFLAGS += -O2 -Wall
-#CXXFLAGS += -g -fbounds-check -Wall -O0
+#CXXFLAGS += -O2 -Wall
+CXXFLAGS += -g -fbounds-check -Wall -O0
 endif
 
 ifeq ($(use_k_computer),yes)
@@ -66,7 +66,7 @@ ar.logh: ar.cxx  ${SOURCE}
 	$(CXX) $(CXXFLAGS) $< -o $@ $(CXXLIBS)
 
 ar.logh.sd: ar.cxx ${SOURCE}
-	$(CXX) $(CXXFLAGS) -D AR_SLOWDOWN_INNER -D AR_SLOWDOWN_TIMESCALE  $< -o $@ $(CXXLIBS)
+	$(CXX) $(CXXFLAGS) -D AR_SLOWDOWN_ARRAY -D AR_SLOWDOWN_TIMESCALE  $< -o $@ $(CXXLIBS)
 
 ar.ttl: ar.cxx ${SOURCE}
 	$(CXX) $(CXXFLAGS) -D AR_TTL $< -o $@ $(CXXLIBS)
@@ -75,8 +75,8 @@ ar.ttl.m: ar.cxx ${SOURCE}
 	$(CXX) $(CXXFLAGS) -D AR_TTL -D AR_TTL_GT_MULTI $< -o $@ $(CXXLIBS)
 
 ar.ttl.sd: ar.cxx ${SOURCE}
-#	$(CXX) $(CXXFLAGS) -D AR_TTL -D AR_SLOWDOWN_INNER -D AR_TTL_GT_BINARY_INNER -D AR_SLOWDOWN_TIMESCALE $< -o $@ $(CXXLIBS)
-	$(CXX) $(CXXFLAGS) -D AR_TTL -D AR_SLOWDOWN_INNER -D AR_SLOWDOWN_TIMESCALE  $< -o $@ $(CXXLIBS)
+#	$(CXX) $(CXXFLAGS) -D AR_TTL -D AR_SLOWDOWN_ARRAY -D AR_TTL_GT_BINARY_INNER -D AR_SLOWDOWN_TIMESCALE $< -o $@ $(CXXLIBS)
+	$(CXX) $(CXXFLAGS) -D AR_TTL -D AR_SLOWDOWN_ARRAY -D AR_SLOWDOWN_TIMESCALE  $< -o $@ $(CXXLIBS)
 
 install: $(TARGET)
 	mv $(TARGET) ~/bin
