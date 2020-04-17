@@ -325,15 +325,15 @@ public:
       @param[in] _bin_interrupt: interrupt binary information: adr: binary tree address; time_now: current physical time; time_end: integration finishing time; status: interrupt status: change, merge,none
       @param[in] _bin: binarytree to check iteratively
      */
-    static AR::InterruptBinary<Particle>* modifyAndInterruptIter(AR::InterruptBinary<Particle>*& _bin_interrupt, AR::BinaryTree<Particle>& _bin) {
-        if (_bin.getMemberN()==2&&_bin_interrupt->status==AR::InterruptStatus::none) {
+    void  modifyAndInterruptIter(AR::InterruptBinary<Particle>& _bin_interrupt, AR::BinaryTree<Particle>& _bin) {
+        if (_bin.getMemberN()==2&&_bin_interrupt.status==AR::InterruptStatus::none) {
             Particle *p1,*p2;
             p1 = _bin.getLeftMember();
             p2 = _bin.getRightMember();
 
             auto merge = [&]() {
-                _bin_interrupt->adr = &_bin;
-                _bin_interrupt->status = AR::InterruptStatus::merge;
+                _bin_interrupt.adr = &_bin;
+                _bin_interrupt.status = AR::InterruptStatus::merge;
                 p1->status = Status::single;
                 Float mcm = p1->mass + p2->mass;
                 for (int k=0; k<3; k++) {
@@ -347,7 +347,7 @@ public:
 
             if (p1->status != Status::unused && p2->status != Status::unused) {
                 if (p1->status==Status::premerge && p2->status==Status::premerge && 
-                    p1->time_check<_bin_interrupt->time_end && p2->time_check<_bin_interrupt->time_end) merge();
+                    p1->time_check<_bin_interrupt.time_end && p2->time_check<_bin_interrupt.time_end) merge();
                 else {
                     Float peri = _bin.semi*(1-_bin.ecc);
                     Float radius = p1->radius + p2->radius;
@@ -364,18 +364,17 @@ public:
                         Float ecc_anomaly=_bin.calcEccAnomaly(drm);
                         Float mean_anomaly = _bin.calcMeanAnomaly(ecc_anomaly, _bin.ecc);
                         Float t_peri = mean_anomaly/6.28318530718*_bin.period;
-                        if (drdv<0 && t_peri<_bin_interrupt->time_end-_bin_interrupt->time_now) merge();
+                        if (drdv<0 && t_peri<_bin_interrupt.time_end-_bin_interrupt.time_now) merge();
                         else {
                             p1->status = Status::premerge;
                             p2->status = Status::premerge;
-                            p1->time_check = _bin_interrupt->time_now + drdv<0 ? t_peri : (_bin.period - t_peri);
+                            p1->time_check = _bin_interrupt.time_now + drdv<0 ? t_peri : (_bin.period - t_peri);
                             p2->time_check = p1->time_check;
                         }
                     }
                 }
             }
         }
-        return _bin_interrupt;
     }
 
     //! write class data to file with binary format

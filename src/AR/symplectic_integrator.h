@@ -1877,8 +1877,8 @@ namespace AR {
                     if (manager->interrupt_detection_option>0) {
                         auto& bin_root = info.getBinaryTreeRoot();
                         bin_interrupt.time_now = time_;
-                        InterruptBinary<Tparticle>* bin_intr_ptr = &bin_interrupt;
-                        Tmethod::modifyAndInterruptIter(bin_intr_ptr, bin_root);
+                        manager->interaction.modifyAndInterruptIter(bin_interrupt, bin_root);
+                        //InterruptBinary<Tparticle>* bin_intr_ptr = &bin_interrupt;
                         //bin_intr_ptr = bin_root.processRootIter(bin_intr_ptr, Tmethod::modifyAndInterruptIter);
                         ASSERT(bin_interrupt.checkParams());
                         if (bin_interrupt.status!=InterruptStatus::none) {
