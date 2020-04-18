@@ -218,26 +218,6 @@ namespace AR {
             }
         }
 
-#ifdef AR_SLOWDOWN_TREE
-        //! initial slowdown reference, should be done after generation binary tree
-        /*!
-          @param[in] _ratio_ref: perturbation ratio reference
-          @param[in] _timescale: timescale max
-         */
-        void initialSlowDownReference(const Float& _ratio_ref, const Float& _timescale_max) {
-            auto initialSlowDownReferenceTreeIter= [&](BinaryTree<Tparticle>& bin) {
-                bin.slowdown.initialSlowDownReference(_ratio_ref, _timescale_max);
-                for (int i=0; i<2; i++) {
-                    if (bin.isMemberTree(i)) {
-                        auto* bini= bin.getMemberAsTree(i);
-                        bini->slowdown.initialSlowDownReference(_ratio_ref, _timescale_max);
-                    }
-                }
-            };
-            initialSlowDownReferenceTreeIter(getBinaryTreeRoot());
-        }
-#endif
-
         //! clear function
         void clear() {
             ds=0.0;

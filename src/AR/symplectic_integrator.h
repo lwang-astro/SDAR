@@ -270,7 +270,7 @@ namespace AR {
          */
         void calcSlowDownPertInnerBinaryIter(Float& _pert_out, Float& _t_min_sq, AR::BinaryTree<Tparticle>& _bini, AR::BinaryTree<Tparticle>& _binj) {
             ASSERT(&_bini != &_binj);
-            ASSERT(_bini.getMemberIndex(0)!=_binj.getMemberIndex(0));
+//            ASSERT(_bini.getMemberIndex(0)!=_binj.getMemberIndex(0));
 
             for (int k=0; k<2; k++) {
                 if (_binj.isMemberTree(k)) {
@@ -1312,7 +1312,8 @@ namespace AR {
 
 #if (defined AR_SLOWDOWN_ARRAY) || (defined AR_SLOWDOWN_TREE)
 #ifdef AR_SLOWDOWN_TREE
-            info.initialSlowDownReference(manager->slowdown_pert_ratio_ref, manager->slowdown_timescale_max);
+            for (int i=0; i<info.binarytree.getSize(); i++) 
+                info.binarytree[i].slowdown.initialSlowDownReference(manager->slowdown_pert_ratio_ref, manager->slowdown_timescale_max);
 #else
             binary_slowdown.increaseSizeNoInitialize(1);
             binary_slowdown[0] = &info.getBinaryTreeRoot();
@@ -1912,9 +1913,9 @@ namespace AR {
                 if(step_count>=manager->step_count_max) {
                     if(step_count%manager->step_count_max==0) {
                         printMessage("Warning: step count is signficiant large");
-                        printColumnTitle(std::cerr);
+                        printColumnTitle(std::cerr,20,info.binarytree.getSize());
                         std::cerr<<std::endl;
-                        printColumn(std::cerr);
+                        printColumn(std::cerr,20,info.binarytree.getSize());
                         std::cerr<<std::endl;
 #ifdef AR_DEBUG_DUMP
                         DATADUMP("dump_large_step");
@@ -1926,9 +1927,9 @@ namespace AR {
                 // When time sychronization steps too large, abort
                 if(step_count_tsyn>manager->step_count_max) {
                     printMessage("Error! step count after time synchronization is too large");
-                    printColumnTitle(std::cerr);
+                    printColumnTitle(std::cerr,20,info.binarytree.getSize());
                     std::cerr<<std::endl;
-                    printColumn(std::cerr);
+                    printColumn(std::cerr,20,info.binarytree.getSize());
                     std::cerr<<std::endl;
 #ifdef AR_DEBUG_DUMP
 //                    restoreIntData(backup_data_init);
@@ -2418,7 +2419,7 @@ namespace AR {
                     Float vel_sd[3] = {(vel[0] - vel_cm[0]) * inv_nest_sd + _vel_sd_up[0], 
                                        (vel[1] - vel_cm[1]) * inv_nest_sd + _vel_sd_up[1], 
                                        (vel[2] - vel_cm[2]) * inv_nest_sd + _vel_sd_up[2]}; 
-                    writeBackSlowDownParticlesIter(_particle_cm, vel_sd, inv_nest_sd, _bin);
+                    writeBackSlowDownParticlesIter(_particle_cm, vel_sd, inv_nest_sd, *bink);
                 }
                 else {
                     int i = _bin.getMemberIndex(k);
