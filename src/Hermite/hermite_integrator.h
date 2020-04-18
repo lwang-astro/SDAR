@@ -1723,11 +1723,11 @@ namespace H4{
                     }
                     else {
                         const int jg = j-index_offset_group_;
-#ifndef AR_SLOWDOWN_ARRAY
-                        // in case without AR slowdown inner, avoid form AR when inner kappa is >1.0
-                        Float kappa_org_j = groups[jg].info.getBinaryTreeRoot().slowdown.getSlowDownFactorOrigin();
-                        if (kappa_org_j>1.0) continue;
-#endif
+//#ifndef AR_SLOWDOWN_ARRAY
+//                        // in case without AR slowdown inner, avoid form AR when inner kappa is >1.0
+//                        Float kappa_org_j = groups[jg].info.getBinaryTreeRoot().slowdown.getSlowDownFactorOrigin();
+//                        if (kappa_org_j>1.0) continue;
+//#endif
                         pj = &groups[jg].particles.cm;
                     }
                     // only inwards or first step case
@@ -1818,11 +1818,11 @@ namespace H4{
 
                     auto& pi = groupi.particles.cm;
 
-#ifndef AR_SLOWDOWN_ARRAY
-                    // avoid kappa>1.0
-                    Float kappa_org_i = groupi.info.getBinaryTreeRoot().slowdown.getSlowDownFactorOrigin();
-                    if (kappa_org_i>1.0) continue;
-#endif
+//#ifndef AR_SLOWDOWN_ARRAY
+//                    // avoid kappa>1.0
+//                    Float kappa_org_i = groupi.info.getBinaryTreeRoot().slowdown.getSlowDownFactorOrigin();
+//                    if (kappa_org_i>1.0) continue;
+//#endif
 
                     H4Ptcl* pj;
                     // neighbor is single 
@@ -1832,10 +1832,10 @@ namespace H4{
                     }
                     else {
                         const int jg = j-index_offset_group_;
-#ifndef AR_SLOWDOWN_ARRAY
-                        Float kappa_org_j = groups[jg].getBinaryTreeRoot().slowdown.getSlowDownFactorOrigin();
-                        if (kappa_org_j>1.0) continue;
-#endif
+//#ifndef AR_SLOWDOWN_ARRAY
+//                        Float kappa_org_j = groups[jg].getBinaryTreeRoot().slowdown.getSlowDownFactorOrigin();
+//                        if (kappa_org_j>1.0) continue;
+//#endif
 
                         //if (kappa_org_i>1.0&&kappa_org_j>1.0) continue;
                         pj = &groups[jg].particles.cm;
@@ -2542,7 +2542,7 @@ namespace H4{
                  <<std::setw(_width)<<"Epot_SD"
                  <<std::setw(_width)<<"Epert_SD"
                  <<std::setw(_width)<<"N_SD";
-#ifdef AR_SLOWDOWN_ARRAY
+#if (defined AR_SLOWDOWN_ARRAY) || (defined AR_SLOWDOWN_TREE)
             AR::SlowDown sd_empty;
             int n_sd_count = 0;
             for (int i=0; i<_n_group; i++) {
@@ -2573,17 +2573,25 @@ namespace H4{
             _fout<<std::setw(_width)<<_n_sd_tot;
             AR::SlowDown sd_empty;
             int n_group_now = groups.getSize();
-#ifdef AR_SLOWDOWN_ARRAY
+#if (defined AR_SLOWDOWN_ARRAY) || (defined AR_SLOWDOWN_TREE)
             int n_sd_count = 0;
             for (int i=0; i<_n_group; i++) {
                 n_sd_count += _n_sd_list[i];
                 if (i<n_group_now) {
                     auto & gi = groups[i];
+#ifdef AR_SLOWDOWN_ARRAY
                     int n_sd_in = gi.binary_slowdown.getSize();
                     for (int j=0; j<_n_sd_list[i]; j++) {
                         if (j<n_sd_in) gi.binary_slowdown[j]->slowdown.printColumn(_fout, _width);
                         else sd_empty.printColumn(_fout, _width);
                     }
+#else
+                    int n_sd_in = gi.info.binarytree.getSize();
+                    for (int j=0; j<_n_sd_list[i]; j++) {
+                        if (j<n_sd_in) gi.info.binarytree[j].slowdown.printColumn(_fout, _width);
+                        else sd_empty.printColumn(_fout, _width);
+                    }
+#endif
                 }
                 else {
                     for (int j=0; j<_n_sd_list[i]; j++) sd_empty.printColumn(_fout, _width);

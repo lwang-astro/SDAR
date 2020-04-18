@@ -300,7 +300,7 @@ int main(int argc, char **argv){
     for (int i=0; i<n_group_init; i++) {
 #ifdef AR_SLOWDOWN_ARRAY
         n_group_sub_init[i] = h4_int.groups[i].binary_slowdown.getSize();
-#else
+#elif AR_SLOWDOWN_TREE
         n_group_sub_init[i] = h4_int.groups[i].info.binarytree.getSize();
 #endif
         n_group_sub_tot_init += n_group_sub_init[i];

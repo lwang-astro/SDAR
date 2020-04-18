@@ -2400,6 +2400,47 @@ namespace AR {
 
 #ifdef AR_SLOWDOWN_TREE
 
+        //! write back slowdown particle iteration function
+        /*!
+          @param[in] _particle_cm: center of mass particle to calculate the original frame, different from the particles.cm
+          @param[in] _vel_sd_up: upper slowdown cm velocity
+          @param[in] _inv_nest_sd_up: upper inverse nested slowdown factor
+          @param[in] _bin: current binary
+         */
+        template <class Tptcl>
+        void writeBackSlowDownParticlesIter(const Tptcl& _particle_cm, const Float* _vel_sd_up, const Float& _inv_nest_sd_up, AR::BinaryTree<Tparticle>& _bin) {
+            Float inv_nest_sd = _inv_nest_sd_up/_bin.slowdown.getSlowDownFactor();
+            Float* vel_cm = _bin.getVel();
+            for (int k=0; k<2; k++) {
+                if (_bin.isMemberTree(k)) {
+                    auto* bink = _bin.getMemberAsTree(k);
+                    Float* vel = bink->getVel();
+                    Float vel_sd[3] = {(vel[0] - vel_cm[0]) * inv_nest_sd + _vel_sd_up[0], 
+                                       (vel[1] - vel_cm[1]) * inv_nest_sd + _vel_sd_up[1], 
+                                       (vel[2] - vel_cm[2]) * inv_nest_sd + _vel_sd_up[2]}; 
+                    writeBackSlowDownParticlesIter(_particle_cm, vel_sd, inv_nest_sd, _bin);
+                }
+                else {
+                    int i = _bin.getMemberIndex(k);
+                    auto& pk = particles[i];
+                    auto* pk_adr = particles.getMemberOriginAddress(i);
+                    Float* vel = pk.getVel();
+                    Float vel_sd[3] = {(vel[0] - vel_cm[0]) * inv_nest_sd + _vel_sd_up[0], 
+                                       (vel[1] - vel_cm[1]) * inv_nest_sd + _vel_sd_up[1], 
+                                       (vel[2] - vel_cm[2]) * inv_nest_sd + _vel_sd_up[2]};
+                    pk_adr->mass = pk.mass;
+
+                    pk_adr->pos[0] = pk.pos[0] + _particle_cm.pos[0];
+                    pk_adr->pos[1] = pk.pos[1] + _particle_cm.pos[1];
+                    pk_adr->pos[2] = pk.pos[2] + _particle_cm.pos[2];
+
+                    pk_adr->vel[0] = vel_sd[0] + _particle_cm.vel[0];
+                    pk_adr->vel[1] = vel_sd[1] + _particle_cm.vel[1];
+                    pk_adr->vel[2] = vel_sd[2] + _particle_cm.vel[2];
+                }
+            }
+        }
+
         //! write back particles with slowdown velocity
         /*! write back particles with slowdown velocity to original address
           @param[in] _particle_cm: center of mass particle to calculate the original frame, different from the particles.cm
@@ -2407,42 +2448,10 @@ namespace AR {
         template <class Tptcl>
         void writeBackSlowDownParticles(const Tptcl& _particle_cm) {
             //! iteration function using binarytree
-            auto writeBackIter =[&](const Float* _vel_sd_up, const Float& _inv_nest_sd_up, AR::BinaryTree<Tparticle>& _bin) {
-                Float inv_nest_sd = _inv_nest_sd_up/_bin->slowdown.getSlowDownFactor();
-                Float* vel_cm = _bin.getVel();
-                for (int k=0; k<2; k++) {
-                    if (_bin.isMemberTree(k)) {
-                        auto* bink = _bin.getMemberAsTree(k);
-                        Float* vel = bink->getVel();
-                        Float vel_sd[3] = {(vel[0] - vel_cm[0]) * inv_nest_sd + _vel_sd_up[0], 
-                                           (vel[1] - vel_cm[1]) * inv_nest_sd + _vel_sd_up[1], 
-                                           (vel[2] - vel_cm[2]) * inv_nest_sd + _vel_sd_up[2]}; 
-                        writeBackIter(vel_sd, inv_nest_sd, _bin);
-                    }
-                    else {
-                        int i = _bin.getMemberIndex(k);
-                        auto& pk = particles[i];
-                        auto* pk_adr = particles.getMemberOriginAddress(i);
-                        Float* vel = pk.getVel();
-                        Float vel_sd[3] = {(vel[0] - vel_cm[0]) * inv_nest_sd + _vel_sd_up[0], 
-                                           (vel[1] - vel_cm[1]) * inv_nest_sd + _vel_sd_up[1], 
-                                           (vel[2] - vel_cm[2]) * inv_nest_sd + _vel_sd_up[2]};
-                        pk_adr->mass = pk.mass;
-
-                        pk_adr->pos[0] = pk.pos[0] + _particle_cm.pos[0];
-                        pk_adr->pos[1] = pk.pos[1] + _particle_cm.pos[1];
-                        pk_adr->pos[2] = pk.pos[2] + _particle_cm.pos[2];
-
-                        pk_adr->vel[0] = vel_sd[0] + _particle_cm.vel[0];
-                        pk_adr->vel[1] = vel_sd[1] + _particle_cm.vel[1];
-                        pk_adr->vel[2] = vel_sd[2] + _particle_cm.vel[2];
-                    }
-                }
-            };
             auto& bin_root=info.getBinaryTreeRoot();
             Float vel_cm[3] = {0.0,0.0,0.0};
             Float sd_factor=1.0;
-            writeBackIter(_particle_cm, vel_cm, sd_factor, bin_root);
+            writeBackSlowDownParticlesIter(_particle_cm, vel_cm, sd_factor, bin_root);
         }
         
 #endif
