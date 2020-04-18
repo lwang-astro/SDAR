@@ -159,22 +159,15 @@ public:
     }
 
     //! (Necessary) calculate acceleration from perturber and the perturbation factor for slowdown calculation
-    /*! The Force class acc_pert should be updated
-      @param[out] _force: force array to store the calculation results (in acc_pert[3], notice acc_pert may need to reset zero to avoid accummulating old values)
-      @param[out] _epot: potential 
+    /*!@param[out] _force: force array to store the calculation results (in acc_pert[3], notice acc_pert may need to reset zero to avoid accummulating old values)
       @param[in] _particles: member particle array
       @param[in] _n_particle: number of member particles
       @param[in] _particle_cm: center-of-mass particle
       @param[in] _perturber: pertuber container
       @param[in] _time: current time
-      \return perturbation energy to calculate slowdown factor
     */
-    Float calcAccPotAndGTKickInv(AR::Force* _force, Float& _epot, const ARPtcl* _particles, const int _n_particle, const H4Ptcl& _particle_cm, const H4::Neighbor<Particle>& _perturber, const Float _time) {
+    void calcAccPert(AR::Force* _force, const ARPtcl* _particles, const int _n_particle, const H4Ptcl& _particle_cm, const H4::Neighbor<Particle>& _perturber, const Float _time) {
         static const Float inv3 = 1.0 / 3.0;
-
-        Float gt_kick_inv;
-        if (_n_particle==2) gt_kick_inv = calcInnerAccPotAndGTKickInvTwo(_force[0], _force[1], _epot, _particles[0], _particles[1]);
-        else gt_kick_inv = calcInnerAccPotAndGTKickInv(_force, _epot, _particles, _n_particle);
 
         const int n_pert = _perturber.neighbor_address.getSize();
         if (n_pert>0) {
@@ -302,8 +295,27 @@ public:
 
             }
         }
+    }
+
+    //! (Necessary) calculate acceleration from perturber and the perturbation factor for slowdown calculation
+    /*! The Force class acc_pert should be updated
+      @param[out] _force: force array to store the calculation results (in acc_pert[3], notice acc_pert may need to reset zero to avoid accummulating old values)
+      @param[out] _epot: potential 
+      @param[in] _particles: member particle array
+      @param[in] _n_particle: number of member particles
+      @param[in] _particle_cm: center-of-mass particle
+      @param[in] _perturber: pertuber container
+      @param[in] _time: current time
+      \return perturbation energy to calculate slowdown factor
+    */
+    Float calcAccPotAndGTKickInv(AR::Force* _force, Float& _epot, const ARPtcl* _particles, const int _n_particle, const H4Ptcl& _particle_cm, const H4::Neighbor<Particle>& _perturber, const Float _time) {
+        Float gt_kick_inv;
+        if (_n_particle==2) gt_kick_inv = calcInnerAccPotAndGTKickInvTwo(_force[0], _force[1], _epot, _particles[0], _particles[1]);
+        else gt_kick_inv = calcInnerAccPotAndGTKickInv(_force, _epot, _particles, _n_particle);
+
+        calcAccPert(_force, _particles, _n_particle, _particle_cm, _perturber, _time);
+
         return gt_kick_inv;
-        
     }
 
 
@@ -404,7 +416,6 @@ public:
     */
     void calcSlowDownPert(Float& _pert_out, Float& _t_min_sq, const Float& _time, const H4Ptcl& _particle_cm, const H4::Neighbor<Particle>& _perturber) {
         static const Float inv3 = 1.0 / 3.0;
-        const Float factor = 100.0;
 
         const int n_pert = _perturber.neighbor_address.getSize();
 
@@ -469,7 +480,7 @@ public:
 
                 //hyperbolic, directly use velocity v
                 if (semi<0) 
-                    _t_min_sq = std::min(_t_min_sq, factor*r2/v2);
+                    _t_min_sq = std::min(_t_min_sq, r2/v2);
                 else {
                     if (r<semi) {
                         // avoid decrese of vr once the orbit pass, calculate vr max at E=pi/2 (r==semi)
@@ -478,12 +489,12 @@ public:
                         Float er = 2*gm - rv2;
                         Float vcr2 = gm - rv2;
                         Float vrmax_sq = er*(drdv*drdv*er + r*vcr2*vcr2)/(gm*gm*r2);
-                        _t_min_sq = std::min(_t_min_sq, factor*semi*semi/vrmax_sq);
+                        _t_min_sq = std::min(_t_min_sq, semi*semi/vrmax_sq);
                     }
                     else {
                         // r/vr
                         Float rovr = r2/abs(drdv);
-                        _t_min_sq = std::min(_t_min_sq, factor*rovr*rovr);
+                        _t_min_sq = std::min(_t_min_sq, rovr*rovr);
                     }
                 }
 #endif

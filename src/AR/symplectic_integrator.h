@@ -1183,7 +1183,9 @@ namespace AR {
         void updateSlowDownAndCorrectEnergy(const bool _update_energy_flag) {
             
             auto& sd_root = binary_slowdown[0]->slowdown;
+#ifdef AR_TTL
             Float sd_backup = sd_root.getSlowDownFactor();
+#endif
             //if (time_>=sd_root.getUpdateTime()) {
             sd_root.pert_in = manager->interaction.calcPertFromBinary(*binary_slowdown[0]);
             sd_root.period = binary_slowdown[0]->period;
@@ -1231,8 +1233,8 @@ namespace AR {
                 }
                 else {
                     Float kappa_inv = 1.0/sd_root.getSlowDownFactor();
-                    Float gt_kick_inv_sdi = gt_kick_inv_*sd_backup*kappa_inv;
 #ifdef AR_TTL
+                    Float gt_kick_inv_sdi = gt_kick_inv_*sd_backup*kappa_inv;
                     gt_drift_inv_ += gt_kick_inv_sdi - gt_kick_inv_;
                     gt_kick_inv_ = gt_kick_inv_sdi;
 #endif
@@ -1334,7 +1336,6 @@ namespace AR {
             etot_sd_ref_ = ekin_sd_ + epot_sd_;
 
             Float de_sd = etot_sd_ref_ - etot_ref_;
-            etot_sd_ref_ += de_sd;
 
             // add slowdown change to the global slowdown energy
             de_sd_change_cum_ += de_sd;
@@ -1493,6 +1494,7 @@ namespace AR {
                 // update real time
                 _time_table[i] = time_;
 
+#if (defined AR_SLOWDOWN_ARRAY) || (defined AR_SLOWDOWN_TREE)
                 Float dt_sd = dt*kappa_inv;
 
                 // drift position
@@ -1503,6 +1505,16 @@ namespace AR {
                 pos2[0] += dt_sd * vel2[0];
                 pos2[1] += dt_sd * vel2[1];
                 pos2[2] += dt_sd * vel2[2];
+#else
+                // drift position
+                pos1[0] += dt * vel1[0];
+                pos1[1] += dt * vel1[1];
+                pos1[2] += dt * vel1[2];
+
+                pos2[0] += dt * vel2[0];
+                pos2[1] += dt * vel2[1];
+                pos2[2] += dt * vel2[2];
+#endif
 
                 // step for kick
                 ds = manager->step.getDK(i)*_ds;

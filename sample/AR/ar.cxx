@@ -329,7 +329,7 @@ int main(int argc, char **argv){
         sym_int.profile.step_count = 1;
         auto IntegrateOneStep = [&] (){
 #ifdef AR_SLOWDOWN_ARRAY
-            sym_int.updateSlowDownAndCorrectEnergy();
+            sym_int.updateSlowDownAndCorrectEnergy(true);
 #endif
             if(n_particle==2) sym_int.integrateTwoOneStep(sym_int.info.ds, time_table);
             else sym_int.integrateOneStep(sym_int.info.ds, time_table);
