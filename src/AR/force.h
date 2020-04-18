@@ -45,6 +45,15 @@ namespace AR {
                 abort();
             }
         }
+
+        //! clear
+        void clear() {
+            acc_in[0] = acc_in[1] = acc_in[2] = 0.0;
+            acc_pert[0] = acc_pert[1] = acc_pert[2] = 0.0;
+#ifdef AR_TTL
+            gtgrad[0] = gtgrad[1] = gtgrad[2] = 0.0;
+#endif            
+        }
     };
 
 

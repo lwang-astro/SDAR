@@ -62,7 +62,9 @@ int main(int argc, char **argv){
     std::string bin_name("ar.logh");
 #endif
 #ifdef AR_SLOWDOWN_ARRAY
-    bin_name += ".sd";
+    bin_name += ".sd.a";
+#elif AR_SLOWDOWN_TREE
+    bin_name += ".sd.t";
 #endif
 
     int copt;
@@ -309,6 +311,8 @@ int main(int argc, char **argv){
 
 #ifdef AR_SLOWDOWN_ARRAY
     int n_sd = sym_int.binary_slowdown.getSize();
+#elif AR_SLOWDOWN_TREE
+    int n_sd = sym_int.info.binarytree.getSize();
 #else
     int n_sd = 0;
 #endif
@@ -328,7 +332,7 @@ int main(int argc, char **argv){
         Float time_table[manager.step.getCDPairSize()];
         sym_int.profile.step_count = 1;
         auto IntegrateOneStep = [&] (){
-#ifdef AR_SLOWDOWN_ARRAY
+#if (defined AR_SLOWDOWN_ARRAY) || (defined AR_SLOWDOWN_TREE)
             sym_int.updateSlowDownAndCorrectEnergy(true);
 #endif
             if(n_particle==2) sym_int.integrateTwoOneStep(sym_int.info.ds, time_table);

@@ -1,4 +1,4 @@
-TARGET= ar.logh ar.logh.sd ar.ttl ar.ttl.sd
+TARGET= ar.logh ar.logh.sd.a ar.logh.sd.t ar.ttl ar.ttl.sd.a ar.ttl.sd.t
 
 all: $(TARGET)
 
@@ -65,8 +65,11 @@ endif
 ar.logh: ar.cxx  ${SOURCE}
 	$(CXX) $(CXXFLAGS) $< -o $@ $(CXXLIBS)
 
-ar.logh.sd: ar.cxx ${SOURCE}
+ar.logh.sd.a: ar.cxx ${SOURCE}
 	$(CXX) $(CXXFLAGS) -D AR_SLOWDOWN_ARRAY -D AR_SLOWDOWN_TIMESCALE  $< -o $@ $(CXXLIBS)
+
+ar.logh.sd.t: ar.cxx ${SOURCE}
+	$(CXX) $(CXXFLAGS) -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE  $< -o $@ $(CXXLIBS)
 
 ar.ttl: ar.cxx ${SOURCE}
 	$(CXX) $(CXXFLAGS) -D AR_TTL $< -o $@ $(CXXLIBS)
@@ -74,9 +77,11 @@ ar.ttl: ar.cxx ${SOURCE}
 ar.ttl.m: ar.cxx ${SOURCE}
 	$(CXX) $(CXXFLAGS) -D AR_TTL -D AR_TTL_GT_MULTI $< -o $@ $(CXXLIBS)
 
-ar.ttl.sd: ar.cxx ${SOURCE}
-#	$(CXX) $(CXXFLAGS) -D AR_TTL -D AR_SLOWDOWN_ARRAY -D AR_TTL_GT_BINARY_INNER -D AR_SLOWDOWN_TIMESCALE $< -o $@ $(CXXLIBS)
+ar.ttl.sd.a: ar.cxx ${SOURCE}
 	$(CXX) $(CXXFLAGS) -D AR_TTL -D AR_SLOWDOWN_ARRAY -D AR_SLOWDOWN_TIMESCALE  $< -o $@ $(CXXLIBS)
+
+ar.ttl.sd.t: ar.cxx ${SOURCE}
+	$(CXX) $(CXXFLAGS) -D AR_TTL -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE  $< -o $@ $(CXXLIBS)
 
 install: $(TARGET)
 	mv $(TARGET) ~/bin
