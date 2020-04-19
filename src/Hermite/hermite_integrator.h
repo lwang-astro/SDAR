@@ -2329,7 +2329,7 @@ namespace H4{
             de_sd_change_cum_ += groupi.getDESlowDownChangeCum();
             // add the change due to the shutdown of slowdown 
             Float etot = groupi.getEkin() + groupi.getEpot();
-            Float etot_sd = groupi.getEkinSlowDownInner() + groupi.getEpotSlowDownInner();
+            Float etot_sd = groupi.getEkinSlowDown() + groupi.getEpotSlowDown();
             de_sd_change_cum_ += etot - etot_sd;
         }
 
@@ -2363,8 +2363,8 @@ namespace H4{
                 energy_sd_.ekin -= gi.getEkin();
                 energy_sd_.epot -= gi.getEpot(); 
 
-                energy_sd_.ekin += gi.getEkinSlowDownInner();
-                energy_sd_.epot += gi.getEpotSlowDownInner();
+                energy_sd_.ekin += gi.getEkinSlowDown();
+                energy_sd_.epot += gi.getEpotSlowDown();
             }
             if (_initial_flag) {
                 energy_.etot_ref = energy_.getEtot();

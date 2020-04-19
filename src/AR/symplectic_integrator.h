@@ -1821,9 +1821,9 @@ namespace AR {
 
                 // energy check
 #if (defined AR_SLOWDOWN_ARRAY) || (defined AR_SLOWDOWN_TREE)
-                Float energy_error_bk = getEnergyErrorSlowDownInnerFromBackup(backup_data);
-                Float etot_ref_bk = getEtotSlowDownInnerRefFromBackup(backup_data);
-                Float energy_error = getEnergyErrorSlowDownInner();
+                Float energy_error_bk = getEnergyErrorSlowDownFromBackup(backup_data);
+                Float etot_ref_bk = getEtotSlowDownRefFromBackup(backup_data);
+                Float energy_error = getEnergyErrorSlowDown();
 #else
                 Float energy_error_bk = getEnergyErrorFromBackup(backup_data);
                 Float etot_ref_bk = getEtotRefFromBackup(backup_data);
@@ -2564,50 +2564,50 @@ namespace AR {
         //! Get current kinetic energy with inner slowdown
         /*! \return current kinetic energy with inner slowdown
          */
-        Float getEkinSlowDownInner() const {
+        Float getEkinSlowDown() const {
             return ekin_sd_;
         }
 
         //! Get current potential energy with inner slowdown
         /*! \return current potetnial energy with inner slowdown (negative value for bounded systems)
          */
-        Float getEpotSlowDownInner() const {
+        Float getEpotSlowDown() const {
             return epot_sd_;
         }
 
         //! Get current total integrated energy with inner slowdown
         /*! \return total integrated energy with inner slowdown
          */
-        Float getEtotSlowDownInnerRef() const {
+        Float getEtotSlowDownRef() const {
             return etot_sd_ref_;
         }
 
         //! Get current total energy with inner slowdown from ekin_sdi and epot_sdi
         /*! \return total energy with inner slowdown
          */
-        Float getEtotSlowDownInner() const {
+        Float getEtotSlowDown() const {
             return ekin_sd_ + epot_sd_;
         }
 
         //! get energy error with inner slowdown
         /*! \return energy error with inner slowdown
          */
-        Float getEnergyErrorSlowDownInner() const {
+        Float getEnergyErrorSlowDown() const {
             return ekin_sd_ + epot_sd_ - etot_sd_ref_;
         }
 
         //! get energy error with inner slowdown from backup data 
-        Float getEnergyErrorSlowDownInnerFromBackup(Float* _bk) const {
+        Float getEnergyErrorSlowDownFromBackup(Float* _bk) const {
             return -_bk[6] + _bk[7] + _bk[8];
         }
 
         //! get integrated energy with inner slowdown from backup data
-        Float getEtotSlowDownInnerRefFromBackup(Float* _bk) const {
+        Float getEtotSlowDownRefFromBackup(Float* _bk) const {
             return _bk[6];
         }
 
         //! get energy with inner slowdown from backup data (ekin_sdi + epot_sdi)
-        Float getEtotSlowDownInnerFromBackup(Float* _bk) const {
+        Float getEtotSlowDownFromBackup(Float* _bk) const {
             return _bk[7] + _bk[8];
         }
 
@@ -2763,7 +2763,7 @@ namespace AR {
             info.printColumn(_fout, _width);
             profile.printColumn(_fout, _width);
 #if (defined AR_SLOWDOWN_ARRAY) || (defined AR_SLOWDOWN_TREE)
-            _fout<<std::setw(_width)<<getEnergyErrorSlowDownInner()
+            _fout<<std::setw(_width)<<getEnergyErrorSlowDown()
                  <<std::setw(_width)<<etot_sd_ref_ 
                  <<std::setw(_width)<<ekin_sd_ 
                  <<std::setw(_width)<<epot_sd_;

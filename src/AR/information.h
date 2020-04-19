@@ -85,24 +85,27 @@ namespace AR {
     class Information{
     private:
         //! calculate average kepler ds for ARC
-        template <class Tds>
-        static Tds calcDsKeplerIter(Tds& _ds, BinaryTree<Tparticle>& _bin) {
-            Tds ds;
-            ds.G   = _ds.G;
-#ifdef AR_TTL_GT_MULTI
-            // ecca [v/r]
-            Float tov2 = 0.03855314219*_bin.semi*_bin.semi*_bin.semi/(_ds.G*_bin.m1+_bin.m2);
-            // semi cum
-            ds.tov = std::min(_ds.tov,tov2);
-            ds.r   = 2.0*_ds.r*_bin.semi;
-#else
-            //kepler orbit, step ds=dt*m1*m2/r estimation (1/32 orbit): 2*pi/32*sqrt(semi/(m1+m2))*m1*m2 
-            if (_bin.semi>0) ds.min = 0.19634954084*sqrt(_ds.G*_bin.semi/(_bin.m1+_bin.m2))*(_bin.m1*_bin.m2);
-            //hyperbolic orbit, step ds=dt*m1*m2/r estimation (1/256 orbit): pi/128*sqrt(semi/(m1+m2))*m1*m2
-            else ds.min = 0.0245436926*sqrt(-_bin.semi/(_bin.m1+_bin.m2))*(_bin.m1*_bin.m2);
-            ds.min = std::min(ds.min, _ds.min);
-#endif
-            return ds;
+        void calcDsMinKeplerIter(Float& _ds_over_ebin_min_bin, Float& _ds_min_hyp, Float& _etot_sd, const Float& _G, const Float& _nest_sd_up, BinaryTree<Tparticle>& _bin) {
+            Float nest_sd = _nest_sd_up * _bin.slowdown.getSlowDownFactor();
+            for (int k=0; k<2; k++) {
+                if (_bin.isMemberTree(k)) {
+                    calcDsMinKeplerIter(_ds_over_ebin_min_bin, _ds_min_hyp, _etot_sd, _G, nest_sd, *_bin.getMemberAsTree(k));
+                }
+            }
+            if (_bin.semi>0) {
+                //kepler orbit, step ds=dt*G*m1*m2/r estimation (1/32 orbit): 2*pi/32*sqrt(semi/(m1+m2))*m1*m2 
+                Float dsi = 0.19634954084*sqrt(_G*_bin.semi/(_bin.m1+_bin.m2))*(_bin.m1*_bin.m2);
+                // scale by /Ebin_sd
+                Float ebin_sd = _G*(_bin.m1*_bin.m2)/(2*_bin.semi*nest_sd);
+                ASSERT(dsi>0&&ebin_sd>0);
+                _ds_over_ebin_min_bin = std::min(dsi/ebin_sd, _ds_over_ebin_min_bin);
+                _etot_sd += ebin_sd;
+            }
+            else {
+                //hyperbolic orbit, step ds=dt*m1*m2/r estimation (1/256 orbit): pi/128*sqrt(semi/(m1+m2))*m1*m2
+                Float dsi = 0.0245436926*sqrt(-_G*_bin.semi/(_bin.m1+_bin.m2))*(_bin.m1*_bin.m2);
+                _ds_min_hyp = std::min(dsi, _ds_min_hyp);
+            }
         }
 
     public:
@@ -139,17 +142,21 @@ namespace AR {
           @param[in] _int_order: accuracy order of the symplectic integrator.
           @param[in] _G: gravitational constant
          */
-        void calcDsAndStepOption(const int _int_order, const Float _G) {
+        void calcDsAndStepOption(const int _int_order, const Float& _G) {
             auto& bin_root = getBinaryTreeRoot();
-#ifdef AR_TTL_GT_MULTI
-            struct {Float G, tov, r; } ds_iter = {_G, NUMERIC_FLOAT_MAX, 1.0};
-            ds_iter = bin_root.processRootIter(ds_iter, calcDsKeplerIter);
-            ds = sqrt(ds_dat.tov)/ds_dat.r;
-#else
-            struct {Float G, min;} ds_iter = {_G, NUMERIC_FLOAT_MAX};
-            ds_iter = bin_root.processRootIter(ds_iter, calcDsKeplerIter);
-            ds = ds_iter.min;
-#endif
+            Float ds_over_ebin_min=NUMERIC_FLOAT_MAX, ds_min_hyp=NUMERIC_FLOAT_MAX;
+            Float etot_sd = 0.0;
+            calcDsMinKeplerIter(ds_over_ebin_min, ds_min_hyp, etot_sd, _G, 1.0, bin_root);
+            if (ds_over_ebin_min!=NUMERIC_FLOAT_MAX) {
+                ds = std::min(ds_over_ebin_min*etot_sd, ds_min_hyp);
+                ASSERT(ds_over_ebin_min>0&&etot_sd>0);
+            }
+            else {
+                ASSERT(bin_root.semi<0);
+                ds = ds_min_hyp;
+            }
+            ASSERT(ds>0);
+
             // Avoid too small step
             //if (_sd_org<1.0) ds *= std::max(1.0/8.0*pow(_sd_org, 1.0/Float(_int_order)),0.125);
             //auto& bin_root = getBinaryTreeRoot();
