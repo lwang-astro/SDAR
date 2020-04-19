@@ -147,10 +147,8 @@ namespace AR {
             Float ds_over_ebin_min=NUMERIC_FLOAT_MAX, ds_min_hyp=NUMERIC_FLOAT_MAX;
             Float etot_sd = 0.0;
             calcDsMinKeplerIter(ds_over_ebin_min, ds_min_hyp, etot_sd, _G, 1.0, bin_root);
-            if (ds_over_ebin_min!=NUMERIC_FLOAT_MAX) {
-                ds = std::min(ds_over_ebin_min*etot_sd, ds_min_hyp);
-                ASSERT(ds_over_ebin_min>0&&etot_sd>0);
-            }
+            Float ds_min_bin = ds_over_ebin_min*etot_sd;
+            if (ds_min_bin!=0) ds = ds_min_bin;
             else {
                 ASSERT(bin_root.semi<0);
                 ds = ds_min_hyp;
