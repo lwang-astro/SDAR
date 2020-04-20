@@ -1699,7 +1699,7 @@ namespace AR {
                 void backup(const Float _ds, const Float _modify_factor) {
                     //if (n_reduce_level==n_reduce_level_max) shiftReduceLevel();  // not converse sometimes, becomes infinite small steps
                     if (n_reduce_level==n_reduce_level_max) 
-                        n_step_wait_recover_ds[n_reduce_level] *= 2*to_int(1.0/_modify_factor);
+                        n_step_wait_recover_ds[n_reduce_level] += 2*to_int(1.0/_modify_factor);
                     else {
                         n_reduce_level++;
                         ds_backup[n_reduce_level] = _ds;
@@ -1853,15 +1853,15 @@ namespace AR {
                 Float time_diff_rel = (_time_end - time_)/dt_full;
 
                 //! regular block time step modification factor
-                //auto regularStepFactor = [](const PS::F64 _fac) {
-                //    PS::F64 fac = 1.0;
-                //    if (_fac<1) while (fac>_fac) fac *= 0.5;
-                //    else {
-                //        while (fac<=_fac) fac *= 2.0;
-                //        fac *= 0.5;
-                //    }
-                //    return fac;
-                //};
+                auto regularStepFactor = [](const PS::F64 _fac) {
+                    PS::F64 fac = 1.0;
+                    if (_fac<1) while (fac>_fac) fac *= 0.5;
+                    else {
+                        while (fac<=_fac) fac *= 2.0;
+                        fac *= 0.5;
+                    }
+                    return fac;
+                };
 
                 // error message print
                 auto printMessage = [&](const char* message) {
@@ -2004,7 +2004,7 @@ namespace AR {
 
                             // estimate the modification factor based on the symplectic order
                             // limit step_modify_factor to 0.125
-                            step_modify_factor = std::max(manager->step.calcStepModifyFactorFromErrorRatio(integration_error_ratio), Float(0.125));
+                            step_modify_factor = std::max(regularStepFactor(manager->step.calcStepModifyFactorFromErrorRatio(integration_error_ratio)), Float(0.125));
                             ASSERT(step_modify_factor>0.0);
 
                             previous_step_modify_factor = step_modify_factor;
@@ -2043,7 +2043,7 @@ namespace AR {
                 // if negative step, reduce step size
                 if(!time_end_flag&&dt<0) {
                     // limit step_modify_factor to 0.125
-                    step_modify_factor = std::min(std::max(manager->step.calcStepModifyFactorFromErrorRatio(abs(_time_end/dt)), Float(0.0625)),Float(0.5)); 
+                    step_modify_factor = std::min(std::max(regularStepFactor(manager->step.calcStepModifyFactorFromErrorRatio(abs(_time_end/dt))), Float(0.0625)),Float(0.5)); 
                     ASSERT(step_modify_factor>0.0);
                     previous_step_modify_factor = step_modify_factor;
                     previous_error_ratio = integration_error_ratio;
