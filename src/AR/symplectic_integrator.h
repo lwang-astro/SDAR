@@ -1852,6 +1852,17 @@ namespace AR {
                 // time error
                 Float time_diff_rel = (_time_end - time_)/dt_full;
 
+                //! regular block time step modification factor
+                //auto regularStepFactor = [](const PS::F64 _fac) {
+                //    PS::F64 fac = 1.0;
+                //    if (_fac<1) while (fac>_fac) fac *= 0.5;
+                //    else {
+                //        while (fac<=_fac) fac *= 2.0;
+                //        fac *= 0.5;
+                //    }
+                //    return fac;
+                //};
+
                 // error message print
                 auto printMessage = [&](const char* message) {
                     std::cerr<<message<<std::endl;
@@ -1885,6 +1896,7 @@ namespace AR {
                 auto collectDsModifyInfo = [&](const char* error_message) {
                     auto& bin = info.getBinaryTreeRoot();
                     std::cerr<<error_message<<": "
+                             <<"time "<<time_<<" " 
                              <<"ds_new "<<ds[1-ds_switch]<<" "
                              <<"ds_init "<<ds_init<<" "
                              <<"modify "<<step_modify_factor<<" "
@@ -1892,6 +1904,7 @@ namespace AR {
                              <<"n_mods "<<reduce_ds_count<<" "
                              <<"err "<<integration_error_rel_abs<<" "
                              <<"err/max "<<1.0/integration_error_ratio<<" "
+                             <<"errcum/E "<<integration_error_rel_cum_abs<<" "
                              <<"dt "<<dt<<" "
                              <<"n_ptcl "<<n_particle<<" "
                              <<"semi "<<bin.semi<<" "
@@ -2062,6 +2075,10 @@ namespace AR {
 //                    abort();
                 }
 
+                // if no modification, reset previous values
+                previous_step_modify_factor = 1.0;
+                previous_error_ratio = -1.0;
+
                 // check integration time
                 if(time_ < _time_end - time_error){
                     // check interrupt condiction
@@ -2189,8 +2206,8 @@ namespace AR {
                         // waiting step count reach
                         previous_is_restore=ds_backup.countAndRecover(ds[1-ds_switch], step_modify_factor);
                         if (previous_is_restore) {
-                            previous_error_ratio = -1;
-                            previous_step_modify_factor = 1.0;
+                            //previous_error_ratio = -1;
+                            //previous_step_modify_factor = 1.0;
 #ifdef AR_COLLECT_DS_MODIFY_INFO
                             collectDsModifyInfo("Reuse_backup_ds");
 #endif

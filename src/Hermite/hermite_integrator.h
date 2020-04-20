@@ -2623,7 +2623,7 @@ namespace H4{
                 if (p==stephist.end()) stephist[dt] = 1;
                 else stephist[dt]++;
             }
-            std::cerr<<"Step hist:\n";
+            std::cerr<<"Step hist: time = "<<time_<<"\n";
             for(auto i=stephist.begin(); i!=stephist.end(); i++) {
                 std::cerr<<std::setw(24)<<i->first;
             }
