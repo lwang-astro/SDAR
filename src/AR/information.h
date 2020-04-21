@@ -147,7 +147,7 @@ namespace AR {
             Float ds_over_ebin_min=NUMERIC_FLOAT_MAX, ds_min_hyp=NUMERIC_FLOAT_MAX;
             Float etot_sd = 0.0;
             calcDsMinKeplerIter(ds_over_ebin_min, ds_min_hyp, etot_sd, _G, 1.0, bin_root);
-            Float ds_min_bin = ds_over_ebin_min*etot_sd;
+            Float ds_min_bin = ds_over_ebin_min*etot_sd/(bin_root.getMemberN()-1);
             if (ds_min_bin!=0) ds = ds_min_bin;
             else {
                 ASSERT(bin_root.semi<0);
@@ -158,13 +158,13 @@ namespace AR {
             // Avoid too small step
             //if (_sd_org<1.0) ds *= std::max(1.0/8.0*pow(_sd_org, 1.0/Float(_int_order)),0.125);
             //auto& bin_root = getBinaryTreeRoot();
-            const int n_particle = bin_root.getMemberN();
+            //const int n_particle = bin_root.getMemberN();
 
             // determine the fix step option
-            //fix_step_option = FixStepOption::later;
-            fix_step_option = FixStepOption::none;
+            fix_step_option = FixStepOption::later;
+            //fix_step_option = FixStepOption::none;
             //// for two-body case, determine the step at begining then fix
-            if (n_particle==2) fix_step_option = AR::FixStepOption::later;
+            //if (n_particle==2) fix_step_option = AR::FixStepOption::later;
             //// for multiple case, check whether outer peri-center is close to inner apo-center, if not, use fix step
             //if (n_particle>2) {
             //    Float apo_in_max = 0;

@@ -1730,9 +1730,20 @@ namespace H4{
 //#endif
                         pj = &groups[jg].particles.cm;
                     }
+
+                    // add flag
+                    bool add_flag=false;
                     // only inwards or first step case
-                    Float drdv = calcDrDv(pi, *pj);
-                    if(drdv<0.0||_start_flag) {
+                    Float semi, ecc, dr, drdv;
+                    AR::BinaryTree<ARPtcl>::particleToSemiEcc(semi,ecc,dr,drdv, pi, *pj, ar_manager->interaction.gravitational_constant); 
+                    //Float drdv = calcDrDv(pi, *pj);
+                    if(drdv<0.0||_start_flag) add_flag=true;
+                    else {
+                        Float rp = drdv/dr*dt_limit_ + dr;
+                        if (rp < r_crit) add_flag = true;
+                    }
+
+                    if (add_flag) {
 
                         //Float mcm = pi.mass + pj->mass;
                         Float fcm[3] = {pi.mass*pi.acc0[0] + pj->mass*pj->acc0[0], 

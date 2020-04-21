@@ -1666,7 +1666,7 @@ namespace AR {
             int   ds_switch=0;   // 0 or 1
 
             // reduce ds control, three level
-            const int n_reduce_level_max=2;
+            const int n_reduce_level_max=10;
 
             struct DsBackupManager{
                 Float ds_backup[n_reduce_level_max+1];
@@ -1708,14 +1708,16 @@ namespace AR {
                 }
 
                 // count step (return false) and recover ds if necessary (return true)
-                bool countAndRecover(Float &_ds, Float &_modify_factor) {
+                bool countAndRecover(Float &_ds, Float &_modify_factor, const bool _recover_flag) {
                     if (n_reduce_level>=0) {
                         if (n_step_wait_recover_ds[n_reduce_level] ==0) {
-                            _modify_factor = ds_backup[n_reduce_level]/_ds;
-                            _ds = ds_backup[n_reduce_level];
-                            n_step_wait_recover_ds[n_reduce_level] = -1;
-                            n_reduce_level--;
-                            return true;
+                            if (_recover_flag) {
+                                _modify_factor = ds_backup[n_reduce_level]/_ds;
+                                _ds = ds_backup[n_reduce_level];
+                                n_step_wait_recover_ds[n_reduce_level] = -1;
+                                n_reduce_level--;
+                                return true;
+                            }
                         }
                         else {
                             n_step_wait_recover_ds[n_reduce_level]--;
@@ -1863,6 +1865,8 @@ namespace AR {
                     return fac;
                 };
 
+                Float error_increase_ratio_regular = manager->step.calcErrorRatioFromStepModifyFactor(2.0);
+
                 // error message print
                 auto printMessage = [&](const char* message) {
                     std::cerr<<message<<std::endl;
@@ -1976,11 +1980,11 @@ namespace AR {
 
                     if (check_flag) {
                         // for initial steps, reduce step permanently 
-                        if(step_count<3) {
+                        if(step_count<5) {
 
                             // estimate the modification factor based on the symplectic order
                             // limit step_modify_factor to 0.125
-                            step_modify_factor = std::max(manager->step.calcStepModifyFactorFromErrorRatio(integration_error_ratio), Float(0.125));
+                            step_modify_factor = std::max(regularStepFactor(manager->step.calcStepModifyFactorFromErrorRatio(integration_error_ratio)), Float(0.125));
                             ASSERT(step_modify_factor>0.0);
 
                             previous_step_modify_factor = step_modify_factor;
@@ -1989,8 +1993,8 @@ namespace AR {
                             ds[ds_switch] *= step_modify_factor;
                             ds[1-ds_switch] = ds[ds_switch];
                             // permanently reduce ds
-                            info.ds = ds[ds_switch];
-                            ASSERT(!isinf(info.ds));
+                            // info.ds = ds[ds_switch];
+                            // ASSERT(!isinf(info.ds));
                             ds_backup.initial(info.ds);
 
                             backup_flag = false;
@@ -2000,7 +2004,7 @@ namespace AR {
                             continue;
                         }
                         // for big energy error, reduce step temparely
-                        else if (info.fix_step_option==FixStepOption::none && integration_error_ratio<0.1) {
+                        else if (info.fix_step_option==FixStepOption::none) {
 
                             // estimate the modification factor based on the symplectic order
                             // limit step_modify_factor to 0.125
@@ -2053,8 +2057,8 @@ namespace AR {
                     ASSERT(!isinf(ds[ds_switch]));
 
                     // for initial steps, reduce step permanently
-                    if (step_count<3) {
-                        info.ds = ds[ds_switch];
+                    if (step_count<5) {
+                        //info.ds = ds[ds_switch];
                         ds_backup.initial(info.ds);
                     }
                     else { // reduce step temparely
@@ -2204,7 +2208,7 @@ namespace AR {
                     // step increase depend on n_step_wait_recover_ds
                     if(info.fix_step_option==FixStepOption::none && !time_end_flag) {
                         // waiting step count reach
-                        previous_is_restore=ds_backup.countAndRecover(ds[1-ds_switch], step_modify_factor);
+                        previous_is_restore=ds_backup.countAndRecover(ds[1-ds_switch], step_modify_factor, integration_error_ratio>error_increase_ratio_regular);
                         if (previous_is_restore) {
                             //previous_error_ratio = -1;
                             //previous_step_modify_factor = 1.0;
