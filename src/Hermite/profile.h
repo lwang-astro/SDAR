@@ -3,13 +3,13 @@
 namespace H4{
     class Profile{
     public:
-        typedef long long int Int64;
-        Int64 hermite_single_step_count; // number of integration steps of hermite single
-        Int64 hermite_group_step_count; // number of integration steps of hermite groups
-        Int64 ar_step_count; // number of integration steps of ar
-        Int64 ar_step_count_tsyn; // number of integration steps of ar
-        Int64 break_group_count; // times of break groups
-        Int64 new_group_count; // times of new groups
+        typedef long long unsigned int UInt64;
+        UInt64 hermite_single_step_count; // number of integration steps of hermite single
+        UInt64 hermite_group_step_count; // number of integration steps of hermite groups
+        UInt64 ar_step_count; // number of integration steps of ar
+        UInt64 ar_step_count_tsyn; // number of integration steps of ar
+        UInt64 break_group_count; // times of break groups
+        UInt64 new_group_count; // times of new groups
 
         Profile() {clear();} 
     
