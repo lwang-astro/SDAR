@@ -85,11 +85,11 @@ namespace AR {
     class Information{
     private:
         //! calculate average kepler ds for ARC
-        void calcDsMinKeplerIter(Float& _ds_over_ebin_min_bin, Float& _ds_min_hyp, Float& _etot_sd, const Float& _G, const Float& _nest_sd_up, BinaryTree<Tparticle>& _bin) {
+        void calcDsMinKeplerIter(Float& _ds_over_ebin_min_bin, Float& _ds_min_bin, Float& _ds_min_hyp, Float& _etot_sd, const Float& _G, const Float& _nest_sd_up, BinaryTree<Tparticle>& _bin) {
             Float nest_sd = _nest_sd_up * _bin.slowdown.getSlowDownFactor();
             for (int k=0; k<2; k++) {
                 if (_bin.isMemberTree(k)) {
-                    calcDsMinKeplerIter(_ds_over_ebin_min_bin, _ds_min_hyp, _etot_sd, _G, nest_sd, *_bin.getMemberAsTree(k));
+                    calcDsMinKeplerIter(_ds_over_ebin_min_bin, _ds_min_bin, _ds_min_hyp, _etot_sd, _G, nest_sd, *_bin.getMemberAsTree(k));
                 }
             }
             if (_bin.semi>0) {
@@ -98,7 +98,11 @@ namespace AR {
                 // scale by /Ebin_sd
                 Float ebin_sd = _G*(_bin.m1*_bin.m2)/(2*_bin.semi*nest_sd);
                 ASSERT(dsi>0&&ebin_sd>0);
-                _ds_over_ebin_min_bin = std::min(dsi/ebin_sd, _ds_over_ebin_min_bin);
+                Float ds_over_ebin = dsi/ebin_sd;
+                if (ds_over_ebin<_ds_over_ebin_min_bin) {
+                    _ds_over_ebin_min_bin = ds_over_ebin;
+                    _ds_min_bin = dsi;
+                }
                 _etot_sd += ebin_sd;
             }
             else {
@@ -145,9 +149,10 @@ namespace AR {
         void calcDsAndStepOption(const int _int_order, const Float& _G) {
             auto& bin_root = getBinaryTreeRoot();
             Float ds_over_ebin_min=NUMERIC_FLOAT_MAX, ds_min_hyp=NUMERIC_FLOAT_MAX;
+            Float ds_min_bin=0;
             Float etot_sd = 0.0;
-            calcDsMinKeplerIter(ds_over_ebin_min, ds_min_hyp, etot_sd, _G, 1.0, bin_root);
-            Float ds_min_bin = ds_over_ebin_min*etot_sd/(bin_root.getMemberN()-1);
+            calcDsMinKeplerIter(ds_over_ebin_min, ds_min_bin, ds_min_hyp, etot_sd, _G, 1.0, bin_root);
+            //Float ds_min_bin = ds_over_ebin_min*etot_sd/(bin_root.getMemberN()-1);
             if (ds_min_bin!=0) ds = ds_min_bin;
             else {
                 ASSERT(bin_root.semi<0);

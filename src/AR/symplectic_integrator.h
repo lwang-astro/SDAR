@@ -440,6 +440,20 @@ namespace AR {
                     Float vel_sd[3];
                     driftPos(pos, vel, vel_sd);
                     driftPosTreeIter(_dt, vel_sd, inv_nest_sd, *pj);
+//#ifdef AR_DEBUG
+//                    auto& pos1= pj->getLeftMember()->pos;
+//                    auto& pos2= pj->getRightMember()->pos;
+//                    Float m1 = pj->getLeftMember()->mass;
+//                    Float m2 = pj->getRightMember()->mass;
+//                    Float pos_cm[3] = {(m1*pos1[0]+m2*pos2[0])/(m1+m2),
+//                                       (m1*pos1[1]+m2*pos2[1])/(m1+m2),
+//                                       (m1*pos1[2]+m2*pos2[2])/(m1+m2)};
+//                    Float dpos[3] = {pos[0]-pos_cm[0], 
+//                                     pos[1]-pos_cm[1], 
+//                                     pos[2]-pos_cm[2]};
+//                    Float dr2 = dpos[0]*dpos[0]+dpos[1]*dpos[1]+dpos[2]*dpos[2];
+//                    ASSERT(dr2<1e-10);
+//#endif
                 }
                 else {
                     auto* pj = _bin.getMember(k);
@@ -1131,6 +1145,7 @@ namespace AR {
             //}
 
             // inner binary slowdown
+            //Float sd_org_inner_max = 0.0;
             bool inner_sd_change_flag=false;
             int n_bin = info.binarytree.getSize();
             for (int i=0; i<n_bin-1; i++) {
@@ -1141,10 +1156,14 @@ namespace AR {
                     bini.calcCenterOfMass();
                     calcSlowDownInnerBinary(bini);
                     //sdi->slowdown.increaseUpdateTimeOnePeriod();
+                    //sd_org_inner_max = std::max(bini.slowdown.getSlowDownFactorOrigin(),sd_org_inner_max);
                     inner_sd_change_flag=true;
                     //}
                 }
             }
+
+            // when the maximum inner slowdown is large, the outer should not be slowed down since the system may not be stable.
+            //if (inner_sd_change_flag&&sd_org_inner_max<manager->slowdown_pert_ratio_ref) sd_root.setSlowDownFactor(1.0);
 
             if (_update_energy_flag) {
                 Float ekin_sd_bk = ekin_sd_;
