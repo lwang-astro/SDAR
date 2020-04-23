@@ -103,11 +103,7 @@ public:
     */
     inline Float calcInnerAccPotAndGTKickInv(AR::Force* _force, Float& _epot, const Particle* _particles, const int _n_particle) {
         _epot = Float(0.0);
-#ifdef AR_TTL_GT_MULTI
-        Float gt_kick_inv = Float(1.0);
-#else
         Float gt_kick_inv = Float(0.0);
-#endif
         for (int i=0; i<_n_particle; i++) {
             const Float massi = _particles[i].mass;
             const Float* posi = _particles[i].pos;
@@ -120,11 +116,7 @@ public:
 #endif
 
             Float poti = Float(0.0);
-#ifdef AR_TTL_GT_MULTI
-            Float gtki = Float(1.0);
-#else
             Float gtki = Float(0.0);
-#endif
 
             for (int j=0; j<_n_particle; j++) {
                 if (i==j) continue;
@@ -142,48 +134,22 @@ public:
                 acci[2] += gmor3 * dr[2];
 
 #ifdef AR_TTL                     
-#ifdef AR_TTL_GT_MULTI
-                Float inv_r2 = inv_r*inv_r;
-                gtgradi[0] += inv_r2 * dr[0];
-                gtgradi[1] += inv_r2 * dr[1];
-                gtgradi[2] += inv_r2 * dr[2];
-#else
                 Float mimjor3 = gravitational_constant*massi*gmor3;
                 gtgradi[0] += mimjor3 * dr[0];
                 gtgradi[1] += mimjor3 * dr[1];
                 gtgradi[2] += mimjor3 * dr[2];
 #endif
-#endif
 
                 Float gmor = gravitational_constant*massj*inv_r;
                 poti -= gmor;
-#ifdef AR_TTL_GT_MULTI
-                gtki *= inv_r;
-#else
                 gtki += gmor;
-#endif
                     
             }
             _epot += poti * massi;
-#ifdef AR_TTL_GT_MULTI
-            gt_kick_inv *= gtki*massi;
-#else
             gt_kick_inv += gtki*massi;
-#endif
         }
         _epot   *= 0.5;
-#ifdef AR_TTL_GT_MULTI
-        gt_kick_inv = sqrt(gt_kick_inv);
-        for (int i=0; i<_n_particle; i++) {
-            Float* gtgradi = _force[i].gtgrad;
-            gtgradi[0] *= gt_kick_inv;
-            gtgradi[1] *= gt_kick_inv;
-            gtgradi[2] *= gt_kick_inv;
-        }
-        return gt_kick_inv;
-#else
         return 0.5*gt_kick_inv;
-#endif
     }
 
     //! (Necessary) calculate acceleration from perturber and the perturbation factor for slowdown calculation
