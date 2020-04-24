@@ -1471,7 +1471,7 @@ namespace H4{
                 // generate binary tree
                 groupk.info.generateBinaryTree(groupk.particles,ar_manager->interaction.gravitational_constant);
                 
-                auto& bin_root = groupk.info.binarytree.getLastMember();
+                auto& bin_root = groupk.info.getBinaryTreeRoot();
                 bool outgoing_flag = false; // Indicate whether it is a outgoing case or income case
 
                 // check binary case 

@@ -539,6 +539,18 @@ namespace AR {
             }
             return gt_kick_inv;
         }
+
+        calc
+
+        //! calc gt_drift_inv for binary tree
+        Float calcGtDriftInvIter(AR::BinaryTree<Tparticle>& _bin){
+            Float gt_drift_inv= calInvR(*_bin.getLeftMember(), *_bin.getRightMember());
+            for (int k=0; k<2; k++) { 
+                if (_bini.isMemberTree(k))  // tree - tree
+                    gt_kick_inv *= calcMultiInvRIter(*(_bini.getMemberAsTree(k)));
+            }
+            return gt_kick_inv;
+        }
 #endif
 
         //! calc force, potential and inverse time transformation factor for one pair of particles
@@ -729,10 +741,11 @@ namespace AR {
                     de += particles[i].mass * (vel[0] * pert[0] +
                                                vel[1] * pert[1] +
                                                vel[2] * pert[2]);
-
+#ifndef AR_TIME_FUNCTION_MULTI_R
                     dgt_drift_inv +=  (vel_sd[0] * gtgrad[0] +
                                        vel_sd[1] * gtgrad[1] +
                                        vel_sd[2] * gtgrad[2]);
+#endif
                 }
             }
             etot_ref_     += _dt * de;
@@ -753,6 +766,9 @@ namespace AR {
             Float sd_factor=1.0;
 
             Float dgt_drift_inv = kickEtotAndGTDriftTreeIter(_dt, vel_cm, sd_factor, bin_root);
+#ifdef AR_TIME_FUNCTION_MULTI_R
+            dgt_drift_inv = calcGTDriftInvIter(bin_root);
+#endif
             gt_drift_inv_ += dgt_drift_inv*_dt;
         }
 
@@ -1186,47 +1202,57 @@ namespace AR {
         //! update slowdown factor based on perturbation and record slowdown energy change
         /*! Update slowdown inner and global.
             @param [in] _update_energy_flag: Record cumulative slowdown energy change if true;
+            @param [in] _stable_check_flag: check whether the binary tree is stable if true;
          */
-        void updateSlowDownAndCorrectEnergy(const bool _update_energy_flag) {
+        void updateSlowDownAndCorrectEnergy(const bool _update_energy_flag, const bool _stable_check_flag) {
             auto& bin_root = info.getBinaryTreeRoot();
             auto& sd_root = bin_root.slowdown;
+
 #ifdef AR_TTL
             Float sd_backup = sd_root.getSlowDownFactor();
 #endif
+
+            // when the maximum inner slowdown is large, the outer should not be slowed down since the system may not be stable.
+            //if (inner_sd_change_flag&&sd_org_inner_max<1000.0*manager->slowdown_pert_ratio_ref) sd_root.setSlowDownFactor(1.0);
             //if (time_>=sd_root.getUpdateTime()) {
-            sd_root.pert_in = manager->interaction.calcPertFromBinary(bin_root);
-            sd_root.period = bin_root.period;
+            if (_stable_check_flag) {
+                // check whether the system is stable for 10000 out period
+                Float stab = bin_root.stableCheckIter(bin_root,10000*bin_root.period);
+                if (stab<1.0) {
 
-            Float t_min_sq= NUMERIC_FLOAT_MAX;
-            sd_root.pert_out = 0.0;
-            manager->interaction.calcSlowDownPert(sd_root.pert_out, t_min_sq, getTime(), particles.cm, perturber);
+                    sd_root.pert_in = manager->interaction.calcPertFromBinary(bin_root);
+                    sd_root.period = bin_root.period;
+
+                    Float t_min_sq= NUMERIC_FLOAT_MAX;
+                    sd_root.pert_out = 0.0;
+                    manager->interaction.calcSlowDownPert(sd_root.pert_out, t_min_sq, getTime(), particles.cm, perturber);
             
-            sd_root.timescale = std::min(sd_root.getTimescaleMax(), sqrt(t_min_sq));
-            sd_root.calcSlowDownFactor();
-
+                    sd_root.timescale = std::min(sd_root.getTimescaleMax(), sqrt(t_min_sq));
+                    sd_root.calcSlowDownFactor();
+                }
+                else sd_root.setSlowDownFactor(1.0);
+            }
             //sd_root.increaseUpdateTimeOnePeriod();
             //}
 
             // inner binary slowdown
-            //Float sd_org_inner_max = 0.0;
+            Float sd_org_inner_max = 0.0;
             bool inner_sd_change_flag=false;
             int n_bin = info.binarytree.getSize();
             for (int i=0; i<n_bin-1; i++) {
                 auto& bini = info.binarytree[i];
                 // only set slowdown if semi > 0 
-                if (bini.semi>0.0) {
+                if (bini.semi>0.0&&bini.stab<1.0) {
                     //if (time_>=bini.slowdown.getUpdateTime()) {
                     bini.calcCenterOfMass();
                     calcSlowDownInnerBinary(bini);
                     //sdi->slowdown.increaseUpdateTimeOnePeriod();
-                    //sd_org_inner_max = std::max(bini.slowdown.getSlowDownFactorOrigin(),sd_org_inner_max);
+                    sd_org_inner_max = std::max(bini.slowdown.getSlowDownFactorOrigin(),sd_org_inner_max);
                     inner_sd_change_flag=true;
                     //}
                 }
             }
 
-            // when the maximum inner slowdown is large, the outer should not be slowed down since the system may not be stable.
-            //if (inner_sd_change_flag&&sd_org_inner_max<manager->slowdown_pert_ratio_ref) sd_root.setSlowDownFactor(1.0);
 
             if (_update_energy_flag) {
                 Float ekin_sd_bk = ekin_sd_;
@@ -1266,26 +1292,39 @@ namespace AR {
         //! update slowdown factor based on perturbation and record slowdown energy change
         /*! Update slowdown inner and global, update gt_inv
             @param [in] _update_energy_flag: Record cumulative slowdown energy change if true;
+            @param [in] _stable_check_flag: check whether the binary tree is stable if true;
          */
-        void updateSlowDownAndCorrectEnergy(const bool _update_energy_flag) {
-            
-            auto& sd_root = binary_slowdown[0]->slowdown;
+        void updateSlowDownAndCorrectEnergy(const bool _update_energy_flag, const bool _stable_check_flag) {
+            auto& bin_root = *binary_slowdown[0];
+            auto& sd_root = bin_root.slowdown;
 #ifdef AR_TTL
             Float sd_backup = sd_root.getSlowDownFactor();
 #endif
+
+            // when the maximum inner slowdown is large, the outer should not be slowed down since the system may not be stable.
+            //if (inner_sd_change_flag&&sd_org_inner_max<1000.0*manager->slowdown_pert_ratio_ref) sd_root.setSlowDownFactor(1.0);
             //if (time_>=sd_root.getUpdateTime()) {
-            sd_root.pert_in = manager->interaction.calcPertFromBinary(*binary_slowdown[0]);
-            sd_root.period = binary_slowdown[0]->period;
+            if (_stable_check_flag) {
+                // check whether the system is stable for 10000 out period
+                Float stab = bin_root.stableCheckIter(bin_root,10000*bin_root.period);
+                if (stab<1.0) {
 
-            Float t_min_sq= NUMERIC_FLOAT_MAX;
-            sd_root.pert_out = 0.0;
-            manager->interaction.calcSlowDownPert(sd_root.pert_out, t_min_sq, getTime(), particles.cm, perturber);
+                    sd_root.pert_in = manager->interaction.calcPertFromBinary(bin_root);
+                    sd_root.period = bin_root.period;
+
+                    Float t_min_sq= NUMERIC_FLOAT_MAX;
+                    sd_root.pert_out = 0.0;
+                    manager->interaction.calcSlowDownPert(sd_root.pert_out, t_min_sq, getTime(), particles.cm, perturber);
             
-            sd_root.timescale = std::min(sd_root.getTimescaleMax(), sqrt(t_min_sq));
-            sd_root.calcSlowDownFactor();
+                    sd_root.timescale = std::min(sd_root.getTimescaleMax(), sqrt(t_min_sq));
+                    sd_root.calcSlowDownFactor();
+                }
+                else sd_root.setSlowDownFactor(1.0);
+            }
 
-            sd_root.increaseUpdateTimeOnePeriod();
+            //sd_root.increaseUpdateTimeOnePeriod();
             //}
+
             // inner binary slowdown
             int n = binary_slowdown.getSize();
             bool modified_flag=false;
@@ -1399,7 +1438,7 @@ namespace AR {
             }
 #endif
 
-            updateSlowDownAndCorrectEnergy(false);
+            updateSlowDownAndCorrectEnergy(false,true);
 
 #ifdef AR_TTL
             gt_kick_inv_ = calcAccPotAndGTKickInv();
@@ -1854,7 +1893,7 @@ namespace AR {
                 if(backup_flag) {
                     // update slowdown and correct slowdown energy and gt_inv
 #if (defined AR_SLOWDOWN_ARRAY) || (defined AR_SLOWDOWN_TREE)
-                    if (!time_end_flag) updateSlowDownAndCorrectEnergy(true);
+                    if (!time_end_flag) updateSlowDownAndCorrectEnergy(true, step_count==0);
 #endif
 
                     int bk_return_size = backupIntData(backup_data);
@@ -1894,23 +1933,23 @@ namespace AR {
                 Float energy_error_bk = getEnergyErrorSlowDownFromBackup(backup_data);
                 Float etot_ref_bk = getEtotSlowDownRefFromBackup(backup_data);
                 Float energy_error = getEnergyErrorSlowDown();
-                //Float H_bk = getHSlowDownFromBackup(backup_data);
-                //Float H = getHSlowDown();
+                Float H_bk = getHSlowDownFromBackup(backup_data);
+                Float H = getHSlowDown();
 #else
                 Float energy_error_bk = getEnergyErrorFromBackup(backup_data);
                 Float etot_ref_bk = getEtotRefFromBackup(backup_data);
                 Float energy_error = getEnergyError();
-                //Float H_bk = getHFromBackup(backup_data);
-                //Float H = getH();
+                Float H_bk = getHFromBackup(backup_data);
+                Float H = getH();
 #endif
                 Float energy_error_diff = energy_error - energy_error_bk;
 
                 Float energy_error_rel_abs = abs(energy_error_diff/etot_ref_bk);
 
                 // get integration error for extended Hamiltonian
-                Float integration_error_rel_abs = abs(energy_error_diff);
+                Float integration_error_rel_abs = abs(H-H_bk);
                 // H should be zero initially
-                Float integration_error_rel_cum_abs = abs(energy_error);
+                Float integration_error_rel_cum_abs = abs(H);
 
                 Float integration_error_ratio = energy_error_rel_max/integration_error_rel_abs;
       
@@ -1961,7 +2000,6 @@ namespace AR {
 
 #ifdef AR_COLLECT_DS_MODIFY_INFO
                 auto collectDsModifyInfo = [&](const char* error_message) {
-                    auto& bin = info.getBinaryTreeRoot();
                     std::cerr<<error_message<<": "
                              <<"time "<<time_<<" " 
                              <<"ds_new "<<ds[1-ds_switch]<<" "
@@ -1973,18 +2011,21 @@ namespace AR {
                              <<"err/max "<<1.0/integration_error_ratio<<" "
                              <<"errcum/E "<<integration_error_rel_cum_abs<<" "
                              <<"dt "<<dt<<" "
-                             <<"n_ptcl "<<n_particle<<" "
-                             <<"semi "<<bin.semi<<" "
-                             <<"ecc "<<bin.ecc<<" "
-                             <<"period "<<bin.period<<" "
-                             <<"m1 "<<bin.m1<<" "
-                             <<"m2 "<<bin.m2<<" "
-                             <<"ecca "<<bin.ecca<<" "
-                             <<"sd "<<bin.slowdown.getSlowDownFactor()<<" "
-                             <<"sd_org "<<bin.slowdown.getSlowDownFactorOrigin()<<" "
-                             <<"pert_in "<<bin.slowdown.getPertIn()<<" "
-                             <<"pert_out "<<bin.slowdown.getPertOut()<<" "
-                             <<std::endl;
+                             <<"n_ptcl "<<n_particle<<" ";
+                    for (int i=0; i<info.binarytree.getSize(); i++) {
+                        auto& bini = info.binarytree[i];
+                        std::cerr<<"semi "<<bini.semi<<" "
+                                 <<"ecc "<<bini.ecc<<" "
+                                 <<"period "<<bini.period<<" "
+                                 <<"m1 "<<bini.m1<<" "
+                                 <<"m2 "<<bini.m2<<" "
+                                 <<"stab "<<bini.stab<<" "
+                                 <<"sd "<<bini.slowdown.getSlowDownFactor()<<" "
+                                 <<"sd_org "<<bini.slowdown.getSlowDownFactorOrigin()<<" "
+                                 <<"pert_in "<<bini.slowdown.getPertIn()<<" "
+                                 <<"pert_out "<<bini.slowdown.getPertOut()<<" ";
+                    }
+                    std::cerr<<std::endl;
                 };
 #endif 
 
@@ -2635,7 +2676,8 @@ namespace AR {
         //! get Hamiltonian
         Float getH() const {
 #ifdef AR_TTL
-            return (ekin_ - etot_ref_)/gt_drift_inv_ + epot_/gt_kick_inv_;
+            //return (ekin_ - etot_ref_)/gt_drift_inv_ + epot_/gt_kick_inv_;
+            return (ekin_ + epot_ - etot_ref_)/gt_kick_inv_;
 #else
             return manager->interaction.calcH(ekin_ - etot_ref_, epot_);
 #endif
@@ -2654,7 +2696,8 @@ namespace AR {
             Float& gt_drift_inv = _bk[6];
             Float& gt_kick_inv  = _bk[7];
 #endif
-            return (ekin - etot_ref)/gt_drift_inv + epot/gt_kick_inv;
+            return (ekin + epot - etot_ref)/gt_kick_inv;
+            //return (ekin - etot_ref)/gt_drift_inv + epot/gt_kick_inv;
 #else
             return manager->interaction.calcH(ekin - etot_ref, epot);
 #endif
@@ -2706,7 +2749,8 @@ namespace AR {
         //! get slowdown Hamiltonian
         Float getHSlowDown() const {
 #ifdef AR_TTL
-            return (ekin_sd_ - etot_sd_ref_)/gt_drift_inv_ + epot_sd_/gt_kick_inv_;
+            //return (ekin_sd_ - etot_sd_ref_)/gt_drift_inv_ + epot_sd_/gt_kick_inv_;
+            return (ekin_sd_ + epot_sd_ - etot_sd_ref_)/gt_kick_inv_;
 #else
             return manager->interaction.calcH(ekin_sd_ - etot_sd_ref_, epot_sd_);
 #endif
@@ -2718,9 +2762,10 @@ namespace AR {
             Float& ekin_sd = _bk[7];
             Float& epot_sd = _bk[8];
 #ifdef AR_TTL
-            Float& gt_drift_inv = _bk[9];
+            //Float& gt_drift_inv = _bk[9];
             Float& gt_kick_inv  = _bk[10];
-            return (ekin_sd - etot_sd_ref)/gt_drift_inv + epot_sd/gt_kick_inv;
+            //return (ekin_sd - etot_sd_ref)/gt_drift_inv + epot_sd/gt_kick_inv;
+            return (ekin_sd + epot_sd - etot_sd_ref)/gt_kick_inv;
 #else
             return manager->interaction.calcH(ekin_sd - etot_sd_ref, epot_sd);            
 #endif

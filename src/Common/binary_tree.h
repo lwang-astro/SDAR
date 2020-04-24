@@ -21,7 +21,8 @@ namespace COMM{
         Float m1;           // m1: mass 1
         Float m2;           // m2: mass 2
         Float r;            // distance between too members
-        Vector3<Float> am;        // angular momentum
+        Float stab;         // stability factor 
+        Vector3<Float> am;  // angular momentum
 
         //! Orbit to position and velocity
         /*! refer to the P3T code developed by Iwasawa M.
@@ -287,7 +288,9 @@ namespace COMM{
                <<"ecca:        eccentricty anomaly: "<<ecca<<std::endl
                <<"m1:          mass 1: "<<m1<<std::endl
                <<"m2:          mass 2: "<<m2<<std::endl
-               <<"r:           separation: "<<r<<std::endl;
+               <<"r:           separation: "<<r<<std::endl
+               <<"L:           Angular momentum: "<<am.x<<" "<<am.y<<" "<<am.z<<std::endl
+               <<"stab:        stability factor: "<<stab<<std::endl;
         }
 
         //! print titles of class members using column style
@@ -309,7 +312,8 @@ namespace COMM{
                  <<std::setw(_width)<<"r"
                  <<std::setw(_width)<<"L.x"
                  <<std::setw(_width)<<"L.y"
-                 <<std::setw(_width)<<"L.z";
+                 <<std::setw(_width)<<"L.z"
+                 <<std::setw(_width)<<"stab";
         }
 
         //! print data of class members using column style
@@ -331,7 +335,8 @@ namespace COMM{
                  <<std::setw(_width)<<r
                  <<std::setw(_width)<<am.x
                  <<std::setw(_width)<<am.y
-                 <<std::setw(_width)<<am.z;
+                 <<std::setw(_width)<<am.z
+                 <<std::setw(_width)<<stab;
         }
 
 
@@ -370,14 +375,15 @@ namespace COMM{
                  <<r<<" "    
                  <<am.x<<" "
                  <<am.y<<" "  
-                 <<am.z<<" ";      
+                 <<am.z<<" "
+                 <<stab<<" ";
         }
 
         //! read class data to file with ASCII format
         /*! @param[in] _fin: std::istream file for input
          */
         void readAscii(std::istream&  _fin) {
-            _fin>>semi>>ecc>>incline>>rot_horizon>>rot_self>>t_peri>>period>>ecca>>m1>>m2>>r>>am.x>>am.y>>am.z;
+            _fin>>semi>>ecc>>incline>>rot_horizon>>rot_self>>t_peri>>period>>ecca>>m1>>m2>>r>>am.x>>am.y>>am.z>>stab;
         }
 
         //void PosVel2SemiEcc(Float & semi,
@@ -466,6 +472,42 @@ namespace COMM{
         //    return *this;
         //}
 
+        //! Three-body stability function for hierarchical binary tree 
+        /* Use Myllaeri et al. (2018, MNRAS, 476, 830) 3-body stability criterion to check whether any B-S/B-B sub-system is stable, return the maximim stabliity factor
+           @param[in] _bin: binary tree to check
+           @param[in] _t_crit: time interval for stable check
+           \return maximum stability factor <1 stable; >1 unstable; =0 binary system
+        */
+        static Float& stableCheckIter(BinaryTreeLocal& _bin, const Float _t_crit) {
+            if (_bin.semi<0) _bin.stab=NUMERIC_FLOAT_MAX;
+            else _bin.stab = 0.0;
+            Float mout = _bin.mass;
+
+            for (int k=0; k<2; k++) {
+                if (_bin.isMemberTree(k)) {
+                    BinaryTreeLocal* bin_in = _bin.getMemberAsTree(k);
+                    _bin.stab = std::max(_bin.stab,stableCheckIter(*bin_in, _t_crit));
+                    if (_bin.stab<1.0) {
+                    
+                        Float incline=std::acos(std::min(1.0, _bin.am*bin_in->am/std::sqrt((_bin.am*_bin.am)*(bin_in->am*bin_in->am))));
+                    
+                        Float fac = 1.0 - 2.0*bin_in->ecc/3.0 * (1.0 - 0.5*bin_in->ecc*bin_in->ecc) 
+                            - 0.3*std::cos(incline)*(1.0 - 0.5*bin_in->ecc + 2.0*std::cos(incline)*(1.0 - 2.5*std::pow(bin_in->ecc,1.5) - std::cos(incline)));
+
+                        Float min = bin_in->mass;
+                        Float g = std::sqrt(std::max(bin_in->m1,bin_in->m2) /min)*(1.0 + mout/min);
+    
+                        Float q = 1.52*std::pow(std::sqrt(_t_crit/_bin.period)/(1.0 - _bin.ecc),1.0/6.0)*std::pow(fac*g,1.0/3.0);
+
+                        Float peri_out = _bin.semi * (_bin.ecc + 1.0);
+                        Float rp = peri_out/bin_in->semi;
+                    
+                        _bin.stab = std::max(_bin.stab, q/rp);
+                    }
+                }
+            }
+            return _bin.stab;
+        }
 
         //! Generate kepler binary tree for a group of particles
         /* 
