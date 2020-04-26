@@ -123,13 +123,18 @@ namespace AR {
         Float epot_;   ///< potential
 
         // cumulative slowdown (inner + outer) energy change
-        Float de_sd_change_cum_;  // slowdown energy change
-        Float dH_sd_change_cum_;  // slowdown Hamiltonian change 
+        Float de_change_interrupt_;      // energy change due to interruption
+        Float dH_change_interrupt_;      // hamiltonian change due to interruption
 
 #if (defined AR_SLOWDOWN_ARRAY) || (defined AR_SLOWDOWN_TREE)
         Float ekin_sd_;  ///< slowdown (inner) kinetic energy
         Float epot_sd_;  ///< slowdown (inner) potential energy
         Float etot_sd_ref_;  ///< slowdown (inner) total energy
+
+        Float de_sd_change_cum_;  // slowdown energy change
+        Float dH_sd_change_cum_;  // slowdown Hamiltonian change 
+        Float de_sd_change_interrupt_;   // slowdown energy change due to interruption
+        Float dH_sd_change_interrupt_;   // slowdown energy change due to interruption
 #endif
 
 #ifdef AR_TTL
@@ -152,9 +157,10 @@ namespace AR {
         Profile  profile;  ///< profile to measure the performance
         
         //! Constructor
-        TimeTransformedSymplecticIntegrator(): time_(0), etot_ref_(0), ekin_(0), epot_(0), de_sd_change_cum_(0), dH_sd_change_cum_(0),
+        TimeTransformedSymplecticIntegrator(): time_(0), etot_ref_(0), ekin_(0), epot_(0), de_change_interrupt_(0), dH_change_interrupt_(0),
 #if (defined AR_SLOWDOWN_ARRAY) || (defined AR_SLOWDOWN_TREE)
-                                ekin_sd_(0), epot_sd_(0), etot_sd_ref_(0), 
+                                               ekin_sd_(0), epot_sd_(0), etot_sd_ref_(0), 
+                                               de_sd_change_cum_(0), dH_sd_change_cum_(0), de_sd_change_interrupt_(0), dH_sd_change_interrupt_(0),
 #endif
 #ifdef AR_TTL
                                 gt_drift_inv_(0), gt_kick_inv_(0), 
@@ -199,12 +205,16 @@ namespace AR {
             etot_ref_ =0.0;
             ekin_ = 0.0;
             epot_ = 0.0;
-            de_sd_change_cum_ = 0.0;
-            dH_sd_change_cum_ = 0.0;
+            de_change_interrupt_ = 0.0;
+            dH_change_interrupt_ = 0.0;
 #if (defined AR_SLOWDOWN_ARRAY) || (defined AR_SLOWDOWN_TREE)
             ekin_sd_ = 0.0;
             epot_sd_ = 0.0;
             etot_sd_ref_ = 0.0;
+            de_sd_change_cum_ = 0.0;
+            dH_sd_change_cum_ = 0.0;
+            de_sd_change_interrupt_ = 0.0;
+            dH_sd_change_interrupt_ = 0.0;
 #endif
 #ifdef AR_TTL
             gt_drift_inv_ = 0.0;
@@ -235,12 +245,16 @@ namespace AR {
 
             ekin_   = _sym.ekin_;
             epot_   = _sym.epot_;
-            de_sd_change_cum_= _sym.de_sd_change_cum_;
-            dH_sd_change_cum_= _sym.dH_sd_change_cum_;
+            de_change_interrupt_= _sym.de_change_interrupt_;
+            dH_change_interrupt_= _sym.dH_change_interrupt_;
 #if (defined AR_SLOWDOWN_ARRAY) || (defined AR_SLOWDOWN_TREE)
             ekin_sd_= _sym.ekin_sd_;
             epot_sd_= _sym.epot_sd_;
             etot_sd_ref_= _sym.etot_sd_ref_;
+            de_sd_change_cum_= _sym.de_sd_change_cum_;
+            dH_sd_change_cum_= _sym.dH_sd_change_cum_;
+            de_sd_change_interrupt_= _sym.de_sd_change_interrupt_;
+            dH_sd_change_interrupt_= _sym.dH_sd_change_interrupt_;
 #endif
 #ifdef AR_TTL
             gt_drift_inv_ = _sym.gt_drift_inv_;
@@ -357,71 +371,14 @@ namespace AR {
             Float sd_factor=1.0;
             
             calcTwoEKinIter(sd_factor, bin_root);
+            Float* vcm = bin_root.getVel();
+            // notice the cm velocity may not be zero after interruption, thus need to be added 
+            ekin_sd_ += bin_root.mass*(vcm[0]*vcm[0] + vcm[1]*vcm[1] + vcm[2]*vcm[2]);
+
             ekin_ *= 0.5;
             ekin_sd_ *= 0.5;
         }
 
-
-        //! update slowdown velocity iteration function with binary tree
-        void updateBinaryVelIter(AR::BinaryTree<Tparticle>& _bin) {
-            _bin.vel[0]= _bin.vel[1] = _bin.vel[2] = 0.0;
-            Float mcm_inv = 1.0/_bin.mass;
-            for (int k=0; k<2; k++) {
-                if (_bin.isMemberTree(k)) {
-                    auto* bink = _bin.getMemberAsTree(k);
-                    updateBinaryVelIter(*bink);
-                    _bin.vel[0] += bink->mass*bink->vel[0];
-                    _bin.vel[1] += bink->mass*bink->vel[1];
-                    _bin.vel[2] += bink->mass*bink->vel[2];
-                }
-                else {
-                    auto* pk = _bin.getMember(k);
-                    _bin.vel[0] += pk->mass*pk->vel[0];
-                    _bin.vel[1] += pk->mass*pk->vel[1];
-                    _bin.vel[2] += pk->mass*pk->vel[2];
-                }
-            }
-            _bin.vel[0] *= mcm_inv;
-            _bin.vel[1] *= mcm_inv;
-            _bin.vel[2] *= mcm_inv;
-        }
-
-        //! update slowdown velocity iteration function with binary tree
-        void updateBinaryCMIter(AR::BinaryTree<Tparticle>& _bin) {
-            _bin.vel[0]= _bin.vel[1] = _bin.vel[2] = 0.0;
-            Float mcm_member = 0.0;
-            for (int k=0; k<2; k++) {
-                if (_bin.isMemberTree(k)) {
-                    auto* bink = _bin.getMemberAsTree(k);
-                    updateBinaryVelIter(*bink);
-                    mcm_member  += bink->mass;
-                    _bin.pos[0] += bink->mass*bink->pos[0];
-                    _bin.pos[1] += bink->mass*bink->pos[1];
-                    _bin.pos[2] += bink->mass*bink->pos[2];
-                    _bin.vel[0] += bink->mass*bink->vel[0];
-                    _bin.vel[1] += bink->mass*bink->vel[1];
-                    _bin.vel[2] += bink->mass*bink->vel[2];
-                }
-                else {
-                    auto* pk = _bin.getMember(k);
-                    mcm_member  += pk->mass;
-                    _bin.pos[0] += pk->mass*pk->pos[0];
-                    _bin.pos[1] += pk->mass*pk->pos[1];
-                    _bin.pos[2] += pk->mass*pk->pos[2];
-                    _bin.vel[0] += pk->mass*pk->vel[0];
-                    _bin.vel[1] += pk->mass*pk->vel[1];
-                    _bin.vel[2] += pk->mass*pk->vel[2];
-                }
-            }
-            Float mcm_inv = 1.0/mcm_member;
-            ASSERT(abs(mcm_member-_bin.mass)<1e-12);
-            _bin.vel[0] *= mcm_inv;
-            _bin.vel[1] *= mcm_inv;
-            _bin.vel[2] *= mcm_inv;
-            _bin.pos[0] *= mcm_inv;
-            _bin.pos[1] *= mcm_inv;
-            _bin.pos[2] *= mcm_inv;
-        }
 
         //! kick velocity
         /*! First time step will be calculated, the velocities are kicked
@@ -994,6 +951,7 @@ namespace AR {
 
 #endif // AR_SLOWDOWN_ARRAY
 
+
         //! Calculate kinetic energy
         inline void calcEKin(){
             ekin_ = Float(0.0);
@@ -1196,6 +1154,68 @@ namespace AR {
 #endif //AR_TTL
 
 #endif // AR_SLOWDOWN_TREE
+
+        //! update slowdown velocity iteration function with binary tree
+        void updateBinaryVelIter(AR::BinaryTree<Tparticle>& _bin) {
+            _bin.vel[0]= _bin.vel[1] = _bin.vel[2] = 0.0;
+            Float mcm_inv = 1.0/_bin.mass;
+            for (int k=0; k<2; k++) {
+                if (_bin.isMemberTree(k)) {
+                    auto* bink = _bin.getMemberAsTree(k);
+                    updateBinaryVelIter(*bink);
+                    _bin.vel[0] += bink->mass*bink->vel[0];
+                    _bin.vel[1] += bink->mass*bink->vel[1];
+                    _bin.vel[2] += bink->mass*bink->vel[2];
+                }
+                else {
+                    auto* pk = _bin.getMember(k);
+                    _bin.vel[0] += pk->mass*pk->vel[0];
+                    _bin.vel[1] += pk->mass*pk->vel[1];
+                    _bin.vel[2] += pk->mass*pk->vel[2];
+                }
+            }
+            _bin.vel[0] *= mcm_inv;
+            _bin.vel[1] *= mcm_inv;
+            _bin.vel[2] *= mcm_inv;
+        }
+
+        //! update slowdown velocity iteration function with binary tree
+        void updateBinaryCMIter(AR::BinaryTree<Tparticle>& _bin) {
+            _bin.pos[0]= _bin.pos[1] = _bin.pos[2] = 0.0;
+            _bin.vel[0]= _bin.vel[1] = _bin.vel[2] = 0.0;
+            Float mcm_member = 0.0;
+            for (int k=0; k<2; k++) {
+                if (_bin.isMemberTree(k)) {
+                    auto* bink = _bin.getMemberAsTree(k);
+                    updateBinaryCMIter(*bink);
+                    mcm_member  += bink->mass;
+                    _bin.pos[0] += bink->mass*bink->pos[0];
+                    _bin.pos[1] += bink->mass*bink->pos[1];
+                    _bin.pos[2] += bink->mass*bink->pos[2];
+                    _bin.vel[0] += bink->mass*bink->vel[0];
+                    _bin.vel[1] += bink->mass*bink->vel[1];
+                    _bin.vel[2] += bink->mass*bink->vel[2];
+                }
+                else {
+                    auto* pk = _bin.getMember(k);
+                    mcm_member  += pk->mass;
+                    _bin.pos[0] += pk->mass*pk->pos[0];
+                    _bin.pos[1] += pk->mass*pk->pos[1];
+                    _bin.pos[2] += pk->mass*pk->pos[2];
+                    _bin.vel[0] += pk->mass*pk->vel[0];
+                    _bin.vel[1] += pk->mass*pk->vel[1];
+                    _bin.vel[2] += pk->mass*pk->vel[2];
+                }
+            }
+            Float mcm_inv = 1.0/mcm_member;
+            _bin.mass = mcm_member;
+            _bin.vel[0] *= mcm_inv;
+            _bin.vel[1] *= mcm_inv;
+            _bin.vel[2] *= mcm_inv;
+            _bin.pos[0] *= mcm_inv;
+            _bin.pos[1] *= mcm_inv;
+            _bin.pos[2] *= mcm_inv;
+        }
             
     public:
 #ifdef AR_SLOWDOWN_TREE
@@ -1905,13 +1925,13 @@ namespace AR {
                     int bk_return_size = restoreIntData(backup_data);
                     ASSERT(bk_return_size == bk_data_size);
                     (void)bk_return_size;
-#ifdef AR_SLOWDOWN_ARRAY
+//#ifdef AR_SLOWDOWN_ARRAY
                     // update c.m. of binaries 
                     // binary c.m. is not backup, thus recalculate to get correct c.m. velocity for position drift correction due to slowdown inner (the first drift in integrateonestep assume c.m. vel is up to date)
-                    updateCenterOfMassForBinaryWithSlowDownInner();
-#elif AR_SLOWDOWN_TREE
+//                    updateCenterOfMassForBinaryWithSlowDownInner();
+//#elif AR_SLOWDOWN_TREE
                     updateBinaryCMIter(info.getBinaryTreeRoot());
-#endif
+//#endif
                 }
 
                 // get real time 
@@ -2193,6 +2213,11 @@ namespace AR {
                     if (manager->interrupt_detection_option>0) {
                         auto& bin_root = info.getBinaryTreeRoot();
                         bin_interrupt.time_now = time_;
+                        // calc perturbation energy
+                        Float epert=0.0;
+                        for (int i=0; i<n_particle; i++) {
+                            epert += force_[i].pot_pert*particles[i].mass;
+                        }
                         manager->interaction.modifyAndInterruptIter(bin_interrupt, bin_root);
                         //InterruptBinary<Tparticle>* bin_intr_ptr = &bin_interrupt;
                         //bin_intr_ptr = bin_root.processRootIter(bin_intr_ptr, Tmethod::modifyAndInterruptIter);
@@ -2217,13 +2242,19 @@ namespace AR {
 
                                 Float ekin_bk = ekin_;
                                 Float epot_bk = epot_;
+                                Float H_bk = getH();
+
 #if (defined AR_SLOWDOWN_ARRAY) || (defined AR_SLOWDOWN_TREE)
                                 Float ekin_sd_bk = ekin_sd_;
                                 Float epot_sd_bk = epot_sd_;
                                 Float H_sd_bk = getHSlowDown();
-#else
-                                Float H_bk = getH();
 #endif
+                                
+                                // update binary tree mass
+                                updateBinaryCMIter(bin_root);
+                                
+                                // update cm mass
+                                particles.cm.mass += bin_interrupt.dm;
 
 #ifdef AR_TTL
                                 Float gt_kick_inv_new = calcAccPotAndGTKickInv();
@@ -2235,21 +2266,31 @@ namespace AR {
                                 // calculate kinetic energy
                                 calcEKin();
 
+                                // get perturbation energy change due to mass change
+                                Float epert_new = 0.0;
+                                for (int i=0; i<n_particle; i++) {
+                                    epert_new += force_[i].pot_pert*particles[i].mass;
+                                }
+                                Float de_pert = epert_new - epert; // notice this is double perturbation potential
+
                                 // get energy change
-                                Float de_sd = (ekin_ - ekin_bk) + (epot_ - epot_bk);
-                                etot_ref_ += de_sd;
+                                Float de = (ekin_ - ekin_bk) + (epot_ - epot_bk) + de_pert;
+                                etot_ref_ += de;
+                                de_change_interrupt_ += de;
+                                dH_change_interrupt_ += getH() - H_bk;
 
 #if (defined AR_SLOWDOWN_ARRAY) || (defined AR_SLOWDOWN_TREE)
-                                de_sd = (ekin_sd_ - ekin_sd_bk) + (epot_sd_ - epot_sd_bk);
+                                Float de_sd = (ekin_sd_ - ekin_sd_bk) + (epot_sd_ - epot_sd_bk) + de_pert;
                                 etot_sd_ref_ += de_sd;
-                                
+
                                 Float dH_sd = getHSlowDown() - H_sd_bk;
-#else // NO SLOWDOWN
-                                Float dH_sd = getH() - H_bk;
-#endif //SLOWDOWN
+
                                 // add slowdown change to the global slowdown energy
+                                de_sd_change_interrupt_ += de_sd;
+                                dH_sd_change_interrupt_ += dH_sd;
                                 de_sd_change_cum_ += de_sd;
                                 dH_sd_change_cum_ += dH_sd;
+#endif //SLOWDOWN
 
 #ifdef AR_DEBUG_PRINT
                                 std::cerr<<"Interrupt condition triggered!";
@@ -2657,20 +2698,20 @@ namespace AR {
             return _bk[2] + _bk[3];
         }
 
-        //! reset cumulative energy change due to slowdown change
-        void resetDESlowDownChangeCum() {
-            de_sd_change_cum_ = 0.0;
-            dH_sd_change_cum_ = 0.0;
+        //! reset cumulative energy/hamiltonian change due to interruption
+        void resetDEChangeInterrupt() {
+            de_change_interrupt_ = 0.0;
+            dH_change_interrupt_ = 0.0;
         }
 
-        //! get cumulative energy change due to slowdown change
-        Float getDESlowDownChangeCum() const {
-            return de_sd_change_cum_;
+        //! get cumulative energy change due to interruption
+        Float getDEChangeInterrupt() const {
+            return de_change_interrupt_;
         }
 
-        //! get cumulative hamiltonian change due to slowdown change
-        Float getDHSlowDownChangeCum() const {
-            return dH_sd_change_cum_;
+        //! get cumulative hamiltonian change due to interruption
+        Float getDHChangeInterrupt() const {
+            return dH_change_interrupt_;
         }
 
         //! get Hamiltonian
@@ -2690,10 +2731,10 @@ namespace AR {
             Float& epot = _bk[3];
 #ifdef AR_TTL
 #if (defined AR_SLOWDOWN_ARRAY) || (defined AR_SLOWDOWN_TREE)
-            Float& gt_drift_inv = _bk[9];
-            Float& gt_kick_inv  = _bk[10];
+            //Float& gt_drift_inv = _bk[13];
+            Float& gt_kick_inv  = _bk[14];
 #else
-            Float& gt_drift_inv = _bk[6];
+            //Float& gt_drift_inv = _bk[6];
             Float& gt_kick_inv  = _bk[7];
 #endif
             return (ekin + epot - etot_ref)/gt_kick_inv;
@@ -2706,6 +2747,38 @@ namespace AR {
 
 
 #if (defined AR_SLOWDOWN_ARRAY) || (defined AR_SLOWDOWN_TREE)
+        //! reset cumulative energy change due to slowdown change
+        void resetDESlowDownChangeCum() {
+            de_sd_change_cum_ = 0.0;
+            dH_sd_change_cum_ = 0.0;
+        }
+
+        //! get cumulative energy change due to slowdown change
+        Float getDESlowDownChangeCum() const {
+            return de_sd_change_cum_;
+        }
+
+        //! get cumulative hamiltonian change due to slowdown change
+        Float getDHSlowDownChangeCum() const {
+            return dH_sd_change_cum_;
+        }
+
+        //! reset cumulative energy change due to interruption
+        void resetDESlowDownChangeInterrupt() {
+            de_sd_change_interrupt_ = 0.0;
+            dH_sd_change_interrupt_ = 0.0;
+        }
+
+        //! get cumulative energy change due to interruption
+        Float getDESlowDownChangeInterrupt() const {
+            return de_sd_change_interrupt_;
+        }
+
+        //! get cumulative hamiltonian change due to interruption
+        Float getDHSlowDownChangeInterrupt() const {
+            return dH_sd_change_interrupt_;
+        }
+
         //! Get current kinetic energy with inner slowdown
         /*! \return current kinetic energy with inner slowdown
          */
@@ -2762,8 +2835,8 @@ namespace AR {
             Float& ekin_sd = _bk[7];
             Float& epot_sd = _bk[8];
 #ifdef AR_TTL
-            //Float& gt_drift_inv = _bk[9];
-            Float& gt_kick_inv  = _bk[10];
+            //Float& gt_drift_inv = _bk[13];
+            Float& gt_kick_inv  = _bk[14];
             //return (ekin_sd - etot_sd_ref)/gt_drift_inv + epot_sd/gt_kick_inv;
             return (ekin_sd + epot_sd - etot_sd_ref)/gt_kick_inv;
 #else
@@ -2787,7 +2860,7 @@ namespace AR {
         int getBackupDataSize() const {
             int bk_size = 6;
 #if (defined AR_SLOWDOWN_ARRAY) || (defined AR_SLOWDOWN_TREE)
-            bk_size += 3; 
+            bk_size += 7; 
             //bk_size += SlowDown::getBackupDataSize();
 #endif
 #ifdef AR_TTL
@@ -2808,18 +2881,21 @@ namespace AR {
             _bk[bk_size++] = etot_ref_;   //1
             _bk[bk_size++] = ekin_;       //2
             _bk[bk_size++] = epot_;       //3 
-            _bk[bk_size++] = de_sd_change_cum_; //4
-            _bk[bk_size++] = dH_sd_change_cum_; //5
-
+            _bk[bk_size++] = de_change_interrupt_;     //4
+            _bk[bk_size++] = dH_change_interrupt_;     //5
 #if (defined AR_SLOWDOWN_ARRAY) || (defined AR_SLOWDOWN_TREE)
             _bk[bk_size++] = etot_sd_ref_; //6
             _bk[bk_size++] = ekin_sd_;     //7
             _bk[bk_size++] = epot_sd_;     //8
+            _bk[bk_size++] = de_sd_change_cum_; //9
+            _bk[bk_size++] = dH_sd_change_cum_; //10
+            _bk[bk_size++] = de_sd_change_interrupt_; //11
+            _bk[bk_size++] = dH_sd_change_interrupt_; //12
 #endif
 
 #ifdef AR_TTL
-            _bk[bk_size++] = gt_drift_inv_;  //9 / 6
-            _bk[bk_size++] = gt_kick_inv_;   //10/ 7
+            _bk[bk_size++] = gt_drift_inv_;  //13 / 6
+            _bk[bk_size++] = gt_kick_inv_;   //14 / 7
 #endif
 
             bk_size += particles.backupParticlePosVel(&_bk[bk_size]); 
@@ -2839,13 +2915,18 @@ namespace AR {
             etot_ref_ = _bk[bk_size++];
             ekin_     = _bk[bk_size++];
             epot_     = _bk[bk_size++];
-            de_sd_change_cum_= _bk[bk_size++];
-            dH_sd_change_cum_= _bk[bk_size++];
+            de_change_interrupt_= _bk[bk_size++];
+            dH_change_interrupt_= _bk[bk_size++];
 
 #if (defined AR_SLOWDOWN_ARRAY) || (defined AR_SLOWDOWN_TREE)
             etot_sd_ref_ = _bk[bk_size++];
             ekin_sd_     = _bk[bk_size++];
             epot_sd_     = _bk[bk_size++];
+
+            de_sd_change_cum_= _bk[bk_size++];
+            dH_sd_change_cum_= _bk[bk_size++];
+            de_sd_change_interrupt_= _bk[bk_size++];
+            dH_sd_change_interrupt_= _bk[bk_size++];
 #endif
 #ifdef AR_TTL
             gt_drift_inv_  = _bk[bk_size++];
@@ -2883,8 +2964,8 @@ namespace AR {
                  <<std::setw(_width)<<"Epot"
                  <<std::setw(_width)<<"Gt_drift"
                  <<std::setw(_width)<<"H"
-                 <<std::setw(_width)<<"dE_SDC_cum" 
-                 <<std::setw(_width)<<"dH_SDC_cum"; 
+                 <<std::setw(_width)<<"dE_intr"
+                 <<std::setw(_width)<<"dH_intr";
             perturber.printColumnTitle(_fout, _width);
             info.printColumnTitle(_fout, _width);
             profile.printColumnTitle(_fout, _width);
@@ -2892,7 +2973,11 @@ namespace AR {
             _fout<<std::setw(_width)<<"dE_SD" 
                  <<std::setw(_width)<<"Etot_SD" 
                  <<std::setw(_width)<<"Ekin_SD" 
-                 <<std::setw(_width)<<"Epot_SD";
+                 <<std::setw(_width)<<"Epot_SD"
+                 <<std::setw(_width)<<"dE_SDC_cum" 
+                 <<std::setw(_width)<<"dH_SDC_cum"
+                 <<std::setw(_width)<<"dE_SDC_intr" 
+                 <<std::setw(_width)<<"dH_SDC_intr"; 
             _fout<<std::setw(_width)<<"N_SD";
             for (int i=0; i<_n_sd; i++) {
                 _fout<<std::setw(_width)<<"I1"
@@ -2930,8 +3015,8 @@ namespace AR {
 #endif
                  <<std::setw(_width)<<getH()
 #endif
-                 <<std::setw(_width)<<de_sd_change_cum_
-                 <<std::setw(_width)<<dH_sd_change_cum_;
+                 <<std::setw(_width)<<de_change_interrupt_
+                 <<std::setw(_width)<<dH_change_interrupt_;
             perturber.printColumn(_fout, _width);
             info.printColumn(_fout, _width);
             profile.printColumn(_fout, _width);
@@ -2939,7 +3024,11 @@ namespace AR {
             _fout<<std::setw(_width)<<getEnergyErrorSlowDown()
                  <<std::setw(_width)<<etot_sd_ref_ 
                  <<std::setw(_width)<<ekin_sd_ 
-                 <<std::setw(_width)<<epot_sd_;
+                 <<std::setw(_width)<<epot_sd_
+                 <<std::setw(_width)<<de_sd_change_cum_
+                 <<std::setw(_width)<<dH_sd_change_cum_
+                 <<std::setw(_width)<<de_sd_change_interrupt_
+                 <<std::setw(_width)<<dH_sd_change_interrupt_;
             SlowDown sd_empty;
 #ifdef AR_SLOWDOWN_ARRAY
             int n_sd_now = binary_slowdown.getSize();

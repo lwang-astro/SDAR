@@ -333,7 +333,7 @@ int main(int argc, char **argv){
         sym_int.profile.step_count = 1;
         auto IntegrateOneStep = [&] (){
 #if (defined AR_SLOWDOWN_ARRAY) || (defined AR_SLOWDOWN_TREE)
-            sym_int.updateSlowDownAndCorrectEnergy(true);
+            sym_int.updateSlowDownAndCorrectEnergy(true, false);
 #endif
             if(n_particle==2) sym_int.integrateTwoOneStep(sym_int.info.ds, time_table);
             else sym_int.integrateOneStep(sym_int.info.ds, time_table);

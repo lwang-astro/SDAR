@@ -65,10 +65,14 @@ public:
         acc1[1] = gmor3_1 * dr[1];
         acc1[2] = gmor3_1 * dr[2];
 
+        _f1.pot_in = -gravitational_constant*mass2*inv_r;
+
         Float gmor3_2 = gravitational_constant*mass1*inv_r3;
         acc2[0] = - gmor3_2 * dr[0];
         acc2[1] = - gmor3_2 * dr[1];
         acc2[2] = - gmor3_2 * dr[2];
+
+        _f2.pot_in = -gravitational_constant*mass1*inv_r;
 
         Float gm1m2 = gravitational_constant*mass1*mass2;
 
@@ -196,13 +200,16 @@ public:
             xcm[2] = _particle_cm.pos[2] + dt*(_particle_cm.vel[2] + 0.5*dt*(_particle_cm.acc0[2] + inv3*dt*_particle_cm.acc1[2]));
 
             Float acc_pert_cm[3]={0.0, 0.0, 0.0};
+            Float pot_pert_cm=0.0;
             Float mcm = _particle_cm.mass;
             if (_perturber.need_resolve_flag) {
                 // calculate component perturbation
                 for (int i=0; i<_n_particle; i++) {
                     Float* acc_pert = _force[i].acc_pert;
+                    Float& pot_pert = _force[i].pot_pert;
                     const auto& pi = _particles[i];
                     acc_pert[0] = acc_pert[1] = acc_pert[2] = Float(0.0);
+                    pot_pert = 0.0;
 
                     Float xi[3];
                     xi[0] = pi.pos[0] + xcm[0];
@@ -216,16 +223,22 @@ public:
                         Float r2 = dr[0]*dr[0] + dr[1]*dr[1] + dr[2]*dr[2] + eps_sq;
                         Float r  = sqrt(r2);
                         Float r3 = r*r2;
-                        Float gmor3 = gravitational_constant*m[j]/r3;
+                        Float gm = gravitational_constant*m[j];
+                        Float gmor3 = gm/r3;
 
                         acc_pert[0] += gmor3 * dr[0];
                         acc_pert[1] += gmor3 * dr[1];
                         acc_pert[2] += gmor3 * dr[2];
+
+                        pot_pert += - gm/r;
                     }
+
 
                     acc_pert_cm[0] += pi.mass *acc_pert[0];
                     acc_pert_cm[1] += pi.mass *acc_pert[1];
                     acc_pert_cm[2] += pi.mass *acc_pert[2];
+
+                    pot_pert_cm += pi.mass*pot_pert;
 #ifdef ARC_DEBUG
                     mcm += pi.mass;
 #endif
@@ -238,12 +251,17 @@ public:
                 acc_pert_cm[1] /= mcm;
                 acc_pert_cm[2] /= mcm;
 
+                pot_pert_cm /= mcm;
+
                 // remove cm. perturbation
                 for (int i=0; i<_n_particle; i++) {
                     Float* acc_pert = _force[i].acc_pert;
+                    Float& pot_pert = _force[i].pot_pert;
                     acc_pert[0] -= acc_pert_cm[0]; 
                     acc_pert[1] -= acc_pert_cm[1];        
                     acc_pert[2] -= acc_pert_cm[2]; 
+
+                    pot_pert -= pot_pert_cm;
                 }
             }
             else {
@@ -255,18 +273,23 @@ public:
                     Float r2 = dr[0]*dr[0] + dr[1]*dr[1] + dr[2]*dr[2] + eps_sq;
                     Float r  = sqrt(r2);
                     Float r3 = r*r2;
-                    Float gmor3 = gravitational_constant*m[j]/r3;
+                    Float gm = gravitational_constant*m[j];
+                    Float gmor3 = gm/r3;
 
                     acc_pert_cm[0] += gmor3 * dr[0];
                     acc_pert_cm[1] += gmor3 * dr[1];
                     acc_pert_cm[2] += gmor3 * dr[2];
+
+                    pot_pert_cm += - gm/r;
                 }
 
                 // calculate component perturbation
                 for (int i=0; i<_n_particle; i++) {
                     Float* acc_pert = _force[i].acc_pert;
+                    Float& pot_pert = _force[i].pot_pert;
                     const auto& pi = _particles[i];
                     acc_pert[0] = acc_pert[1] = acc_pert[2] = Float(0.0);
+                    pot_pert = 0.0;
 
                     Float xi[3];
                     xi[0] = pi.pos[0] + xcm[0];
@@ -278,6 +301,8 @@ public:
                     acc_pert[1] = -acc_pert_cm[1];        
                     acc_pert[2] = -acc_pert_cm[2]; 
 
+                    pot_pert = - pot_pert_cm;
+
                     for (int j=0; j<n_pert; j++) {
                         Float dr[3] = {xp[j][0] - xi[0],
                                        xp[j][1] - xi[1],
@@ -285,11 +310,14 @@ public:
                         Float r2 = dr[0]*dr[0] + dr[1]*dr[1] + dr[2]*dr[2] + eps_sq;
                         Float r  = sqrt(r2);
                         Float r3 = r*r2;
-                        Float gmor3 = gravitational_constant*m[j]/r3;
+                        Float gm = gravitational_constant*m[j];
+                        Float gmor3 = gm/r3;
 
                         acc_pert[0] += gmor3 * dr[0];
                         acc_pert[1] += gmor3 * dr[1];
                         acc_pert[2] += gmor3 * dr[2];
+
+                        pot_pert += - gm/r;
                     }
                 }
 
@@ -528,53 +556,67 @@ public:
       @param[in] _bin: binarytree to check iteratively
      */
     void modifyAndInterruptIter(AR::InterruptBinary<ARPtcl>& _bin_interrupt, AR::BinaryTree<ARPtcl>& _bin) {
-        if (_bin.getMemberN()==2&&_bin_interrupt.status==AR::InterruptStatus::none) {
-            ARPtcl *p1,*p2;
-            p1 = _bin.getLeftMember();
-            p2 = _bin.getRightMember();
+        if (_bin_interrupt.status==AR::InterruptStatus::none) {
+            auto* p1 = _bin.getLeftMember();
+            auto* p2 = _bin.getRightMember();
 
             auto merge = [&]() {
                 _bin_interrupt.adr = &_bin;
                 _bin_interrupt.status = AR::InterruptStatus::merge;
-                p1->status = Status::single;
                 Float mcm = p1->mass + p2->mass;
                 for (int k=0; k<3; k++) {
                     p1->pos[k] = (p1->mass*p1->pos[k] + p2->mass*p2->pos[k])/mcm;
                     p1->vel[k] = (p1->mass*p1->vel[k] + p2->mass*p2->vel[k])/mcm;
                 }
-                p1->mass = mcm;
-                p2->status = Status::unused;
+                p1->setBinaryInterruptState(BinaryInterruptState::none);
+                p2->setBinaryInterruptState(BinaryInterruptState::none);
+                p1->dm = mcm - p1->mass;
+                p2->dm = -p2->mass;
+                p1->mass = mcm*0.8;
                 p2->mass = 0.0;
+                _bin_interrupt.dm = -mcm*0.2;
             };
 
-            if (p1->status != Status::unused && p2->status != Status::unused) {
-                if (p1->status==Status::premerge && p2->status==Status::premerge && 
-                    p1->time_check<_bin_interrupt.time_end && p2->time_check<_bin_interrupt.time_end) merge();
+            if(_bin.getMemberN()==2) {
+                if (p1->getBinaryInterruptState()== BinaryInterruptState::collision && 
+                    p2->getBinaryInterruptState()== BinaryInterruptState::collision &&
+                    (p1->time_check<_bin_interrupt.time_end || p2->time_check<_bin_interrupt.time_end) &&
+                    (p1->getBinaryPairID()==p2->id||p2->getBinaryPairID()==p1->id)) merge();
                 else {
-                    Float peri = _bin.semi*(1-_bin.ecc);
                     Float radius = p1->radius + p2->radius;
-                    if (peri<radius&&p1->status!=Status::premerge&&p2->status!=Status::premerge) {
+                    // slowdown case
+                    if (_bin.slowdown.getSlowDownFactor()>1.0) {
+                        Float drdv;
+                        _bin.particleToSemiEcc(_bin.semi, _bin.ecc, _bin.r, drdv, *_bin.getLeftMember(), *_bin.getRightMember(), gravitational_constant);
+                        Float peri = _bin.semi*(1 - _bin.ecc);
+                        if (peri<radius && p1->getBinaryPairID()!=p2->id&&p2->getBinaryPairID()!=p1->id) {
+                            Float ecc_anomaly  = _bin.calcEccAnomaly(_bin.r);
+                            Float mean_anomaly = _bin.calcMeanAnomaly(ecc_anomaly, _bin.ecc);
+                            Float mean_motion  = sqrt(gravitational_constant*_bin.mass/(fabs(_bin.semi*_bin.semi*_bin.semi))); 
+                            Float t_peri = mean_anomaly/mean_motion;
+                            if (drdv<0 && t_peri<_bin_interrupt.time_end-_bin_interrupt.time_now) merge();
+                            else if (_bin.semi>0||(_bin.semi<0&&drdv<0)) {
+                                p1->setBinaryPairID(p2->id);
+                                p2->setBinaryPairID(p1->id);
+                                p1->setBinaryInterruptState(BinaryInterruptState::collision);
+                                p2->setBinaryInterruptState(BinaryInterruptState::collision);
+                                p1->time_check = std::min(p1->time_check, _bin_interrupt.time_now + drdv<0 ? t_peri : (_bin.period - t_peri));
+                                p2->time_check = std::min(p1->time_check, p2->time_check);
+                            }
+                        }
+                    }
+                    else { // no slowdown case, check separation directly
                         Float dr[3] = {p1->pos[0] - p2->pos[0], 
                                        p1->pos[1] - p2->pos[1], 
                                        p1->pos[2] - p2->pos[2]};
-                        Float dv[3] = {p1->vel[0] - p2->vel[0], 
-                                       p1->vel[1] - p2->vel[1], 
-                                       p1->vel[2] - p2->vel[2]};
-                        Float drdv = dr[0]*dv[0] + dr[1]*dv[1] + dr[2]*dv[2];
                         Float dr2  = dr[0]*dr[0] + dr[1]*dr[1] + dr[2]*dr[2];
-                        Float drm = std::sqrt(dr2);
-                        Float ecc_anomaly=_bin.calcEccAnomaly(drm);
-                        Float mean_anomaly = _bin.calcMeanAnomaly(ecc_anomaly, _bin.ecc);
-                        Float t_peri = mean_anomaly/6.28318530718*_bin.period;
-                        if (drdv<0 && t_peri<_bin_interrupt.time_end-_bin_interrupt.time_now) merge();
-                        else {
-                            p1->status = Status::premerge;
-                            p2->status = Status::premerge;
-                            p1->time_check = _bin_interrupt.time_now + drdv<0 ? t_peri : (_bin.period - t_peri);
-                            p2->time_check = p1->time_check;
-                        }
+                        if (dr2<radius*radius) merge();
                     }
                 }
+            }
+            else {
+                for (int k=0; k<2; k++) 
+                    if (_bin.isMemberTree(k)) modifyAndInterruptIter(_bin_interrupt, *_bin.getMemberAsTree(k));
             }
         }
     }

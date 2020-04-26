@@ -81,7 +81,7 @@ public:
         _fi.acc1[1] += acc1[1];
         _fi.acc1[2] += acc1[2];
 
-        _fi.pot += gravitational_constant*_pj.mass*rinv;
+        _fi.pot += -gravitational_constant*_pj.mass*rinv;
 
         return dr2;
     }
@@ -131,7 +131,7 @@ public:
             _fi.acc1[1] += acc1[1];
             _fi.acc1[2] += acc1[2];
 
-            _fi.pot += gravitational_constant*pj.mass*rinv;
+            _fi.pot += -gravitational_constant*pj.mass*rinv;
 
             r2_min = std::min(r2_min, dr2);
         }
@@ -180,7 +180,7 @@ public:
         _fi.acc1[2] += acc1[2];
 
 
-        _fi.pot += gravitational_constant*_pj.mass*rinv;
+        _fi.pot += -gravitational_constant*_pj.mass*rinv;
 
         return dr2;
     }
@@ -226,7 +226,7 @@ public:
         _fi.acc1[1] += acc1[1];
         _fi.acc1[2] += acc1[2];
 
-        _fi.pot += gravitational_constant*_pj.mass*rinv;
+        _fi.pot += -gravitational_constant*_pj.mass*rinv;
 
         return dr2;
     }
@@ -278,7 +278,7 @@ public:
             _fi.acc1[1] += acc1[1];
             _fi.acc1[2] += acc1[2];
 
-            _fi.pot += gravitational_constant*pj.mass*rinv;
+            _fi.pot += -gravitational_constant*pj.mass*rinv;
 
             r2_min = std::min(r2_min, dr2);
         }
@@ -328,7 +328,7 @@ public:
         _fi.acc1[1] += acc1[1];
         _fi.acc1[2] += acc1[2];
 
-        _fi.pot += gravitational_constant*_pj.mass*rinv;
+        _fi.pot += -gravitational_constant*_pj.mass*rinv;
 
         return dr2;
     }

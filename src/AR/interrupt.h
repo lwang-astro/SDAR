@@ -10,10 +10,11 @@ namespace AR {
     //! Binary interrupt recoreder
     template <class Tparticle>
     struct InterruptBinary {
-        AR::BinaryTree<Tparticle>* adr;
-        Float time_now;
-        Float time_end;
-        InterruptStatus status;
+        AR::BinaryTree<Tparticle>* adr; // binary tree address
+        Float dm; // mass change
+        Float time_now;  // current time
+        Float time_end;  // finishing time 
+        InterruptStatus status; // binary status
 
         InterruptBinary(): adr(NULL), time_now(0.0), time_end(0.0), status(InterruptStatus::none) {}
 
@@ -21,6 +22,7 @@ namespace AR {
 
         void clear() { 
             adr=NULL; 
+            dm =0.0;
             time_now=0.0; 
             time_end=0.0; 
             status=InterruptStatus::none;

@@ -77,9 +77,13 @@ namespace AR {
      */
     enum class FixStepOption {always, later, none};
 
-    //! A class contains the Kepler orbital parameters and initial step size
-    /*! The class has members to generate the Kepler orbital binary tree of the particle group and store the information in binarytree. \\
-      It also provides the initial step size estimator and the option of fix step.
+    //! A class contains information (e.g. parameters, binary tree, indices) about the particle group
+    /*! The member of this class should not be the data that must be recored and should be possible calculated any time based on the main class (TimeTransformedSymplecticIntegrator) data. 
+      This class must be inherited when a different Information class is applied in the main class, since the binary tree is used in the integration for slowdown factor
+      The basic members are used in the integration are \\
+      ds: integration step size \\
+      binarytree: the Kepler orbital parameters of the hierarchical systems and slowdown factors \\
+      fix_step_option: option to control whether the adjustment of step sizes are used \\
      */
     template <class Tparticle, class Tpcm>
     class Information{

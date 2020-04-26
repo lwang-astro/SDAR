@@ -7,7 +7,9 @@
 #define NAN_CHECK(val) assert((val) == (val));
 #endif
 
-enum class Status{single=1, premerge=2, unused=0};
+enum class BinaryInterruptState:int {none = 0, form = 1, exchange = 2, collision = 3};
+#define BINARY_STATE_ID_SHIFT 4
+#define BINARY_INTERRUPT_STATE_MASKER 0xF
 
 //! A sample particle class
 /*! A particle class should contain public members:
@@ -20,12 +22,33 @@ public:
     Float pos[3];
     Float vel[3];
     Float radius;
+    Float dm;
     Float time_check; // time to check next interrupt
-    Status status;
+    long long int binary_state; // contain two parts, low bits (first BINARY_STATE_ID_SHIFT bits) is binary interrupt state and high bits are pair ID
     static Float r_neighbor_crit;
     static Float r_break_crit;
 
-    Particle(): id(-1), mass(0.0), pos{0,0,0}, vel{0,0,0}, radius(0.0), time_check(0.0), status(Status::single) {}
+    Particle(): id(-1), mass(0.0), pos{0,0,0}, vel{0,0,0}, radius(0.0), dm(0.0), time_check(NUMERIC_FLOAT_MAX), binary_state(0) {}
+
+    //! save pair id in binary_state with shift bit size of BINARY_STATE_ID_SHIFT
+    void setBinaryPairID(const int _id) {
+        binary_state = (binary_state&BINARY_INTERRUPT_STATE_MASKER) | (_id<<BINARY_STATE_ID_SHIFT);
+    }
+
+    //! save binary interrupt state in the first  BINARY_STATE_ID_SHIFT bit in binary_state
+    void setBinaryInterruptState(const BinaryInterruptState _state) {
+        binary_state = ((binary_state>>BINARY_STATE_ID_SHIFT)<<BINARY_STATE_ID_SHIFT) | int(_state);
+    }
+
+    //! get binary interrupt state from binary_state
+    BinaryInterruptState getBinaryInterruptState() const {
+        return static_cast<BinaryInterruptState>(binary_state&BINARY_INTERRUPT_STATE_MASKER);
+    }
+
+    //! get pair ID from binary_state 
+    int getBinaryPairID() const {
+        return (binary_state>>BINARY_STATE_ID_SHIFT);
+    }
 
     //! Get position 
     /*! \return position vector (Float[3])

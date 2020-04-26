@@ -155,6 +155,7 @@ namespace H4{
         HermiteEnergy energy_; // true energy
         HermiteEnergy energy_sd_;  // slowdown energy
         Float de_sd_change_cum_;   //cumulative slowdown energy change due to slowdown factor change
+        Float de_sd_change_interrupt_;   //cumulative slowdown energy change due to interruption
 
         // active particle number
         int n_act_single_;    /// active particle number of singles
@@ -222,6 +223,7 @@ namespace H4{
         HermiteIntegrator(): time_(0.0), time_next_min_(0.0), 
                              energy_(), energy_sd_(),
                              de_sd_change_cum_(0.0),
+                             de_sd_change_interrupt_(0.0),
                              n_act_single_(0), n_act_group_(0), 
                              n_init_single_(0), n_init_group_(0), 
                              index_offset_group_(0), 
@@ -240,6 +242,7 @@ namespace H4{
             energy_.clear();
             energy_sd_.clear();
             de_sd_change_cum_ = 0.0;
+            de_sd_change_interrupt_ = 0.0;
             n_act_single_ = n_act_group_ = n_init_single_ = n_init_group_ = 0;
             index_offset_group_ = 0;
             interrupt_group_dt_sorted_group_index_ = -1;
@@ -2162,6 +2165,25 @@ namespace H4{
                     if (interrupt_binary_.status==AR::InterruptStatus::merge) {
                         index_group_merger_.addMember(i);
                     }
+                    
+                    // correct cm potential energy 
+                    //Float dm = correctMassChangePotEnergyBinaryIter(*interrupt_binary_.adr);
+                    Float dm = interrupt_binary_.dm;
+                    Float de_pot = force_[k+index_offset_group_].pot*dm;
+                    de_sd_change_cum_ += de_pot;
+                    de_sd_change_interrupt_ += de_pot;
+
+                    // correct kinetic energy of cm
+                    auto& vcm = groups[k].particles.cm.vel;
+                    ASSERT(!groups[k].particles.isOriginFrame());
+                    auto& vbin_local = interrupt_binary_.adr->vel;
+                    Float vbin[3] = {vbin_local[0] + vcm[0], 
+                                     vbin_local[1] + vcm[1], 
+                                     vbin_local[2] + vcm[2]};
+                    Float de_kin = 0.5*dm*(vbin[0]*vbin[0] + vbin[1]*vbin[1] + vbin[2]*vbin[2]);
+                    de_sd_change_cum_ += de_kin;
+                    de_sd_change_interrupt_ += de_kin;
+
                     if (ar_manager->interrupt_detection_option==2) {
                         interrupt_group_dt_sorted_group_index_ = i;
                         ASSERT(time_next - interrupt_binary_.time_now + ar_manager->time_error_max >= 0.0);
@@ -2336,6 +2358,7 @@ namespace H4{
         void accumDESlowDownChangeBreakGroup(const int _igroup) {
             auto& groupi = groups[_igroup];
             de_sd_change_cum_ += groupi.getDESlowDownChangeCum();
+            de_sd_change_interrupt_ += groupi.getDESlowDownChangeInterrupt();
             // add the change due to the shutdown of slowdown 
             Float etot = groupi.getEkin() + groupi.getEpot();
             Float etot_sd = groupi.getEkinSlowDown() + groupi.getEpotSlowDown();
@@ -2352,9 +2375,33 @@ namespace H4{
                 ASSERT(i>=0);
                 auto& gi = groups[i];
                 de_sd_change_cum_ += gi.getDESlowDownChangeCum();
+                de_sd_change_interrupt_ += gi.getDESlowDownChangeInterrupt();
                 gi.resetDESlowDownChangeCum();
             } 
         }
+
+        // correct energy due to mass change
+        /*
+          @param[in] _bin: interrupted binary to correct
+          \return total mass change
+        Float correctMassChangePotEnergyBinaryIter(AR::BinaryTree<ARPtcl>& _bin) {
+            Float dm_tot = 0.0;
+            for (int k=0; k<2; k++) {
+                if (_bin.isMemberTree(k)) dm_tot += correctMassChangePotEnergyBinaryIter(*_bin.getMemberAsTree(k));
+                else {
+                    //int i = _bin.getMemberIndex(k);
+                    //Float& pot = force_[i].pot;
+                    auto* pi = _bin.getMember(k);
+                    dm_tot += pi->dm;
+                    //Float de_pot = pot*pi->dm;
+                    de_sd_change_cum_ += de_pot;
+                    de_sd_change_interrupt_ += de_pot;
+                    pi->dm = 0.0;
+                }
+            }
+            return dm_tot;
+        }
+         */
 
         //! calculate slowdown energy
         /*! @param[in] _initial_flag: if true, set energy reference
@@ -2457,6 +2504,16 @@ namespace H4{
         //! reset cumulative energy change due to slowdown change
         void resetDESlowDownChangeCum()  {
             de_sd_change_cum_ = 0.0;
+        }
+
+        //! get cumulative energy change due to interruption
+        Float getDESlowDownChangeInterrupt() const {
+            return de_sd_change_interrupt_;
+        }
+
+        //! reset cumulative energy change due to interruption
+        void resetDESlowDownChangeInterrupt()  {
+            de_sd_change_interrupt_ = 0.0;
         }
 
         //! get next time for intergration
