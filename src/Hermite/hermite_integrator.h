@@ -96,11 +96,12 @@ namespace H4{
         Float de_cum; ///< cumulative energy change 
         Float de_interrupt; ///< energy change due to interruption
 
-        HermiteEnergy(): etot_ref(0.0), ekin(0.0), epot(0.0), epert(0.0), de_interrupt(0.0) {}
+        HermiteEnergy(): etot_ref(0.0), ekin(0.0), epot(0.0), epert(0.0), de_cum(0.0), de_interrupt(0.0) {}
 
         //! clear function
         void clear() {
             etot_ref = ekin = epot = epert = 0.0;
+            de_cum = de_interrupt = 0.0;
         }
 
         //! calc energy error 
