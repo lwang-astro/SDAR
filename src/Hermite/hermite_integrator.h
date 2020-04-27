@@ -93,8 +93,10 @@ namespace H4{
         Float ekin;  ///< kinetic energy
         Float epot;  ///< potential energy
         Float epert; ///< perturbation extra energy
+        Float de_cum; ///< cumulative energy change 
+        Float de_interrupt; ///< energy change due to interruption
 
-        HermiteEnergy(): etot_ref(0.0), ekin(0.0), epot(0.0), epert(0.0) {}
+        HermiteEnergy(): etot_ref(0.0), ekin(0.0), epot(0.0), epert(0.0), de_interrupt(0.0) {}
 
         //! clear function
         void clear() {
@@ -121,7 +123,9 @@ namespace H4{
                  <<std::setw(_width)<<"Etot_ref"
                  <<std::setw(_width)<<"Ekin"
                  <<std::setw(_width)<<"Epot"
-                 <<std::setw(_width)<<"Epert";
+                 <<std::setw(_width)<<"Epert"
+                 <<std::setw(_width)<<"dE_cum"
+                 <<std::setw(_width)<<"dE_intr";
         }
 
         //! print data of class members using column style
@@ -134,7 +138,9 @@ namespace H4{
                  <<std::setw(_width)<<etot_ref
                  <<std::setw(_width)<<ekin
                  <<std::setw(_width)<<epot
-                 <<std::setw(_width)<<epert;
+                 <<std::setw(_width)<<epert
+                 <<std::setw(_width)<<de_cum
+                 <<std::setw(_width)<<de_interrupt;
         }
     };
 
@@ -152,10 +158,9 @@ namespace H4{
         Float dt_limit_;  // maximum step size allown for next integration step calculation
 
         // Energy
+        Float energy_init_ref_; // initial energy reference
         HermiteEnergy energy_; // true energy
         HermiteEnergy energy_sd_;  // slowdown energy
-        Float de_sd_change_cum_;   //cumulative slowdown energy change due to slowdown factor change
-        Float de_sd_change_interrupt_;   //cumulative slowdown energy change due to interruption
 
         // active particle number
         int n_act_single_;    /// active particle number of singles
@@ -221,9 +226,8 @@ namespace H4{
 
         //! constructor
         HermiteIntegrator(): time_(0.0), time_next_min_(0.0), 
+                             energy_init_ref_(0.0),
                              energy_(), energy_sd_(),
-                             de_sd_change_cum_(0.0),
-                             de_sd_change_interrupt_(0.0),
                              n_act_single_(0), n_act_group_(0), 
                              n_init_single_(0), n_init_group_(0), 
                              index_offset_group_(0), 
@@ -239,10 +243,9 @@ namespace H4{
         void clear() {
             time_ = 0.0;
             time_next_min_ = 0.0;
+            energy_init_ref_ = 0.0;
             energy_.clear();
             energy_sd_.clear();
-            de_sd_change_cum_ = 0.0;
-            de_sd_change_interrupt_ = 0.0;
             n_act_single_ = n_act_group_ = n_init_single_ = n_init_group_ = 0;
             index_offset_group_ = 0;
             interrupt_group_dt_sorted_group_index_ = -1;
@@ -1291,7 +1294,7 @@ namespace H4{
                 const int i = _break_group_index_with_offset[k] - index_offset_group_;
                 ASSERT(i>=0&&i<groups.getSize());
 
-                // before break group, first accummulating de_sd_change_cum_
+                // before break group, first accummulating energy change 
                 accumDESlowDownChangeBreakGroup(i);
 
                 auto& groupi = groups[i];
@@ -1379,7 +1382,7 @@ namespace H4{
             for (int k=_n_break; k<_n_break+_n_break_no_add; k++) {
                 const int i = _break_group_index_with_offset[k] - index_offset_group_;
 
-                // before break group, first accummulating de_sd_change_cum_
+                // before break group, first accummulating energy change
                 accumDESlowDownChangeBreakGroup(i);
 
                 auto& groupi = groups[i];
@@ -2170,8 +2173,10 @@ namespace H4{
                     //Float dm = correctMassChangePotEnergyBinaryIter(*interrupt_binary_.adr);
                     Float dm = interrupt_binary_.dm;
                     Float de_pot = force_[k+index_offset_group_].pot*dm;
-                    de_sd_change_cum_ += de_pot;
-                    de_sd_change_interrupt_ += de_pot;
+                    energy_.de_cum += de_pot;
+                    energy_.de_interrupt += de_pot;
+                    energy_sd_.de_cum += de_pot;
+                    energy_sd_.de_interrupt += de_pot;
 
                     // correct kinetic energy of cm
                     auto& vcm = groups[k].particles.cm.vel;
@@ -2181,8 +2186,10 @@ namespace H4{
                                      vbin_local[1] + vcm[1], 
                                      vbin_local[2] + vcm[2]};
                     Float de_kin = 0.5*dm*(vbin[0]*vbin[0] + vbin[1]*vbin[1] + vbin[2]*vbin[2]);
-                    de_sd_change_cum_ += de_kin;
-                    de_sd_change_interrupt_ += de_kin;
+                    energy_.de_cum += de_kin;
+                    energy_.de_interrupt += de_kin;
+                    energy_sd_.de_cum += de_kin;
+                    energy_sd_.de_interrupt += de_kin;
 
                     if (ar_manager->interrupt_detection_option==2) {
                         interrupt_group_dt_sorted_group_index_ = i;
@@ -2357,12 +2364,15 @@ namespace H4{
          */
         void accumDESlowDownChangeBreakGroup(const int _igroup) {
             auto& groupi = groups[_igroup];
-            de_sd_change_cum_ += groupi.getDESlowDownChangeCum();
-            de_sd_change_interrupt_ += groupi.getDESlowDownChangeInterrupt();
+            Float de_interrupt  = groupi.getDEChangeInterrupt();
+            energy_.de_interrupt += de_interrupt;
+            energy_.de_cum += de_interrupt;
+            energy_sd_.de_cum += groupi.getDESlowDownChangeCum();
+            energy_sd_.de_interrupt += groupi.getDESlowDownChangeInterrupt();
             // add the change due to the shutdown of slowdown 
             Float etot = groupi.getEkin() + groupi.getEpot();
             Float etot_sd = groupi.getEkinSlowDown() + groupi.getEpotSlowDown();
-            de_sd_change_cum_ += etot - etot_sd;
+            energy_sd_.de_cum += etot - etot_sd;
         }
 
         //! correct Etot slowdown reference due to the groups change
@@ -2374,9 +2384,19 @@ namespace H4{
                 ASSERT(i<groups.getSize());
                 ASSERT(i>=0);
                 auto& gi = groups[i];
-                de_sd_change_cum_ += gi.getDESlowDownChangeCum();
-                de_sd_change_interrupt_ += gi.getDESlowDownChangeInterrupt();
+
+                // interrupt energy
+                Float de_interrupt  = gi.getDEChangeInterrupt();
+                energy_.de_interrupt += de_interrupt;
+                energy_.de_cum += de_interrupt;
+                gi.resetDEChangeInterrupt();
+
+                // slowdown energy
+                energy_sd_.de_cum += gi.getDESlowDownChangeCum();
                 gi.resetDESlowDownChangeCum();
+                // slowdown interrupt energy
+                energy_sd_.de_interrupt += gi.getDESlowDownChangeInterrupt();
+                gi.resetDESlowDownChangeInterrupt();
             } 
         }
 
@@ -2423,9 +2443,10 @@ namespace H4{
                 energy_sd_.epot += gi.getEpotSlowDown();
             }
             if (_initial_flag) {
-                energy_.etot_ref = energy_.getEtot();
+                energy_init_ref_ = energy_.getEtot();
             }
-            energy_sd_.etot_ref = energy_.etot_ref + de_sd_change_cum_;
+            energy_.etot_ref    = energy_init_ref_ + energy_.de_cum;
+            energy_sd_.etot_ref = energy_init_ref_ + energy_sd_.de_cum;
         }
 
         //! get slowdown energy error
@@ -2496,24 +2517,44 @@ namespace H4{
             return energy_sd_.epot;
         }
 
-        //! get cumulative energy change due to slowdown change
+        //! get cumulative slowdown energy change due to slowdown change
         Float getDESlowDownChangeCum() const {
-            return de_sd_change_cum_;
+            return energy_sd_.de_cum;
         }
 
-        //! reset cumulative energy change due to slowdown change
+        //! reset cumulative slowdown energy change due to slowdown change
         void resetDESlowDownChangeCum()  {
-            de_sd_change_cum_ = 0.0;
+            energy_sd_.de_cum = 0.0;
+        }
+
+        //! get cumulative slowdown energy change due to interruption
+        Float getDESlowDownChangeInterrupt() const {
+            return energy_sd_.de_interrupt;
+        }
+
+        //! reset cumulative slowdown energy change due to interruption
+        void resetDESlowDownChangeInterrupt()  {
+            energy_sd_.de_interrupt = 0.0;
+        }
+
+        //! get cumulative energy change 
+        Float getDEChangeCum() const {
+            return energy_.de_cum;
+        }
+
+        //! reset cumulative energy change
+        void resetDEChangeCum()  {
+            energy_.de_cum = 0.0;
         }
 
         //! get cumulative energy change due to interruption
-        Float getDESlowDownChangeInterrupt() const {
-            return de_sd_change_interrupt_;
+        Float getDEChangeInterrupt() const {
+            return energy_.de_interrupt;
         }
 
         //! reset cumulative energy change due to interruption
-        void resetDESlowDownChangeInterrupt()  {
-            de_sd_change_interrupt_ = 0.0;
+        void resetDEChangeInterrupt()  {
+            energy_.de_interrupt = 0.0;
         }
 
         //! get next time for intergration
@@ -2602,11 +2643,15 @@ namespace H4{
                  <<std::setw(_width)<<"Ekin"
                  <<std::setw(_width)<<"Epot"
                  <<std::setw(_width)<<"Epert"
+                 <<std::setw(_width)<<"dE_cum"
+                 <<std::setw(_width)<<"dE_intr"
                  <<std::setw(_width)<<"dE_SD"
                  <<std::setw(_width)<<"Etot_SD_ref"
                  <<std::setw(_width)<<"Ekin_SD"
                  <<std::setw(_width)<<"Epot_SD"
                  <<std::setw(_width)<<"Epert_SD"
+                 <<std::setw(_width)<<"dE_SD_cum"
+                 <<std::setw(_width)<<"dE_SD_intr"
                  <<std::setw(_width)<<"N_SD";
 #if (defined AR_SLOWDOWN_ARRAY) || (defined AR_SLOWDOWN_TREE)
             AR::SlowDown sd_empty;
