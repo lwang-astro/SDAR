@@ -13,7 +13,7 @@ namespace H4 {
     template <class Tparticle>
     struct NBAdr{ 
         typedef ParticleH4<Tparticle> Single;
-        typedef COMM::ParticleGroup<ParticleAR<Tparticle>, ParticleH4<Tparticle>> Group;
+        typedef COMM::ParticleGroup<Tparticle, ParticleH4<Tparticle>> Group;
         // adr;
         void* adr;
         int index;

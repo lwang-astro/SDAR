@@ -1869,7 +1869,9 @@ namespace AR {
             // step count
             long long unsigned int step_count=0; // integration step 
             long long unsigned int step_count_tsyn=0; // time synchronization step
-            InterruptBinary<Tparticle> bin_interrupt = {NULL, time_, _time_end, InterruptStatus::none};
+            InterruptBinary<Tparticle> bin_interrupt;
+            bin_interrupt.time_now=time_;
+            bin_interrupt.time_end=_time_end;
             InterruptBinary<Tparticle> bin_interrupt_return = bin_interrupt;
             
             // particle data
@@ -2253,8 +2255,8 @@ namespace AR {
                                 // update binary tree mass
                                 updateBinaryCMIter(bin_root);
                                 
-                                // update cm mass
-                                particles.cm.mass += bin_interrupt.dm;
+                                // should do later, original mass still needed
+                                //particles.cm.mass += bin_interrupt.dm;
 
 #ifdef AR_TTL
                                 Float gt_kick_inv_new = calcAccPotAndGTKickInv();

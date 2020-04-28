@@ -10,13 +10,12 @@ namespace H4{
     //! contain group information
 
     template <class Tparticle>
-    class ARInformation: public AR::Information<ParticleAR<Tparticle>, ParticleH4<Tparticle>> {
+    class ARInformation: public AR::Information<Tparticle, ParticleH4<Tparticle>> {
     private:
-        typedef ParticleAR<Tparticle> ARPtcl;
-        typedef AR::Information<ParticleAR<Tparticle>, ParticleH4<Tparticle>> ARInfoBase;
+        typedef AR::Information<Tparticle, ParticleH4<Tparticle>> ARInfoBase;
 
         //! add one particle and relink the particle pointer to the local one in _particles
-        static void addOneParticleAndReLinkPointer(COMM::ParticleGroup<ARPtcl, ParticleH4<Tparticle>>& _particles, ARPtcl*& _ptcl) {
+        static void addOneParticleAndReLinkPointer(COMM::ParticleGroup<Tparticle, ParticleH4<Tparticle>>& _particles, Tparticle*& _ptcl) {
             _particles.addMember(*_ptcl);
             _ptcl = &_particles.getLastMember();
         }
@@ -24,15 +23,15 @@ namespace H4{
         //! struture to obtain the original particle index from binary_tree leaf iterator
         struct ParticleIndexAdr{
             int n_particle;
-            ARPtcl* first_particle_index_local_address; // the local particle data first address to calculate local index
+            Tparticle* first_particle_index_local_address; // the local particle data first address to calculate local index
             int* particle_index_origin_output; // to store the particle index 
             const int* particle_index_origin_all;    // to obtain the original index from local index
 
-            ParticleIndexAdr(ARPtcl* _first_adr, int* _index_output, const int* _index_org): n_particle(0), first_particle_index_local_address(_first_adr), particle_index_origin_output(_index_output), particle_index_origin_all(_index_org) {}
+            ParticleIndexAdr(Tparticle* _first_adr, int* _index_output, const int* _index_org): n_particle(0), first_particle_index_local_address(_first_adr), particle_index_origin_output(_index_output), particle_index_origin_all(_index_org) {}
         };
 
         //! calculate particle index
-        static void calcParticleIndex(ParticleIndexAdr& _index, ARPtcl*& _ptcl) {
+        static void calcParticleIndex(ParticleIndexAdr& _index, Tparticle*& _ptcl) {
             _index.particle_index_origin_output[_index.n_particle++] = _index.particle_index_origin_all[int(_ptcl - _index.first_particle_index_local_address)];
         }
 
@@ -95,21 +94,16 @@ namespace H4{
           @param[in] _particles: particle group to add particles
           @param[in] _bin: Binary tree root contain member particles
         */
-        void addParticlesAndCopyBinaryTree(COMM::ParticleGroup<ARPtcl, ParticleH4<Tparticle>>& _particles, AR::BinaryTree<ARPtcl>& _bin) {
+        void addParticlesAndCopyBinaryTree(COMM::ParticleGroup<Tparticle, ParticleH4<Tparticle>>& _particles, AR::BinaryTree<Tparticle>& _bin) {
             int n_members = _bin.getMemberN();
             // copy KeplerTree first
             ARInfoBase::binarytree.resizeNoInitialize(n_members-1);
             _bin.getherBinaryTreeIter(ARInfoBase::binarytree.getDataAddress());
             // add particle and relink the address in bin_ leaf
-            ASSERT(ARInfoBase::binarytree.getLastMember().getMemberN() == n_members);
-            ARInfoBase::binarytree.getLastMember().processLeafIter(_particles, addOneParticleAndReLinkPointer);
-            // relink the original address based on the Particle local copy (adr_org) in ParticleAR type
-            auto* padr_org = _particles.getMemberOriginAddress();
-            for (int i=0; i<n_members; i++) {
-                padr_org[i] = _particles[i].ARPtcl::adr;
-            }
+            auto& bin_root=ARInfoBase::getBinaryTreeRoot();
+            ASSERT(bin_root.getMemberN() == n_members);
+            bin_root.processLeafIter(_particles, addOneParticleAndReLinkPointer);
         }
-
 
         //! get two branch particle index
         /*!
@@ -117,7 +111,7 @@ namespace H4{
           @param[in] _origin_particle_address: particle begining address to calculate index
           \return the split index to separate two branches, index is the right boundary 
          */
-        int getTwoBranchParticleIndexOriginFromBinaryTree(int* _particle_index_origin_output, ARPtcl* _first_particle_address) {
+        int getTwoBranchParticleIndexOriginFromBinaryTree(int* _particle_index_origin_output, Tparticle* _first_particle_address) {
             ParticleIndexAdr p_index(_first_particle_address, _particle_index_origin_output, particle_index.getDataAddress());
             auto& bin_root = ARInfoBase::binarytree.getLastMember();
             bin_root.processLeafIter(p_index, calcParticleIndex);
@@ -135,7 +129,7 @@ namespace H4{
           @param[in] _p1: particle 1
           @param[in] _p2: particle 2
         */
-        void getDrDv(Float& _dr2, Float& _drdv, ARPtcl& _p1, ARPtcl& _p2) {
+        void getDrDv(Float& _dr2, Float& _drdv, Tparticle& _p1, Tparticle& _p2) {
             Float dx[3],dv[3];
             const Float* pos1 = _p1.getPos();
             const Float* pos2 = _p2.getPos();

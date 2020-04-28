@@ -149,9 +149,8 @@ namespace H4{
     template <class Tparticle, class Tpcm, class Tpert, class TARpert, class Tacc, class TARacc, class Tinfo>
     class HermiteIntegrator{
     private:
-        typedef ParticleAR<Tparticle> ARPtcl;
         typedef ParticleH4<Tparticle> H4Ptcl;
-        typedef AR::TimeTransformedSymplecticIntegrator<ARPtcl, H4Ptcl, TARpert, TARacc, ARInformation<Tparticle>> ARSym;
+        typedef AR::TimeTransformedSymplecticIntegrator<Tparticle, H4Ptcl, TARpert, TARacc, ARInformation<Tparticle>> ARSym;
 
         // time 
         Float time_;   ///< integrated time 
@@ -176,7 +175,7 @@ namespace H4{
 
         // interrupt group 
         int interrupt_group_dt_sorted_group_index_; /// interrupt group position in index_dt_sorted_group_
-        AR::InterruptBinary<ARPtcl> interrupt_binary_; /// interrupt binary tree address
+        AR::InterruptBinary<Tparticle> interrupt_binary_; /// interrupt binary tree address
         COMM::List<int> index_group_merger_; /// merger group index
 
         // flags
@@ -1741,7 +1740,7 @@ namespace H4{
                     // this increase AR total step too much
                     //bool add_flag=false;
                     //Float semi, ecc, dr, drdv;
-                    //AR::BinaryTree<ARPtcl>::particleToSemiEcc(semi,ecc,dr,drdv, pi, *pj, ar_manager->interaction.gravitational_constant); 
+                    //AR::BinaryTree<Tparticle>::particleToSemiEcc(semi,ecc,dr,drdv, pi, *pj, ar_manager->interaction.gravitational_constant); 
                     //else {
                     //    Float rp = drdv/dr*dt_limit_ + dr;
                     //    if (rp < r_crit) add_flag = true;
@@ -1931,7 +1930,7 @@ namespace H4{
             ASSERT(checkParams());
             ASSERT(!particles.isModified());
             ASSERT(initial_system_flag_);
-            ASSERT(interrupt_binary_.status==AR::InterruptStatus::none);
+            ASSERT(ar_manager->interrupt_detection_option!=2||(ar_manager->interrupt_detection_option==2&&interrupt_binary_.status==AR::InterruptStatus::none));
             modify_system_flag_=true;
 
             // check
@@ -2131,7 +2130,7 @@ namespace H4{
         /*! Integrate all groups to time
           \return interrupted binarytree if exist
          */
-        AR::InterruptBinary<ARPtcl>& integrateGroupsOneStep() {
+        AR::InterruptBinary<Tparticle>& integrateGroupsOneStep() {
             ASSERT(checkParams());
             ASSERT(!particles.isModified());
             ASSERT(initial_system_flag_);
@@ -2140,6 +2139,11 @@ namespace H4{
 
             // get next time
             Float time_next = getNextTime();
+
+            if (ar_manager->interrupt_detection_option==1) {
+                interrupt_group_dt_sorted_group_index_ = -1;
+                interrupt_binary_.clear();
+            }
 
 #ifdef HERMITE_DEBUG            
             if (interrupt_binary_.status!=AR::InterruptStatus::none) ASSERT(interrupt_group_dt_sorted_group_index_>=0);
@@ -2172,7 +2176,11 @@ namespace H4{
                     
                     // correct cm potential energy 
                     //Float dm = correctMassChangePotEnergyBinaryIter(*interrupt_binary_.adr);
-                    Float dm = interrupt_binary_.dm;
+                    // notice the bin_root represent new c.m. in rest frame
+                    auto& bink = groups[k].info.getBinaryTreeRoot();
+                    // particle cm is the old cm in original frame
+                    auto& pcm = groups[k].particles.cm;
+                    Float dm = bink.mass - pcm.mass;
                     Float de_pot = force_[k+index_offset_group_].pot*dm;
                     energy_.de_cum += de_pot;
                     energy_.de_interrupt += de_pot;
@@ -2180,20 +2188,25 @@ namespace H4{
                     energy_sd_.de_interrupt += de_pot;
 
                     // correct kinetic energy of cm
-                    auto& vcm = groups[k].particles.cm.vel;
                     ASSERT(!groups[k].particles.isOriginFrame());
-                    auto& vbin_local = interrupt_binary_.adr->vel;
-                    Float vbin[3] = {vbin_local[0] + vcm[0], 
-                                     vbin_local[1] + vcm[1], 
-                                     vbin_local[2] + vcm[2]};
-                    Float de_kin = 0.5*dm*(vbin[0]*vbin[0] + vbin[1]*vbin[1] + vbin[2]*vbin[2]);
+                    // first remove mass loss kinetic energy assuming original cm velocity
+                    auto& vcm = pcm.vel;
+                    Float de_kin = 0.5*dm*(vcm[0]*vcm[0]+vcm[1]*vcm[1]+vcm[2]*vcm[2]);
+                    // then correct c.m. motion if the c.m. velocity is shifted, 
+                    // this can be by adding m_cm(new) * v_cm(new;rest) \dot v_cm(old;origin)
+                    auto& vbin = bink.vel;
+                    de_kin += bink.mass*(vbin[0]*vcm[0]+vbin[1]*vcm[1]+vbin[2]*vcm[2]);
                     energy_.de_cum += de_kin;
                     energy_.de_interrupt += de_kin;
                     energy_sd_.de_cum += de_kin;
                     energy_sd_.de_interrupt += de_kin;
 
+                    // update particle dm, velocity should not change to be consistent with frame
+                    pcm.mass += dm;
+                    //particles.cm.mass += dm;
+
+                    interrupt_group_dt_sorted_group_index_ = i;
                     if (ar_manager->interrupt_detection_option==2) {
-                        interrupt_group_dt_sorted_group_index_ = i;
                         ASSERT(time_next - interrupt_binary_.time_now + ar_manager->time_error_max >= 0.0);
                         return interrupt_binary_;
                     }
@@ -2203,8 +2216,8 @@ namespace H4{
             }
 
             // when no interrupt, clear interrupt records
-            interrupt_group_dt_sorted_group_index_ = -1;
-            interrupt_binary_.clear();
+            //interrupt_group_dt_sorted_group_index_ = -1;
+            //interrupt_binary_.clear();
 
             return interrupt_binary_;
         }
@@ -2218,7 +2231,7 @@ namespace H4{
             ASSERT(initial_system_flag_);
             ASSERT(!modify_system_flag_);
             ASSERT(n_init_group_==0&&n_init_single_==0);
-            ASSERT(interrupt_binary_.status==AR::InterruptStatus::none);
+            ASSERT(ar_manager->interrupt_detection_option!=2||(ar_manager->interrupt_detection_option==2&&interrupt_binary_.status==AR::InterruptStatus::none));
             
             // get next time
             Float time_next = getNextTime();
@@ -2405,7 +2418,7 @@ namespace H4{
         /*
           @param[in] _bin: interrupted binary to correct
           \return total mass change
-        Float correctMassChangePotEnergyBinaryIter(AR::BinaryTree<ARPtcl>& _bin) {
+        Float correctMassChangePotEnergyBinaryIter(AR::BinaryTree<Tparticle>& _bin) {
             Float dm_tot = 0.0;
             for (int k=0; k<2; k++) {
                 if (_bin.isMemberTree(k)) dm_tot += correctMassChangePotEnergyBinaryIter(*_bin.getMemberAsTree(k));
@@ -2580,7 +2593,7 @@ namespace H4{
         //! get interrupt binary (tree) address
         /*! if not exist, return NULL
          */
-        AR::InterruptBinary<ARPtcl>& getInterruptBinary() {
+        AR::InterruptBinary<Tparticle>& getInterruptBinary() {
             return interrupt_binary_;
         }
 

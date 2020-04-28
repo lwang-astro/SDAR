@@ -9,7 +9,6 @@
 //! a sample interaction class with newtonian acceleration
 class ARInteraction{
 public:
-    typedef H4::ParticleAR<Particle> ARPtcl;
     typedef H4::ParticleH4<Particle> H4Ptcl;
 
     Float eps_sq; // softening 
@@ -41,7 +40,7 @@ public:
       @param[in] _p2: particle 2
       \return the time transformation factor (gt_kick_inv) for kick step
     */
-    inline Float calcInnerAccPotAndGTKickInvTwo(AR::Force& _f1, AR::Force& _f2, Float& _epot, const ARPtcl& _p1, const Particle& _p2) {
+    inline Float calcInnerAccPotAndGTKickInvTwo(AR::Force& _f1, AR::Force& _f2, Float& _epot, const Particle& _p1, const Particle& _p2) {
         // acceleration
         const Float mass1 = _p1.mass;
         const Float* pos1 = _p1.pos;
@@ -109,7 +108,7 @@ public:
       @param[in] _n_particle: number of member particles
       \return the time transformation factor (gt_kick_inv) for kick step
     */
-    inline Float calcInnerAccPotAndGTKickInv(AR::Force* _force, Float& _epot, const ARPtcl* _particles, const int _n_particle) {
+    inline Float calcInnerAccPotAndGTKickInv(AR::Force* _force, Float& _epot, const Particle* _particles, const int _n_particle) {
         _epot = Float(0.0);
         Float gt_kick_inv = Float(0.0);
         for (int i=0; i<_n_particle; i++) {
@@ -170,7 +169,7 @@ public:
       @param[in] _perturber: pertuber container
       @param[in] _time: current time
     */
-    void calcAccPert(AR::Force* _force, const ARPtcl* _particles, const int _n_particle, const H4Ptcl& _particle_cm, const H4::Neighbor<Particle>& _perturber, const Float _time) {
+    void calcAccPert(AR::Force* _force, const Particle* _particles, const int _n_particle, const H4Ptcl& _particle_cm, const H4::Neighbor<Particle>& _perturber, const Float _time) {
         static const Float inv3 = 1.0 / 3.0;
 
         const int n_pert = _perturber.neighbor_address.getSize();
@@ -336,7 +335,7 @@ public:
       @param[in] _time: current time
       \return perturbation energy to calculate slowdown factor
     */
-    Float calcAccPotAndGTKickInv(AR::Force* _force, Float& _epot, const ARPtcl* _particles, const int _n_particle, const H4Ptcl& _particle_cm, const H4::Neighbor<Particle>& _perturber, const Float _time) {
+    Float calcAccPotAndGTKickInv(AR::Force* _force, Float& _epot, const Particle* _particles, const int _n_particle, const H4Ptcl& _particle_cm, const H4::Neighbor<Particle>& _perturber, const Float _time) {
         Float gt_kick_inv;
         if (_n_particle==2) gt_kick_inv = calcInnerAccPotAndGTKickInvTwo(_force[0], _force[1], _epot, _particles[0], _particles[1]);
         else gt_kick_inv = calcInnerAccPotAndGTKickInv(_force, _epot, _particles, _n_particle);
@@ -359,7 +358,7 @@ public:
     }
 
     //! calculate perturbation from binary tree
-    static Float calcPertFromBinary(const AR::BinaryTree<ARPtcl>& _bin) {
+    static Float calcPertFromBinary(const AR::BinaryTree<Particle>& _bin) {
         Float apo = _bin.semi*(1.0+_bin.ecc);
         Float apo2 = apo*apo;
 #ifdef AR_SLOWDOWN_PERT_R4
@@ -387,7 +386,7 @@ public:
       @param[in] _pi: particle i (cm of binary)
       @param[in] _pj: particle j 
      */
-    void calcSlowDownPertOne(Float& _pert_out, Float& _t_min_sq, const ARPtcl& pi, const ARPtcl& pj) {
+    void calcSlowDownPertOne(Float& _pert_out, Float& _t_min_sq, const Particle& pi, const Particle& pj) {
         Float dr[3] = {pj.pos[0] - pi.pos[0],
                        pj.pos[1] - pi.pos[1],
                        pj.pos[2] - pi.pos[2]};
@@ -555,7 +554,7 @@ public:
       @param[in] _bin_interrupt: interrupt binary information: adr: binary tree address; time_now: current physical time; time_end: integration finishing time; status: interrupt status: change, merge,none
       @param[in] _bin: binarytree to check iteratively
      */
-    void modifyAndInterruptIter(AR::InterruptBinary<ARPtcl>& _bin_interrupt, AR::BinaryTree<ARPtcl>& _bin) {
+    void modifyAndInterruptIter(AR::InterruptBinary<Particle>& _bin_interrupt, AR::BinaryTree<Particle>& _bin) {
         if (_bin_interrupt.status==AR::InterruptStatus::none) {
             auto* p1 = _bin.getLeftMember();
             auto* p2 = _bin.getRightMember();
@@ -574,7 +573,6 @@ public:
                 p2->dm = -p2->mass;
                 p1->mass = mcm*0.8;
                 p2->mass = 0.0;
-                _bin_interrupt.dm = -mcm*0.2;
             };
 
             if(_bin.getMemberN()==2) {

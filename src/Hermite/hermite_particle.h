@@ -5,11 +5,12 @@
 namespace H4{
     template <class Tparticle> class ParticleH4;
 
-    //! particle type for AR integrator
+    //! particle type for AR integrator, not necessary anymore
+    /*
     template <class Tparticle>
     class ParticleAR: public Tparticle{
     public:
-        Tparticle* adr; // original particle address
+        //Tparticle* adr; // original particle address
 
         ParticleAR& operator = (Tparticle & _p) {
             *(Tparticle*)this = _p;
@@ -23,12 +24,13 @@ namespace H4{
             return *this;
         }
         
-        ParticleAR& operator = (ParticleAR & _p) {
+        ParticleAR& operator = (const ParticleAR & _p) {
             *(Tparticle*)this = *(Tparticle*)&_p;
             adr = _p.adr;
             return *this;
         }
     };
+    */
 
     //! Particle type for hermite integrator
     template <class Tparticle>
@@ -190,6 +192,8 @@ namespace H4{
         Float acc0[3]; //
         Float acc1[3]; //
         Float pot;
+
+        ForceH4(): acc0{0.0,0.0,0.0}, acc1{0.0,0.0,0.0}, pot(0.0){}
 
         //! clear function
         void clear() {

@@ -357,7 +357,7 @@ int main(int argc, char **argv){
                 bin_interrupt.adr->getMember(j)->printColumn(std::cerr);
                 std::cerr<<std::endl;
             }
-            continue;
+            if (ar_manager.interrupt_detection_option==2) continue;
         }
         h4_int.integrateSingleOneStepAct();
         h4_int.adjustGroups(false);

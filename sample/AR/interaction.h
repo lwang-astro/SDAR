@@ -327,7 +327,6 @@ public:
                 p2->dm = -p2->mass;
                 p1->mass = mcm*0.8;
                 p2->mass = 0.0;
-                _bin_interrupt.dm = -mcm*0.2;
             };
 
             if(_bin.getMemberN()==2) {
