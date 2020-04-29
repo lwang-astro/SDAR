@@ -200,7 +200,7 @@ public:
 
             Float acc_pert_cm[3]={0.0, 0.0, 0.0};
             Float pot_pert_cm=0.0;
-            Float mcm = _particle_cm.mass;
+            Float mcm = 0.0;
             if (_perturber.need_resolve_flag) {
                 // calculate component perturbation
                 for (int i=0; i<_n_particle; i++) {
@@ -238,13 +238,11 @@ public:
                     acc_pert_cm[2] += pi.mass *acc_pert[2];
 
                     pot_pert_cm += pi.mass*pot_pert;
-#ifdef ARC_DEBUG
                     mcm += pi.mass;
-#endif
                 }
-#ifdef ARC_DEBUG
-                ASSERT(abs(mcm-_particles_cm.mass)<1e-10);
-#endif
+//#ifdef ARC_DEBUG
+//                ASSERT(abs(mcm-_particles_cm.mass)<1e-10);
+//#endif
                 // get cm perturbation
                 acc_pert_cm[0] /= mcm;
                 acc_pert_cm[1] /= mcm;
