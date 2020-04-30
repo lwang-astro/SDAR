@@ -362,6 +362,7 @@ int main(int argc, char **argv){
         h4_int.integrateSingleOneStepAct();
         h4_int.adjustGroups(false);
         h4_int.initialIntegration();
+        h4_int.modifySingleParticles();
         h4_int.sortDtAndSelectActParticle();
 
         if (fmod(h4_int.getTime(), dt_output)==0.0) {

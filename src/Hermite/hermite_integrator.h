@@ -2125,7 +2125,7 @@ namespace H4{
             // reset n_init
             n_init_single_ = n_init_group_ = 0;
         }
-        
+
         //! Integrate groups
         /*! Integrate all groups to time
           \return interrupted binarytree if exist
@@ -2171,7 +2171,11 @@ namespace H4{
                 // record interrupt group and quit
                 if (interrupt_binary_.status!=AR::InterruptStatus::none) {
                     if (interrupt_binary_.status==AR::InterruptStatus::merge) {
-                        index_group_merger_.addMember(i);
+                        index_group_merger_.addMember(k);
+                    }
+                    else {
+                        // set initial step flag 
+                        groups[k].perturber.initial_step_flag=true;
                     }
                     
                     // correct cm potential energy 
@@ -2205,6 +2209,7 @@ namespace H4{
                     pcm.mass += dm;
                     //particles.cm.mass += dm;
 
+
                     interrupt_group_dt_sorted_group_index_ = i;
                     if (ar_manager->interrupt_detection_option==2) {
                         ASSERT(time_next - interrupt_binary_.time_now + ar_manager->time_error_max >= 0.0);
@@ -2221,6 +2226,47 @@ namespace H4{
 
             return interrupt_binary_;
         }
+
+        //! modify single particles due to external functions, update energy
+        void modifySingleParticles() {
+            for (int i=0; i<n_act_single_; i++) {
+                int k = index_dt_sorted_single_[i];
+                // use pred particle to back up velocity
+                auto& pk = particles[k];
+                auto& vbk = pred_[k].vel;
+                Float mbk = pk.mass;
+                vbk[0] = pk.vel[0];
+                vbk[1] = pk.vel[1];
+                vbk[2] = pk.vel[2];
+
+                bool modified_flag=ar_manager->interaction.modifyOneParticle(pk, time_, getNextTime());
+                if (modified_flag) {
+                    // correct potential energy 
+                    Float de_pot = force_[k].pot*pk.dm;
+                    energy_.de_cum += de_pot;
+                    energy_.de_interrupt += de_pot;
+                    energy_sd_.de_cum += de_pot;
+                    energy_sd_.de_interrupt += de_pot;
+                    
+                    // correct kinetic energy
+                    // first calc original kinetic energy;
+                    Float de_kin = -0.5*mbk*(vbk[0]*vbk[0]+vbk[1]*vbk[1]+vbk[2]*vbk[2]);
+                    // then new energy
+                    auto& v = pk.vel;
+                    de_kin += 0.5*pk.mass*(v[0]*v[0]+v[1]*v[1]+v[2]*v[2]);
+                    energy_.de_cum += de_kin;
+                    energy_.de_interrupt += de_kin;
+                    energy_sd_.de_cum += de_kin;
+                    energy_sd_.de_interrupt += de_kin;
+
+                    neighbors[k].initial_step_flag = true;
+
+                    //update time next
+                    time_next_[k] = pk.time + pk.dt;
+                }
+            }
+        }
+        
 
         //! Integration single active particles and update steps 
         /*! Integrated to next time given by minimum step particle

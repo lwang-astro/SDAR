@@ -547,6 +547,21 @@ public:
     }
 #endif   
 
+    //! modify one particle function
+    template <class Tparticle>
+    bool modifyOneParticle(Tparticle& _p, const Float& _time_now, const Float& _time_end) {
+        // sample of mass loss
+        /*
+        if (_p.time_check<_time_end) {
+            _p.dm = -_p.mass*0.1;
+            _p.mass *=0.9;
+            _p.time_check = _time_end+1e-5;
+            return true;
+        }
+        */
+        return false;
+    }
+
     //! (Necessary) modify the orbits and interrupt check 
     /*! check the inner left binary whether their separation is smaller than particle radius sum and become close, if true, set one component stauts to merger with cm mass and the other unused with zero mass. Return the binary tree address 
       @param[in] _bin_interrupt: interrupt binary information: adr: binary tree address; time_now: current physical time; time_end: integration finishing time; status: interrupt status: change, merge,none
