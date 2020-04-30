@@ -2701,18 +2701,18 @@ namespace AR {
         }
 
         //! reset cumulative energy/hamiltonian change due to interruption
-        void resetDEChangeInterrupt() {
+        void resetDEChangeBinaryInterrupt() {
             de_change_interrupt_ = 0.0;
             dH_change_interrupt_ = 0.0;
         }
 
         //! get cumulative energy change due to interruption
-        Float getDEChangeInterrupt() const {
+        Float getDEChangeBinaryInterrupt() const {
             return de_change_interrupt_;
         }
 
         //! get cumulative hamiltonian change due to interruption
-        Float getDHChangeInterrupt() const {
+        Float getDHChangeBinaryInterrupt() const {
             return dH_change_interrupt_;
         }
 
@@ -2766,18 +2766,18 @@ namespace AR {
         }
 
         //! reset cumulative energy change due to interruption
-        void resetDESlowDownChangeInterrupt() {
+        void resetDESlowDownChangeBinaryInterrupt() {
             de_sd_change_interrupt_ = 0.0;
             dH_sd_change_interrupt_ = 0.0;
         }
 
         //! get cumulative energy change due to interruption
-        Float getDESlowDownChangeInterrupt() const {
+        Float getDESlowDownChangeBinaryInterrupt() const {
             return de_sd_change_interrupt_;
         }
 
         //! get cumulative hamiltonian change due to interruption
-        Float getDHSlowDownChangeInterrupt() const {
+        Float getDHSlowDownChangeBinaryInterrupt() const {
             return dH_sd_change_interrupt_;
         }
 

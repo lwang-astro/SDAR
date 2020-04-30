@@ -94,14 +94,15 @@ namespace H4{
         Float epot;  ///< potential energy
         Float epert; ///< perturbation extra energy
         Float de_cum; ///< cumulative energy change 
-        Float de_interrupt; ///< energy change due to interruption
+        Float de_binary_interrupt; ///< energy change due to interruption
+        Float de_modify_single;    ///< energy change due to modify function
 
-        HermiteEnergy(): etot_ref(0.0), ekin(0.0), epot(0.0), epert(0.0), de_cum(0.0), de_interrupt(0.0) {}
+        HermiteEnergy(): etot_ref(0.0), ekin(0.0), epot(0.0), epert(0.0), de_cum(0.0), de_binary_interrupt(0.0), de_modify_single(0.0) {}
 
         //! clear function
         void clear() {
             etot_ref = ekin = epot = epert = 0.0;
-            de_cum = de_interrupt = 0.0;
+            de_cum = de_binary_interrupt = de_modify_single = 0.0;
         }
 
         //! calc energy error 
@@ -126,7 +127,8 @@ namespace H4{
                  <<std::setw(_width)<<"Epot"
                  <<std::setw(_width)<<"Epert"
                  <<std::setw(_width)<<"dE_cum"
-                 <<std::setw(_width)<<"dE_intr";
+                 <<std::setw(_width)<<"dE_intr"
+                 <<std::setw(_width)<<"dE_mod";
         }
 
         //! print data of class members using column style
@@ -141,7 +143,8 @@ namespace H4{
                  <<std::setw(_width)<<epot
                  <<std::setw(_width)<<epert
                  <<std::setw(_width)<<de_cum
-                 <<std::setw(_width)<<de_interrupt;
+                 <<std::setw(_width)<<de_binary_interrupt
+                 <<std::setw(_width)<<de_modify_single;
         }
     };
 
@@ -2187,9 +2190,9 @@ namespace H4{
                     Float dm = bink.mass - pcm.mass;
                     Float de_pot = force_[k+index_offset_group_].pot*dm;
                     energy_.de_cum += de_pot;
-                    energy_.de_interrupt += de_pot;
+                    energy_.de_binary_interrupt += de_pot;
                     energy_sd_.de_cum += de_pot;
-                    energy_sd_.de_interrupt += de_pot;
+                    energy_sd_.de_binary_interrupt += de_pot;
 
                     // correct kinetic energy of cm
                     ASSERT(!groups[k].particles.isOriginFrame());
@@ -2201,9 +2204,9 @@ namespace H4{
                     auto& vbin = bink.vel;
                     de_kin += bink.mass*(vbin[0]*vcm[0]+vbin[1]*vcm[1]+vbin[2]*vcm[2]);
                     energy_.de_cum += de_kin;
-                    energy_.de_interrupt += de_kin;
+                    energy_.de_binary_interrupt += de_kin;
                     energy_sd_.de_cum += de_kin;
-                    energy_sd_.de_interrupt += de_kin;
+                    energy_sd_.de_binary_interrupt += de_kin;
 
                     // update particle dm, velocity should not change to be consistent with frame
                     pcm.mass += dm;
@@ -2244,9 +2247,9 @@ namespace H4{
                     // correct potential energy 
                     Float de_pot = force_[k].pot*pk.dm;
                     energy_.de_cum += de_pot;
-                    energy_.de_interrupt += de_pot;
+                    energy_.de_modify_single += de_pot;
                     energy_sd_.de_cum += de_pot;
-                    energy_sd_.de_interrupt += de_pot;
+                    energy_sd_.de_modify_single += de_pot;
                     
                     // correct kinetic energy
                     // first calc original kinetic energy;
@@ -2255,9 +2258,9 @@ namespace H4{
                     auto& v = pk.vel;
                     de_kin += 0.5*pk.mass*(v[0]*v[0]+v[1]*v[1]+v[2]*v[2]);
                     energy_.de_cum += de_kin;
-                    energy_.de_interrupt += de_kin;
+                    energy_.de_modify_single += de_kin;
                     energy_sd_.de_cum += de_kin;
-                    energy_sd_.de_interrupt += de_kin;
+                    energy_sd_.de_modify_single += de_kin;
 
                     neighbors[k].initial_step_flag = true;
 
@@ -2424,11 +2427,11 @@ namespace H4{
          */
         void accumDESlowDownChangeBreakGroup(const int _igroup) {
             auto& groupi = groups[_igroup];
-            Float de_interrupt  = groupi.getDEChangeInterrupt();
-            energy_.de_interrupt += de_interrupt;
-            energy_.de_cum += de_interrupt;
+            Float de_binary_interrupt  = groupi.getDEChangeBinaryInterrupt();
+            energy_.de_binary_interrupt += de_binary_interrupt;
+            energy_.de_cum += de_binary_interrupt;
             energy_sd_.de_cum += groupi.getDESlowDownChangeCum();
-            energy_sd_.de_interrupt += groupi.getDESlowDownChangeInterrupt();
+            energy_sd_.de_binary_interrupt += groupi.getDESlowDownChangeBinaryInterrupt();
             // add the change due to the shutdown of slowdown 
             Float etot = groupi.getEkin() + groupi.getEpot();
             Float etot_sd = groupi.getEkinSlowDown() + groupi.getEpotSlowDown();
@@ -2446,17 +2449,17 @@ namespace H4{
                 auto& gi = groups[i];
 
                 // interrupt energy
-                Float de_interrupt  = gi.getDEChangeInterrupt();
-                energy_.de_interrupt += de_interrupt;
-                energy_.de_cum += de_interrupt;
-                gi.resetDEChangeInterrupt();
+                Float de_binary_interrupt  = gi.getDEChangeBinaryInterrupt();
+                energy_.de_binary_interrupt += de_binary_interrupt;
+                energy_.de_cum += de_binary_interrupt;
+                gi.resetDEChangeBinaryInterrupt();
 
                 // slowdown energy
                 energy_sd_.de_cum += gi.getDESlowDownChangeCum();
                 gi.resetDESlowDownChangeCum();
                 // slowdown interrupt energy
-                energy_sd_.de_interrupt += gi.getDESlowDownChangeInterrupt();
-                gi.resetDESlowDownChangeInterrupt();
+                energy_sd_.de_binary_interrupt += gi.getDESlowDownChangeBinaryInterrupt();
+                gi.resetDESlowDownChangeBinaryInterrupt();
             } 
         }
 
@@ -2588,13 +2591,23 @@ namespace H4{
         }
 
         //! get cumulative slowdown energy change due to interruption
-        Float getDESlowDownChangeInterrupt() const {
-            return energy_sd_.de_interrupt;
+        Float getDESlowDownChangeBinaryInterrupt() const {
+            return energy_sd_.de_binary_interrupt;
         }
 
         //! reset cumulative slowdown energy change due to interruption
-        void resetDESlowDownChangeInterrupt()  {
-            energy_sd_.de_interrupt = 0.0;
+        void resetDESlowDownChangeBinaryInterrupt()  {
+            energy_sd_.de_binary_interrupt = 0.0;
+        }
+
+        //! get cumulative slowdown energy change due to modification of one particle
+        Float getDESlowDownChangeModifySingle() const {
+            return energy_sd_.de_modify_single;
+        }
+
+        //! reset cumulative slowdown energy change due to modification of one particle
+        void resetDESlowDownChangeModifySingle()  {
+            energy_sd_.de_modify_single = 0.0;
         }
 
         //! get cumulative energy change 
@@ -2608,13 +2621,23 @@ namespace H4{
         }
 
         //! get cumulative energy change due to interruption
-        Float getDEChangeInterrupt() const {
-            return energy_.de_interrupt;
+        Float getDEChangeBinaryInterrupt() const {
+            return energy_.de_binary_interrupt;
         }
 
         //! reset cumulative energy change due to interruption
-        void resetDEChangeInterrupt()  {
-            energy_.de_interrupt = 0.0;
+        void resetDEChangeBinaryInterrupt()  {
+            energy_.de_binary_interrupt = 0.0;
+        }
+
+        //! get cumulative energy change due to modification of one particle
+        Float getDEChangeModifySingle() const {
+            return energy_.de_modify_single;
+        }
+
+        //! reset cumulative energy change due to modification of one particle
+        void resetDEChangeModifySingle()  {
+            energy_.de_modify_single = 0.0;
         }
 
         //! get next time for intergration
@@ -2705,6 +2728,7 @@ namespace H4{
                  <<std::setw(_width)<<"Epert"
                  <<std::setw(_width)<<"dE_cum"
                  <<std::setw(_width)<<"dE_intr"
+                 <<std::setw(_width)<<"dE_mod"
                  <<std::setw(_width)<<"dE_SD"
                  <<std::setw(_width)<<"Etot_SD_ref"
                  <<std::setw(_width)<<"Ekin_SD"
@@ -2712,6 +2736,7 @@ namespace H4{
                  <<std::setw(_width)<<"Epert_SD"
                  <<std::setw(_width)<<"dE_SD_cum"
                  <<std::setw(_width)<<"dE_SD_intr"
+                 <<std::setw(_width)<<"dE_SD_mod"
                  <<std::setw(_width)<<"N_SD";
 #if (defined AR_SLOWDOWN_ARRAY) || (defined AR_SLOWDOWN_TREE)
             AR::SlowDown sd_empty;
