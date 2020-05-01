@@ -2232,15 +2232,19 @@ namespace H4{
 
         //! modify single particles due to external functions, update energy
         void modifySingleParticles() {
+            int mod_index[n_act_single_];
+            int n_mod=0;
             for (int i=0; i<n_act_single_; i++) {
                 int k = index_dt_sorted_single_[i];
-                // use pred particle to back up velocity
+                // use pred particle to back up velocity, it will be update at predictionAll, thus safe to change
                 auto& pk = particles[k];
+                auto& rbk = pred_[k].pos;
                 auto& vbk = pred_[k].vel;
-                Float mbk = pk.mass;
+                auto& mbk = pred_[k].mass;
                 vbk[0] = pk.vel[0];
                 vbk[1] = pk.vel[1];
                 vbk[2] = pk.vel[2];
+                mbk = pk.mass;
 
                 bool modified_flag=ar_manager->interaction.modifyOneParticle(pk, time_, getNextTime());
                 if (modified_flag) {
@@ -2264,9 +2268,30 @@ namespace H4{
 
                     neighbors[k].initial_step_flag = true;
 
+                    // use predictor as template particle with mass of dm
+                    mbk = pk.mass-mbk;
+                    rbk[0] = pk.pos[0];
+                    rbk[1] = pk.pos[1];
+                    rbk[2] = pk.pos[2];
+                    mod_index[n_mod++] = k;
+
                     //update time next
                     time_next_[k] = pk.time + pk.dt;
                 }
+            }
+
+            // fix over-corrected potential
+            if (n_mod>1) {
+                Float de_pot = 0.0;
+                for (int i=0; i<n_mod; i++) {
+                    for (int j=0; j<i; j++) {
+                        de_pot += manager->interaction.calcEnergyPotSingleSingle(pred_[mod_index[i]],pred_[mod_index[j]]);
+                    }
+                }
+                energy_.de_cum += de_pot;
+                energy_.de_modify_single += de_pot;
+                energy_sd_.de_cum += de_pot;
+                energy_sd_.de_modify_single += de_pot;
             }
         }
         
