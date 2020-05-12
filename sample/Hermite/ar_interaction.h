@@ -549,7 +549,7 @@ public:
 
     //! modify one particle function
     template <class Tparticle>
-    bool modifyOneParticle(Tparticle& _p, const Float& _time_now, const Float& _time_end) {
+    int modifyOneParticle(Tparticle& _p, const Float& _time_now, const Float& _time_end) {
         // sample of mass loss
         /*
         if (_p.time_check<_time_end) {
@@ -559,7 +559,7 @@ public:
             return true;
         }
         */
-        return false;
+        return 0;
     }
 
     //! (Necessary) modify the orbits and interrupt check 

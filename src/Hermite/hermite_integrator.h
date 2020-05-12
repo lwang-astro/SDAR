@@ -2246,7 +2246,7 @@ namespace H4{
                 vbk[2] = pk.vel[2];
                 mbk = pk.mass;
 
-                bool modified_flag=ar_manager->interaction.modifyOneParticle(pk, time_, getNextTime());
+                int modified_flag=ar_manager->interaction.modifyOneParticle(pk, time_, getNextTime());
                 if (modified_flag) {
                     // correct potential energy 
                     Float de_pot = force_[k].pot*(pk.mass-mbk);
