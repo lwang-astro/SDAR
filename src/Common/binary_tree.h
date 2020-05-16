@@ -133,13 +133,35 @@ namespace COMM{
             //Float cos_ecca = (_bin.r*cos(true_anomaly) / _bin.semi) + _bin.ecc;
             _bin.ecca = atan2(sin(true_anomaly)*sqrt(fabs(1.0 - _bin.ecc*_bin.ecc)), _bin.ecc+ cos(true_anomaly));  
             Float mean_motion = sqrt(Gm_tot/(fabs(_bin.semi*_bin.semi*_bin.semi))); 
-            _bin.period = 8.0*std::atan(1.0)/mean_motion;
+            _bin.period = 2*PI/mean_motion;
             Float mean_anomaly = _bin.ecca - _bin.ecc*sin(_bin.ecca); 
             _bin.t_peri = mean_anomaly / mean_motion; 
         }
 
+        //! from period calculate semi-major axis
+        /*!
+          @param[in]: _period: period
+          @param[in]: _mtot: total mass of binary
+          @param[in]: _G: gravitational constant
+         */
+        static Float periodToSemi(const Float& _period, const Float& _mtot, const Float& _G) {
+            return std::pow(_period*_period*_G*_mtot/(4*PI*PI),1.0/3.0);
+        }
+
+        //! from semi-major axis calculate period;
+        /*!
+          @param[in]: _semi: semi-major axis
+          @param[in]: _mtot: total mass of binary
+          @param[in]: _G: gravitational constant
+         */
+        static Float semiToPeriod(const Float& _semi, const Float& _mtot, const Float& _G) {
+            Float mean_motion = sqrt(_G*_mtot/(fabs(_semi*_semi*_semi))); 
+            return 2*PI/mean_motion;
+        }
+        
+
         //! position velocity to orbit semi-major axis and eccentricity
-        /* @param[out]: _semi: semi-major axis
+        /*! @param[out]: _semi: semi-major axis
            @param[out]: _ecc:  eccentricity
            @param[out]: _r: distance between two particles
            @param[out]: _rv: relative position dot velocity
@@ -242,8 +264,17 @@ namespace COMM{
           @param[out]: _p2: particle 2
         */    
         template <class Tptcl>
-        void calcParticles(Tptcl& _p1, Tptcl& _p2, const Float _G) {
+        void calcParticles(Tptcl& _p1, Tptcl& _p2, const Float& _G) {
             orbitToParticle(_p1, _p2, *this, this->ecca, _G);
+        }
+
+        //! from period calculate semi-major axis
+        /*!
+          @param[in]: _G: gravitational constant
+         */
+        void calcSemiFromPeriod(const Float& _G) {
+            Float mtot = m1+m2;
+            semi = periodToSemi(period, mtot, _G);
         }
 
         //! calculate two components from kepler Orbit with input eccentricity anomaly
@@ -622,6 +653,11 @@ namespace COMM{
         //! calculate Kepler orbit from members
         void calcOrbit(const Float _G) {
             Tbinary::calcOrbit(*member[0], *member[1], _G);
+        }
+
+        //! calculate particles from orbit
+        void calcParticles(const Float _G) {
+            Tbinary::calcParticles(*member[0], *member[1], _G);
         }
 
         //! calc total number of members
