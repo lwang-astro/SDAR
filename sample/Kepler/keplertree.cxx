@@ -84,6 +84,7 @@ int main(int argc, char **argv){
             break;
         case 'u':
             unit=atoi(optarg);
+            assert(unit>=0&&unit<=4);
             break;
         case 'h':
             std::cout<<"keplertree [option] datafilename\n"
@@ -104,9 +105,10 @@ int main(int argc, char **argv){
                      <<"   -w [int]:  print width("<<WIDTH<<")\n"
                      <<"   -p [int]:  print precision("<<PRECISION<<")\n"
                      <<"   -u [int]:  0: unscale \n"
-                     <<"              1: x[AU], v[AU/yr], semi[AU], period[yr]\n"
-                     <<"              2: x[AU], v[km/s],  semi[AU], period[days]\n"
-                     <<"              3: x[PC], v[km/s],  semi[AU], period[days]\n";
+                     <<"              1: m[Msun], r[AU], v[AU/yr], semi[AU], period[yr]\n"
+                     <<"              2: m[Msun], r[AU], v[km/s],  semi[AU], period[days]\n"
+                     <<"              3: m[Msun], r[PC], v[km/s],  semi[PC], period[days]\n"
+                     <<"              4: m[Msun], r[PC], v[PC/myr],semi[PC], period[Myr]\n";
             return 0;
         default:
             std::cerr<<"Unknown argument. check '-h' for help.\n";
@@ -135,6 +137,7 @@ int main(int argc, char **argv){
     Float pc2au = 206264.806;
     Float kms2auyr = 0.210945021;
     if (unit>0) G = twopi*twopi; // AU^3 yr^-2 M_sun^-1
+    if (unit==4) G = 0.00449830997959438; // (pc/myr)^2 pc M_sun^-1
 
 
     if(iflag) {
@@ -166,15 +169,15 @@ int main(int argc, char **argv){
             if (fs.eof()) break;
             N++;
 
-            if (unit>2) bin.semi *= pc2au;
+            if (unit==3) bin.semi *= pc2au;
 
             Particle p[2];
             bin.calcParticles(p[0],p[1],G);
 
             for (int k=0; k<2; k++) {
                 for (int j=0; j<3; j++) {
-                    if (unit>1) p[k].vel[j] /= kms2auyr;
-                    if (unit>2) p[k].pos[j] /= pc2au;
+                    if (unit==2||unit==3) p[k].vel[j] /= kms2auyr;
+                    if (unit==3) p[k].pos[j] /= pc2au;
                 }
             }
         

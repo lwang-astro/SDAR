@@ -1,6 +1,7 @@
 #pragma once
 
 #include<cmath>
+#include<iomanip>
 
 namespace COMM{
     template<class T>
