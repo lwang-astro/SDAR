@@ -15,6 +15,14 @@
   All major ARC classes and related acceleration functions (typedef) are defined
 */
 namespace AR {
+
+    //! print reference to cite
+    void printReference(std::ostream & fout, const int offset=4) {
+        for (int i=0; i<offset; i++) fout<<" ";
+        fout<<"SDAR: Wang L., Nitadori K., Makino J., 2020, MNRAS, 493, 3398"
+            <<std::endl;
+    }
+
     //! Time Transformed Symplectic integrator manager
     /*! Tmethod is the class contain the interaction function, see sample of interaction.h:\n
      */
