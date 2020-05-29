@@ -109,6 +109,7 @@ namespace COMM{
             _bin.incline = atan2( sqrt(_bin.am.x*_bin.am.x+_bin.am.y*_bin.am.y), _bin.am.z);
             _bin.rot_horizon = _bin.am.y!=0.0? atan2(_bin.am.x, -_bin.am.y) : 0.0;
 
+            // position and velocity in rest frame
             Vector3<Float> pos_bar, vel_bar;
             // OMG: rot_horizon; omg: rot_self; inc: incline
             Float cosOMG = cos(_bin.rot_horizon);
@@ -121,7 +122,10 @@ namespace COMM{
             vel_bar.x =   vel_red.x*cosOMG + vel_red.y*sinOMG;
             vel_bar.y = (-vel_red.x*sinOMG + vel_red.y*cosOMG)*cosinc + vel_red.z*sininc;
             vel_bar.z = 0.0;
+            // h: specific angular momentum value (|r x v|)
             Float h = sqrt(_bin.am*_bin.am);
+            // eccentricity vector: (v x h)/GM - r/|r|
+            // angle between AM and vel is 90 degree
             Float ecccosomg =  h/Gm_tot*vel_bar.y - pos_bar.x*inv_dr;
             Float eccsinomg = -h/Gm_tot*vel_bar.x - pos_bar.y*inv_dr;
             _bin.ecc = sqrt( ecccosomg*ecccosomg + eccsinomg*eccsinomg );

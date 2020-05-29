@@ -2319,6 +2319,12 @@ namespace AR {
                                 }
 #endif
 
+                                // change fix step option to make safety
+                                info.fix_step_option=FixStepOption::none;
+                                
+                                // if time_end flag set, reset it to be safety
+                                time_end_flag = false;
+
                                 // check merger case
                                 if (bin_interrupt.status==InterruptStatus::merge) {
                                     if (n_particle==2) {
@@ -2342,8 +2348,15 @@ namespace AR {
                                             return bin_interrupt;
                                         }
                                     }
-                                    bin_interrupt_return = bin_interrupt;
                                 }
+                                // return one should be the top root
+                                if (bin_interrupt_return.status!=InterruptStatus::none) {
+                                    if (bin_interrupt_return.adr!= bin_interrupt.adr) {
+                                        // give root address if interrupted binaries are different from previous one
+                                        bin_interrupt_return.adr = &(info.getBinaryTreeRoot());
+                                    }
+                                }
+                                else bin_interrupt_return = bin_interrupt;
                             }
                             bin_interrupt.clear();
                         }
