@@ -2155,6 +2155,8 @@ namespace H4{
             // integrate groups loop 
             const int n_group_tot = index_dt_sorted_group_.getSize();
             const int i_start = interrupt_group_dt_sorted_group_index_>=0 ? interrupt_group_dt_sorted_group_index_ : 0;
+            int interrupt_index_dt_group_list[n_group_tot];
+            int n_interrupt_change_dt=0;
 
             for (int i=i_start; i<n_group_tot; i++) {
                 const int k = index_dt_sorted_group_[i];
@@ -2173,20 +2175,30 @@ namespace H4{
 
                 // record interrupt group and quit
                 if (interrupt_binary_.status!=AR::InterruptStatus::none) {
+                    // particle cm is the old cm in original frame
+                    auto& pcm = groups[k].particles.cm;
+
                     if (interrupt_binary_.status==AR::InterruptStatus::merge) {
                         index_group_merger_.addMember(k);
                     }
                     else {
                         // set initial step flag 
                         groups[k].perturber.initial_step_flag=true;
+
+                        if (pcm.time + pcm.dt >time_next) {
+                            ASSERT(i>=n_act_group_);
+                            // set cm step to reach time_next
+                            pcm.dt = time_next - pcm.time;
+                            time_next_[k+index_offset_group_] = time_next;
+                            // recored index in index_dt_sort of the interrupt case for moving later
+                            interrupt_index_dt_group_list[n_interrupt_change_dt++] = i;
+                        }
                     }
                     
                     // correct cm potential energy 
                     //Float dm = correctMassChangePotEnergyBinaryIter(*interrupt_binary_.adr);
                     // notice the bin_root represent new c.m. in rest frame
                     auto& bink = groups[k].info.getBinaryTreeRoot();
-                    // particle cm is the old cm in original frame
-                    auto& pcm = groups[k].particles.cm;
                     Float dm = bink.mass - pcm.mass;
                     Float de_pot = force_[k+index_offset_group_].pot*dm;
                     energy_.de_cum += de_pot;
@@ -2212,15 +2224,51 @@ namespace H4{
                     pcm.mass += dm;
                     //particles.cm.mass += dm;
 
-
-                    interrupt_group_dt_sorted_group_index_ = i;
-                    if (ar_manager->interrupt_detection_option==2) {
+                    if (ar_manager->interrupt_detection_option==2) { // quit integration
+                        interrupt_group_dt_sorted_group_index_ = i;
                         ASSERT(time_next - interrupt_binary_.time_now + ar_manager->time_error_max >= 0.0);
                         return interrupt_binary_;
                     }
                 }
 
                 ASSERT(abs(groups[k].getTime()-time_next)<=ar_manager->time_error_max);
+            }
+
+            // update index_dt_sorted_group_ due to the change of dt
+            if (n_interrupt_change_dt>0) {
+                // record index of groups
+                int interrupt_index_group_list[n_interrupt_change_dt];
+                for (int i=0; i<n_interrupt_change_dt; i++) 
+                    interrupt_index_group_list[i] = index_dt_sorted_group_[interrupt_index_dt_group_list[i]];
+                // remove index first
+                index_dt_sorted_group_.removeMemberList(interrupt_index_dt_group_list, n_interrupt_change_dt);
+                
+                // add all interrupted group indice in front of index_dt_sorted_group_
+                const int n_group_old = index_dt_sorted_group_.getSize();
+                index_dt_sorted_group_.increaseSizeNoInitialize(n_interrupt_change_dt);
+                for (int i=n_group_old-1; i>=0; i--) {
+                    index_dt_sorted_group_[i+n_interrupt_change_dt] = index_dt_sorted_group_[i];
+                }
+                for (int i=0; i<n_interrupt_change_dt; i++) {
+                    index_dt_sorted_group_[i] = interrupt_index_group_list[i];
+                }
+                n_act_group_  += n_interrupt_change_dt;
+
+#ifdef HERMITE_DEBUG
+                // check whether the new list is consistent with table_group_mask_ 
+                int table_check_mask[n_group_tot];
+                for (int i=0; i<n_group_tot; i++) table_check_mask[i]=0;
+                for (int i=0; i<index_dt_sorted_group_.getSize(); i++) table_check_mask[index_dt_sorted_group_[i]]++;
+                for (int i=0; i<n_group_tot; i++) {
+                    ASSERT((table_check_mask[i]==1&&!table_group_mask_[i])||(table_check_mask[i]==0&&table_group_mask_[i]));
+                }
+                for (int i=0; i<n_act_group_; i++) {
+                    ASSERT(time_next_[index_dt_sorted_group_[i]+index_offset_group_] == time_next);
+                }
+                if (n_act_group_<n_group_tot) {
+                    ASSERT(time_next_[index_dt_sorted_group_[n_act_group_]+index_offset_group_] > time_next);
+                }
+#endif
             }
 
             // when no interrupt, clear interrupt records
@@ -2248,6 +2296,17 @@ namespace H4{
 
                 int modified_flag=ar_manager->interaction.modifyOneParticle(pk, time_, getNextTime());
                 if (modified_flag) {
+                    auto& v = pk.vel;
+#ifdef HERMITE_DEBUG_PRINT
+                    std::cerr<<"Modify one particle: modify_flag: "<<modified_flag
+                             <<" time: "<<pk.time
+                             <<" dt: "<<pk.dt
+                             <<" mass_bk: "<<mbk
+                             <<" mass_new: "<<pk.mass
+                             <<" vel_bk: "<<vbk[0]<<" "<<vbk[1]<<" "<<vbk[2]
+                             <<" vel_new: "<<v[0]<<" "<<v[1]<<" "<<v[2]
+                             <<std::endl;
+#endif
                     // correct potential energy 
                     Float de_pot = force_[k].pot*(pk.mass-mbk);
                     energy_.de_cum += de_pot;
@@ -2259,7 +2318,6 @@ namespace H4{
                     // first calc original kinetic energy;
                     Float de_kin = -0.5*mbk*(vbk[0]*vbk[0]+vbk[1]*vbk[1]+vbk[2]*vbk[2]);
                     // then new energy
-                    auto& v = pk.vel;
                     de_kin += 0.5*pk.mass*(v[0]*v[0]+v[1]*v[1]+v[2]*v[2]);
                     energy_.de_cum += de_kin;
                     energy_.de_modify_single += de_kin;
