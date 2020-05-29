@@ -2236,19 +2236,34 @@ namespace H4{
 
             // update index_dt_sorted_group_ due to the change of dt
             if (n_interrupt_change_dt>0) {
-                // record index of groups
+                // shift position starts from the last interrupt index in sorted list (right to left)
+                int ishift_start = interrupt_index_dt_group_list[n_interrupt_change_dt-1]; 
+                // back up group index
                 int interrupt_index_group_list[n_interrupt_change_dt];
-                for (int i=0; i<n_interrupt_change_dt; i++) 
-                    interrupt_index_group_list[i] = index_dt_sorted_group_[interrupt_index_dt_group_list[i]];
-                // remove index first
-                index_dt_sorted_group_.removeMemberList(interrupt_index_dt_group_list, n_interrupt_change_dt);
-                
-                // add all interrupted group indice in front of index_dt_sorted_group_
-                const int n_group_old = index_dt_sorted_group_.getSize();
-                index_dt_sorted_group_.increaseSizeNoInitialize(n_interrupt_change_dt);
-                for (int i=n_group_old-1; i>=0; i--) {
-                    index_dt_sorted_group_[i+n_interrupt_change_dt] = index_dt_sorted_group_[i];
+                interrupt_index_group_list[0] = index_dt_sorted_group_[ishift_start];
+                // this is to record the offset need to shift index in sorted list
+                int shift_offset=1;
+                // scan from last interrupt index to first 
+                for (int i=n_interrupt_change_dt-2; i>=0; i--) {
+                    // shift left edge
+                    int k = interrupt_index_dt_group_list[i];
+                    // back up next index
+                    interrupt_index_group_list[shift_offset] = index_dt_sorted_group_[k];
+                    
+                    for (int j=ishift_start; j>k+shift_offset; j--) {
+                        index_dt_sorted_group_[j] = index_dt_sorted_group_[j-shift_offset];
+                    }
+                    // set new starting position
+                    ishift_start = k+shift_offset;
+                    // increase offset
+                    shift_offset++;
                 }
+                // shift the range from the first k to beginning of sorted list
+                for (int j=ishift_start; j>0; j--) {
+                    index_dt_sorted_group_[j] = index_dt_sorted_group_[j-shift_offset];
+                }
+
+                // add all interrupted group indice in front of index_dt_sorted_group_
                 for (int i=0; i<n_interrupt_change_dt; i++) {
                     index_dt_sorted_group_[i] = interrupt_index_group_list[i];
                 }
