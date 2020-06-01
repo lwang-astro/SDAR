@@ -1926,6 +1926,149 @@ namespace AR {
                     if (!time_end_flag) updateSlowDownAndCorrectEnergy(true, step_count==0);
 #endif
 
+                    // check interrupt condiction, ensure that time end not reach
+                    if (manager->interrupt_detection_option>0 && !time_end_flag) {
+                        auto& bin_root = info.getBinaryTreeRoot();
+                        bin_interrupt.time_now = time_;
+                        // calc perturbation energy
+                        Float epert=0.0;
+                        for (int i=0; i<n_particle; i++) {
+                            epert += force_[i].pot_pert*particles[i].mass;
+                        }
+                        manager->interaction.modifyAndInterruptIter(bin_interrupt, bin_root);
+                        //InterruptBinary<Tparticle>* bin_intr_ptr = &bin_interrupt;
+                        //bin_intr_ptr = bin_root.processRootIter(bin_intr_ptr, Tmethod::modifyAndInterruptIter);
+                        ASSERT(bin_interrupt.checkParams());
+                        if (bin_interrupt.status!=InterruptStatus::none) {
+                            // the mode return back to the root scope
+                            if (manager->interrupt_detection_option==2) {
+                                // cumulative step count 
+                                profile.step_count = step_count;
+                                profile.step_count_tsyn = step_count_tsyn;
+                                profile.step_count_sum += step_count;
+                                profile.step_count_tsyn_sum += step_count_tsyn;
+
+                                return bin_interrupt;
+                            }
+                            else {
+
+                                Float ekin_bk = ekin_;
+                                Float epot_bk = epot_;
+                                Float H_bk = getH();
+
+#if (defined AR_SLOWDOWN_ARRAY) || (defined AR_SLOWDOWN_TREE)
+                                Float ekin_sd_bk = ekin_sd_;
+                                Float epot_sd_bk = epot_sd_;
+                                Float H_sd_bk = getHSlowDown();
+#endif
+                                
+                                // update binary tree mass
+                                updateBinaryCMIter(bin_root);
+                                
+                                // should do later, original mass still needed
+                                //particles.cm.mass += bin_interrupt.dm;
+
+#ifdef AR_TTL
+                                Float gt_kick_inv_new = calcAccPotAndGTKickInv();
+                                gt_drift_inv_ += gt_kick_inv_new - gt_kick_inv_;
+                                gt_kick_inv_ = gt_kick_inv_new;
+#else
+                                calcAccPotAndGTKickInv();
+#endif
+                                // calculate kinetic energy
+                                calcEKin();
+
+                                // get perturbation energy change due to mass change
+                                Float epert_new = 0.0;
+                                for (int i=0; i<n_particle; i++) {
+                                    epert_new += force_[i].pot_pert*particles[i].mass;
+                                }
+                                Float de_pert = epert_new - epert; // notice this is double perturbation potential
+
+                                // get energy change
+                                Float de = (ekin_ - ekin_bk) + (epot_ - epot_bk) + de_pert;
+                                etot_ref_ += de;
+                                de_change_interrupt_ += de;
+                                dH_change_interrupt_ += getH() - H_bk;
+
+#if (defined AR_SLOWDOWN_ARRAY) || (defined AR_SLOWDOWN_TREE)
+                                Float de_sd = (ekin_sd_ - ekin_sd_bk) + (epot_sd_ - epot_sd_bk) + de_pert;
+                                etot_sd_ref_ += de_sd;
+
+                                Float dH_sd = getHSlowDown() - H_sd_bk;
+
+                                // add slowdown change to the global slowdown energy
+                                de_sd_change_interrupt_ += de_sd;
+                                dH_sd_change_interrupt_ += dH_sd;
+                                de_sd_change_cum_ += de_sd;
+                                dH_sd_change_cum_ += dH_sd;
+#endif //SLOWDOWN
+
+#ifdef AR_DEBUG_PRINT
+                                std::cerr<<"Interrupt condition triggered!";
+                                std::cerr<<" Time: "<<time_;
+                                std::cerr<<" Energy change: dE_SD: "<<de_sd<<" dH_SD: "<<dH_sd;
+                                std::cerr<<" Slowdown: "<<bin_root.slowdown.getSlowDownFactor()<<std::endl;
+                                bin_interrupt.adr->printColumnTitle(std::cerr);
+                                std::cerr<<std::endl;
+                                bin_interrupt.adr->printColumn(std::cerr);
+                                std::cerr<<std::endl;
+                                Tparticle::printColumnTitle(std::cerr);
+                                std::cerr<<std::endl;
+                                for (int j=0; j<2; j++) {
+                                    bin_interrupt.adr->getMember(j)->printColumn(std::cerr);
+                                    std::cerr<<std::endl;
+                                }
+#endif
+
+                                // change fix step option to make safety if energy change is large
+                                info.fix_step_option=FixStepOption::none;
+                                
+                                // if time_end flag set, reset it to be safety
+                                //time_end_flag = false;
+
+                                // check merger case
+                                if (bin_interrupt.status==InterruptStatus::merge) {
+                                    if (n_particle==2) {
+                                        ASSERT(!bin_interrupt.adr->isMemberTree(0));
+                                        ASSERT(!bin_interrupt.adr->isMemberTree(1));
+                                        Tparticle* p1 = bin_interrupt.adr->getLeftMember();
+                                        Tparticle* p2 = bin_interrupt.adr->getRightMember();
+
+                                        Tparticle* p = NULL;
+                                        if (p1->mass==0.0) p=p2;
+                                        else if (p2->mass==0.0) p=p1;
+                                        if (p!=NULL){
+                                            Float dt = _time_end - time_;
+                                            p->pos[0] += dt * p->vel[0];
+                                            p->pos[1] += dt * p->vel[1];
+                                            p->pos[2] += dt * p->vel[2];
+
+                                            // cumulative step count 
+                                            profile.step_count = step_count;
+                                            profile.step_count_tsyn = step_count_tsyn;
+                                            profile.step_count_sum += step_count;
+                                            profile.step_count_tsyn_sum += step_count_tsyn;
+
+                                            time_ += dt;
+
+                                            return bin_interrupt;
+                                        }
+                                    }
+                                }
+                                // return one should be the top root
+                                if (bin_interrupt_return.status!=InterruptStatus::none) {
+                                    if (bin_interrupt_return.adr!= bin_interrupt.adr) {
+                                        // give root address if interrupted binaries are different from previous one
+                                        bin_interrupt_return.adr = &(info.getBinaryTreeRoot());
+                                    }
+                                }
+                                else bin_interrupt_return = bin_interrupt;
+                            }
+                            bin_interrupt.clear();
+                        }
+                    }
+
                     int bk_return_size = backupIntData(backup_data);
                     ASSERT(bk_return_size == bk_data_size);
                     (void)bk_return_size;
@@ -2219,149 +2362,6 @@ namespace AR {
 
                 // check integration time
                 if(time_ < _time_end - time_error){
-                    // check interrupt condiction
-                    if (manager->interrupt_detection_option>0) {
-                        auto& bin_root = info.getBinaryTreeRoot();
-                        bin_interrupt.time_now = time_;
-                        // calc perturbation energy
-                        Float epert=0.0;
-                        for (int i=0; i<n_particle; i++) {
-                            epert += force_[i].pot_pert*particles[i].mass;
-                        }
-                        manager->interaction.modifyAndInterruptIter(bin_interrupt, bin_root);
-                        //InterruptBinary<Tparticle>* bin_intr_ptr = &bin_interrupt;
-                        //bin_intr_ptr = bin_root.processRootIter(bin_intr_ptr, Tmethod::modifyAndInterruptIter);
-                        ASSERT(bin_interrupt.checkParams());
-                        if (bin_interrupt.status!=InterruptStatus::none) {
-                            // the mode return back to the root scope
-                            if (manager->interrupt_detection_option==2) {
-                                // cumulative step count 
-                                profile.step_count = step_count;
-                                profile.step_count_tsyn = step_count_tsyn;
-                                profile.step_count_sum += step_count;
-                                profile.step_count_tsyn_sum += step_count_tsyn;
-
-                                return bin_interrupt;
-                            }
-                            else {
-                                ASSERT(!bin_interrupt.adr->isMemberTree(0));
-                                ASSERT(!bin_interrupt.adr->isMemberTree(1));
-                                Tparticle* p1 = bin_interrupt.adr->getLeftMember();
-                                Tparticle* p2 = bin_interrupt.adr->getRightMember();
-
-
-                                Float ekin_bk = ekin_;
-                                Float epot_bk = epot_;
-                                Float H_bk = getH();
-
-#if (defined AR_SLOWDOWN_ARRAY) || (defined AR_SLOWDOWN_TREE)
-                                Float ekin_sd_bk = ekin_sd_;
-                                Float epot_sd_bk = epot_sd_;
-                                Float H_sd_bk = getHSlowDown();
-#endif
-                                
-                                // update binary tree mass
-                                updateBinaryCMIter(bin_root);
-                                
-                                // should do later, original mass still needed
-                                //particles.cm.mass += bin_interrupt.dm;
-
-#ifdef AR_TTL
-                                Float gt_kick_inv_new = calcAccPotAndGTKickInv();
-                                gt_drift_inv_ += gt_kick_inv_new - gt_kick_inv_;
-                                gt_kick_inv_ = gt_kick_inv_new;
-#else
-                                calcAccPotAndGTKickInv();
-#endif
-                                // calculate kinetic energy
-                                calcEKin();
-
-                                // get perturbation energy change due to mass change
-                                Float epert_new = 0.0;
-                                for (int i=0; i<n_particle; i++) {
-                                    epert_new += force_[i].pot_pert*particles[i].mass;
-                                }
-                                Float de_pert = epert_new - epert; // notice this is double perturbation potential
-
-                                // get energy change
-                                Float de = (ekin_ - ekin_bk) + (epot_ - epot_bk) + de_pert;
-                                etot_ref_ += de;
-                                de_change_interrupt_ += de;
-                                dH_change_interrupt_ += getH() - H_bk;
-
-#if (defined AR_SLOWDOWN_ARRAY) || (defined AR_SLOWDOWN_TREE)
-                                Float de_sd = (ekin_sd_ - ekin_sd_bk) + (epot_sd_ - epot_sd_bk) + de_pert;
-                                etot_sd_ref_ += de_sd;
-
-                                Float dH_sd = getHSlowDown() - H_sd_bk;
-
-                                // add slowdown change to the global slowdown energy
-                                de_sd_change_interrupt_ += de_sd;
-                                dH_sd_change_interrupt_ += dH_sd;
-                                de_sd_change_cum_ += de_sd;
-                                dH_sd_change_cum_ += dH_sd;
-#endif //SLOWDOWN
-
-#ifdef AR_DEBUG_PRINT
-                                std::cerr<<"Interrupt condition triggered!";
-                                std::cerr<<" Time: "<<time_;
-                                std::cerr<<" Energy change: dE_SD: "<<de_sd<<" dH_SD: "<<dH_sd;
-                                std::cerr<<" Slowdown: "<<bin_root.slowdown.getSlowDownFactor()<<std::endl;
-                                bin_interrupt.adr->printColumnTitle(std::cerr);
-                                std::cerr<<std::endl;
-                                bin_interrupt.adr->printColumn(std::cerr);
-                                std::cerr<<std::endl;
-                                Tparticle::printColumnTitle(std::cerr);
-                                std::cerr<<std::endl;
-                                for (int j=0; j<2; j++) {
-                                    bin_interrupt.adr->getMember(j)->printColumn(std::cerr);
-                                    std::cerr<<std::endl;
-                                }
-#endif
-
-                                // change fix step option to make safety
-                                info.fix_step_option=FixStepOption::none;
-                                
-                                // if time_end flag set, reset it to be safety
-                                time_end_flag = false;
-
-                                // check merger case
-                                if (bin_interrupt.status==InterruptStatus::merge) {
-                                    if (n_particle==2) {
-                                        Tparticle* p = NULL;
-                                        if (p1->mass==0.0) p=p2;
-                                        else if (p2->mass==0.0) p=p1;
-                                        if (p!=NULL){
-                                            Float dt = _time_end - time_;
-                                            p->pos[0] += dt * p->vel[0];
-                                            p->pos[1] += dt * p->vel[1];
-                                            p->pos[2] += dt * p->vel[2];
-
-                                            // cumulative step count 
-                                            profile.step_count = step_count;
-                                            profile.step_count_tsyn = step_count_tsyn;
-                                            profile.step_count_sum += step_count;
-                                            profile.step_count_tsyn_sum += step_count_tsyn;
-
-                                            time_ += dt;
-
-                                            return bin_interrupt;
-                                        }
-                                    }
-                                }
-                                // return one should be the top root
-                                if (bin_interrupt_return.status!=InterruptStatus::none) {
-                                    if (bin_interrupt_return.adr!= bin_interrupt.adr) {
-                                        // give root address if interrupted binaries are different from previous one
-                                        bin_interrupt_return.adr = &(info.getBinaryTreeRoot());
-                                    }
-                                }
-                                else bin_interrupt_return = bin_interrupt;
-                            }
-                            bin_interrupt.clear();
-                        }
-                    }
-
                     // step increase depend on n_step_wait_recover_ds
                     if(info.fix_step_option==FixStepOption::none && !time_end_flag) {
                         // waiting step count reach
