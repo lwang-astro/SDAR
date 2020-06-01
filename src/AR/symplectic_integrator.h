@@ -1597,7 +1597,7 @@ namespace AR {
             ASSERT(n_particle==2);
 
 #if (defined AR_SLOWDOWN_ARRAY) || (defined AR_SLOWDOWN_TREE)
-            const Float kappa_inv = 1.0/info.getBinaryTreeRoot().slowdown.calcSlowDownFactor();
+            const Float kappa_inv = 1.0/info.getBinaryTreeRoot().slowdown.getSlowDownFactor();
 #endif
 
             Tparticle* particle_data = particles.getDataAddress();
@@ -1921,11 +1921,6 @@ namespace AR {
             while(true) {
                 // backup data
                 if(backup_flag) {
-                    // update slowdown and correct slowdown energy and gt_inv
-#if (defined AR_SLOWDOWN_ARRAY) || (defined AR_SLOWDOWN_TREE)
-                    if (!time_end_flag) updateSlowDownAndCorrectEnergy(true, step_count==0);
-#endif
-
                     // check interrupt condiction, ensure that time end not reach
                     if (manager->interrupt_detection_option>0 && !time_end_flag) {
                         auto& bin_root = info.getBinaryTreeRoot();
@@ -2068,6 +2063,11 @@ namespace AR {
                             bin_interrupt.clear();
                         }
                     }
+
+                    // update slowdown and correct slowdown energy and gt_inv
+#if (defined AR_SLOWDOWN_ARRAY) || (defined AR_SLOWDOWN_TREE)
+                    if (!time_end_flag) updateSlowDownAndCorrectEnergy(true, step_count==0);
+#endif
 
                     int bk_return_size = backupIntData(backup_data);
                     ASSERT(bk_return_size == bk_data_size);
