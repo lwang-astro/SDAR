@@ -14,10 +14,9 @@
 int main(int argc, char **argv){
    bool iflag=false;
    int num=1;
-   int WIDTH=22;
-   int PRECISION=15;
    int unit=0;
-
+   int width = WRITE_WIDTH;
+   int precision = WRITE_PRECISION;
    int copt;
    while ((copt = getopt(argc, argv, "in:w:p:u:h")) != -1)
        switch (copt) {
@@ -28,10 +27,10 @@ int main(int argc, char **argv){
            num=atoi(optarg);
            break;
        case 'w':
-           WIDTH=atoi(optarg);
+           width=atoi(optarg);
            break;
        case 'p':
-           PRECISION=atoi(optarg);
+           precision=atoi(optarg);
            break;
        case 'u':
            unit=atoi(optarg);
@@ -39,9 +38,9 @@ int main(int argc, char **argv){
        case 'h':
            std::cout<<"keplerorbit [option] datafilename\n"
                     <<"    pariticle data (two lines): \n";
-           Particle::printColumnTitle(std::cout, WIDTH);
+           Particle::printColumnTitle(std::cout, 12);
            std::cout<<"\n    orbital data (one line): (period, r, L.(x/y/z) are not used)\n";
-           COMM::BinaryTree<Particle,COMM::Binary>::printColumnTitle(std::cout, WIDTH);
+           COMM::BinaryTree<Particle,COMM::Binary>::printColumnTitle(std::cout, 12);
            std::cout<<"\nOptions: (*) show defaulted values\n"
                     <<"   -i:        read particle data, output kepler orbit data (one line)\n"
                     <<"   -n [int]:  number of pairs(1)\n"
@@ -74,7 +73,7 @@ int main(int argc, char **argv){
        abort();
    }
 
-   std::cout<<std::setprecision(PRECISION);
+   std::cout<<std::setprecision(precision);
 
    Particle p[2];
    COMM::BinaryTree<Particle,COMM::Binary> bin;
@@ -121,7 +120,7 @@ int main(int argc, char **argv){
            bin.calcOrbit(G);
            // yr -> days
            if (unit>1) bin.period *= 365.25;
-           bin.printColumn(std::cout, WIDTH);
+           bin.printColumn(std::cout, width);
            std::cout<<std::endl;
        }
    }
@@ -151,7 +150,7 @@ int main(int argc, char **argv){
                    if (unit==3) p[k].pos[j] /= pc2au;
                }
 
-               p[k].printColumn(std::cout, WIDTH);
+               p[k].printColumn(std::cout, width);
                std::cout<<std::endl;
            }
        }

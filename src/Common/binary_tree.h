@@ -37,27 +37,29 @@ namespace COMM{
             Vector3<Float> pos_star, vel_star;
             // hyper bolic orbit
             if (_bin.semi<0) {
-                Float n = sqrt(_G*m_tot / (-_bin.semi*_bin.semi*_bin.semi) );
                 Float coshu = cosh(_ecca);
                 Float sinhu = sinh(_ecca);
-                Float c0 = sqrt(_bin.ecc*_bin.ecc - 1.0);
-                pos_star.x = _bin.semi*(_bin.ecc - coshu);
-                pos_star.y = _bin.semi*c0*sinhu;
+                Float eccfac = sqrt(_bin.ecc*_bin.ecc - 1.0);
+                pos_star.x = -_bin.semi*(_bin.ecc - coshu);   // -a (e - cosh(E))
+                pos_star.y = -_bin.semi*eccfac*sinhu;         // -a sqrt(e^2-1) sinh(E)
                 pos_star.z = 0.0;
-                vel_star.x = -_bin.semi*n*sinhu/(_bin.ecc*coshu-1.0);
-                vel_star.y =  _bin.semi*n*c0*coshu/(_bin.ecc*coshu-1.0);
+                Float afac = sqrt(_G*m_tot / -_bin.semi);     // mean_motion * a
+                Float fac  = afac/(_bin.ecc*coshu-1.0);  // a/r * sqrt(GM/a)
+                vel_star.x = -fac*sinhu;                 // - sqrt(GM/-a) sinh(E)/(e cosh(E)-1)
+                vel_star.y =  fac*eccfac*coshu;          //   sqrt(GM(e^2-1)/-a) cosh(E)/(e cosh(E)-1)
                 vel_star.z = 0.0;
             }
             else{ // ellipse orbit
-                Float n = sqrt(_G*m_tot / (_bin.semi*_bin.semi*_bin.semi) );
                 Float cosu = cos(_ecca);
                 Float sinu = sin(_ecca);
-                Float c0 = sqrt(1.0 - _bin.ecc*_bin.ecc);
-                pos_star.x = _bin.semi*(cosu - _bin.ecc);
-                pos_star.y = _bin.semi*c0*sinu;
+                Float eccfac = sqrt(1.0 - _bin.ecc*_bin.ecc);     
+                pos_star.x = _bin.semi*(cosu - _bin.ecc);         // a (cos(E) - e)
+                pos_star.y = _bin.semi*eccfac*sinu;               // a sqrt(1-e^2) sin(E)
                 pos_star.z = 0.0;
-                vel_star.x = -_bin.semi*n*sinu/(1.0-_bin.ecc*cosu);
-                vel_star.y =  _bin.semi*n*c0*cosu/(1.0-_bin.ecc*cosu);
+                Float afac = sqrt(_G*m_tot / _bin.semi);
+                Float fac = afac/(1.0-_bin.ecc*cosu);   // a/r * sqrt(GM/a)
+                vel_star.x = -fac*sinu;                 // - sqrt(GM/a) sin(E)/(1 - e cos(E))
+                vel_star.y =  fac*eccfac*cosu;          //   sqrt(GM(1-e^2)/a) cos(E)/(1 - e cos(E))
                 vel_star.z = 0.0;
             }
             Matrix3<Float> rot;

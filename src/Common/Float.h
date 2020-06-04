@@ -27,7 +27,7 @@ typedef double Float;
 #define to_double(x)  double(x)
 const Float ROUND_OFF_ERROR_LIMIT=1e-14;
 const Float NUMERIC_FLOAT_MAX = std::numeric_limits<Float>::max();
-const int WRITE_WIDTH=22;
+const int WRITE_WIDTH=23;
 const int WRITE_PRECISION=14;
 
 using std::sqrt;

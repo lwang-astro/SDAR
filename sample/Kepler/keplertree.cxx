@@ -63,8 +63,8 @@ PrintInfo PrintParticle(PrintInfo& _info, COMM::BinaryTree<Particle,COMM::Binary
 int main(int argc, char **argv){
     bool iflag=false;
     int num=0;
-    int WIDTH=WRITE_WIDTH;
-    int PRECISION=WRITE_PRECISION;
+    int width=WRITE_WIDTH;
+    int precision=WRITE_PRECISION;
     int unit=0;
 
     int copt;
@@ -77,10 +77,10 @@ int main(int argc, char **argv){
             num=atoi(optarg);
             break;
         case 'w':
-            WIDTH=atoi(optarg);
+            width=atoi(optarg);
             break;
         case 'p':
-            PRECISION=atoi(optarg);
+            precision=atoi(optarg);
             break;
         case 'u':
             unit=atoi(optarg);
@@ -102,8 +102,8 @@ int main(int argc, char **argv){
                      <<"Options: (*) show defaulted values\n"
                      <<"   -i:        read particle data, output kepler tree structure\n"
                      <<"   -n [int]:  number of pairs to read (defaulted: all)\n"
-                     <<"   -w [int]:  print width("<<WIDTH<<")\n"
-                     <<"   -p [int]:  print precision("<<PRECISION<<")\n"
+                     <<"   -w [int]:  print width("<<width<<")\n"
+                     <<"   -p [int]:  print precision("<<precision<<")\n"
                      <<"   -u [int]:  0: unscale \n"
                      <<"              1: m[Msun], r[AU], v[AU/yr], semi[AU], period[yr]\n"
                      <<"              2: m[Msun], r[AU], v[km/s],  semi[AU], period[days]\n"
@@ -154,7 +154,7 @@ int main(int argc, char **argv){
         COMM::BinaryTree<Particle,COMM::Binary>::generateBinaryTree(bins, &pindex.front(), plist.size(), &plist.front(),G);
         PrintInfo info;
         info.level = info.branch = 0;
-        info.print_width=WIDTH;
+        info.print_width=width;
 
         bins[plist.size()-2].processRootLeafIter(info, PrintParticle, info, CountLevelBranch);
 
@@ -198,9 +198,9 @@ int main(int argc, char **argv){
             abort();
         }
 
-        std::cout<<std::setprecision(PRECISION);
+        std::cout<<std::setprecision(precision);
         for (int i=0; i<N; i++) {
-            plist[i].printColumn(std::cout, WIDTH);
+            plist[i].printColumn(std::cout, width);
             std::cout<<std::endl;
         }
     }
