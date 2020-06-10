@@ -34,11 +34,19 @@ using std::sqrt;
 using std::abs;
 using std::pow;
 using std::atan2;
+using std::acos;
 using std::sin;
 using std::cos;
-#ifndef __INTEL_COMPILER
-using std::isnan;
-using std::isinf;
-#endif
+//#ifndef __INTEL_COMPILER
+//using std::isnan;
+//using std::isinf;
+//#endif
 #endif
 
+#if (defined USE_QD) || (defined USE_DD)
+#define ISNAN(x) isnan(x)
+#define ISINF(x) isinf(x)
+#else
+#define ISNAN(x) std::isnan(x)
+#define ISINF(x) std::isinf(x)
+#endif

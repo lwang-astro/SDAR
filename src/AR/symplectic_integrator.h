@@ -1619,6 +1619,14 @@ namespace AR {
             Float* gtgrad1 = force_data[0].gtgrad;
             Float* gtgrad2 = force_data[1].gtgrad;
 #endif
+
+#ifdef AR_DEBUG_PRINT_DKD
+            std::cout<<"K "<<time_<<" "
+                     <<pos2[0]-pos1[0]<<" "<<pos2[1]-pos1[1]<<" "<<pos2[2]-pos1[2]<<" "
+                     <<vel2[0]-vel1[0]<<" "<<vel2[1]-vel1[1]<<" "<<vel2[2]-vel1[2]<<" "
+                     <<ekin_<<" "<<epot_<<" "<<etot_ref_<<std::endl;
+#endif
+
             for (int i=0; i<nloop; i++) {
                 // step for drift
                 Float ds = manager->step.getCK(i)*_ds;
@@ -1634,7 +1642,7 @@ namespace AR {
 #endif
                 // drift
                 Float dt = ds/gt_inv;
-                ASSERT(!isnan(dt));
+                ASSERT(!ISNAN(dt));
                 
                 // drift time 
                 time_ += dt;
@@ -1669,7 +1677,15 @@ namespace AR {
 
                 gt_inv = manager->interaction.calcAccPotAndGTKickInv(force_data, epot_, particle_data, n_particle, particles.cm, perturber, _time_table[i]);
 
-                ASSERT(!isnan(epot_));
+                ASSERT(!ISNAN(epot_));
+
+#ifdef AR_DEBUG_PRINT_DKD
+                if (i>0)
+                    std::cout<<"K "<<time_<<" "
+                             <<pos2[0]-pos1[0]<<" "<<pos2[1]-pos1[1]<<" "<<pos2[2]-pos1[2]<<" "
+                             <<vel2[0]-vel1[0]<<" "<<vel2[1]-vel1[1]<<" "<<vel2[2]-vel1[2]<<" "
+                             <<ekin_<<" "<<epot_<<" "<<etot_ref_<<std::endl;
+#endif
 
                 // kick half step for velocity
                 Float dvel1[3], dvel2[3];
@@ -1706,6 +1722,13 @@ namespace AR {
                 vel2[0] += dvel2[0];
                 vel2[1] += dvel2[1];
                 vel2[2] += dvel2[2];
+
+#ifdef AR_DEBUG_PRINT_DKD
+                std::cout<<"D "<<time_<<" "
+                         <<pos2[0]-pos1[0]<<" "<<pos2[1]-pos1[1]<<" "<<pos2[2]-pos1[2]<<" "
+                         <<vel2[0]-vel1[0]<<" "<<vel2[1]-vel1[1]<<" "<<vel2[2]-vel1[2]<<" "
+                         <<ekin_<<" "<<epot_<<" "<<etot_ref_<<std::endl;
+#endif
 
                 // kick total energy and time transformation factor for drift
                 etot_ref_ += 2.0*dt * (mass1* (vel1[0] * pert1[0] + 
@@ -1747,10 +1770,11 @@ namespace AR {
                 vel2[0] += dvel2[0];
                 vel2[1] += dvel2[1];
                 vel2[2] += dvel2[2];
-                
+                                                                                                                
                 // calculate kinetic energy
                 ekin_ = 0.5 * (mass1 * (vel1[0]*vel1[0]+vel1[1]*vel1[1]+vel1[2]*vel1[2]) +
                                mass2 * (vel2[0]*vel2[0]+vel2[1]*vel2[1]+vel2[2]*vel2[2]));
+
             }
 
 #if (defined AR_SLOWDOWN_ARRAY ) || (defined AR_SLOWDOWN_TREE)
@@ -2091,7 +2115,7 @@ namespace AR {
                 Float dt = time_;
 
                 // integrate one step
-                ASSERT(!isinf(ds[ds_switch]));
+                ASSERT(!ISINF(ds[ds_switch]));
                 if(n_particle==2) integrateTwoOneStep(ds[ds_switch], time_table);
                 else integrateOneStep(ds[ds_switch], time_table);
 
@@ -2240,7 +2264,7 @@ namespace AR {
                 std::cerr<<std::endl;
 #endif
 
-                ASSERT(!isnan(integration_error_rel_abs));
+                ASSERT(!ISNAN(integration_error_rel_abs));
 
                 // modify step if energy error is large
                 if(integration_error_rel_abs>energy_error_rel_max && info.fix_step_option!=FixStepOption::always) {
@@ -2271,7 +2295,7 @@ namespace AR {
                             ds[1-ds_switch] = ds[ds_switch];
                             // permanently reduce ds
                             // info.ds = ds[ds_switch];
-                            // ASSERT(!isinf(info.ds));
+                            // ASSERT(!ISINF(info.ds));
                             ds_backup.initial(info.ds);
 
                             backup_flag = false;
@@ -2296,7 +2320,7 @@ namespace AR {
 
                             ds[ds_switch] *= step_modify_factor;
                             ds[1-ds_switch] = ds[ds_switch];
-                            ASSERT(!isinf(ds[ds_switch]));
+                            ASSERT(!ISINF(ds[ds_switch]));
 
                             // if multiple times reduction happens, permanently reduce ds
                             //if (reduce_ds_count>3) {
@@ -2331,7 +2355,7 @@ namespace AR {
 
                     ds[ds_switch] *= step_modify_factor;
                     ds[1-ds_switch] = ds[ds_switch];
-                    ASSERT(!isinf(ds[ds_switch]));
+                    ASSERT(!ISINF(ds[ds_switch]));
 
                     // for initial steps, reduce step permanently
                     if (step_count<5) {
@@ -2381,7 +2405,7 @@ namespace AR {
                             ASSERT(step_modify_factor>0.0);
                             ds[1-ds_switch] *= step_modify_factor;
                             info.ds = ds[1-ds_switch];
-                            ASSERT(!isinf(ds[1-ds_switch]));
+                            ASSERT(!ISINF(ds[1-ds_switch]));
 #ifdef AR_DEEP_DEBUG
                             std::cerr<<"Energy error is small enought for increase step, integration_error_rel_abs="<<integration_error_rel_abs
                                      <<" energy_error_rel_max="<<energy_error_rel_max<<" step_modify_factor="<<step_modify_factor<<" new ds="<<ds[1-ds_switch]<<std::endl;
@@ -2399,7 +2423,7 @@ namespace AR {
                             // dt should be >0.0
                             // ASSERT(dt>0.0);
                             ds[1-ds_switch] = ds[ds_switch] * dt_end/abs(dt);
-                            ASSERT(!isinf(ds[1-ds_switch]));
+                            ASSERT(!ISINF(ds[1-ds_switch]));
 #ifdef AR_DEEP_DEBUG
                             std::cerr<<"Time step dt(real) "<<dt<<" <0.3*(time_end-time)(real) "<<dt_end<<" enlarge step factor: "<<dt_end/dt<<" new ds: "<<ds[1-ds_switch]<<std::endl;
 #endif
@@ -2409,7 +2433,7 @@ namespace AR {
 
                     // when used once, update to the new step
                     ds[ds_switch] = ds[1-ds_switch]; 
-                    ASSERT(!isinf(ds[ds_switch]));
+                    ASSERT(!ISINF(ds[ds_switch]));
                     ds_switch = 1-ds_switch;
 
                     backup_flag = true;
@@ -2431,7 +2455,7 @@ namespace AR {
                         ASSERT(time_table[k]>0.0);
                         ds[ds_switch] *= manager->step.getSortCumSumCK(i)*_time_end/time_table[k];
                         ds[1-ds_switch] = ds[ds_switch];
-                        ASSERT(!isinf(ds[ds_switch]));
+                        ASSERT(!ISINF(ds[ds_switch]));
 #ifdef AR_DEEP_DEBUG
                         std::cerr<<"Time_end reach, time[k]= "<<time_table[k]<<" time= "<<time_<<" time_end/time[k]="<<_time_end/time_table[k]<<" CumSum_CK="<<manager->step.getSortCumSumCK(i)<<" ds(next) = "<<ds[ds_switch]<<" ds(next_next) = "<<ds[1-ds_switch]<<"\n";
 #endif
@@ -2445,13 +2469,13 @@ namespace AR {
                         Float cck_prev = manager->step.getSortCumSumCK(i-1);
                         Float cck = manager->step.getSortCumSumCK(i);
                         // in case the time is between two sub step, first scale the next step with the previous step CumSum CK cck(i-1)
-                        ASSERT(!isinf(cck_prev));
+                        ASSERT(!ISINF(cck_prev));
                         ds[ds_switch] *= cck_prev;  
-                        ASSERT(!isinf(ds[ds_switch]));
+                        ASSERT(!ISINF(ds[ds_switch]));
                         // then next next step, scale with the CumSum CK between two step: cck(i) - cck(i-1) 
                         ASSERT(dt_k>0.0);
                         ds[1-ds_switch] = ds_tmp*(cck-cck_prev)*std::min(Float(1.0),(_time_end-time_prev+time_error)/dt_k); 
-                        ASSERT(!isinf(ds[1-ds_switch]));
+                        ASSERT(!ISINF(ds[1-ds_switch]));
 
 #ifdef AR_DEEP_DEBUG
                         std::cerr<<"Time_end reach, time_prev= "<<time_prev<<" time[k]= "<<time_table[k]<<" time= "<<time_<<" (time_end-time_prev)/dt="<<(_time_end-time_prev)/dt<<" CumSum_CK="<<cck<<" CumSum_CK(prev)="<<cck_prev<<" ds(next) = "<<ds[ds_switch]<<" ds(next_next) = "<<ds[1-ds_switch]<<" \n";

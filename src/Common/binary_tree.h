@@ -527,15 +527,15 @@ namespace COMM{
                     _bin.stab = std::max(_bin.stab,stableCheckIter(*bin_in, _t_crit));
                     if (_bin.stab<1.0) {
                     
-                        Float incline=std::acos(std::min(1.0, _bin.am*bin_in->am/std::sqrt((_bin.am*_bin.am)*(bin_in->am*bin_in->am))));
+                        Float incline=acos(std::min(Float(1.0), _bin.am*bin_in->am/sqrt((_bin.am*_bin.am)*(bin_in->am*bin_in->am))));
                     
                         Float fac = 1.0 - 2.0*bin_in->ecc/3.0 * (1.0 - 0.5*bin_in->ecc*bin_in->ecc) 
                             - 0.3*cos(incline)*(1.0 - 0.5*bin_in->ecc + 2.0*cos(incline)*(1.0 - 2.5*pow(bin_in->ecc,1.5) - cos(incline)));
 
                         Float min = bin_in->mass;
-                        Float g = std::sqrt(std::max(bin_in->m1,bin_in->m2) /min)*(1.0 + mout/min);
+                        Float g = sqrt(std::max(bin_in->m1,bin_in->m2) /min)*(1.0 + mout/min);
     
-                        Float q = 1.52*pow(std::sqrt(_t_crit/_bin.period)/(1.0 - _bin.ecc),1.0/6.0)*pow(fac*g,1.0/3.0);
+                        Float q = 1.52*pow(sqrt(_t_crit/_bin.period)/(1.0 - _bin.ecc),1.0/6.0)*pow(fac*g,1.0/3.0);
 
                         Float peri_out = _bin.semi * (_bin.ecc + 1.0);
                         Float rp = peri_out/bin_in->semi;
