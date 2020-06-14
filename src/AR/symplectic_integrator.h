@@ -2041,7 +2041,7 @@ namespace AR {
 #endif
 
                                 // change fix step option to make safety if energy change is large
-                                info.fix_step_option=FixStepOption::none;
+                                //info.fix_step_option=FixStepOption::none;
                                 
                                 // if time_end flag set, reset it to be safety
                                 //time_end_flag = false;
@@ -2075,6 +2075,21 @@ namespace AR {
                                         }
                                     }
                                 }
+                                else { // if not merger, update step
+                                    auto& G = manager->interaction.gravitational_constant;
+                                    if (bin_interrupt.adr->semi>0) info.ds = std::min(info.ds, info.calcDsElliptic(*bin_interrupt.adr, G));
+                                    else info.ds = std::min(info.ds, info.calcDsHyperbolic(*bin_interrupt.adr, G));
+                                    if (ds_init!=info.ds) {
+#ifdef AR_DEBUG_PRINT
+                                        std::cerr<<"Change ds after interruption: ds(init): "<<ds_init<<" ds(new): "<<info.ds<<" ds(now): "<<ds[0]<<std::endl;
+#endif
+                                        ds[0] = std::min(ds[0], info.ds);
+                                        ds[1] = std::min(ds[1], info.ds);
+                                        ds_backup.initial(info.ds);
+                                        ds_init = info.ds;
+                                    }
+                                }
+
                                 // return one should be the top root
                                 if (bin_interrupt_return.status!=InterruptStatus::none) {
                                     if (bin_interrupt_return.adr!= bin_interrupt.adr) {
