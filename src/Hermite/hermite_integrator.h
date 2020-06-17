@@ -19,6 +19,15 @@ namespace H4{
         //Float r_neighbor_crit; ///> the distance for neighbor search
         Tmethod interaction; ///> class contain interaction function
         BlockTimeStep4th step; ///> time step calculator
+#ifdef ADJUST_GROUP_PRINT
+        bool adjust_group_write_flag; ///> flag to indicate whether to output new/end group information
+        std::ofstream fgroup; ///> pointer to a file IO to output new/end group information
+#endif
+
+#ifdef ADJUST_GROUP_PRINT
+        HermiteManager(): interaction(), step(), adjust_group_write_flag(true), fgroup() {}
+#endif
+
 
         //! check whether parameters values are correct
         /*! \return true: all correct
@@ -28,6 +37,9 @@ namespace H4{
             //ASSERT(r_neighbor_crit>=0.0);
             ASSERT(interaction.checkParams());
             ASSERT(step.checkParams());
+#ifdef ADJUST_GROUP_PRINT
+            ASSERT(!adjust_group_write_flag||(adjust_group_write_flag&&fgroup.is_open()));
+#endif
             return true;
         }
 
@@ -157,6 +169,7 @@ namespace H4{
 
         // time 
         Float time_;   ///< integrated time 
+        Float time_offset_; ///< offset to obtain the real time (real time = time_ + time_offset_)
         Float time_next_min_; ///< the next minimum time 
         Float dt_limit_;  // maximum step size allown for next integration step calculation
 
@@ -228,7 +241,7 @@ namespace H4{
         }
 
         //! constructor
-        HermiteIntegrator(): time_(0.0), time_next_min_(0.0), 
+        HermiteIntegrator(): time_(0.0), time_offset_(0.0), time_next_min_(0.0), 
                              energy_init_ref_(0.0),
                              energy_(), energy_sd_(),
                              n_act_single_(0), n_act_group_(0), 
@@ -245,6 +258,7 @@ namespace H4{
         //! clear function
         void clear() {
             time_ = 0.0;
+            time_offset_ = 0.0;
             time_next_min_ = 0.0;
             energy_init_ref_ = 0.0;
             energy_.clear();
@@ -1201,6 +1215,12 @@ namespace H4{
                 std::cerr<<std::endl;
 #endif
 
+#ifdef ADJUST_GROUP_PRINT
+                if (manager->adjust_group_write_flag) {
+                    group_new.printGroupInfo("New", manager->fgroup, WRITE_WIDTH, &(particles.cm));
+                }
+#endif
+
                 // initial perturber
                 group_new.perturber.need_resolve_flag = true;
             }
@@ -1323,6 +1343,13 @@ namespace H4{
                          <<" ecc: "<<std::setw(20)<<bin.ecc
                          <<" NB: "<<std::setw(4)<<groupi.perturber.neighbor_address.getSize()
                          <<std::endl;
+#endif
+
+#ifdef ADJUST_GROUP_PRINT
+                if (manager->adjust_group_write_flag) {
+#pragma omp critical
+                    groupi.printGroupInfo("End", manager->fgroup, WRITE_WIDTH, &(particles.cm));
+                }
 #endif
 
                 // clear group
@@ -2093,6 +2120,8 @@ namespace H4{
                 //    group_ptr[k].slowdown.calcSlowDownFactor();
                 //}
 
+                // set time offset
+                group_ptr[k].info.time_offset = time_offset_;
                 // set hermite time limit
                 group_ptr[k].info.dt_limit = manager->step.getDtMax();
                 // in the case of wide binary, make sure the next time step not exceed r_in
@@ -2309,7 +2338,7 @@ namespace H4{
                 vbk[2] = pk.vel[2];
                 mbk = pk.mass;
 
-                int modified_flag=ar_manager->interaction.modifyOneParticle(pk, time_, getNextTime());
+                int modified_flag=ar_manager->interaction.modifyOneParticle(pk, time_+time_offset_, getNextTime()+time_offset_);
                 if (modified_flag) {
                     auto& v = pk.vel;
 #ifdef HERMITE_DEBUG_PRINT
@@ -2743,9 +2772,19 @@ namespace H4{
             return time_next_min_;
         }
 
-        //! get current time
-        Float getTime() const {
+        //! get current integration time 
+        Float getTimeInt() const {
             return time_;
+        }
+
+        //! get current real time
+        Float getTime() const {
+            return time_+time_offset_;
+        }
+
+        //! set time offset
+        void setTimeOffset(const Float& _time_offset) {
+            time_offset_ = _time_offset;
         }
 
         //! get interrupt group index

@@ -89,11 +89,12 @@ namespace AR {
     class Information{
     public:
         Float ds;  ///> initial step size for integration
+        Float time_offset; ///> offset of time to obtain real physical time (real time = TimeTransformedSymplecticIntegrator:time_ + info.time_offset)
         FixStepOption fix_step_option; ///> fix step option for integration
         COMM::List<BinaryTree<Tparticle>> binarytree; ///> a list of binary tree that contain the hierarchical orbital parameters of the particle group.
 
         //! initializer, set ds to zero, fix_step_option to none
-        Information(): ds(Float(0.0)),  fix_step_option(AR::FixStepOption::none), binarytree() {}
+        Information(): ds(Float(0.0)), time_offset(0.0), fix_step_option(AR::FixStepOption::none), binarytree() {}
 
         //! check whether parameters values are correct initialized
         /*! \return true: all correct
@@ -242,6 +243,7 @@ namespace AR {
         //! clear function
         void clear() {
             ds=0.0;
+            time_offset = 0.0;
             fix_step_option = FixStepOption::none;
             binarytree.clear();
         }
@@ -253,6 +255,7 @@ namespace AR {
         */
         void printColumnTitle(std::ostream & _fout, const int _width=20) {
             _fout<<std::setw(_width)<<"ds";
+            _fout<<std::setw(_width)<<"Time_offset";
         }
 
         //! print data of class members using column style
@@ -262,6 +265,7 @@ namespace AR {
         */
         void printColumn(std::ostream & _fout, const int _width=20){
             _fout<<std::setw(_width)<<ds;
+            _fout<<std::setw(_width)<<time_offset;
         }
 
         //! write class data to file with binary format
@@ -269,6 +273,7 @@ namespace AR {
          */
         void writeBinary(FILE *_fout) const {
             fwrite(&ds, sizeof(int),1,_fout);
+            fwrite(&time_offset, sizeof(Float),1,_fout);
             fwrite(&fix_step_option, sizeof(FixStepOption),1,_fout);
         }
 
@@ -277,6 +282,11 @@ namespace AR {
          */
         void readBinary(FILE *_fin) {
             size_t rcount = fread(&ds, sizeof(int),1,_fin);
+            if (rcount<1) {
+                std::cerr<<"Error: Data reading fails! requiring data number is 1, only obtain "<<rcount<<".\n";
+                abort();
+            }
+            rcount = fread(&time_offset, sizeof(Float),1,_fin);
             if (rcount<1) {
                 std::cerr<<"Error: Data reading fails! requiring data number is 1, only obtain "<<rcount<<".\n";
                 abort();

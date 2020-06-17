@@ -1902,8 +1902,8 @@ namespace AR {
             long long unsigned int step_count=0; // integration step 
             long long unsigned int step_count_tsyn=0; // time synchronization step
             InterruptBinary<Tparticle> bin_interrupt;
-            bin_interrupt.time_now=time_;
-            bin_interrupt.time_end=_time_end;
+            bin_interrupt.time_now=time_ + info.time_offset;
+            bin_interrupt.time_end=_time_end + info.time_offset;
             InterruptBinary<Tparticle> bin_interrupt_return = bin_interrupt;
             
             // particle data
@@ -1948,7 +1948,7 @@ namespace AR {
                     // check interrupt condiction, ensure that time end not reach
                     if (manager->interrupt_detection_option>0 && !time_end_flag) {
                         auto& bin_root = info.getBinaryTreeRoot();
-                        bin_interrupt.time_now = time_;
+                        bin_interrupt.time_now = time_ + info.time_offset;
                         // calc perturbation energy
                         Float epert=0.0;
                         for (int i=0; i<n_particle; i++) {
@@ -3011,6 +3011,64 @@ namespace AR {
             return gt_drift_inv_;
         }
 #endif
+
+        //! print group information 
+        /*! Message, Number of members, time, binary tree printing interation
+          @param[in] _message: message to print first
+          @param[in] _fout: FILE IO
+          @param[in] _width: print width
+          @param[in] _pcm: center of mass particle to calculate origin position and velocity, if NULL, assume cm pos and vel are zero
+          @param[in] _status_flag: 0: new group (if pair id is same, no printing); 1: end group (always print and reset pair id)
+        */
+        template<class Tptcl>
+        void printGroupInfo(const char* _message, std::ostream& _fout, const int _width, const Tptcl* _pcm=NULL, const bool _status_flag=1) {
+            auto& bin_root = info.getBinaryTreeRoot();
+            auto* p1 = bin_root.getLeftMember();
+            auto* p2 = bin_root.getRightMember();
+            
+            if (p1->getBinaryPairID()==p2->id&&p2->getBinaryPairID()==p1->id&&_status_flag==0) return;
+            else {
+                Float pos_cm[3], vel_cm[3];
+                auto& pcm_loc = particles.cm;
+                if (_pcm!=NULL) {
+                    pos_cm[0] = pcm_loc.pos[0] + _pcm.pos[0];
+                    pos_cm[1] = pcm_loc.pos[1] + _pcm.pos[1];
+                    pos_cm[2] = pcm_loc.pos[2] + _pcm.pos[2];
+                    vel_cm[0] = pcm_loc.vel[0] + _pcm.vel[0];
+                    vel_cm[1] = pcm_loc.vel[1] + _pcm.vel[1];
+                    vel_cm[2] = pcm_loc.vel[2] + _pcm.vel[2];
+                }
+                else {
+                    pos_cm[0] = pcm_loc.pos[0]; 
+                    pos_cm[1] = pcm_loc.pos[1]; 
+                    pos_cm[2] = pcm_loc.pos[2]; 
+                    vel_cm[0] = pcm_loc.vel[0]; 
+                    vel_cm[1] = pcm_loc.vel[1]; 
+                    vel_cm[2] = pcm_loc.vel[2]; 
+                }
+#pragma omp critical
+                {
+                    _fout<<_message<<" "
+                         <<std::setw(_width)<<bin_root.getMemberN()
+                         <<std::setw(_width)<<time_ + info.time_offset;
+                    _fout<<std::setw(_width)<<pos_cm[0]
+                         <<std::setw(_width)<<pos_cm[1]
+                         <<std::setw(_width)<<pos_cm[2]
+                         <<std::setw(_width)<<vel_cm[0]
+                         <<std::setw(_width)<<vel_cm[1]
+                         <<std::setw(_width)<<vel_cm[2];
+                    bin_root.printColumnIter(_fout, _width);
+                }
+                if (_status_flag==0) {
+                    p1->setBinaryPairID(p2->id);
+                    p2->setBinaryPairID(p1->id);
+                }
+                else {
+                    p1->setBinaryPairID(0);
+                    p2->setBinaryPairID(0);
+                }
+            }
+        }
 
         //! print titles of class members using column style
         /*! print titles of class members in one line for column style
