@@ -240,6 +240,33 @@ namespace AR {
             }
         }
 
+        //! check binary tree member pair id, if consisent, return ture. otherwise set the member pair id
+        /*! 
+          @param[in] _bin: binary tree to check
+          @param[in] _reset_flag: if true, reset pair id to zero
+        */
+        bool checkAndSetBinaryPairIDIter(BinaryTree<Tparticle>& _bin, const bool _reset_flag) {
+            bool return_flag=true;
+            Tparticle* p[2] = {_bin.getLeftMember(), _bin.getRightMember()};
+
+            for (int i=0; i<2; i++) {
+                if (_bin.isMemberTree(i)) {
+                    return_flag = return_flag & checkAndSetBinaryPairIDIter(*_bin.getMemberAsTree(i),_reset_flag);
+                }
+            }
+            for (int i=0; i<2; i++) {
+                if (!_bin.isMemberTree(i)) {
+                    auto pair_id = p[1-i]->id;
+                    return_flag = return_flag & (p[i]->getBinaryPairID()==pair_id);
+                    if (_reset_flag) p[i]->setBinaryPairID(0);
+                    else p[i]->setBinaryPairID(pair_id);
+                }
+            }
+            if (p[0]->id<p[1]->id) _bin.id = p[0]->id;
+            else _bin.id = p[1]->id;
+            return return_flag;
+        }
+
         //! clear function
         void clear() {
             ds=0.0;

@@ -3022,55 +3022,56 @@ namespace AR {
         template<class Tptcl>
         void printGroupInfo(const int _type, std::ostream& _fout, const int _width, const Tptcl* _pcm=NULL) {
             auto& bin_root = info.getBinaryTreeRoot();
-            auto* p1 = bin_root.getLeftMember();
-            auto* p2 = bin_root.getRightMember();
+            //auto* p1 = bin_root.getLeftMember();
+            //auto* p2 = bin_root.getRightMember();
             
-            if (p1->getBinaryPairID()==p2->id&&p2->getBinaryPairID()==p1->id) {
+            bool reset_flag = (_type==1 && bin_root.semi<0 && bin_root.ecca>0);
+
+            if (info.checkAndSetBinaryPairIDIter(bin_root, reset_flag)) {
                 if (_type==0) return; // if it is new but already existed binary, do not print
-                else if (bin_root.semi>0) return; // if the system is still bound, do not print 
+                else if (!reset_flag) return; // in the end case, if the system is still bound, do not print 
+            }
+
+            Float pos_cm[3], vel_cm[3];
+            auto& pcm_loc = particles.cm;
+            if (_pcm!=NULL) {
+                pos_cm[0] = pcm_loc.pos[0] + _pcm->pos[0];
+                pos_cm[1] = pcm_loc.pos[1] + _pcm->pos[1];
+                pos_cm[2] = pcm_loc.pos[2] + _pcm->pos[2];
+                vel_cm[0] = pcm_loc.vel[0] + _pcm->vel[0];
+                vel_cm[1] = pcm_loc.vel[1] + _pcm->vel[1];
+                vel_cm[2] = pcm_loc.vel[2] + _pcm->vel[2];
             }
             else {
-                Float pos_cm[3], vel_cm[3];
-                auto& pcm_loc = particles.cm;
-                if (_pcm!=NULL) {
-                    pos_cm[0] = pcm_loc.pos[0] + _pcm->pos[0];
-                    pos_cm[1] = pcm_loc.pos[1] + _pcm->pos[1];
-                    pos_cm[2] = pcm_loc.pos[2] + _pcm->pos[2];
-                    vel_cm[0] = pcm_loc.vel[0] + _pcm->vel[0];
-                    vel_cm[1] = pcm_loc.vel[1] + _pcm->vel[1];
-                    vel_cm[2] = pcm_loc.vel[2] + _pcm->vel[2];
-                }
-                else {
-                    pos_cm[0] = pcm_loc.pos[0]; 
-                    pos_cm[1] = pcm_loc.pos[1]; 
-                    pos_cm[2] = pcm_loc.pos[2]; 
-                    vel_cm[0] = pcm_loc.vel[0]; 
-                    vel_cm[1] = pcm_loc.vel[1]; 
-                    vel_cm[2] = pcm_loc.vel[2]; 
-                }
-#pragma omp critical
-                {
-                    _fout<<std::setw(_width)<<_type
-                         <<std::setw(_width)<<bin_root.getMemberN()
-                         <<std::setw(_width)<<time_ + info.time_offset;
-                    _fout<<std::setw(_width)<<pos_cm[0]
-                         <<std::setw(_width)<<pos_cm[1]
-                         <<std::setw(_width)<<pos_cm[2]
-                         <<std::setw(_width)<<vel_cm[0]
-                         <<std::setw(_width)<<vel_cm[1]
-                         <<std::setw(_width)<<vel_cm[2];
-                    bin_root.printBinaryTreeIter(_fout, _width);
-                    _fout<<std::endl;
-                }
-                if (_type==0) { // register pair id to avoid repeating printing
-                    p1->setBinaryPairID(p2->id);
-                    p2->setBinaryPairID(p1->id);
-                }
-                else { // break case reset pair id
-                    p1->setBinaryPairID(0);
-                    p2->setBinaryPairID(0);
-                }
+                pos_cm[0] = pcm_loc.pos[0]; 
+                pos_cm[1] = pcm_loc.pos[1]; 
+                pos_cm[2] = pcm_loc.pos[2]; 
+                vel_cm[0] = pcm_loc.vel[0]; 
+                vel_cm[1] = pcm_loc.vel[1]; 
+                vel_cm[2] = pcm_loc.vel[2]; 
             }
+#pragma omp critical
+            {
+                _fout<<std::setw(_width)<<_type
+                     <<std::setw(_width)<<bin_root.getMemberN()
+                     <<std::setw(_width)<<time_ + info.time_offset;
+                _fout<<std::setw(_width)<<pos_cm[0]
+                     <<std::setw(_width)<<pos_cm[1]
+                     <<std::setw(_width)<<pos_cm[2]
+                     <<std::setw(_width)<<vel_cm[0]
+                     <<std::setw(_width)<<vel_cm[1]
+                     <<std::setw(_width)<<vel_cm[2];
+                bin_root.printBinaryTreeIter(_fout, _width);
+                _fout<<std::endl;
+            }
+            //if (_type==0) { // register pair id to avoid repeating printing
+            //    p1->setBinaryPairID(p2->id);
+            //    p2->setBinaryPairID(p1->id);
+            //}
+            //else { // break case reset pair id
+            //    p1->setBinaryPairID(0);
+            //    p2->setBinaryPairID(0);
+            //}
         }
 
         //! print titles of class members using column style

@@ -1225,12 +1225,6 @@ namespace H4{
                 std::cerr<<std::endl;
 #endif
 
-#ifdef ADJUST_GROUP_PRINT
-                if (manager->adjust_group_write_flag) {
-                    group_new.printGroupInfo(0, manager->fgroup, WRITE_WIDTH, &(particles.cm));
-                }
-#endif
-
                 // initial perturber
                 group_new.perturber.need_resolve_flag = true;
             }
@@ -2156,6 +2150,12 @@ namespace H4{
                 // check parameters
                 ASSERT(group_ptr[k].info.checkParams());
                 ASSERT(group_ptr[k].perturber.checkParams());
+
+#ifdef ADJUST_GROUP_PRINT
+                if (manager->adjust_group_write_flag) {
+                    group_ptr[k].printGroupInfo(0, manager->fgroup, WRITE_WIDTH, &(particles.cm));
+                }
+#endif
 
             }
 
