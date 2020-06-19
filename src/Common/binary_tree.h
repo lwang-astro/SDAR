@@ -22,8 +22,8 @@ namespace COMM{
         Float m1;           // m1: mass 1
         Float m2;           // m2: mass 2
         Float r;            // distance between too members
-        Float stab;         // stability factor 
         Vector3<Float> am;  // angular momentum
+        Float stab;         // stability factor 
 
         //! Orbit to position and velocity
         /*! refer to the P3T code developed by Iwasawa M.
@@ -918,12 +918,19 @@ namespace COMM{
             Tbinary::readAscii(_fin);
         }       
 
-        //! print function
-        void printColumnIter(std::ostream & _fout, const int _width=20){
+        //! print binary and member information
+        void printBinaryTreeIter(std::ostream & _fout, const int _width=20){
+            Tbinary::printColumn(_fout, _width);
+            for (int k=0; k<2; k++) member[k]->printColumn(_fout,_width);
+            for (int k=0; k<2; k++) 
+                if (member_index[k]<0) ((BinaryTreeLocal*)member[k])->printBinaryTreeIter(_fout, _width);
+        }
+
+        //! print binary function
+        void printBinaryIter(std::ostream & _fout, const int _width=20){
             printColumn(_fout, _width);
-            _fout<<std::endl;
             for (int k=0; k<2; k++) {
-                if (member_index[k]<0) ((BinaryTreeLocal*)member[k])->printColumnIter(_fout, _width);
+                if (member_index[k]<0) ((BinaryTreeLocal*)member[k])->printBinaryIter(_fout, _width);
             }
         }
     };

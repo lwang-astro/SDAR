@@ -80,6 +80,9 @@ namespace H4{
             //fwrite(this, size, 1, _fp);
             interaction.writeBinary(_fp);
             step.writeBinary(_fp);
+#ifdef ADJUST_GROUP_PRINT
+            fwrite(&adjust_group_write_flag, sizeof(bool),1,_fp);
+#endif
         }
 
         //! read class data to file with binary format
@@ -94,6 +97,13 @@ namespace H4{
             //}
             interaction.readBinary(_fin);
             step.readBinary(_fin);
+#ifdef ADJUST_GROUP_PRINT
+            size_t rcount = fread(&adjust_group_write_flag, sizeof(bool),1,_fin);
+            if (rcount<1) {
+                std::cerr<<"Error: Data reading fails! requiring data number is 1, only obtain "<<rcount<<".\n";
+                abort();
+            }
+#endif
         }
 
     };
@@ -1217,7 +1227,7 @@ namespace H4{
 
 #ifdef ADJUST_GROUP_PRINT
                 if (manager->adjust_group_write_flag) {
-                    group_new.printGroupInfo("New", manager->fgroup, WRITE_WIDTH, &(particles.cm));
+                    group_new.printGroupInfo(0, manager->fgroup, WRITE_WIDTH, &(particles.cm));
                 }
 #endif
 
@@ -1347,8 +1357,7 @@ namespace H4{
 
 #ifdef ADJUST_GROUP_PRINT
                 if (manager->adjust_group_write_flag) {
-#pragma omp critical
-                    groupi.printGroupInfo("End", manager->fgroup, WRITE_WIDTH, &(particles.cm));
+                    groupi.printGroupInfo(1, manager->fgroup, WRITE_WIDTH, &(particles.cm));
                 }
 #endif
 
