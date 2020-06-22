@@ -1788,7 +1788,7 @@ namespace AR {
         // Integrate the system to a given time
         /*!
           @param[in] _ds: the integration step size
-          @param[in] _time_end: the expected finishing real time 
+          @param[in] _time_end: the expected finishing time without offset
           \return binary tree of the pair which triggers interruption condition
          */
         InterruptBinary<Tparticle> integrateToTime(const Float _time_end) {

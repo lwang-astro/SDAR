@@ -2449,7 +2449,7 @@ namespace H4{
 
         //! Integration a list of particle to current time (ingore dt)
         /*! Integrate a list of particle to current time.
-          @param[in] _time_next: time to integrate
+          @param[in] _time_next: time to integrate (without offset)
           @param[in] _particle_index: particle index to integrate
           @param[in] _n_particle: number of particles
         */
