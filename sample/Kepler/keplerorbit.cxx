@@ -119,7 +119,7 @@ int main(int argc, char **argv){
 
            bin.calcOrbit(G);
            // yr -> days
-           if (unit>1) bin.period *= 365.25;
+           if (unit>1&&unit!=4) bin.period *= 365.25;
            bin.printColumn(std::cout, width);
            std::cout<<std::endl;
        }
