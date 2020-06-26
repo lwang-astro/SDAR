@@ -1224,6 +1224,17 @@ namespace AR {
             _bin.pos[1] *= mcm_inv;
             _bin.pos[2] *= mcm_inv;
         }
+
+        //! set all binary c.m. mass to zero
+        void setBinaryCMZeroIter(AR::BinaryTree<Tparticle>& _bin) {
+            _bin.mass = 0.0;
+            for (int k=0; k<2; k++) {
+                if (_bin.isMemberTree(k)) {
+                    auto* bink = _bin.getMemberAsTree(k);
+                    setBinaryCMZeroIter(*bink);
+                }
+            }
+        }
             
     public:
 #ifdef AR_SLOWDOWN_TREE
@@ -1971,6 +1982,47 @@ namespace AR {
                             }
                             else {
 
+                                // check whether destroy appears (all masses becomes zero)
+                                if (bin_interrupt.status==InterruptStatus::destroy) {
+                                    // all particles become zero masses
+                                    de_change_interrupt_ -= etot_ref_;
+                                    dH_change_interrupt_ -= getH();
+                                    ekin_ = epot_ = etot_ref_ = 0.0;
+#if (defined AR_SLOWDOWN_ARRAY) || (defined AR_SLOWDOWN_TREE)
+                                    de_sd_change_cum_ -= etot_sd_ref_;
+                                    dH_sd_change_interrupt_ -= getHSlowDown();
+                                    ekin_sd_ = epot_sd_ = etot_sd_ref_ = 0.0;
+#endif                                    
+#ifdef AR_DEBUG_PRINT
+                                    std::cerr<<"Interrupt condition triggered! Destroy";
+                                    std::cerr<<" Time: "<<time_;
+                                    bin_interrupt.adr->printColumnTitle(std::cerr);
+                                    std::cerr<<std::endl;
+                                    bin_interrupt.adr->printColumn(std::cerr);
+                                    std::cerr<<std::endl;
+                                    Tparticle::printColumnTitle(std::cerr);
+                                    std::cerr<<std::endl;
+                                    for (int j=0; j<2; j++) {
+                                        bin_interrupt.adr->getMember(j)->printColumn(std::cerr);
+                                        std::cerr<<std::endl;
+                                    }
+#endif
+
+                                    // set binary tree mass to zero
+                                    setBinaryCMZeroIter(bin_root);
+
+                                    // cumulative step count 
+                                    profile.step_count = step_count;
+                                    profile.step_count_tsyn = step_count_tsyn;
+                                    profile.step_count_sum += step_count;
+                                    profile.step_count_tsyn_sum += step_count_tsyn;
+
+                                    Float dt = _time_end - time_;
+                                    time_ += dt;
+
+                                    return bin_interrupt;
+                                }
+
                                 Float ekin_bk = ekin_;
                                 Float epot_bk = epot_;
                                 Float H_bk = getH();
@@ -2026,8 +2078,10 @@ namespace AR {
 #ifdef AR_DEBUG_PRINT
                                 std::cerr<<"Interrupt condition triggered!";
                                 std::cerr<<" Time: "<<time_;
+#if (defined AR_SLOWDOWN_ARRAY) || (defined AR_SLOWDOWN_TREE)
                                 std::cerr<<" Energy change: dE_SD: "<<de_sd<<" dH_SD: "<<dH_sd;
                                 std::cerr<<" Slowdown: "<<bin_root.slowdown.getSlowDownFactor()<<std::endl;
+#endif
                                 bin_interrupt.adr->printColumnTitle(std::cerr);
                                 std::cerr<<std::endl;
                                 bin_interrupt.adr->printColumn(std::cerr);

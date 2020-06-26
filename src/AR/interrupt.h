@@ -5,7 +5,7 @@
 namespace AR {
 
     //! binary interrupt status
-    enum class InterruptStatus{change=1, merge=2, none=0};
+    enum class InterruptStatus{change=1, merge=2, destroy=3, none=0};
 
     //! Binary interrupt recoreder
     template <class Tparticle>

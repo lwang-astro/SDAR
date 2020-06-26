@@ -1739,6 +1739,10 @@ namespace H4{
                 ASSERT(dr2>0.0);
 
                 auto& pi = particles[i];
+
+                // avoid zero mass particle
+                if (pi.mass==0.0) continue;
+
                 // distance criterion
                 Float r_crit = pi.getRGroup();
                 if (j<index_offset_group_) 
@@ -1769,6 +1773,10 @@ namespace H4{
 //#endif
                         pj = &groups[jg].particles.cm;
                     }
+
+                    
+                    // avoid zero mass particle
+                    if(pj->mass==0.0) continue;
 
                     // this increase AR total step too much
                     //bool add_flag=false;
@@ -2216,7 +2224,7 @@ namespace H4{
                     // particle cm is the old cm in original frame
                     auto& pcm = groups[k].particles.cm;
 
-                    if (interrupt_binary_.status==AR::InterruptStatus::merge) {
+                    if (interrupt_binary_.status==AR::InterruptStatus::merge||interrupt_binary_.status==AR::InterruptStatus::destroy) {
                         index_group_merger_.addMember(k);
                     }
                     else {
