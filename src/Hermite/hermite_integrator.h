@@ -2304,8 +2304,9 @@ namespace H4{
                     // increase offset
                     shift_offset++;
                 }
+                ASSERT(shift_offset==n_interrupt_change_dt);
                 // shift the range from the first k to beginning of sorted list
-                for (int j=ishift_start; j>0; j--) {
+                for (int j=ishift_start; j>=shift_offset; j--) {
                     index_dt_sorted_group_[j] = index_dt_sorted_group_[j-shift_offset];
                 }
 
