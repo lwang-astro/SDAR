@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <array>
 #include "Common/Float.h"
 
 namespace AR {

@@ -2152,9 +2152,6 @@ namespace H4{
                     group_ptr[k].info.dt_limit = dt_limit;
                 }
 
-                // get ds estimation
-                group_ptr[k].info.calcDsAndStepOption(ar_manager->step.getOrder(), ar_manager->interaction.gravitational_constant);
-
                 // check parameters
                 ASSERT(group_ptr[k].info.checkParams());
                 ASSERT(group_ptr[k].perturber.checkParams());
@@ -2212,6 +2209,9 @@ namespace H4{
                 if (i!=interrupt_group_dt_sorted_group_index_) 
                     ASSERT(abs(groups[k].getTime()-time_)<=ar_manager->time_error_max);
 #endif
+                // get ds estimation
+                groups[k].info.calcDsAndStepOption(ar_manager->step.getOrder(), ar_manager->interaction.gravitational_constant);
+
                 // group integration 
                 interrupt_binary_ = groups[k].integrateToTime(time_next);
 
