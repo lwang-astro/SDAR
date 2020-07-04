@@ -10,9 +10,9 @@
 #include "AR/information.h"
 #include "AR/interrupt.h"
 
-//! Algorithmic regularization chain (ARC) namespace
+//! Algorithmic regularization (time transformed explicit symplectic integrator) namespace
 /*!
-  All major ARC classes and related acceleration functions (typedef) are defined
+  All major AR classes and related acceleration functions (typedef) are defined
 */
 namespace AR {
 
@@ -316,7 +316,6 @@ namespace AR {
         */
         void calcSlowDownInnerBinary(BinaryTree<Tparticle>& _bin) {
             _bin.slowdown.pert_in = manager->interaction.calcPertFromBinary(_bin);
-            _bin.slowdown.period = _bin.period;
 
             Float pert_out = 0.0;
             Float t_min_sq = NUMERIC_FLOAT_MAX;
@@ -336,7 +335,14 @@ namespace AR {
             _bin.slowdown.timescale = _bin.slowdown.getTimescaleMax();
 #endif
 
-            _bin.slowdown.calcSlowDownFactor();
+            // only set slowdown if semi > 0 
+            if (_bin.semi>0) {
+                _bin.slowdown.period = _bin.period;
+                _bin.slowdown.calcSlowDownFactor();
+            }
+            else {
+                _bin.slowdown.setSlowDownFactor(1.0);
+            }
         }
 #endif // AR_SLOWDOWN_TREE || AR_SLOWDOWN_ARRAY
 
@@ -1254,23 +1260,27 @@ namespace AR {
             // when the maximum inner slowdown is large, the outer should not be slowed down since the system may not be stable.
             //if (inner_sd_change_flag&&sd_org_inner_max<1000.0*manager->slowdown_pert_ratio_ref) sd_root.setSlowDownFactor(1.0);
             //if (time_>=sd_root.getUpdateTime()) {
+            sd_root.pert_in = manager->interaction.calcPertFromBinary(bin_root);
+            sd_root.pert_out = 0.0;
+            Float t_min_sq= NUMERIC_FLOAT_MAX;
+            manager->interaction.calcSlowDownPert(sd_root.pert_out, t_min_sq, getTime(), particles.cm, perturber);
+            sd_root.timescale = std::min(sd_root.getTimescaleMax(), sqrt(t_min_sq));
+
             if (_stable_check_flag) {
                 // check whether the system is stable for 10000 out period
                 Float stab = bin_root.stableCheckIter(bin_root,10000*bin_root.period);
                 if (stab<1.0) {
-
-                    sd_root.pert_in = manager->interaction.calcPertFromBinary(bin_root);
                     sd_root.period = bin_root.period;
-
-                    Float t_min_sq= NUMERIC_FLOAT_MAX;
-                    sd_root.pert_out = 0.0;
-                    manager->interaction.calcSlowDownPert(sd_root.pert_out, t_min_sq, getTime(), particles.cm, perturber);
-            
-                    sd_root.timescale = std::min(sd_root.getTimescaleMax(), sqrt(t_min_sq));
                     sd_root.calcSlowDownFactor();
                 }
                 else sd_root.setSlowDownFactor(1.0);
             }
+            else if (bin_root.semi>0) {
+                sd_root.period = bin_root.period;
+                sd_root.calcSlowDownFactor();
+            }
+            else sd_root.setSlowDownFactor(1.0);
+
             //sd_root.increaseUpdateTimeOnePeriod();
             //}
 
@@ -1280,16 +1290,16 @@ namespace AR {
             int n_bin = info.binarytree.getSize();
             for (int i=0; i<n_bin-1; i++) {
                 auto& bini = info.binarytree[i];
-                // only set slowdown if semi > 0 
-                if (bini.semi>0.0&&bini.stab<1.0) {
-                    //if (time_>=bini.slowdown.getUpdateTime()) {
-                    bini.calcCenterOfMass();
-                    calcSlowDownInnerBinary(bini);
-                    //sdi->slowdown.increaseUpdateTimeOnePeriod();
-                    sd_org_inner_max = std::max(bini.slowdown.getSlowDownFactorOrigin(),sd_org_inner_max);
-                    inner_sd_change_flag=true;
-                    //}
-                }
+                //if (time_>=bini.slowdown.getUpdateTime()) {
+                bini.calcCenterOfMass();
+                calcSlowDownInnerBinary(bini);
+                // if unstable, set slowdown factor to 1.0
+                if (bini.stab>=1.0) bini.slowdown.setSlowDownFactor(1.0);
+
+                //sdi->slowdown.increaseUpdateTimeOnePeriod();
+                sd_org_inner_max = std::max(bini.slowdown.getSlowDownFactorOrigin(),sd_org_inner_max);
+                inner_sd_change_flag=true;
+                //}
             }
 
 
@@ -1343,23 +1353,26 @@ namespace AR {
             // when the maximum inner slowdown is large, the outer should not be slowed down since the system may not be stable.
             //if (inner_sd_change_flag&&sd_org_inner_max<1000.0*manager->slowdown_pert_ratio_ref) sd_root.setSlowDownFactor(1.0);
             //if (time_>=sd_root.getUpdateTime()) {
+            sd_root.pert_in = manager->interaction.calcPertFromBinary(bin_root);
+            sd_root.pert_out = 0.0;
+            Float t_min_sq= NUMERIC_FLOAT_MAX;
+            manager->interaction.calcSlowDownPert(sd_root.pert_out, t_min_sq, getTime(), particles.cm, perturber);
+            sd_root.timescale = std::min(sd_root.getTimescaleMax(), sqrt(t_min_sq));
+
             if (_stable_check_flag) {
                 // check whether the system is stable for 10000 out period
                 Float stab = bin_root.stableCheckIter(bin_root,10000*bin_root.period);
                 if (stab<1.0) {
-
-                    sd_root.pert_in = manager->interaction.calcPertFromBinary(bin_root);
                     sd_root.period = bin_root.period;
-
-                    Float t_min_sq= NUMERIC_FLOAT_MAX;
-                    sd_root.pert_out = 0.0;
-                    manager->interaction.calcSlowDownPert(sd_root.pert_out, t_min_sq, getTime(), particles.cm, perturber);
-            
-                    sd_root.timescale = std::min(sd_root.getTimescaleMax(), sqrt(t_min_sq));
                     sd_root.calcSlowDownFactor();
                 }
                 else sd_root.setSlowDownFactor(1.0);
             }
+            else if (sd_root.semi>0) {
+                sd_root.period = bin_root.period;
+                sd_root.calcSlowDownFactor();
+            }
+            else sd_root.setSlowDownFactor(1.0);
 
             //sd_root.increaseUpdateTimeOnePeriod();
             //}
@@ -1372,7 +1385,8 @@ namespace AR {
                 //if (time_>=sdi->slowdown.getUpdateTime()) {
                 sdi->calcCenterOfMass();
                 calcSlowDownInnerBinary(*sdi);
-                sdi->slowdown.increaseUpdateTimeOnePeriod();
+                if (sdi->stab>=1.0) sdi->setSlowDownFactor(1.0);
+                //sdi->slowdown.increaseUpdateTimeOnePeriod();
                 modified_flag=true;
                 //}
             }    
@@ -2131,8 +2145,7 @@ namespace AR {
                                 }
                                 else { // if not merger, update step
                                     auto& G = manager->interaction.gravitational_constant;
-                                    if (bin_interrupt.adr->semi>0) info.ds = std::min(info.ds, info.calcDsElliptic(*bin_interrupt.adr, G));
-                                    else info.ds = std::min(info.ds, info.calcDsHyperbolic(*bin_interrupt.adr, G));
+                                    info.ds = info.calcDsKeplerBinaryTree(*bin_interrupt.adr, manager->step.getOrder(), G);
                                     if (ds_init!=info.ds) {
 #ifdef AR_DEBUG_PRINT
                                         std::cerr<<"Change ds after interruption: ds(init): "<<ds_init<<" ds(new): "<<info.ds<<" ds(now): "<<ds[0]<<std::endl;
@@ -2159,7 +2172,7 @@ namespace AR {
 
                     // update slowdown and correct slowdown energy and gt_inv
 #if (defined AR_SLOWDOWN_ARRAY) || (defined AR_SLOWDOWN_TREE)
-                    if (!time_end_flag) updateSlowDownAndCorrectEnergy(true, step_count==0);
+                    if (!time_end_flag) updateSlowDownAndCorrectEnergy(true, true);
 #endif
 
                     int bk_return_size = backupIntData(backup_data);
