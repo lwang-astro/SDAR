@@ -1267,9 +1267,10 @@ namespace AR {
             sd_root.timescale = std::min(sd_root.getTimescaleMax(), sqrt(t_min_sq));
 
             if (_stable_check_flag) {
-                // check whether the system is stable for 10000 out period
+                // check whether the system is stable for 10000 out period and the apo-center is below break criterion
                 Float stab = bin_root.stableCheckIter(bin_root,10000*bin_root.period);
-                if (stab<1.0) {
+                Float apo = bin_root.semi*(1+bin_root.ecc);
+                if (stab<1.0 && apo<info.r_break_crit) {
                     sd_root.period = bin_root.period;
                     sd_root.calcSlowDownFactor();
                 }

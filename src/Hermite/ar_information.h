@@ -37,16 +37,14 @@ namespace H4{
 
     public:
         Float dt_limit;       ///> hermite time step limit for this group
-        Float r_break_crit;    // group break radius criterion
         COMM::List<int> particle_index; // particle index in original array (Hermite particles)
 
-        ARInformation(): ARInfoBase(), dt_limit(NUMERIC_FLOAT_MAX), r_break_crit(-1.0), particle_index() {}
+        ARInformation(): ARInfoBase(), dt_limit(NUMERIC_FLOAT_MAX), particle_index() {}
 
         //! check whether parameters values are correct
         /*! \return true: all correct
          */
         bool checkParams() {
-            ASSERT(r_break_crit>=0.0);
             return true;
         }        
 
@@ -57,8 +55,7 @@ namespace H4{
         */
         void printColumnTitle(std::ostream & _fout, const int _width=20) {
             ARInfoBase::printColumnTitle(_fout, _width);
-            _fout<<std::setw(_width)<<"dt_limit"
-                 <<std::setw(_width)<<"r_break_crit";
+            _fout<<std::setw(_width)<<"dt_limit";
         }
 
         //! print data of class members using column style
@@ -68,8 +65,7 @@ namespace H4{
         */
         void printColumn(std::ostream & _fout, const int _width=20){
             ARInfoBase::printColumn(_fout, _width);
-            _fout<<std::setw(_width)<<dt_limit
-                 <<std::setw(_width)<<r_break_crit;
+            _fout<<std::setw(_width)<<dt_limit;
         }
 
     
@@ -83,7 +79,6 @@ namespace H4{
         void clear() {
             ARInfoBase::clear();
             dt_limit = NUMERIC_FLOAT_MAX;
-            r_break_crit=-1.0;
             particle_index.clear();
         }
 

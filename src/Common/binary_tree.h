@@ -138,11 +138,20 @@ namespace COMM{
             // eccentric anomaly
             //Float sin_ecca = _bin.r*sin(true_anomaly) / (_bin.semi*sqrt(1.0 - _bin.ecc*_bin.ecc));
             //Float cos_ecca = (_bin.r*cos(true_anomaly) / _bin.semi) + _bin.ecc;
-            _bin.ecca = atan2(sin(true_anomaly)*sqrt(fabs(1.0 - _bin.ecc*_bin.ecc)), _bin.ecc+ cos(true_anomaly));  
-            Float mean_motion = sqrt(Gm_tot/(fabs(_bin.semi*_bin.semi*_bin.semi))); 
-            _bin.period = 2*PI/mean_motion;
-            Float mean_anomaly = _bin.ecca - _bin.ecc*sin(_bin.ecca); 
-            _bin.t_peri = mean_anomaly / mean_motion; 
+            if (_bin.semi>0) {
+                _bin.ecca = atan2(sin(true_anomaly)*sqrt(1.0 - _bin.ecc*_bin.ecc), _bin.ecc+ cos(true_anomaly));  
+                Float mean_motion = sqrt(Gm_tot/(_bin.semi*_bin.semi*_bin.semi)); 
+                _bin.period = 2*PI/mean_motion;
+                Float mean_anomaly = _bin.ecca - _bin.ecc*sin(_bin.ecca); 
+                _bin.t_peri = mean_anomaly / mean_motion; 
+            }
+            else {
+                _bin.ecca = atanh(sin(true_anomaly)*sqrt(_bin.ecc*_bin.ecc-1)/(_bin.ecc+ cos(true_anomaly)));  
+                Float mean_motion = sqrt(Gm_tot/(-_bin.semi*_bin.semi*_bin.semi)); 
+                _bin.period = 2*PI/mean_motion;
+                Float mean_anomaly = _bin.ecc*sinh(_bin.ecca) - _bin.ecca;
+                _bin.t_peri = mean_anomaly / mean_motion; 
+            }
         }
 
         //! from period calculate semi-major axis

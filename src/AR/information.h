@@ -90,6 +90,7 @@ namespace AR {
     public:
         Float ds;  ///> initial step size for integration
         Float time_offset; ///> offset of time to obtain real physical time (real time = TimeTransformedSymplecticIntegrator:time_ + info.time_offset)
+        Float r_break_crit;    // group break radius criterion
         FixStepOption fix_step_option; ///> fix step option for integration
         COMM::List<BinaryTree<Tparticle>> binarytree; ///> a list of binary tree that contain the hierarchical orbital parameters of the particle group.
 #ifdef AR_DEBUG_DUMP
@@ -97,7 +98,7 @@ namespace AR {
 #endif
 
         //! initializer, set ds to zero, fix_step_option to none
-        Information(): ds(Float(0.0)), time_offset(0.0), fix_step_option(AR::FixStepOption::none), binarytree() {
+        Information(): ds(Float(0.0)), time_offset(0.0), r_break_crit(-1.0), fix_step_option(AR::FixStepOption::none), binarytree() {
 #ifdef AR_DEBUG_DUMP
             dump_flag = false;
 #endif
@@ -107,6 +108,7 @@ namespace AR {
         /*! \return true: all correct
          */
         bool checkParams() {
+            ASSERT(r_break_crit>=0.0);
             ASSERT(binarytree.getSize()>0);
             return true;
         }
@@ -290,6 +292,7 @@ namespace AR {
         void clear() {
             ds=0.0;
             time_offset = 0.0;
+            r_break_crit=-1.0;
             fix_step_option = FixStepOption::none;
             binarytree.clear();
 #ifdef AR_DEBUG_DUMP
@@ -305,6 +308,7 @@ namespace AR {
         void printColumnTitle(std::ostream & _fout, const int _width=20) {
             _fout<<std::setw(_width)<<"ds";
             _fout<<std::setw(_width)<<"Time_offset";
+            _fout<<std::setw(_width)<<"r_break_crit";
         }
 
         //! print data of class members using column style
@@ -315,6 +319,7 @@ namespace AR {
         void printColumn(std::ostream & _fout, const int _width=20){
             _fout<<std::setw(_width)<<ds;
             _fout<<std::setw(_width)<<time_offset;
+            _fout<<std::setw(_width)<<r_break_crit;
         }
 
         //! write class data to file with binary format
@@ -323,6 +328,7 @@ namespace AR {
         void writeBinary(FILE *_fout) const {
             fwrite(&ds, sizeof(int),1,_fout);
             fwrite(&time_offset, sizeof(Float),1,_fout);
+            fwrite(&r_break_crit, sizeof(Float),1,_fout);
             fwrite(&fix_step_option, sizeof(FixStepOption),1,_fout);
         }
 
@@ -336,6 +342,11 @@ namespace AR {
                 abort();
             }
             rcount = fread(&time_offset, sizeof(Float),1,_fin);
+            if (rcount<1) {
+                std::cerr<<"Error: Data reading fails! requiring data number is 1, only obtain "<<rcount<<".\n";
+                abort();
+            }
+            rcount = fread(&r_break_crit, sizeof(Float),1,_fin);
             if (rcount<1) {
                 std::cerr<<"Error: Data reading fails! requiring data number is 1, only obtain "<<rcount<<".\n";
                 abort();

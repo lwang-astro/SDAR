@@ -945,6 +945,36 @@ namespace H4{
             }
         }
 
+        //! reduce one group cm step by half and sort index dt group 
+        void reduceGroupCMStepByHalfAndSortDtIndex(const int _index) {
+            int i = _index;
+            int k = index_dt_sorted_group_[i];
+            
+            auto& pcm = groups[k].particles.cm;
+            // reduce step size to get one more step
+            pcm.dt *= 0.5;
+            time_next_[k+index_offset_group_] = pcm.time + pcm.dt;
+            if (_index>0) {
+                int kp = index_dt_sorted_group_[i-1];
+                while (time_next_[k+index_offset_group_]<time_next_[kp+index_offset_group_]) {
+                    // swap index
+                    int tmp=index_dt_sorted_group_[i-1];
+                    index_dt_sorted_group_[i-1] = index_dt_sorted_group_[i];
+                    index_dt_sorted_group_[i] = tmp;
+
+                    // update i to the new position of k
+                    i--;
+                    if (i==0) break; // if moved to the begining, break
+                    else kp = index_dt_sorted_group_[i-1];
+                }
+            }
+            time_next_min_ = std::min(time_next_min_, time_next_[k+index_offset_group_]);
+
+            // in case the particle move to the boundary of act group, increase n_act_group by one
+            if (_index>=n_act_group_ && i<=n_act_group_ && n_act_group_<index_dt_sorted_group_.getSize()) n_act_group_++;
+        }
+        
+
         //! update time next 
         /*! update time_next array for a list of particles
           @param[in] _index_single: active particle index for singles
@@ -1538,12 +1568,25 @@ namespace H4{
                         // check whether next step the separation is larger than distance criterion
                         // Not sure whether it can work correctly or not:
                         // rp = v_r * dt + r
-                        Float rp = drdv/bin_root.r*groups[k].particles.cm.dt + bin_root.r;
+                        Float dr = drdv/bin_root.r*groups[k].particles.cm.dt;
+                        Float rp =  dr + bin_root.r;
                         if (rp >groupk.info.r_break_crit) {
+                            // in case r is too small, avoid too early quit of group
+                            Float rph = 0.5*dr + bin_root.r;
+                            if ( rph < groupk.info.r_break_crit && bin_root.r <0.2*groupk.info.r_break_crit) {
+                                if (getNextTime()>time_+groups[k].particles.cm.dt) {
 #ifdef ADJUST_GROUP_DEBUG
-                            std::cerr<<"Break group: binary will escape, i_group: "<<k<<" N_member: "<<n_member<<" ecca: "<<bin_root.ecca<<" separation : "<<bin_root.r<<" apo: "<<apo<<" r_pred: "<<rp<<" drdv: "<<drdv<<" dt: "<<groups[k].particles.cm.dt<<" r_crit: "<<groupk.info.r_break_crit<<std::endl;
+                                    std::cerr<<"Binary will escape but dr is too small, reduce cm step by half, time: "<<time_<<" i_group: "<<k<<" N_member: "<<n_member<<" ecca: "<<bin_root.ecca<<" separation : "<<bin_root.r<<" apo: "<<apo<<" r_pred: "<<rp<<" drdv: "<<drdv<<" dt: "<<groups[k].particles.cm.dt<<" r_crit: "<<groupk.info.r_break_crit<<std::endl;
 #endif
-                            _break_group_index_with_offset[_n_break++] = k + index_offset_group_;
+                                    reduceGroupCMStepByHalfAndSortDtIndex(i);
+                                }
+                            }
+                            else {
+#ifdef ADJUST_GROUP_DEBUG
+                                std::cerr<<"Break group: binary will escape, time: "<<time_<<" i_group: "<<k<<" N_member: "<<n_member<<" ecca: "<<bin_root.ecca<<" separation : "<<bin_root.r<<" apo: "<<apo<<" r_pred: "<<rp<<" drdv: "<<drdv<<" dt: "<<groups[k].particles.cm.dt<<" r_crit: "<<groupk.info.r_break_crit<<std::endl;
+#endif
+                                _break_group_index_with_offset[_n_break++] = k + index_offset_group_;
+                            }
                             continue;
                         }
                     }
@@ -1566,12 +1609,25 @@ namespace H4{
                             continue;
                         }
                         // check for next step
-                        Float rp = drdv/bin_root.r*groups[k].particles.cm.dt + bin_root.r;
+                        Float dr = drdv/bin_root.r*groups[k].particles.cm.dt;
+                        Float rp = dr  + bin_root.r;
                         if (rp > groupk.info.r_break_crit) {
+                            // in case r is too small, avoid too early quit of group
+                            Float rph = 0.5*dr + bin_root.r;
+                            if ( rph < groupk.info.r_break_crit && bin_root.r <0.2*groupk.info.r_break_crit) {
+                                if (getNextTime()>time_+groups[k].particles.cm.dt) {
 #ifdef ADJUST_GROUP_DEBUG
-                            std::cerr<<"Break group: hyperbolic will escape, time: "<<time_<<" i_group: "<<k<<" N_member: "<<n_member<<" drdv: "<<drdv<<" separation : "<<bin_root.r<<" r_pred: "<<rp<<" drdv: "<<drdv<<" dt: "<<groups[k].particles.cm.dt<<" r_crit: "<<groupk.info.r_break_crit<<std::endl;
+                                    std::cerr<<"Hyperbolic will escape but dr is too small, reduce cm step by half first, time: "<<time_<<" i_group: "<<k<<" N_member: "<<n_member<<" drdv: "<<drdv<<" separation : "<<bin_root.r<<" r_pred: "<<rp<<" drdv: "<<drdv<<" dt: "<<groups[k].particles.cm.dt<<" r_crit: "<<groupk.info.r_break_crit<<std::endl;
 #endif
-                            _break_group_index_with_offset[_n_break++] = k + index_offset_group_;
+                                    reduceGroupCMStepByHalfAndSortDtIndex(i);
+                                }
+                            }
+                            else {
+#ifdef ADJUST_GROUP_DEBUG
+                                std::cerr<<"Break group: hyperbolic will escape, time: "<<time_<<" i_group: "<<k<<" N_member: "<<n_member<<" drdv: "<<drdv<<" separation : "<<bin_root.r<<" r_pred: "<<rp<<" drdv: "<<drdv<<" dt: "<<groups[k].particles.cm.dt<<" r_crit: "<<groupk.info.r_break_crit<<std::endl;
+#endif
+                                _break_group_index_with_offset[_n_break++] = k + index_offset_group_;
+                            }
                             continue;
                         }
                     }
@@ -2138,7 +2194,7 @@ namespace H4{
                 group_ptr[k].info.dt_limit = manager->step.getDtMax();
                 // in the case of wide binary, make sure the next time step not exceed r_in
                 auto& bin_root = group_ptr[k].info.getBinaryTreeRoot();
-                if (bin_root.semi*(1.0+bin_root.ecc)>group_ptr[k].info.r_break_crit) {
+                if (bin_root.semi*(1.0+bin_root.ecc)>group_ptr[k].info.r_break_crit||bin_root.semi<0) {
                     // ecca <0 indicate binary go to peri-center, ecca=0.0 indicate peri-center, 0-t_peri indicate the time to peri-center
                     // In the initial step, ecca can >0.0 
                     // get boundary position ecca
@@ -2147,7 +2203,7 @@ namespace H4{
                     Float kappa = bin_root.slowdown.getSlowDownFactor();
                     // get cross boundary position timescale (half the time to peri-center from boundary), notice slowdown factor should be included
                     // the integrated orbital phase is slow-down by kappa
-                    Float t_peri = 0.25*abs(mean_anomaly/12.5663706144*bin_root.period)*kappa;
+                    Float t_peri = 0.5*abs(mean_anomaly/12.5663706144*bin_root.period)*kappa;
                     Float dt_limit = group_ptr[k].info.dt_limit;
                     while(dt_limit > t_peri) dt_limit *= 0.5;
                     group_ptr[k].info.dt_limit = dt_limit;
@@ -2316,6 +2372,7 @@ namespace H4{
                     index_dt_sorted_group_[i] = interrupt_index_group_list[i];
                 }
                 n_act_group_  += n_interrupt_change_dt;
+                n_act_group_ = std::min(n_act_group_, n_group_tot);
 
 #ifdef HERMITE_DEBUG
                 // check whether the new list is consistent with table_group_mask_ 
