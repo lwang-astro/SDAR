@@ -341,7 +341,10 @@ int main(int argc, char **argv){
                 std::cerr<<" Change";
                 break;
             case AR::InterruptStatus::merge:
-                std::cerr<<" merge";
+                std::cerr<<" Merge";
+                break;
+            case AR::InterruptStatus::destroy:
+                std::cerr<<" Destroy";
                 break;
             case AR::InterruptStatus::none:
                 break;

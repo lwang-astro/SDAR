@@ -92,9 +92,16 @@ namespace AR {
         Float time_offset; ///> offset of time to obtain real physical time (real time = TimeTransformedSymplecticIntegrator:time_ + info.time_offset)
         FixStepOption fix_step_option; ///> fix step option for integration
         COMM::List<BinaryTree<Tparticle>> binarytree; ///> a list of binary tree that contain the hierarchical orbital parameters of the particle group.
+#ifdef AR_DEBUG_DUMP
+        bool dump_flag; ///> for debuging dump
+#endif
 
         //! initializer, set ds to zero, fix_step_option to none
-        Information(): ds(Float(0.0)), time_offset(0.0), fix_step_option(AR::FixStepOption::none), binarytree() {}
+        Information(): ds(Float(0.0)), time_offset(0.0), fix_step_option(AR::FixStepOption::none), binarytree() {
+#ifdef AR_DEBUG_DUMP
+            dump_flag = false;
+#endif
+        }
 
         //! check whether parameters values are correct initialized
         /*! \return true: all correct
@@ -133,7 +140,7 @@ namespace AR {
             // perturbation ratio
             Float pert_ratio = (_bin.slowdown.pert_out>0&&_bin.slowdown.pert_in>0)? _bin.slowdown.pert_in/_bin.slowdown.pert_out: 1.0;
             // scale step based on perturbation and sym method order
-            Float scale_factor = std::min(Float(1.0),std::pow(1e-1*pert_ratio,1.0/Float(_intergrator_order)));
+            Float scale_factor = std::min(Float(1.0),pow(1e-1*pert_ratio,1.0/Float(_intergrator_order)));
             for (int k=0; k<2; k++) {
                 if (_bin.isMemberTree(k)) {
                     calcDsMinKeplerIter(_ds_over_ebin_min_bin, _ds_min_bin, _ds_min_hyp, _etot_sd, _G, nest_sd, *_bin.getMemberAsTree(k), _intergrator_order);
@@ -153,7 +160,7 @@ namespace AR {
             }
             else {
                 Float dsi = calcDsHyperbolic(_bin, _G);
-                //Float factor = std::min(Float(1.0), std::pow(nest_sd_org,Float(1.0/3.0)));
+                //Float factor = std::min(Float(1.0), pow(nest_sd_org,Float(1.0/3.0)));
                 _ds_min_hyp = std::min(dsi, _ds_min_hyp);
             }
         }
@@ -285,6 +292,9 @@ namespace AR {
             time_offset = 0.0;
             fix_step_option = FixStepOption::none;
             binarytree.clear();
+#ifdef AR_DEBUG_DUMP
+            dump_flag=false;
+#endif
         }
 
         //! print titles of class members using column style

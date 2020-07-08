@@ -364,6 +364,9 @@ int main(int argc, char **argv){
                 case InterruptStatus::merge:
                     std::cerr<<" merge";
                     break;
+                case InterruptStatus::destroy:
+                    std::cerr<<" Destroy";
+                    break;
                 case InterruptStatus::none:
                     break;
                 }

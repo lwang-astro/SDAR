@@ -1368,7 +1368,7 @@ namespace AR {
                 }
                 else sd_root.setSlowDownFactor(1.0);
             }
-            else if (sd_root.semi>0) {
+            else if (bin_root.semi>0) {
                 sd_root.period = bin_root.period;
                 sd_root.calcSlowDownFactor();
             }
@@ -1385,7 +1385,7 @@ namespace AR {
                 //if (time_>=sdi->slowdown.getUpdateTime()) {
                 sdi->calcCenterOfMass();
                 calcSlowDownInnerBinary(*sdi);
-                if (sdi->stab>=1.0) sdi->setSlowDownFactor(1.0);
+                if (sdi->stab>=1.0) sdi->slowdown.setSlowDownFactor(1.0);
                 //sdi->slowdown.increaseUpdateTimeOnePeriod();
                 modified_flag=true;
                 //}
@@ -2318,7 +2318,10 @@ namespace AR {
                         printColumn(std::cerr,20,info.binarytree.getSize());
                         std::cerr<<std::endl;
 #ifdef AR_DEBUG_DUMP
-                        DATADUMP("dump_large_step");
+                        if (!info.dump_flag) {
+                            DATADUMP("dump_large_step");
+                            info.dump_flag=true;
+                        }
 #endif
                     }
                 }
@@ -2331,9 +2334,12 @@ namespace AR {
                     std::cerr<<std::endl;
                     printColumn(std::cerr,20,info.binarytree.getSize());
                     std::cerr<<std::endl;
-#ifdef AR_DEBUG_DUMP
 //                    restoreIntData(backup_data_init);
-                    DATADUMP("dump_large_step");
+#ifdef AR_DEBUG_DUMP
+                    if (!info.dump_flag) {
+                        DATADUMP("dump_large_step");
+                        info.dump_flag=true;
+                    }
 #endif
                     abort();
                 }

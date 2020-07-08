@@ -1332,7 +1332,8 @@ namespace H4{
 #ifdef ADJUST_GROUP_DEBUG
                 auto& sd_root = groupi.info.getBinaryTreeRoot().slowdown;
                 std::cerr<<"Break Group:  "
-                         <<" k:"<<std::setw(2)<<i
+                         <<" Time: "<<time_
+                         <<" k: "<<std::setw(2)<<i
                          <<" N_member: "<<std::setw(4)<<groupi.particles.getSize()
                          <<" step: "<<std::setw(12)<<groupi.profile.step_count_sum
                          <<" step(tsyn): "<<std::setw(10)<<groupi.profile.step_count_tsyn_sum
@@ -2146,7 +2147,7 @@ namespace H4{
                     Float kappa = bin_root.slowdown.getSlowDownFactor();
                     // get cross boundary position timescale (half the time to peri-center from boundary), notice slowdown factor should be included
                     // the integrated orbital phase is slow-down by kappa
-                    Float t_peri = abs(mean_anomaly/12.5663706144*bin_root.period)*kappa;
+                    Float t_peri = 0.25*abs(mean_anomaly/12.5663706144*bin_root.period)*kappa;
                     Float dt_limit = group_ptr[k].info.dt_limit;
                     while(dt_limit > t_peri) dt_limit *= 0.5;
                     group_ptr[k].info.dt_limit = dt_limit;
