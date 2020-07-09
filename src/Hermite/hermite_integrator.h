@@ -1679,6 +1679,7 @@ namespace H4{
                             }
                         }
                     }
+#if (!defined AR_SLOWDOWN_ARRAY) && (!defined AR_SLOWDOWN_TREE)
                     // check few-body inner perturbation (suppress when use slowdown inner AR)
                     else {
                         for (int j=0; j<2; j++) {
@@ -1738,6 +1739,7 @@ namespace H4{
                             }
                         }
                     }
+#endif
                 }
             }
         }
