@@ -2696,7 +2696,49 @@ namespace H4{
          */
         void calcEnergySlowDown(const bool _initial_flag = false) {
             writeBackGroupMembers();
-            manager->interaction.calcEnergy(energy_, particles.getDataAddress(), particles.getSize(), groups.getDataAddress(), index_dt_sorted_group_.getDataAddress(), index_dt_sorted_group_.getSize(), perturber);
+            // use a tempare array instead of modify pred_. As a good design, the function of calc energy should not influence integration.
+            Tparticle ptmp[particles.getSize()];
+            const auto* ptcl = particles.getDataAddress();
+            const auto* pred = pred_.getDataAddress();
+
+            // in single case, if particle time is not the current time, used predicted particle
+            const int n_single = index_dt_sorted_single_.getSize();
+            for (int k=0; k<n_single; k++){
+                const int i = index_dt_sorted_single_[k];
+                if (ptcl[i].time == time_) ptmp[i] = ptcl[i];
+                else ptmp[i] = pred[i];
+            }
+
+            // in binary case, if c.m. is not up to date, correct member pos and vel
+            const int n_group = index_dt_sorted_group_.getSize();
+            ASSERT(n_group <= groups.getSize());
+            auto* group_ptr = groups.getDataAddress();
+            for (int k=0; k<n_group; k++) {
+                const int i = index_dt_sorted_group_[k];
+                const auto& groupi = group_ptr[i];
+                const auto& pcm = groupi.particles.cm;
+                auto& predcm = pred[i+index_offset_group_];
+
+                const int n_member = groupi.particles.getSize();
+                for (int j=0; j<n_member; j++) {
+                    const int kj = groupi.info.particle_index[j];
+                    ASSERT(kj<particles.getSize());
+                    ptmp[kj] = ptcl[kj];
+                    // if not up to date, add difference of predicted and current cm pos and vel to predicted members 
+                    if (pcm.time < time_ ) {
+                        ptmp[kj].pos[0] += predcm.pos[0] - pcm.pos[0];
+                        ptmp[kj].pos[1] += predcm.pos[1] - pcm.pos[1];
+                        ptmp[kj].pos[2] += predcm.pos[2] - pcm.pos[2];
+                        ptmp[kj].vel[0] += predcm.vel[0] - pcm.vel[0];
+                        ptmp[kj].vel[1] += predcm.vel[1] - pcm.vel[1];
+                        ptmp[kj].vel[2] += predcm.vel[2] - pcm.vel[2];
+                    }
+                }
+            }            
+
+            // since a part of particles are not up to date, used predict particles to calculate energy, 
+            // notice pred_.size is larger than particles.size because group c.m. is in pred_.
+            manager->interaction.calcEnergy(energy_, ptmp, particles.getSize(), groups.getDataAddress(), index_dt_sorted_group_.getDataAddress(), index_dt_sorted_group_.getSize(), perturber);
             accumDESlowDownChange();
             // slowdown energy
             energy_sd_.ekin = energy_.ekin;
