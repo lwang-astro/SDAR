@@ -1506,7 +1506,7 @@ namespace H4{
             const int n_merger = index_group_merger_.getSize();
             for (int i=0; i<n_merger; i++) {
                 const int k = index_group_merger_[i];
-                ASSERT(k<n_group_tot);
+                ASSERT(k<groups.getSize());
                 ASSERT(table_group_mask_[k]==false);
                 auto& groupk = groups[k];
 #ifdef ADJUST_GROUP_DEBUG

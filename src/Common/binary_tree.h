@@ -200,6 +200,15 @@ namespace COMM{
             _ecc = sqrt(p*p + _rv*_rv/_semi/Gm_tot);
         }
 
+        //! calcualte semi, ecc and period
+        template <class Tpi, class Tpj>
+        void particleToSemiEccPeriod(const Tpi& _p1, const Tpj& _p2, const Float _G) {
+            Float r,rv;
+            particleToSemiEcc(semi, ecc, r, rv, _p1, _p2, _G);
+            Float mtot=m1+m2;
+            period = semiToPeriod(semi, mtot, _G);
+        }
+
         //! calculate eccentric anomaly from separation (0-pi)
         Float calcEccAnomaly(const Float _r) {
             if (semi>0) {
@@ -535,21 +544,27 @@ namespace COMM{
                     BinaryTreeLocal* bin_in = _bin.getMemberAsTree(k);
                     _bin.stab = std::max(_bin.stab,stableCheckIter(*bin_in, _t_crit));
                     if (_bin.stab<1.0) {
-                    
-                        Float incline=acos(std::min(Float(1.0), _bin.am*bin_in->am/sqrt((_bin.am*_bin.am)*(bin_in->am*bin_in->am))));
-                    
-                        Float fac = 1.0 - 2.0*bin_in->ecc/3.0 * (1.0 - 0.5*bin_in->ecc*bin_in->ecc) 
-                            - 0.3*cos(incline)*(1.0 - 0.5*bin_in->ecc + 2.0*cos(incline)*(1.0 - 2.5*pow(bin_in->ecc,1.5) - cos(incline)));
+                        // if zero mass exist, set unstable
+                        if (_bin.getMember(1-k)->mass ==0.0) {
+                            _bin.stab = std::max(_bin.stab, 1000.0);
+                        }
+                        else {
 
-                        Float min = bin_in->mass;
-                        Float g = sqrt(std::max(bin_in->m1,bin_in->m2) /min)*(1.0 + mout/min);
+                            Float incline=acos(std::min(Float(1.0), _bin.am*bin_in->am/sqrt((_bin.am*_bin.am)*(bin_in->am*bin_in->am))));
+                    
+                            Float fac = 1.0 - 2.0*bin_in->ecc/3.0 * (1.0 - 0.5*bin_in->ecc*bin_in->ecc) 
+                                - 0.3*cos(incline)*(1.0 - 0.5*bin_in->ecc + 2.0*cos(incline)*(1.0 - 2.5*pow(bin_in->ecc,1.5) - cos(incline)));
+
+                            Float min = bin_in->mass;
+                            Float g = sqrt(std::max(bin_in->m1,bin_in->m2) /min)*(1.0 + mout/min);
     
-                        Float q = 1.52*pow(sqrt(_t_crit/_bin.period)/(1.0 - _bin.ecc),1.0/6.0)*pow(fac*g,1.0/3.0);
+                            Float q = 1.52*pow(sqrt(_t_crit/_bin.period)/(1.0 - _bin.ecc),1.0/6.0)*pow(fac*g,1.0/3.0);
 
-                        Float peri_out = _bin.semi * (_bin.ecc + 1.0);
-                        Float rp = peri_out/bin_in->semi;
+                            Float peri_out = _bin.semi * (_bin.ecc + 1.0);
+                            Float rp = peri_out/bin_in->semi;
                     
-                        _bin.stab = std::max(_bin.stab, q/rp);
+                            _bin.stab = std::max(_bin.stab, q/rp);
+                        }
                     }
                 }
             }
@@ -664,6 +679,11 @@ namespace COMM{
             this->vel[0] /=this->mass;
             this->vel[1] /=this->mass;
             this->vel[2] /=this->mass;
+        }
+
+        //! calculate Kepler orbit semi, ecc and period only
+        void calcSemiEccPeriod(const Float& _G) {
+            Tbinary::particleToSemiEccPeriod(*member[0], *member[1], _G);
         }
 
         //! calculate Kepler orbit from members

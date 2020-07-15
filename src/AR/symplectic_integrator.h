@@ -1193,7 +1193,7 @@ namespace AR {
             _bin.vel[2] *= mcm_inv;
         }
 
-        //! update slowdown velocity iteration function with binary tree
+        //! update binary cm iteratively
         void updateBinaryCMIter(AR::BinaryTree<Tparticle>& _bin) {
             _bin.pos[0]= _bin.pos[1] = _bin.pos[2] = 0.0;
             _bin.vel[0]= _bin.vel[1] = _bin.vel[2] = 0.0;
@@ -1240,6 +1240,23 @@ namespace AR {
                     setBinaryCMZeroIter(*bink);
                 }
             }
+        }
+
+        //! update binary semi, ecc and period iteratively after 0.25 period for unstable systems
+        bool updateBinarySemiEccPeriodIter(AR::BinaryTree<Tparticle>& _bin, const Float& _G, const Float _time) {
+            bool check=false;
+            for (int k=0; k<2; k++) {
+                if (_bin.isMemberTree(k)) {
+                    auto* bink = _bin.getMemberAsTree(k);
+                    check=updateBinarySemiEccPeriodIter(*bink, _G, _time);
+                }
+            }
+            if ((_time>_bin.stab_check_time&&_bin.stab>1.0&&_bin.m1>0.0&&_bin.m2>0.0)||check) {
+                _bin.calcSemiEccPeriod(_G);
+                _bin.stab_check_time = _time + _bin.period;
+                return true;
+            }
+            return false;
         }
             
     public:
@@ -1967,13 +1984,21 @@ namespace AR {
             if (n_particle >2) findSlowDownInner(time_);
 #endif
 #endif
+
+            // reset binary stab_check_time
+            for (int i=0; i<info.binarytree.getSize(); i++)
+                info.binarytree[i].stab_check_time = time_;
+
             // integration loop
             while(true) {
                 // backup data
+                bool binary_update_flag=false;
+                auto& bin_root = info.getBinaryTreeRoot();
+                auto& G = manager->interaction.gravitational_constant;
+                
                 if(backup_flag) {
                     // check interrupt condiction, ensure that time end not reach
                     if (manager->interrupt_detection_option>0 && !time_end_flag) {
-                        auto& bin_root = info.getBinaryTreeRoot();
                         bin_interrupt.time_now = time_ + info.time_offset;
                         // calc perturbation energy
                         Float epert=0.0;
@@ -2000,6 +2025,11 @@ namespace AR {
                                 // check whether destroy appears (all masses becomes zero)
                                 if (bin_interrupt.status==InterruptStatus::destroy) {
                                     // all particles become zero masses
+#ifdef AR_DEBUG
+                                    for (int j=0; j<n_particle; j++) {
+                                        ASSERT(particles[j].mass==0.0);
+                                    }
+#endif
                                     de_change_interrupt_ -= etot_ref_;
                                     dH_change_interrupt_ -= getH();
                                     ekin_ = epot_ = etot_ref_ = 0.0;
@@ -2050,6 +2080,10 @@ namespace AR {
                                 
                                 // update binary tree mass
                                 updateBinaryCMIter(bin_root);
+                                updateBinarySemiEccPeriodIter(bin_root, G, time_);
+                                binary_update_flag = true;
+                                //bool stable_check=
+                                //if (stable_check) bin_root.stableCheckIter(bin_root, 10000*bin_root.period);
                                 
                                 // should do later, original mass still needed
                                 //particles.cm.mass += bin_interrupt.dm;
@@ -2117,40 +2151,45 @@ namespace AR {
 
                                 // check merger case
                                 if (bin_interrupt.status==InterruptStatus::merge) {
-                                    if (n_particle==2) {
-                                        ASSERT(!bin_interrupt.adr->isMemberTree(0));
-                                        ASSERT(!bin_interrupt.adr->isMemberTree(1));
-                                        Tparticle* p1 = bin_interrupt.adr->getLeftMember();
-                                        Tparticle* p2 = bin_interrupt.adr->getRightMember();
-
-                                        Tparticle* p = NULL;
-                                        if (p1->mass==0.0) p=p2;
-                                        else if (p2->mass==0.0) p=p1;
-                                        if (p!=NULL){
-                                            Float dt = _time_end - time_;
-                                            p->pos[0] += dt * p->vel[0];
-                                            p->pos[1] += dt * p->vel[1];
-                                            p->pos[2] += dt * p->vel[2];
-
-                                            // cumulative step count 
-                                            profile.step_count = step_count;
-                                            profile.step_count_tsyn = step_count_tsyn;
-                                            profile.step_count_sum += step_count;
-                                            profile.step_count_tsyn_sum += step_count_tsyn;
-
-                                            time_ += dt;
-
-                                            return bin_interrupt;
+                                    // count particle having mass
+                                    int count_mass=0;
+                                    int index_mass_last=-1;
+                                    for (int j=0; j<n_particle; j++) {
+                                        if (particles[j].mass>0.0) {
+                                            count_mass++;
+                                            index_mass_last=j;
                                         }
+                                    }
+                                    // only one particle has mass, drift directly
+                                    if (count_mass==1) {
+                                        ASSERT(index_mass_last<n_particle&&index_mass_last>=0);
+                                        auto& p = particles[index_mass_last];
+                                        Float dt = _time_end - time_;
+                                        p.pos[0] += dt * p.vel[0];
+                                        p.pos[1] += dt * p.vel[1];
+                                        p.pos[2] += dt * p.vel[2];
+
+                                        // cumulative step count 
+                                        profile.step_count = step_count;
+                                        profile.step_count_tsyn = step_count_tsyn;
+                                        profile.step_count_sum += step_count;
+                                        profile.step_count_tsyn_sum += step_count_tsyn;
+
+                                        time_ += dt;
+
+                                        return bin_interrupt;
+                                    }
+                                    else {
+                                        info.generateBinaryTree(particles, G);
                                     }
                                 }
                                 else { // if not merger, update step
-                                    auto& G = manager->interaction.gravitational_constant;
                                     info.ds = info.calcDsKeplerBinaryTree(*bin_interrupt.adr, manager->step.getOrder(), G);
                                     if (ds_init!=info.ds) {
 #ifdef AR_DEBUG_PRINT
                                         std::cerr<<"Change ds after interruption: ds(init): "<<ds_init<<" ds(new): "<<info.ds<<" ds(now): "<<ds[0]<<std::endl;
 #endif
+                                        ASSERT(info.ds>0);
                                         ds[0] = std::min(ds[0], info.ds);
                                         ds[1] = std::min(ds[1], info.ds);
                                         ds_backup.initial(info.ds);
@@ -2168,6 +2207,28 @@ namespace AR {
                                 else bin_interrupt_return = bin_interrupt;
                             }
                             bin_interrupt.clear();
+                        }
+                    }
+
+
+                    // update binary orbit if unstable
+                    if (!time_end_flag&&!binary_update_flag) {
+                        bool update_flag=updateBinarySemiEccPeriodIter(bin_root, G, time_);
+                        if (update_flag) {
+#ifdef AR_DEBUG_PRINT
+                            std::cerr<<"Update binary tree orbits, time= "<<time_<<"\n";
+#endif
+                            info.ds = info.calcDsKeplerBinaryTree(bin_root, manager->step.getOrder(), G);
+                            if (abs(ds_init-info.ds)/ds_init>0.1) {
+#ifdef AR_DEBUG_PRINT
+                                std::cerr<<"Change ds after update binary orbit: ds(init): "<<ds_init<<" ds(new): "<<info.ds<<" ds(now): "<<ds[0]<<std::endl;
+#endif
+                                ASSERT(info.ds>0);
+                                ds[0] = std::min(ds[0], info.ds);
+                                ds[1] = std::min(ds[1], info.ds);
+                                ds_backup.initial(info.ds);
+                                ds_init = info.ds;
+                            }
                         }
                     }
 
@@ -2314,16 +2375,51 @@ namespace AR {
                 if(step_count>=manager->step_count_max) {
                     if(step_count%manager->step_count_max==0) {
                         printMessage("Warning: step count is signficiant large");
-                        printColumnTitle(std::cerr,20,info.binarytree.getSize());
-                        std::cerr<<std::endl;
-                        printColumn(std::cerr,20,info.binarytree.getSize());
-                        std::cerr<<std::endl;
+                        for (int i=0; i<info.binarytree.getSize(); i++){
+                            auto& bin = info.binarytree[i];
+                            std::cerr<<"  Binary["<<i<<"]: "
+                                     <<"  i1="<<bin.getMemberIndex(0)
+                                     <<"  i2="<<bin.getMemberIndex(1)
+                                     <<"  m1="<<bin.m1
+                                     <<"  m2="<<bin.m2
+                                     <<"  semi= "<<bin.semi
+                                     <<"  ecc= "<<bin.ecc
+                                     <<"  period= "<<bin.period
+                                     <<"  stab= "<<bin.stab
+                                     <<"  SD= "<<bin.slowdown.getSlowDownFactor()
+                                     <<"  SD_org= "<<bin.slowdown.getSlowDownFactorOrigin()
+                                     <<"  Tscale= "<<bin.slowdown.timescale
+                                     <<"  pert_in= "<<bin.slowdown.pert_in
+                                     <<"  pert_out= "<<bin.slowdown.pert_out;
+                            std::cerr<<std::endl;
+                        }
+                        //printColumnTitle(std::cerr,20,info.binarytree.getSize());
+                        //std::cerr<<std::endl;
+                        //printColumn(std::cerr,20,info.binarytree.getSize());
+                        //std::cerr<<std::endl;
 #ifdef AR_DEBUG_DUMP
                         if (!info.dump_flag) {
                             DATADUMP("dump_large_step");
                             info.dump_flag=true;
                         }
 #endif
+
+//                        // increase step size if energy error is small, not works correctly, suppress
+//                        if(integration_error_rel_abs<energy_error_rel_max) {
+//                            Float integration_error_ratio = energy_error_rel_max/integration_error_rel_abs;
+//                            Float step_modify_factor = manager->step.calcStepModifyFactorFromErrorRatio(integration_error_ratio);
+//                            ASSERT(step_modify_factor>0.0);
+//                            ds[ds_switch] *= step_modify_factor;
+//                            info.ds = ds[ds_switch];
+//                            ds[1-ds_switch] = ds[ds_switch];
+//                            ds_backup.initial(info.ds);
+//                            ds_init = info.ds;
+//                            ASSERT(!ISINF(ds[ds_switch]));
+//#ifdef AR_DEBUG_PRINT
+//                            std::cerr<<"Energy error is small enough for increase step, integration_error_rel_abs="<<integration_error_rel_abs
+//                                     <<" energy_error_rel_max="<<energy_error_rel_max<<" step_modify_factor="<<step_modify_factor<<" new ds="<<ds[1-ds_switch]<<std::endl;
+//#endif
+//                        }
                     }
                 }
 #endif
@@ -2486,21 +2582,19 @@ namespace AR {
                             collectDsModifyInfo("Reuse_backup_ds");
 #endif
                         }
-                        // increase step size if energy error is small, not works correctly, suppress
-                        /*
-                        else if(integration_error_rel_abs<energy_error_rel_max_half_step&&integration_error_rel_abs>0.0) {
+                        // increase step size if energy error is small, not works correctly, integration error may not increase when ds becomes larger, then a very large ds may appear after several iterations. suppress
+                        else if(integration_error_rel_abs<0.5*energy_error_rel_max && dt>0.0 && dt_full/dt>std::max(100.0,0.02*manager->step_count_max)) {
                             Float integration_error_ratio = energy_error_rel_max/integration_error_rel_abs;
-                            Float step_modify_factor = manager->step.calcStepModifyFactorFromErrorRatio(integration_error_ratio);
+                            Float step_modify_factor = std::min(100.0,manager->step.calcStepModifyFactorFromErrorRatio(integration_error_ratio));
                             ASSERT(step_modify_factor>0.0);
                             ds[1-ds_switch] *= step_modify_factor;
                             info.ds = ds[1-ds_switch];
                             ASSERT(!ISINF(ds[1-ds_switch]));
-#ifdef AR_DEEP_DEBUG
-                            std::cerr<<"Energy error is small enought for increase step, integration_error_rel_abs="<<integration_error_rel_abs
+#ifdef AR_DEBUG_PRINT
+                            std::cerr<<"Energy error is small enough for increase step, integration_error_rel_abs="<<integration_error_rel_abs
                                      <<" energy_error_rel_max="<<energy_error_rel_max<<" step_modify_factor="<<step_modify_factor<<" new ds="<<ds[1-ds_switch]<<std::endl;
 #endif
                         }
-                        */
                     }
 
                     // time sychronization on case, when step size too small to reach time end, increase step size

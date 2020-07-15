@@ -9,6 +9,7 @@ namespace AR {
     class BinarySlowDown: public COMM::Binary {
     public:
         SlowDown slowdown;
+        Float stab_check_time;
 
         //! write class data to file with binary format
         /*! @param[in] _fp: FILE type file for output
@@ -148,22 +149,26 @@ namespace AR {
                     calcDsMinKeplerIter(_ds_over_ebin_min_bin, _ds_min_bin, _ds_min_hyp, _etot_sd, _G, nest_sd, *_bin.getMemberAsTree(k), _intergrator_order);
                 }
             }
-            if (_bin.semi>0) {
-                Float dsi = calcDsElliptic(_bin, _G);
-                // scale by /Ebin_sd
-                Float ebin_sd = _G*(_bin.m1*_bin.m2)/(2*_bin.semi*nest_sd);
-                ASSERT(dsi>0&&ebin_sd>0);
-                Float ds_over_ebin = dsi*scale_factor/ebin_sd;
-                if (ds_over_ebin<_ds_over_ebin_min_bin) {
-                    _ds_over_ebin_min_bin = ds_over_ebin;
-                    _ds_min_bin = dsi*scale_factor;
+            // zero mass cause ds=0
+            if (_bin.m1>0&&_bin.m2>0) {
+                if (_bin.semi>0) {
+                    Float dsi = calcDsElliptic(_bin, _G);
+                    // scale by /Ebin_sd
+                    Float ebin_sd = _G*(_bin.m1*_bin.m2)/(2*_bin.semi*nest_sd);
+                    ASSERT(dsi>0&&ebin_sd>0);
+                    Float ds_over_ebin = dsi*scale_factor/ebin_sd;
+                    if (ds_over_ebin<_ds_over_ebin_min_bin) {
+                        _ds_over_ebin_min_bin = ds_over_ebin;
+                        _ds_min_bin = dsi*scale_factor;
+                    }
+                    _etot_sd += ebin_sd;
                 }
-                _etot_sd += ebin_sd;
-            }
-            else {
-                Float dsi = calcDsHyperbolic(_bin, _G);
-                //Float factor = std::min(Float(1.0), pow(nest_sd_org,Float(1.0/3.0)));
-                _ds_min_hyp = std::min(dsi, _ds_min_hyp);
+                else {
+                    Float dsi = calcDsHyperbolic(_bin, _G);
+                    ASSERT(dsi>0);
+                    //Float factor = std::min(Float(1.0), pow(nest_sd_org,Float(1.0/3.0)));
+                    _ds_min_hyp = std::min(dsi, _ds_min_hyp);
+                }
             }
         }
 
@@ -171,16 +176,14 @@ namespace AR {
         /*! use calcDsMinKeplerIter
          */
         Float calcDsKeplerBinaryTree(BinaryTree<Tparticle>& _bin, const int _int_order, const Float& _G) {
-            Float ds_over_ebin_min=NUMERIC_FLOAT_MAX, ds_min_hyp=NUMERIC_FLOAT_MAX;
-            Float ds_min_bin=0;
+            Float ds_over_ebin_min=NUMERIC_FLOAT_MAX;
+            Float ds_min_hyp=NUMERIC_FLOAT_MAX;
+            Float ds_min_bin=NUMERIC_FLOAT_MAX;
             Float etot_sd = 0.0;
             calcDsMinKeplerIter(ds_over_ebin_min, ds_min_bin, ds_min_hyp, etot_sd, _G, 1.0, _bin, _int_order);
             //Float ds_min_bin = ds_over_ebin_min*etot_sd/(bin_root.getMemberN()-1);
-            if (ds_min_bin!=0) return std::min(ds_min_bin,ds_min_hyp);
-            else {
-                ASSERT(_bin.semi<0);
-                return ds_min_hyp;
-            }
+            ASSERT(ds_min_hyp<NUMERIC_FLOAT_MAX||ds_min_bin<NUMERIC_FLOAT_MAX);
+            return std::min(ds_min_bin,ds_min_hyp);
         }
 
         //! calculate ds from the inner most binary with minimum period, determine the fix step option
@@ -238,17 +241,29 @@ namespace AR {
             // Add unused particles to the outmost orbit
             if (n_particle_real==0) {
                 binarytree[0].setMembers(&(_particles[0]), &(_particles[1]), 0, 1);
+                binarytree[0].mass = 0.0;
+                binarytree[0].m1 = 0.0;
+                binarytree[0].m2 = 0.0;  
                 for (int i=2; i<n_particle; i++) {
                     binarytree[i-1].setMembers((Tparticle*)&(binarytree[i-2]), &( _particles[i]), -1, i);
+                    binarytree[i-1].mass = 0.0;
+                    binarytree[i-1].m1 = 0.0;
+                    binarytree[i-1].m2 = 0.0;
                 }
             }
             else if (n_particle_real==1) {
                 int i1 = particle_index_local[0];
                 int i2 = particle_index_unused[0];
                 binarytree[0].setMembers(&(_particles[i1]), &(_particles[i2]), i1 ,i2);
+                binarytree[0].m1 = _particles[i1].mass;
+                binarytree[0].m2 = _particles[i2].mass;
+                binarytree[0].mass = binarytree[0].m1 + binarytree[0].m2;
                 for (int i=1; i<n_particle_unused; i++) {
                     int k = particle_index_unused[i];
                     binarytree[i].setMembers((Tparticle*)&(binarytree[i-1]), &(_particles[k]), -1, k);
+                    binarytree[i].m1 = binarytree[i-1].mass;
+                    binarytree[i].m2 = _particles[k].mass;
+                    binarytree[i].mass = binarytree[i].m1 + binarytree[i].m2;
                 }
             }
             else {
@@ -257,6 +272,9 @@ namespace AR {
                     ASSERT(ilast<n_particle-1);
                     int k = particle_index_unused[i];
                     binarytree[ilast].setMembers((Tparticle*)&(binarytree[ilast-1]), &(_particles[k]), -1, k);
+                    binarytree[ilast].m1 = binarytree[ilast-1].mass;
+                    binarytree[ilast].m2 = _particles[k].mass;
+                    binarytree[ilast].mass = binarytree[ilast].m1 + binarytree[ilast].m2;
                 }
             }
         }
