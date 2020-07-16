@@ -1243,12 +1243,12 @@ namespace AR {
         }
 
         //! update binary semi, ecc and period iteratively after 0.25 period for unstable systems
-        bool updateBinarySemiEccPeriodIter(AR::BinaryTree<Tparticle>& _bin, const Float& _G, const Float _time) {
-            bool check=false;
+        bool updateBinarySemiEccPeriodIter(AR::BinaryTree<Tparticle>& _bin, const Float& _G, const Float _time, const bool _check=false) {
+            bool check = _check;
             for (int k=0; k<2; k++) {
                 if (_bin.isMemberTree(k)) {
                     auto* bink = _bin.getMemberAsTree(k);
-                    check=updateBinarySemiEccPeriodIter(*bink, _G, _time);
+                    check=updateBinarySemiEccPeriodIter(*bink, _G, _time, _check);
                 }
             }
             if ((_time>_bin.stab_check_time&&_bin.stab>1.0&&_bin.m1>0.0&&_bin.m2>0.0)||check) {
@@ -2080,7 +2080,7 @@ namespace AR {
                                 
                                 // update binary tree mass
                                 updateBinaryCMIter(bin_root);
-                                updateBinarySemiEccPeriodIter(bin_root, G, time_);
+                                updateBinarySemiEccPeriodIter(bin_root, G, time_, true);
                                 binary_update_flag = true;
                                 //bool stable_check=
                                 //if (stable_check) bin_root.stableCheckIter(bin_root, 10000*bin_root.period);
