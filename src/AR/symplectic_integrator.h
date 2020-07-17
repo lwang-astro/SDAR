@@ -1223,6 +1223,8 @@ namespace AR {
             }
             Float mcm_inv = 1.0/mcm_member;
             _bin.mass = mcm_member;
+            _bin.m1 = _bin.getLeftMember()->mass;
+            _bin.m2 = _bin.getRightMember()->mass;
             _bin.vel[0] *= mcm_inv;
             _bin.vel[1] *= mcm_inv;
             _bin.vel[2] *= mcm_inv;
@@ -2079,8 +2081,9 @@ namespace AR {
 #endif
                                 
                                 // update binary tree mass
-                                updateBinaryCMIter(bin_root);
-                                updateBinarySemiEccPeriodIter(bin_root, G, time_, true);
+                                info.generateBinaryTree(particles, G);
+                                //updateBinaryCMIter(bin_root);
+                                //updateBinarySemiEccPeriodIter(bin_root, G, time_, true);
                                 binary_update_flag = true;
                                 //bool stable_check=
                                 //if (stable_check) bin_root.stableCheckIter(bin_root, 10000*bin_root.period);
@@ -2183,18 +2186,17 @@ namespace AR {
                                         info.generateBinaryTree(particles, G);
                                     }
                                 }
-                                else { // if not merger, update step
-                                    info.ds = info.calcDsKeplerBinaryTree(*bin_interrupt.adr, manager->step.getOrder(), G);
-                                    if (ds_init!=info.ds) {
+
+                                info.ds = info.calcDsKeplerBinaryTree(*bin_interrupt.adr, manager->step.getOrder(), G);
+                                if (ds_init!=info.ds) {
 #ifdef AR_DEBUG_PRINT
-                                        std::cerr<<"Change ds after interruption: ds(init): "<<ds_init<<" ds(new): "<<info.ds<<" ds(now): "<<ds[0]<<std::endl;
+                                    std::cerr<<"Change ds after interruption: ds(init): "<<ds_init<<" ds(new): "<<info.ds<<" ds(now): "<<ds[0]<<std::endl;
 #endif
-                                        ASSERT(info.ds>0);
-                                        ds[0] = std::min(ds[0], info.ds);
-                                        ds[1] = std::min(ds[1], info.ds);
-                                        ds_backup.initial(info.ds);
-                                        ds_init = info.ds;
-                                    }
+                                    ASSERT(info.ds>0);
+                                    ds[0] = std::min(ds[0], info.ds);
+                                    ds[1] = std::min(ds[1], info.ds);
+                                    ds_backup.initial(info.ds);
+                                    ds_init = info.ds;
                                 }
 
                                 // return one should be the top root
@@ -2211,7 +2213,7 @@ namespace AR {
                     }
 
 
-                    // update binary orbit if unstable
+                    // update binary orbit and ds if unstable
                     if (!time_end_flag&&!binary_update_flag) {
                         bool update_flag=updateBinarySemiEccPeriodIter(bin_root, G, time_);
                         if (update_flag) {
