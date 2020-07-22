@@ -706,6 +706,7 @@ namespace H4{
                 ASSERT(j<pred_.getSize());
                 const auto& pj = ptcl[j];
                 if (_pid==pj.id) continue;
+                if (pj.mass==0) continue;
                 Float r2 = manager->interaction.calcAccJerkPairSingleSingle(_fi, _pi, pj);
                 ASSERT(r2>0.0);
                 _nbi.checkAndAddNeighborSingle(r2, particles[j], neighbors[j], j);
@@ -719,6 +720,7 @@ namespace H4{
                 const int j =index_group_resolve_[i];
                 auto& groupj = group_ptr[j];
                 if (_pid==groupj.particles.cm.id) continue;
+                if (groupj.particles.cm.mass==0) continue;
                 Float r2 = manager->interaction.calcAccJerkPairSingleGroupMember(_fi, _pi, groupj);
                 ASSERT(r2>0.0);
                 _nbi.checkAndAddNeighborGroup(r2, groupj, j+index_offset_group_);
@@ -730,6 +732,7 @@ namespace H4{
                 const int j = index_group_cm_[i];
                 auto& groupj = group_ptr[j];
                 if (_pid==groupj.particles.cm.id) continue;
+                if (groupj.particles.cm.mass==0) continue;
                 // used predicted particle instead of original cm
                 const auto& pj = ptcl[j+index_offset_group_];
                 ASSERT(j+index_offset_group_<pred_.getSize());
@@ -765,6 +768,7 @@ namespace H4{
                 ASSERT(j<pred_.getSize());
                 const auto& pj = ptcl[j];
                 if (_pi.id==pj.id) continue;
+                if (pj.mass==0.0) continue;
                 Float r2 = manager->interaction.calcAccJerkPairGroupCMSingle(_fi, _groupi, _pi, pj);
                 ASSERT(r2>0.0);
                 nbi.checkAndAddNeighborSingle(r2, particles[j], neighbors[j], j);
@@ -777,7 +781,8 @@ namespace H4{
             for (int i=0; i<n_group_resolve; i++) {
                 const int j =index_group_resolve_[i];
                 auto& groupj = group_ptr[j];
-                ASSERT(_pi.id!=groupj.particles.cm.id);
+                if(_pi.id==groupj.particles.cm.id) continue;
+                if (groupj.particles.cm.mass==0.0) continue;
                 Float r2 = manager->interaction.calcAccJerkPairGroupCMGroupMember(_fi, _groupi, _pi, groupj);
                 ASSERT(r2>0.0);
                 nbi.checkAndAddNeighborGroup(r2, groupj, j+index_offset_group_);
@@ -789,6 +794,7 @@ namespace H4{
                 const int j = index_group_cm_[i];
                 auto& groupj = group_ptr[j];
                 if (_pi.id==groupj.particles.cm.id) continue;
+                if (groupj.particles.cm.mass==0.0) continue;
                 // used predicted particle instead of original cm
                 const auto& pj = ptcl[j+index_offset_group_];
                 ASSERT(j+index_offset_group_<pred_.getSize());
@@ -821,6 +827,7 @@ namespace H4{
                 const int j = single_list[i];
                 ASSERT(j<pred_.getSize());
                 const auto& pj = ptcl[j];
+                if (pj.mass==0.0) continue;
                 ASSERT(_pi.id!=pj.id);
                 Float r2 = manager->interaction.calcR2Pair(_pi, pj);
                 ASSERT(r2>0.0);
@@ -837,6 +844,7 @@ namespace H4{
                 const auto& pj = ptcl[j+index_offset_group_];
                 auto& groupj = group_ptr[j];
                 if(_pi.id==pj.id) continue;
+                if (pj.mass==0.0) continue;
                 Float r2 = manager->interaction.calcR2Pair(_pi, pj);
                 ASSERT(r2>0.0);
                 nbi.checkAndAddNeighborGroup(r2, groupj, j+index_offset_group_);
@@ -849,6 +857,7 @@ namespace H4{
                 auto& groupj = group_ptr[j];
                 // used predicted particle instead of original cm
                 const auto& pj = ptcl[j+index_offset_group_];
+                if (pj.mass==0.0) continue;
                 ASSERT(_pi.id!=pj.id);
                 ASSERT(j+index_offset_group_<pred_.getSize());
                 Float r2 = manager->interaction.calcR2Pair(_pi, pj);
@@ -940,8 +949,11 @@ namespace H4{
                 // use predictor of cm
                 auto& pi = pred_ptr[i+index_offset_group_];
                 auto& fi = force_ptr[i+index_offset_group_];
-                if (groupi.perturber.need_resolve_flag) calcOneGroupMemberAccJerkNB(fi, groupi, pi);
-                else calcOneGroupCMAccJerkNB(fi, groupi, pi);
+                if (groupi.particles.cm.mass>0) {
+                    if (groupi.perturber.need_resolve_flag) calcOneGroupMemberAccJerkNB(fi, groupi, pi);
+                    else calcOneGroupCMAccJerkNB(fi, groupi, pi);
+                }
+                else calcOneSingleAccJerkNB(fi, groupi.perturber, pi, pi.id);
             }
         }
 
