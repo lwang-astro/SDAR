@@ -22,7 +22,7 @@ namespace COMM{
         Float m1;           // m1: mass 1
         Float m2;           // m2: mass 2
         Float r;            // distance between too members
-        Vector3<Float> am;  // angular momentum
+        Vector3<Float> am;  // specific angular momentum
         Float stab;         // stability factor 
 
         //! Orbit to position and velocity

@@ -2182,9 +2182,9 @@ namespace AR {
 
                                         return bin_interrupt;
                                     }
-                                    else {
-                                        info.generateBinaryTree(particles, G);
-                                    }
+                                    //else {
+                                    //    info.generateBinaryTree(particles, G);
+                                    //}
                                 }
 
                                 info.ds = info.calcDsKeplerBinaryTree(*bin_interrupt.adr, manager->step.getOrder(), G);
