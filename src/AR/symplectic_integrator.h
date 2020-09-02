@@ -2604,10 +2604,19 @@ namespace AR {
                         step_count_tsyn++;
 
                         Float dt_end = _time_end - time_;
-                        if(n_step_end>1 && dt<0.3*dt_end) {
+                        if (dt<0) {
+                            // limit step_modify_factor to 0.125
+                            step_modify_factor = std::min(std::max(regularStepFactor(manager->step.calcStepModifyFactorFromErrorRatio(abs(_time_end/dt))), Float(0.0625)),Float(0.5)); 
+                            ASSERT(step_modify_factor>0.0);
+
+                            ds[ds_switch] *= step_modify_factor;
+                            ds[1-ds_switch] = ds[ds_switch];
+                            ASSERT(!ISINF(ds[ds_switch]));
+                        }
+                        else if (n_step_end>1 && dt<0.3*dt_end) {
                             // dt should be >0.0
                             // ASSERT(dt>0.0);
-                            ds[1-ds_switch] = ds[ds_switch] * dt_end/abs(dt);
+                            ds[1-ds_switch] = ds[ds_switch] * dt_end/dt;
                             ASSERT(!ISINF(ds[1-ds_switch]));
 #ifdef AR_DEEP_DEBUG
                             std::cerr<<"Time step dt(real) "<<dt<<" <0.3*(time_end-time)(real) "<<dt_end<<" enlarge step factor: "<<dt_end/dt<<" new ds: "<<ds[1-ds_switch]<<std::endl;
@@ -2621,7 +2630,8 @@ namespace AR {
                     ASSERT(!ISINF(ds[ds_switch]));
                     ds_switch = 1-ds_switch;
 
-                    backup_flag = true;
+                    if (dt>0) backup_flag = true;
+                    else backup_flag = false;
                 }
                 else if(time_ > _time_end + time_error) {
                     time_end_flag = true;
