@@ -11,6 +11,21 @@
 #include <map>
 
 namespace H4{
+
+    //! print features
+    void printFeatures(std::ostream & fout) {
+#ifdef ADJUST_GROUP_PRINT
+        fout<<"Print adjust group information\n";
+#endif
+    }
+
+    //! print features
+    void printDebugFeatures(std::ostream & fout) {
+#ifdef HERMITE_DEBUG
+        fout<<"Debug mode: HERMITE\n";
+#endif
+    }    
+
     //! Hermite manager class
     template <class Tmethod>
     class HermiteManager{

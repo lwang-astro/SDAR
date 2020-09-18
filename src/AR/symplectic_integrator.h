@@ -16,6 +16,34 @@
 */
 namespace AR {
 
+    //! print features
+    void printFeatures(std::ostream & fout) {
+#ifdef AR_TTL
+        fout<<"Use AR TTL method\n";
+#else
+        fout<<"Use AR LogH method\n";
+#endif
+#ifdef AR_SLOWDOWN_TREE
+        fout<<"Use slowdown Tree method\n";
+#endif
+#ifdef AR_SLOWDOWN_ARRAY
+        fout<<"Use slowdown array method\n";
+#endif
+#ifdef AR_SLOWDOWN_TIMESCALE
+        fout<<"Use slowdown timescale criterion\n";         
+#endif
+#ifdef AR_SLOWDOWN_MASSRATIO
+        fout<<"Use slowdown mass ratio criterion\n";
+#endif
+    }
+
+    //! print debug features
+    void printDebugFeatures(std::ostream & fout) {
+#ifdef AR_DEBUG
+        fout<<"Debug mode: AR\n";
+#endif        
+    }
+
     //! print reference to cite
     void printReference(std::ostream & fout, const int offset=4) {
         for (int i=0; i<offset; i++) fout<<" ";
