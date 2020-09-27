@@ -40,6 +40,7 @@ int main(int argc, char **argv){
     COMM::IOParams<double> time_error   (input_par_store, 0.0,  "time synchronization absolute error limit for AR","default is 0.25*dt-min"); // time synchronization error
     COMM::IOParams<double> time_zero    (input_par_store, 0.0,  "initial physical time");    // initial physical time
     COMM::IOParams<double> time_end     (input_par_store, 0.0,  "ending physical time"); // ending physical time
+    COMM::IOParams<double> r_break      (input_par_store, 1e-3, "distance criterion for checking stability"); // binary break criterion
     COMM::IOParams<int>   nstep        (input_par_store,  0, "number of integration steps (higher priority than time_end)"); // total step size
     COMM::IOParams<double> s            (input_par_store, 0.0,  "step size, not physical time step","auto");    // step size
     COMM::IOParams<double> gravitational_constant   (input_par_store, 1.0, "gravitational constant"); // gravitational constant
@@ -71,6 +72,7 @@ int main(int argc, char **argv){
     static struct option long_options[] = {
         {"time-start", required_argument, 0, 0},
         {"time-end", required_argument, 0, 't'},
+        {"r-break", required_argument, 0, 'r'},
         {"fix-step-option", required_argument, 0, 2},
         {"energy-error",required_argument, 0, 'e'},
         {"time-error",required_argument, 0, 4},
@@ -89,7 +91,7 @@ int main(int argc, char **argv){
     };
   
     int option_index;
-    while ((copt = getopt_long(argc, argv, "N:n:t:s:Sk:G:e:p:o:i:lh", long_options, &option_index)) != -1)
+    while ((copt = getopt_long(argc, argv, "N:n:t:r:s:Sk:G:e:p:o:i:lh", long_options, &option_index)) != -1)
         switch (copt) {
         case 0:
             time_zero.value = atof(optarg);
@@ -137,6 +139,9 @@ int main(int argc, char **argv){
             break;
         case 't':
             time_end.value = atof(optarg);
+            break;
+        case 'r':
+            r_break.value = atof(optarg);
             break;
         case 's':
             s.value = atof(optarg);
@@ -187,6 +192,8 @@ int main(int argc, char **argv){
                      <<"    -p [string]: "<<filename_par<<"\n"
                      <<"          --print-width     [int]  : "<<print_width<<"\n"
                      <<"          --print-precision [int]  : "<<print_precision<<"\n"
+                     <<"    -r [Float]:  "<<r_break<<"\n"
+                     <<"          --r-break      [Float]: same as -r\n"
                      <<"    -s [Float]:  "<<s<<"\n"
                      <<"          --slowdown-ref:           [Float]: "<<slowdown_ref<<"\n"
 #ifdef AR_SLOWDOWN_MASSRATIO
@@ -281,6 +288,9 @@ int main(int argc, char **argv){
     sym_int.info.reserveMem(sym_int.particles.getSize());
     sym_int.info.generateBinaryTree(sym_int.particles,manager.interaction.gravitational_constant);
 
+    // r_break
+    sym_int.info.r_break_crit = r_break.value;
+
     // no initial when both parameters and data are load
     if(!load_flag) {
         // initialization 
@@ -305,7 +315,7 @@ int main(int argc, char **argv){
 
     // use input ds
     if (s.value>0.0) sym_int.info.ds = s.value;
-    
+
     // precision
     std::cout<<std::setprecision(print_precision.value);
 

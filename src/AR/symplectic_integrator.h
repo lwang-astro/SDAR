@@ -2210,6 +2210,10 @@ namespace AR {
 
                                         return bin_interrupt;
                                     }
+                                    // if only two particles have mass, switch off auto ds adjustment
+                                    if (count_mass==2) {
+                                        info.fix_step_option=FixStepOption::later;
+                                    }
                                     //else {
                                     //    info.generateBinaryTree(particles, G);
                                     //}
