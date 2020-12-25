@@ -2015,6 +2015,12 @@ namespace AR {
 #endif
 #endif
 
+#ifdef AR_SLOWDOWN_TREE
+            // update slowdown and correct slowdown energy and gt_inv
+            updateSlowDownAndCorrectEnergy(true, true);
+#endif
+
+
             // reset binary stab_check_time
             for (int i=0; i<info.binarytree.getSize(); i++)
                 info.binarytree[i].stab_check_time = time_;
@@ -2030,6 +2036,7 @@ namespace AR {
                     // check interrupt condiction, ensure that time end not reach
                     if (manager->interrupt_detection_option>0 && !time_end_flag) {
                         bin_interrupt.time_now = time_ + info.time_offset;
+                        bin_interrupt.time_end = _time_end + info.time_offset;
                         // calc perturbation energy
                         Float epert=0.0;
                         for (int i=0; i<n_particle; i++) {
