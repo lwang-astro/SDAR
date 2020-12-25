@@ -77,7 +77,7 @@ namespace AR {
                                             slowdown_mass_ref(Float(-1.0)), 
 #endif
                                             slowdown_timescale_max(0.0),
-                                            step_count_max(-1), interrupt_detection_option(0), interaction(), step() {}
+                                            step_count_max(0), interrupt_detection_option(0), interaction(), step() {}
 
         //! check whether parameters values are correct
         /*! \return true: all correct
