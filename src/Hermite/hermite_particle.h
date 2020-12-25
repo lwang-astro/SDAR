@@ -201,6 +201,36 @@ namespace H4{
             acc1[0] = acc1[1] = acc1[2] = Float(0.0);
             pot = 0.0;
         }
+
+        //! print titles of class members using column style
+        /*! print titles of class members in one line for column style
+          @param[out] _fout: std::ostream output object
+          @param[in] _width: print width (defaulted 20)
+        */
+        void printColumnTitle(std::ostream & _fout, const int _width=20) {
+            _fout<<std::setw(_width)<<"acc0.x"
+                 <<std::setw(_width)<<"acc0.y"
+                 <<std::setw(_width)<<"acc0.z"
+                 <<std::setw(_width)<<"acc1.x"
+                 <<std::setw(_width)<<"acc1.y"
+                 <<std::setw(_width)<<"acc1.z"
+                 <<std::setw(_width)<<"pot";
+        }
+
+        //! print data of class members using column style
+        /*! print data of class members in one line for column style. Notice no newline is printed at the end
+          @param[out] _fout: std::ostream output object
+          @param[in] _width: print width (defaulted 20)
+        */
+        void printColumn(std::ostream & _fout, const int _width=20) {
+            _fout<<std::setw(_width)<<acc0[0]
+                 <<std::setw(_width)<<acc0[1]
+                 <<std::setw(_width)<<acc0[2]
+                 <<std::setw(_width)<<acc1[0]
+                 <<std::setw(_width)<<acc1[1]
+                 <<std::setw(_width)<<acc1[2]
+                 <<std::setw(_width)<<pot;
+        }
     };
 
 }
