@@ -1430,13 +1430,31 @@ namespace H4{
                         new_index_single[n_single_new++] = particle_index_origin[0];
                 }
                 else {
-                    int offset = _new_n_group_offset[_new_n_group];
+                    // check first how many particles have mass>0
+                    int count_mass = 0;
+                    int index_has_mass_last = -1;
                     for (int j=0; j<ibreak; j++) {
-                        ASSERT(table_single_mask_[particle_index_origin[j]]==true);
-                        table_single_mask_[particle_index_origin[j]] = false;
-                        _new_group_particle_index_origin[offset++] = particle_index_origin[j];
+                        if (particles[particle_index_origin[j]].mass > 0.0) {
+                            count_mass++;
+                            index_has_mass_last = particle_index_origin[j];
+                        }
                     }
-                    _new_n_group_offset[++_new_n_group] = offset;
+                    if (count_mass>=2) { // only form new group when at least two members have mass >0
+                        int offset = _new_n_group_offset[_new_n_group];
+                        for (int j=0; j<ibreak; j++) {
+                            ASSERT(table_single_mask_[particle_index_origin[j]]==true);
+                            table_single_mask_[particle_index_origin[j]] = false;
+                            _new_group_particle_index_origin[offset++] = particle_index_origin[j];
+                        }
+                        _new_n_group_offset[++_new_n_group] = offset;
+                    }
+                    else if (count_mass==1) { // add single if only one particle has mass >0
+                        ASSERT(index_has_mass_last<particles.getSize());
+                        ASSERT(index_has_mass_last>=0);
+                        ASSERT(table_single_mask_[index_has_mass_last]==true);
+                        table_single_mask_[index_has_mass_last] = false;
+                        new_index_single[n_single_new++] = index_has_mass_last;
+                    }
                 }
                 // right side
                 if (n_member-ibreak==1) {
@@ -1447,13 +1465,31 @@ namespace H4{
                         new_index_single[n_single_new++] = particle_index_origin[ibreak];
                 }
                 else {
-                    int offset = _new_n_group_offset[_new_n_group];
+                    // check first how many particles have mass>0
+                    int count_mass = 0;
+                    int index_has_mass_last = -1;
                     for (int j=ibreak; j<n_member; j++) {
-                        ASSERT(table_single_mask_[particle_index_origin[j]]==true);
-                        table_single_mask_[particle_index_origin[j]] = false;
-                        _new_group_particle_index_origin[offset++] = particle_index_origin[j];
+                        if (particles[particle_index_origin[j]].mass > 0.0) {
+                            count_mass++;
+                            index_has_mass_last = particle_index_origin[j];
+                        }
                     }
-                    _new_n_group_offset[++_new_n_group] = offset;
+                    if (count_mass>=2) { // only form new group when at least two members have mass >0
+                        int offset = _new_n_group_offset[_new_n_group];
+                        for (int j=ibreak; j<n_member; j++) {
+                            ASSERT(table_single_mask_[particle_index_origin[j]]==true);
+                            table_single_mask_[particle_index_origin[j]] = false;
+                            _new_group_particle_index_origin[offset++] = particle_index_origin[j];
+                        }
+                        _new_n_group_offset[++_new_n_group] = offset;
+                    }
+                    else if (count_mass==1) { // add single if only one particle has mass >0
+                        ASSERT(index_has_mass_last<particles.getSize());
+                        ASSERT(index_has_mass_last>=0);
+                        ASSERT(table_single_mask_[index_has_mass_last]==true);
+                        table_single_mask_[index_has_mass_last] = false;
+                        new_index_single[n_single_new++] = index_has_mass_last;
+                    }
                 }
             }
 
@@ -2340,17 +2376,26 @@ namespace H4{
 
                     // correct kinetic energy of cm
                     ASSERT(!groups[k].particles.isOriginFrame());
-                    // first remove mass loss kinetic energy assuming original cm velocity
+                   // first remove mass loss kinetic energy assuming original cm velocity
                     auto& vcm = pcm.vel;
+                    auto& vbin = bink.vel;
+                    auto& vbin_bk = groups[k].info.vcm_record;
+                    //Float vbcm[3] = {vcm[0] + vbin_bk[0], vcm[1] + vbin_bk[1], vcm[2] + vbin_bk[2]};
                     Float de_kin = 0.5*dm*(vcm[0]*vcm[0]+vcm[1]*vcm[1]+vcm[2]*vcm[2]);
                     // then correct c.m. motion if the c.m. velocity is shifted, 
                     // this can be by adding m_cm(new) * v_cm(new;rest) \dot v_cm(old;origin)
-                    auto& vbin = bink.vel;
-                    de_kin += bink.mass*(vbin[0]*vcm[0]+vbin[1]*vcm[1]+vbin[2]*vcm[2]);
+                    Float dvbin[3] = {vbin[0] - vbin_bk[0], vbin[1] - vbin_bk[1], vbin[2] - vbin_bk[2]};
+                    de_kin += bink.mass*(dvbin[0]*vcm[0]+dvbin[1]*vcm[1]+dvbin[2]*vcm[2]);
                     energy_.de_cum += de_kin;
                     energy_.de_binary_interrupt += de_kin;
                     energy_sd_.de_cum += de_kin;
                     energy_sd_.de_binary_interrupt += de_kin;
+
+                    // back up vcm for later on perturbation kinetic energy correction
+                    vbin_bk[0] = vbin[0];
+                    vbin_bk[1] = vbin[1];
+                    vbin_bk[2] = vbin[2];
+
 
                     // update particle dm, velocity should not change to be consistent with frame
                     pcm.mass += dm;
@@ -2668,6 +2713,15 @@ namespace H4{
             Float etot = groupi.getEkin() + groupi.getEpot();
             Float etot_sd = groupi.getEkinSlowDown() + groupi.getEpotSlowDown();
             energy_sd_.de_cum += etot - etot_sd;
+            // add kinetic correction due to vcm change
+            auto& vcm = groupi.particles.cm.vel;
+            auto& bink = groupi.info.getBinaryTreeRoot();
+            auto& vbin = bink.vel;
+            auto& vbin_bk = groupi.info.vcm_record;
+            Float dvbin[3] = {vbin[0] - vbin_bk[0], vbin[1] - vbin_bk[1], vbin[2] - vbin_bk[2]};
+            Float de_kin = bink.mass*(dvbin[0]*vcm[0]+dvbin[1]*vcm[1]+dvbin[2]*vcm[2]);
+            energy_.de_cum -= de_kin;
+            energy_sd_.de_cum -= de_kin;
         }
 
         //! correct Etot slowdown reference due to the groups change
