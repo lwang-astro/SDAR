@@ -255,6 +255,7 @@ int main(int argc, char **argv){
     H4Int h4_int;
     h4_int.manager = &manager;
     h4_int.ar_manager = &ar_manager;
+    h4_int.step = manager.step;
 
     std::fstream fin;
     fin.open(filename,std::fstream::in);

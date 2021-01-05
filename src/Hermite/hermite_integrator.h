@@ -243,6 +243,7 @@ namespace H4{
         COMM::List<bool> table_single_mask_; // bool mask to indicate whether the particle of index (single) (same index of table) is masked (true) or used (false)
 
     public:
+        BlockTimeStep4th step; ///> time step calculator
         HermiteManager<Tacc>* manager; ///< integration manager
         AR::TimeTransformedSymplecticManager<TARacc>* ar_manager; ///< integration manager
         COMM::ParticleGroup<H4Ptcl, Tpcm> particles; // particles
@@ -266,7 +267,7 @@ namespace H4{
         }
 
         //! constructor
-        HermiteIntegrator(): time_(0.0), time_offset_(0.0), time_next_min_(0.0), 
+        HermiteIntegrator(): time_(0.0), time_offset_(0.0), time_next_min_(0.0), dt_limit_(0.0),
                              energy_init_ref_(0.0),
                              energy_(), energy_sd_(),
                              n_act_single_(0), n_act_group_(0), 
@@ -277,7 +278,7 @@ namespace H4{
                              index_dt_sorted_single_(), index_dt_sorted_group_(), 
                              index_group_resolve_(), index_group_cm_(), 
                              pred_(), force_(), time_next_(), 
-                             index_group_mask_(), table_group_mask_(), table_single_mask_(), 
+                             index_group_mask_(), table_group_mask_(), table_single_mask_(), step(),
                              manager(NULL), ar_manager(NULL), particles(), groups(), neighbors(), perturber(), info(), profile() {}
 
         //! clear function
@@ -285,6 +286,7 @@ namespace H4{
             time_ = 0.0;
             time_offset_ = 0.0;
             time_next_min_ = 0.0;
+            dt_limit_ = 0.0;
             energy_init_ref_ = 0.0;
             energy_.clear();
             energy_sd_.clear();
@@ -384,7 +386,7 @@ namespace H4{
                 const int k = _index_single[i];
                 const Float* acc0 = force_[k].acc0;
                 const Float* acc1 = force_[k].acc1;
-                const Float dt =manager->step.calcBlockDt2nd(acc0, acc1, _dt_limit);
+                const Float dt =step.calcBlockDt2nd(acc0, acc1, _dt_limit);
                 particles[k].dt = dt;
                 neighbors[k].initial_step_flag = false;
             }
@@ -394,7 +396,7 @@ namespace H4{
                 const int kf = k + index_offset_group_;
                 const Float* acc0 = force_[kf].acc0;
                 const Float* acc1 = force_[kf].acc1;
-                const Float dt =manager->step.calcBlockDt2nd(acc0, acc1, std::min(_dt_limit, groups[k].info.dt_limit));
+                const Float dt =step.calcBlockDt2nd(acc0, acc1, std::min(_dt_limit, groups[k].info.dt_limit));
                 groups[k].particles.cm.dt = dt;
                 groups[k].perturber.initial_step_flag = false;
             }
@@ -511,12 +513,12 @@ namespace H4{
 
             const Float dt_old = _pi.dt;
             if(_init_step_flag) {
-                _pi.dt = manager->step.calcBlockDt2nd(_pi.acc0, _pi.acc1, _dt_limit);
+                _pi.dt = step.calcBlockDt2nd(_pi.acc0, _pi.acc1, _dt_limit);
 #ifdef HERMITE_DEBUG
                 std::cerr<<"Initial step flag on: pi.id: "<<_pi.id<<" step size: "<<_pi.dt<<" time: "<<_pi.time<<std::endl;
 #endif                
             }
-            else _pi.dt = manager->step.calcBlockDt4th(_pi.acc0, _pi.acc1, acc2, acc3, _dt_limit);
+            else _pi.dt = step.calcBlockDt4th(_pi.acc0, _pi.acc1, acc2, acc3, _dt_limit);
 
             ASSERT((dt_old > 0.0 && _pi.dt >0.0));
             (void)dt_old;
@@ -2212,7 +2214,7 @@ namespace H4{
                 pred_[k+index_offset_group_] = pcm;
             }
 
-            dt_limit_ = manager->step.calcNextDtLimit(time_);
+            dt_limit_ = step.calcNextDtLimit(time_);
 
             // slowdown not yet initialized, cannot check
             // checkGroupResolve(n_init_group_);
@@ -2256,7 +2258,7 @@ namespace H4{
                 // set time offset
                 group_ptr[k].info.time_offset = time_offset_;
                 // set hermite time limit
-                group_ptr[k].info.dt_limit = manager->step.getDtMax();
+                group_ptr[k].info.dt_limit = step.getDtMax();
                 // in the case of wide binary, make sure the next time step not exceed r_in
                 auto& bin_root = group_ptr[k].info.getBinaryTreeRoot();
                 if (bin_root.semi*(1.0+bin_root.ecc)>group_ptr[k].info.r_break_crit||bin_root.semi<0) {
@@ -2562,7 +2564,7 @@ namespace H4{
             // get next time
             Float time_next = getNextTime();
 
-            dt_limit_ = manager->step.calcNextDtLimit(time_next);
+            dt_limit_ = step.calcNextDtLimit(time_next);
 
             // prediction positions
             predictAll(time_next);

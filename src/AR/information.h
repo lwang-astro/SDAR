@@ -258,16 +258,24 @@ namespace AR {
                 binarytree[0].m1 = _particles[i1].mass;
                 binarytree[0].m2 = _particles[i2].mass;
                 binarytree[0].mass = binarytree[0].m1 + binarytree[0].m2;
-                binarytree[0].pos = _particles[i1].pos;
-                binarytree[0].vel = _particles[i1].vel;
+                binarytree[0].pos[0] = _particles[i1].pos[0];
+                binarytree[0].pos[1] = _particles[i1].pos[1];
+                binarytree[0].pos[2] = _particles[i1].pos[2];
+                binarytree[0].vel[0] = _particles[i1].vel[0];
+                binarytree[0].vel[1] = _particles[i1].vel[1];
+                binarytree[0].vel[2] = _particles[i1].vel[2];
                 for (int i=1; i<n_particle_unused; i++) {
                     int k = particle_index_unused[i];
                     binarytree[i].setMembers((Tparticle*)&(binarytree[i-1]), &(_particles[k]), -1, k);
                     binarytree[i].m1 = binarytree[i-1].mass;
                     binarytree[i].m2 = _particles[k].mass;
                     binarytree[i].mass = binarytree[i].m1 + binarytree[i].m2;
-                    binarytree[i].pos = binarytree[i-1].pos;
-                    binarytree[i].vel = binarytree[i-1].vel;
+                    binarytree[i].pos[0] = binarytree[i-1].pos[0];
+                    binarytree[i].pos[1] = binarytree[i-1].pos[1];
+                    binarytree[i].pos[2] = binarytree[i-1].pos[2];
+                    binarytree[i].vel[0] = binarytree[i-1].vel[0];
+                    binarytree[i].vel[1] = binarytree[i-1].vel[1];
+                    binarytree[i].vel[2] = binarytree[i-1].vel[2];
                 }
             }
             else {
@@ -279,8 +287,12 @@ namespace AR {
                     binarytree[ilast].m1 = binarytree[ilast-1].mass;
                     binarytree[ilast].m2 = _particles[k].mass;
                     binarytree[ilast].mass = binarytree[ilast].m1 + binarytree[ilast].m2;
-                    binarytree[ilast].pos = binarytree[ilast-1].pos;
-                    binarytree[ilast].vel = binarytree[ilast-1].vel;
+                    binarytree[ilast].pos[0] = binarytree[ilast-1].pos[0];
+                    binarytree[ilast].pos[1] = binarytree[ilast-1].pos[1];
+                    binarytree[ilast].pos[2] = binarytree[ilast-1].pos[2];
+                    binarytree[ilast].vel[0] = binarytree[ilast-1].vel[0];
+                    binarytree[ilast].vel[1] = binarytree[ilast-1].vel[1];
+                    binarytree[ilast].vel[2] = binarytree[ilast-1].vel[2];
                 }
             }
         }
