@@ -2038,10 +2038,10 @@ namespace AR {
                         bin_interrupt.time_now = time_ + info.time_offset;
                         bin_interrupt.time_end = _time_end + info.time_offset;
                         // calc perturbation energy
-                        Float epert=0.0;
-                        for (int i=0; i<n_particle; i++) {
-                            epert += force_[i].pot_pert*particles[i].mass;
-                        }
+                        //Float epert=0.0;
+                        //for (int i=0; i<n_particle; i++) {
+                        //    epert += force_[i].pot_pert*particles[i].mass;
+                        //}
                         manager->interaction.modifyAndInterruptIter(bin_interrupt, bin_root);
                         //InterruptBinary<Tparticle>* bin_intr_ptr = &bin_interrupt;
                         //bin_intr_ptr = bin_root.processRootIter(bin_intr_ptr, Tmethod::modifyAndInterruptIter);
@@ -2136,21 +2136,22 @@ namespace AR {
                                 // calculate kinetic energy
                                 calcEKin();
 
+                                // Notice initially etot_ref_ does not include epert. The perturbation effect is accumulated in the integration. Here instance change of mass does not create any work. So no need to add de_pert
                                 // get perturbation energy change due to mass change
-                                Float epert_new = 0.0;
-                                for (int i=0; i<n_particle; i++) {
-                                    epert_new += force_[i].pot_pert*particles[i].mass;
-                                }
-                                Float de_pert = epert_new - epert; // notice this is double perturbation potential
+                                //Float epert_new = 0.0;
+                                //for (int i=0; i<n_particle; i++) {
+                                //    epert_new += force_[i].pot_pert*particles[i].mass;
+                                //}
+                                //Float de_pert = epert_new - epert; // notice this is double perturbation potential
 
                                 // get energy change
-                                Float de = (ekin_ - ekin_bk) + (epot_ - epot_bk) + de_pert;
+                                Float de = (ekin_ - ekin_bk) + (epot_ - epot_bk); //+ de_pert;
                                 etot_ref_ += de;
                                 de_change_interrupt_ += de;
                                 dH_change_interrupt_ += getH() - H_bk;
 
 #if (defined AR_SLOWDOWN_ARRAY) || (defined AR_SLOWDOWN_TREE)
-                                Float de_sd = (ekin_sd_ - ekin_sd_bk) + (epot_sd_ - epot_sd_bk) + de_pert;
+                                Float de_sd = (ekin_sd_ - ekin_sd_bk) + (epot_sd_ - epot_sd_bk);// + de_pert;
                                 etot_sd_ref_ += de_sd;
 
                                 Float dH_sd = getHSlowDown() - H_sd_bk;
