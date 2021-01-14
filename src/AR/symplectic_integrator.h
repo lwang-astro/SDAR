@@ -2958,6 +2958,18 @@ namespace AR {
             return ekin_ + epot_;
         }
 
+        //! get perturbation potential energy
+        /*! \return perturbation potential energy
+         */
+        Float getEpert() const {
+            Float epert=0.0;
+            int n_particle = particles.getSize();
+            for (int i=0; i<n_particle; i++) {
+                epert += force_[i].pot_pert*particles[i].mass;
+            }
+            return epert;
+        }
+
         //! get energy error 
         /*! \return energy error
          */

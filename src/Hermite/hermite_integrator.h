@@ -2722,8 +2722,9 @@ namespace H4{
             auto& vbin_bk = groupi.info.vcm_record;
             Float dvbin[3] = {vbin[0] - vbin_bk[0], vbin[1] - vbin_bk[1], vbin[2] - vbin_bk[2]};
             Float de_kin = bink.mass*(dvbin[0]*vcm[0]+dvbin[1]*vcm[1]+dvbin[2]*vcm[2]);
-            energy_.de_cum -= de_kin;
-            energy_sd_.de_cum -= de_kin;
+            Float epert = manager->interaction.calcEnergyPertOneGroup(groupi, perturber);
+            energy_.de_cum -= epert - de_kin;
+            energy_sd_.de_cum -= epert - de_kin ;
         }
 
         //! correct Etot slowdown reference due to the groups change
