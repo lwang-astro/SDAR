@@ -1990,7 +1990,8 @@ namespace AR {
             ekin_ = ekin_check;
 #endif
 */
-
+            // warning print flag
+            bool warning_print_once=true;
 
 #ifdef AR_DEBUG_DUMP
             // back up initial data
@@ -2412,9 +2413,9 @@ namespace AR {
                 };
 #endif 
 
-#ifdef AR_WARN
+//#ifdef AR_WARN
                 // warning for large number of steps
-                if(step_count>=manager->step_count_max) {
+                if(warning_print_once&&step_count>=manager->step_count_max) {
                     if(step_count%manager->step_count_max==0) {
                         printMessage("Warning: step count is signficiant large");
                         for (int i=0; i<info.binarytree.getSize(); i++){
@@ -2434,6 +2435,7 @@ namespace AR {
                                      <<"  pert_in= "<<bin.slowdown.pert_in
                                      <<"  pert_out= "<<bin.slowdown.pert_out;
                             std::cerr<<std::endl;
+                            warning_print_once = false;
                         }
                         //printColumnTitle(std::cerr,20,info.binarytree.getSize());
                         //std::cerr<<std::endl;
@@ -2464,7 +2466,7 @@ namespace AR {
 //                        }
                     }
                 }
-#endif
+//#endif
           
                 // When time sychronization steps too large, abort
                 if(step_count_tsyn>manager->step_count_max) {
