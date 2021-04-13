@@ -337,7 +337,7 @@ namespace AR {
                 }
                 else {
                     auto* pk =  _binj.getMember(k);
-                    manager->interaction.calcSlowDownPertOne(_pert_out, _t_min_sq, _bini, *pk);
+                    if (pk->mass>0.0) manager->interaction.calcSlowDownPertOne(_pert_out, _t_min_sq, _bini, *pk);
                 }
             }
         }
@@ -2232,6 +2232,10 @@ namespace AR {
                                     //}
                                 }
 
+#if (defined AR_SLOWDOWN_ARRAY) || (defined AR_SLOWDOWN_TREE)
+                                updateSlowDownAndCorrectEnergy(true, true);
+#endif
+
                                 info.ds = info.calcDsKeplerBinaryTree(*bin_interrupt.adr, manager->step.getOrder(), G);
                                 if (ds_init!=info.ds) {
 #ifdef AR_DEBUG_PRINT
@@ -2261,7 +2265,13 @@ namespace AR {
                     // update binary orbit and ds if unstable
                     if (!time_end_flag&&!binary_update_flag) {
                         bool update_flag=updateBinarySemiEccPeriodIter(bin_root, G, time_);
+
                         if (update_flag) {
+                    // update slowdown and correct slowdown energy and gt_inv
+#if (defined AR_SLOWDOWN_ARRAY) || (defined AR_SLOWDOWN_TREE)
+                            updateSlowDownAndCorrectEnergy(true, true);
+#endif
+
 #ifdef AR_DEBUG_PRINT
                             std::cerr<<"Update binary tree orbits, time= "<<time_<<"\n";
 #endif
@@ -2278,11 +2288,6 @@ namespace AR {
                             }
                         }
                     }
-
-                    // update slowdown and correct slowdown energy and gt_inv
-#if (defined AR_SLOWDOWN_ARRAY) || (defined AR_SLOWDOWN_TREE)
-                    if (!time_end_flag) updateSlowDownAndCorrectEnergy(true, true);
-#endif
 
                     int bk_return_size = backupIntData(backup_data);
                     ASSERT(bk_return_size == bk_data_size);
