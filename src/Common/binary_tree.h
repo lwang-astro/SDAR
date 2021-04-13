@@ -643,6 +643,7 @@ namespace COMM{
                                        const int _n,
                                        Tptcl* _ptcl,
                                        const Float _G) {
+            ASSERT(_n>=2);
 
             R2Index r2_list[_n];
             // reorder _ptcl_list by minimum distance of each particles, and save square minimum distance r2min and index i in _ptcl_list (not particle index in _ptcl) in r2_list 
@@ -701,6 +702,9 @@ namespace COMM{
                 // calculate center-of-mass 
                 _bins[i].calcCenterOfMass();
             }
+
+            // generate level branch
+            generateLevelBranch(_bins[_n-2],true);
 
 #ifdef BINARY_DEBUG
             for(int i=0; i<_n; i++) ASSERT(bin_host[i]==&_bins[_n-2]); // check whether all bin_host point to the last of bins

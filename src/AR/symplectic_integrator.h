@@ -325,11 +325,15 @@ namespace AR {
             for (int k=0; k<2; k++) {
                 if (_binj.isMemberTree(k)) {
                     auto* bink =  _binj.getMemberAsTree(k);
-                    if (bink!=&_bini) {
+                    int check_flag = _bini.isSameBranch(*bink);
+                    if (check_flag==0) {// no relation
                         if (bink->semi>0.0) manager->interaction.calcSlowDownPertOne(_pert_out, _t_min_sq, _bini, *bink);
                         else calcSlowDownPertInnerBinaryIter(_pert_out, _t_min_sq, _bini, *bink);
-                    
                     }
+                    else if (check_flag==-2) { // _binj is the upper root tree
+                        calcSlowDownPertInnerBinaryIter(_pert_out, _t_min_sq, _bini, *bink);
+                    }
+                    // other cases (same or sub branch), stop iteration.
                 }
                 else {
                     auto* pk =  _binj.getMember(k);
