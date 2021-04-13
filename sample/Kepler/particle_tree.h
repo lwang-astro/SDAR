@@ -87,6 +87,7 @@ public:
         if(!is_member_tree[i]) {
             if(member[i]!=NULL) {
                 Tparticle* tmp=(Tparticle*)member[i];
+                assert(tmp->mass==a.mass+b.mass);
                 member[i]=new ParticleTree<Tparticle>;
                 bool fg=((ParticleTree<Tparticle>*)member[i])->fill(pshift(a,*tmp),pshift(b,*tmp));
                 delete tmp;
@@ -105,10 +106,10 @@ public:
 
     /// add a particle pair to one of the leaf
     /*!
-      Add particle pair with depth #id and branch index #ib
+      Add particle pair with level and branch 
       Example:
       -------------------------------------------------\\
-      depth id              branch id                \\
+      level              branch                 \ \
       0                      0                   \\
       / \                  \\
       1                    0   1                 \\
@@ -116,19 +117,24 @@ public:
       2                  0  1 2  3               \\
       -------------------------------------------------\\
 
-      @param[in] id: depth of the tree, top is 0
-      @param[in] ib: leaf index, counting from 0 from left to right (maximum index \f$ 2^{id} \f$) 
+      @param[in] level: depth of the tree, top is 0
+      @param[in] branch: leaf index, counting from 0 from left to right (maximum index \f$ 2^{level} \f$) 
       @param[in] a: particle one
       @param[in] b: particle two
       @param[in] pshift: particle shifting function applied to the two particles referring to the origin particle stored at the splitted leaf. The two new particles generated will be stored
       \return true: successful adding
     */
-    bool link(const std::size_t id, const std::size_t ib, const Tparticle &a, const Tparticle &b, FunctionParticleShift pshift) {
-        if(id>1) {
-            if(is_member_tree[ib/id]) return ((ParticleTree<Tparticle>*)(this->member[ib/id]))->link(id-1,ib%id,a,b,pshift);
+    bool link(const std::size_t level, const std::size_t branch, const Tparticle &a, const Tparticle &b, FunctionParticleShift pshift) {
+        if(level>1) {
+            int boundary = std::pow(2,level-1);
+            int branch_index = branch/boundary;
+            if(is_member_tree[branch_index]) {
+                // iteratively call link for member, with reducing level by 1 and getting sub-branch index
+                return ((ParticleTree<Tparticle>*)(this->member[branch_index]))->link(level-1,branch%boundary,a,b,pshift);
+            }
             else return false;
         }
-        else if(id==1) return this->split(ib,a,b,pshift);
+        else if(level==1) return this->split(branch,a,b,pshift);
         else return this->fill(a,b);
     }
 

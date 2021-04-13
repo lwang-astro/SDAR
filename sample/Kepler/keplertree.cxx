@@ -25,24 +25,42 @@ Particle ParticleShift(const Particle &_p, const Particle &_p_ref) {
     return p_new;
 }
 
-struct PrintInfo{ 
-    // tree level and branch
-    int level;
-    int branch; 
-    int print_width;
-};
-
-void CountLevelBranch(PrintInfo& _info, Particle*& _p) {
-    _info.branch++;
-    if (_info.branch>=std::pow(2,_info.level)) {
-        _info.level++;
-        _info.branch=0;
+void checkBranchIter(COMM::BinaryTree<Particle,COMM::Binary>& _bin, COMM::BinaryTree<Particle,COMM::Binary>& _bin_root) {
+    int check_flag = _bin.isSameBranch(_bin_root);
+    switch (check_flag) {
+    case -2: 
+        std::cout<<"Upper ";
+        break;
+    case 2:
+        std::cout<<"Lower ";
+        break;
+    case 1:
+        std::cout<<"Same  ";
+        break;
+    case 0:
+        std::cout<<"None  ";
+        break;
+    default:
+        std::cout<<"Error ";
+        break;
+    }
+    std::cout<<_bin_root.level<<" "<<_bin_root.branch<<" "<<_bin_root.m1<<" "<<_bin_root.m2<<std::endl;
+    for (int i=0; i<2; i++) {
+        if (_bin_root.isMemberTree(i)) {
+            auto* bini = _bin_root.getMemberAsTree(i);
+            checkBranchIter(_bin, *bini);
+        }
     }
 }
 
+struct PrintInfo{ 
+    // tree level and branch
+    int print_width;
+};
+
 PrintInfo PrintParticle(PrintInfo& _info, COMM::BinaryTree<Particle,COMM::Binary>& _bin){
-    std::cout<<std::setw(_info.print_width)<<_info.level
-             <<std::setw(_info.print_width)<<_info.branch
+    std::cout<<std::setw(_info.print_width)<<_bin.level
+             <<std::setw(_info.print_width)<<_bin.branch
              <<std::setw(_info.print_width)<<_bin.m1
              <<std::setw(_info.print_width)<<_bin.m2
              <<std::setw(_info.print_width)<<_bin.semi
@@ -52,13 +70,8 @@ PrintInfo PrintParticle(PrintInfo& _info, COMM::BinaryTree<Particle,COMM::Binary
              <<std::setw(_info.print_width)<<_bin.rot_self
              <<std::setw(_info.print_width)<<_bin.ecca
              <<std::endl;
-    _info.branch++;
-    if (_info.branch>=std::pow(2,_info.level)) {
-        _info.level++;
-        _info.branch=0;
-    }
     return _info;
-};
+}
 
 int main(int argc, char **argv){
     bool iflag=false;
@@ -153,10 +166,21 @@ int main(int argc, char **argv){
         COMM::BinaryTree<Particle,COMM::Binary> bins[plist.size()];
         COMM::BinaryTree<Particle,COMM::Binary>::generateBinaryTree(bins, &pindex.front(), plist.size(), &plist.front(),G);
         PrintInfo info;
-        info.level = info.branch = 0;
         info.print_width=width;
+        auto& bin_root = bins[plist.size()-2];
 
-        bins[plist.size()-2].processRootLeafIter(info, PrintParticle, info, CountLevelBranch);
+        COMM::BinaryTree<Particle,COMM::Binary>::generateLevelBranch(bin_root,true);
+
+        bin_root.processRootIter(info, PrintParticle);
+
+
+#ifdef BRANCH_CHECK
+        for (size_t i=0; i<plist.size()-1; i++) {
+            std::cout<<"check level: "<<bins[i].level<<" branch: "<<bins[i].branch<<std::endl;
+            checkBranchIter(bins[i], bin_root);
+            std::cout<<std::endl;
+        }
+#endif        
 
     } else {
         ParticleTree<Particle> ptree;

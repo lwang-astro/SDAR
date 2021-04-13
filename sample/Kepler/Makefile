@@ -6,7 +6,7 @@ SOURCE=${shell ls ../../src/AR/*.h} ${shell ls ../../src/Common/*.h} ${shell ls 
 
 use_x86=yes
 #use_k_computer=yes
-QD_PATH=/opt/qd-2.3.22
+#QD_PATH=/opt/qd-2.3.22
 #GPERF_PATH = /opt/gperftools-2.6.1
 
 
@@ -37,6 +37,7 @@ endif
 ## Flag ----------------------------------------------#
 CXXFLAGS += -I../../src -I./
 CXXFLAGS += -std=c++11
+#CXXFLAGS += -D BRANCH_CHECK
 
 ## qd-lib---------------------------------------------#
 ifneq (x$(QD_PATH),x)

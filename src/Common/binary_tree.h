@@ -470,11 +470,24 @@ namespace COMM{
     private: 
         typedef std::pair<Float, int> R2Index;  // First is distance square, second is index
         typedef BinaryTree<Tptcl,Tbinary> BinaryTreeLocal; // local defined binarytree 
-
+        /*                          Example for level & branch
+                          -------------------------------------------------
+                               level               branch 
+                                0                      0                   
+                                                      / \                 
+                                1                    0   1                 
+                                                    / \ / \
+                                2                  0  1 2  3               
+                          -------------------------------------------------*/
         int n_members; ///> Total member number belong to the tree (can be more than 2)
         int member_index[2];        ///> particle index of original list, -1 indicate member is binarytree
         Tptcl* member[2]; ///> member pointer
-    
+
+    public:
+        int level;     ///> binary tree level, start from zero for root tree. Then each subtree increase level by one.
+        int branch;    ///> the branch in each level, count from the left member to right. 
+
+    private:
         static bool pairLess(const R2Index& a, const R2Index & b)  {
             return a.first < b.first;
         }
@@ -519,7 +532,7 @@ namespace COMM{
     
 
     public:
-        BinaryTree(): Tptcl(), Tbinary(), n_members(-1), member_index{-1,-1}, member{NULL,NULL} {}
+        BinaryTree(): Tptcl(), Tbinary(), n_members(-1), member_index{-1,-1}, member{NULL,NULL}, level(-1), branch(-1) {}
 
 
         // copy function
@@ -569,6 +582,51 @@ namespace COMM{
                 }
             }
             return _bin.stab;
+        }
+
+        //! generate level and branch
+        /*! @param[in] _bin: binary tree
+            @param[in] _reset: if true, set _bin as root tree (level=0, branch=0), otherwise use the stored values.
+         */
+        static void generateLevelBranch(BinaryTreeLocal& _bin, const bool _reset) {
+            if (_reset) {
+                _bin.level=0;
+                _bin.branch=0;
+            }
+            else {
+                ASSERT(_bin.level>=0&&_bin.branch>=0);
+            }
+            for (int i=0; i<2; i++) {
+                if(_bin.isMemberTree(i)) {
+                    auto* bini = _bin.getMemberAsTree(i);
+                    bini->level = _bin.level+1;
+                    bini->branch = 2*_bin.branch + i;
+                    generateLevelBranch(*bini, false);
+                }
+            }
+        };
+
+        //! check whether a given binarytree data is in the same branch 
+        /*! @param[in] _bin: binary tree
+          \return 0: no relation; 1: same binary; -2: the given _bin is in the upper root tree; 2: the given _bin is in the leaf tree
+         */        
+        int isSameBranch(const BinaryTreeLocal& _bin) const {
+            ASSERT(level>=0&&branch>=0&&_bin.level>=0&&_bin.branch>=0);
+            int dlevel = _bin.level - level;
+            if (dlevel>0) { // check leaf
+                int left_edge = (branch<<dlevel);
+                int right_edge = ((branch+1)<<dlevel);
+                if (_bin.branch>=left_edge&&_bin.branch<right_edge) return 2;
+                else return 0;
+            }
+            else if (dlevel<0) { // check mother
+                int left_edge = (_bin.branch<<-dlevel);
+                int right_edge = ((_bin.branch+1)<<-dlevel);
+                if (branch>=left_edge&&branch<right_edge) return -2;
+                else return 0;
+            }
+            else if(_bin.branch==branch) return 1;
+            else return 0;
         }
 
         //! Generate kepler binary tree for a group of particles
