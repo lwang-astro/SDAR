@@ -2133,7 +2133,12 @@ namespace AR {
 
 #ifdef AR_TTL
                                 Float gt_kick_inv_new = calcAccPotAndGTKickInv();
-                                gt_drift_inv_ += gt_kick_inv_new - gt_kick_inv_;
+                                Float d_gt_kick_inv = gt_kick_inv_new - gt_kick_inv_;
+                                // when the change is large, initialize gt_drift_inv_ to avoid large error
+                                if (fabs(d_gt_kick_inv)/std::max(fabs(gt_kick_inv_),fabs(gt_kick_inv_new)) >1e-3) 
+                                    gt_drift_inv_ = gt_kick_inv_new;
+                                else 
+                                    gt_drift_inv_ += d_gt_kick_inv;
                                 gt_kick_inv_ = gt_kick_inv_new;
 #else
                                 calcAccPotAndGTKickInv();
