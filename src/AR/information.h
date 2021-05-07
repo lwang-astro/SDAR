@@ -205,7 +205,7 @@ namespace AR {
             //fix_step_option = FixStepOption::later;
             fix_step_option = FixStepOption::none;
             //// for two-body case, determine the step at begining then fix
-            if (n_particle==2) fix_step_option = AR::FixStepOption::later;
+            if (n_particle==2||bin_root.stab<1.0) fix_step_option = AR::FixStepOption::later;
             //// for multiple case, check whether outer peri-center is close to inner apo-center, if not, use fix step
             //if (n_particle>2) {
             //    Float apo_in_max = 0;

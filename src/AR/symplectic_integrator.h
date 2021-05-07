@@ -2271,11 +2271,12 @@ namespace AR {
                     if (!time_end_flag&&!binary_update_flag) {
                         bool update_flag=updateBinarySemiEccPeriodIter(bin_root, G, time_);
 
+#if (defined AR_SLOWDOWN_ARRAY) || (defined AR_SLOWDOWN_TREE)
+                        updateSlowDownAndCorrectEnergy(true, true);
+#endif
+
                         if (update_flag) {
                     // update slowdown and correct slowdown energy and gt_inv
-#if (defined AR_SLOWDOWN_ARRAY) || (defined AR_SLOWDOWN_TREE)
-                            updateSlowDownAndCorrectEnergy(true, true);
-#endif
 
 #ifdef AR_DEBUG_PRINT
                             std::cerr<<"Update binary tree orbits, time= "<<time_<<"\n";
