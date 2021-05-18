@@ -333,6 +333,16 @@ public:
         return dr2;
     }
 
+    //! calculate peturbation energy to one group
+    /*!
+      @param[in] _group: target group
+      @param[in] _perturber: perturber 
+     */
+    template<class Tgroup, class Tpert>
+    Float calcEnergyPertOneGroup(const Tgroup& _group, const Tpert& _perturber) {
+        return 0.0;
+    }
+
     //! calculate pair potential energy
     template<class Tpi, class Tpj>
     Float calcEnergyPotSingleSingle(const Tpi& pi, const Tpj& pj) {
