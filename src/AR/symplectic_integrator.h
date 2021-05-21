@@ -60,6 +60,7 @@ namespace AR {
         Float time_error_max; ///> maximum time error (absolute), should be positive and larger than round-off error 
         Float energy_error_relative_max; ///> maximum energy error requirement 
         Float time_step_min;        ///> minimum real time step allown
+        Float ds_scale;            ///> scaling factor to determine ds
         Float slowdown_pert_ratio_ref;   ///> slowdown perturbation /inner ratio reference factor
 #ifdef AR_SLOWDOWN_MASSRATIO
         Float slowdown_mass_ref;         ///> slowdown mass factor reference
@@ -72,7 +73,7 @@ namespace AR {
         SymplecticStep step;  ///> class to manager kick drift step
 
         //! constructor
-        TimeTransformedSymplecticManager(): time_error_max(Float(-1.0)), energy_error_relative_max(Float(-1.0)), time_step_min(Float(-1.0)), slowdown_pert_ratio_ref(Float(-1.0)), 
+        TimeTransformedSymplecticManager(): time_error_max(Float(-1.0)), energy_error_relative_max(Float(-1.0)), time_step_min(Float(-1.0)), ds_scale(1.0), slowdown_pert_ratio_ref(Float(-1.0)), 
 #ifdef AR_SLOWDOWN_MASSRATIO
                                             slowdown_mass_ref(Float(-1.0)), 
 #endif
@@ -88,6 +89,7 @@ namespace AR {
             ASSERT(energy_error_relative_max>ROUND_OFF_ERROR_LIMIT);
             //ASSERT(time_step_min>ROUND_OFF_ERROR_LIMIT);
             ASSERT(time_step_min>0.0);
+            ASSERT(ds_scale>0.0);
             ASSERT(slowdown_pert_ratio_ref>0.0);
 #ifdef AR_SLOWDOWN_MASSRATIO
             ASSERT(slowdown_mass_ref>0.0);
@@ -111,12 +113,33 @@ namespace AR {
 
         //! read class data with BINARY format and initial the array
         /*! @param[in] _fin: file IO for read
+          @param[in] _version: version for reading. 0: default; 1: missing ds_scale
          */
-        void readBinary(FILE *_fin) {
-            size_t size = sizeof(*this) - sizeof(interaction) - sizeof(step);
-            size_t rcount = fread(this, size, 1, _fin);
-            if (rcount<1) {
-                std::cerr<<"Error: Data reading fails! requiring data number is 1, only obtain "<<rcount<<".\n";
+        void readBinary(FILE *_fin, int _version=0) {
+            if (_version==0) {
+                size_t size = sizeof(*this) - sizeof(interaction) - sizeof(step);
+                size_t rcount = fread(this, size, 1, _fin);
+                if (rcount<1) {
+                    std::cerr<<"Error: TimeTransformedSymplecticManager parameter reading fails! requiring data number is 1, only obtain "<<rcount<<".\n";
+                    abort();
+                }
+            }
+            else if (_version==1) {
+                size_t rcount = fread(this, sizeof(Float), 3, _fin);
+                if (rcount<3) {
+                    std::cerr<<"Error: TimeTransformedSymplecticManager parameter data reading fails! requiring data number is 3, only obtain "<<rcount<<".\n";
+                    abort();
+                }
+                ds_scale=1.0;
+                size_t size = sizeof(*this) - sizeof(interaction) - sizeof(step) - 4*sizeof(Float);
+                rcount = fread(&slowdown_pert_ratio_ref, size, 1, _fin);
+                if (rcount<1) {
+                    std::cerr<<"Error: TimeTransformedSymplecticManager parameter data reading fails! requiring data number is 1, only obtain "<<rcount<<".\n";
+                    abort();
+                }
+            }
+            else {
+                std::cerr<<"Error: TimeTransformedSymplecticManager.readBinary unknown version "<<_version<<", should be 0 or 1."<<std::endl;
                 abort();
             }
             interaction.readBinary(_fin);
@@ -133,7 +156,8 @@ namespace AR {
                  <<"slowdown_mass_ref         : "<<slowdown_mass_ref<<std::endl
 #endif
                  <<"slowdown_timescale_max    : "<<slowdown_timescale_max<<std::endl
-                 <<"step_count_max            : "<<step_count_max<<std::endl;
+                 <<"step_count_max            : "<<step_count_max<<std::endl
+                 <<"ds_scale                  : "<<ds_scale<<std::endl;
             interaction.print(_fout);
             step.print(_fout);
         }
@@ -2241,7 +2265,7 @@ namespace AR {
                                 updateSlowDownAndCorrectEnergy(true, true);
 #endif
 
-                                info.ds = info.calcDsKeplerBinaryTree(*bin_interrupt.adr, manager->step.getOrder(), G);
+                                info.ds = info.calcDsKeplerBinaryTree(*bin_interrupt.adr, manager->step.getOrder(), G, manager->ds_scale);
                                 if (ds_init!=info.ds) {
 #ifdef AR_DEBUG_PRINT
                                     std::cerr<<"Change ds after interruption: ds(init): "<<ds_init<<" ds(new): "<<info.ds<<" ds(now): "<<ds[0]<<std::endl;
@@ -2281,7 +2305,7 @@ namespace AR {
 #ifdef AR_DEBUG_PRINT
                             std::cerr<<"Update binary tree orbits, time= "<<time_<<"\n";
 #endif
-                            info.ds = info.calcDsKeplerBinaryTree(bin_root, manager->step.getOrder(), G);
+                            info.ds = info.calcDsKeplerBinaryTree(bin_root, manager->step.getOrder(), G, manager->ds_scale);
                             if (abs(ds_init-info.ds)/ds_init>0.1) {
 #ifdef AR_DEBUG_PRINT
                                 std::cerr<<"Change ds after update binary orbit: ds(init): "<<ds_init<<" ds(new): "<<info.ds<<" ds(now): "<<ds[0]<<std::endl;
@@ -2320,6 +2344,7 @@ namespace AR {
                 ASSERT(!ISINF(ds[ds_switch]));
                 if(n_particle==2) integrateTwoOneStep(ds[ds_switch], time_table);
                 else integrateOneStep(ds[ds_switch], time_table);
+                //info.generateBinaryTree(particles, G);
 
                 // real step size
                 dt =  time_ - dt;

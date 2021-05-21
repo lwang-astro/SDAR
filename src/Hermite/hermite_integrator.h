@@ -2334,7 +2334,7 @@ namespace H4{
                     ASSERT(abs(groups[k].getTime()-time_)<=ar_manager->time_error_max);
 #endif
                 // get ds estimation
-                groups[k].info.calcDsAndStepOption(ar_manager->step.getOrder(), ar_manager->interaction.gravitational_constant);
+                groups[k].info.calcDsAndStepOption(ar_manager->step.getOrder(), ar_manager->interaction.gravitational_constant, ar_manager->ds_scale);
 
                 // group integration 
                 interrupt_binary_ = groups[k].integrateToTime(time_next);

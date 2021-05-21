@@ -40,6 +40,7 @@ int main(int argc, char **argv){
     COMM::IOParams<int> dt_min_power_index (input_par_store, 40, "power index to calculate mimimum hermite time step: dt_max*0.5^n"); // power index to calculate minimum physical time step
     COMM::IOParams<int> dt_max_power_index (input_par_store, 2, "power index of 0.5 for maximum hermite time step"); // maximum physical time step
     COMM::IOParams<int> dt_out_power_index (input_par_store, 2, "power index of 0.5 for output time interval"); // output time interval
+    COMM::IOParams<double> ds_scale     (input_par_store, 1.0,  "step size scaling factor for Ar integration");    // step size scaling factor
     COMM::IOParams<int>   interrupt_detection_option(input_par_store, 0, "modify orbits and check interruption: 0: turn off; 1: modify the binary orbits based on detetion criterion; 2. modify and also interrupt integrations");  // modify orbit or check interruption using modifyAndInterruptIter function
     COMM::IOParams<double> energy_error (input_par_store, 1e-10,"relative energy error limit for AR"); // phase error requirement
     COMM::IOParams<double> time_error   (input_par_store, 0.0, "time synchronization absolute error limit for AR","default is 0.25*dt-min"); // time synchronization error
@@ -78,6 +79,7 @@ int main(int argc, char **argv){
         {"slowdown-timescale-max",required_argument, 0, 13},
         {"print-width",required_argument, 0, 14},
         {"print-precision",required_argument, 0, 15},
+        {"ds-scale",required_argument, 0, 16},
         {"help",no_argument, 0, 'h'},
         {0,0,0,0}
     };
@@ -126,6 +128,9 @@ int main(int argc, char **argv){
         case 15:
             print_precision.value = atoi(optarg);
             break;
+        case 16:
+            ds_scale.value = atof(optarg);
+            break;
         case 't':
             time_end.value = atof(optarg);
             break;
@@ -169,6 +174,7 @@ int main(int argc, char **argv){
                      <<"Options: (*) show defaulted values\n"
                      <<"          --dt-max-power [Float]:  "<<dt_max_power_index<<"\n"
                      <<"          --dt-min-power [int]  :  "<<dt_min_power_index<<"\n"
+                     <<"          --ds-scale     [Float]:  "<<ds_scale<<"\n"
                      <<"    -e [Float]:  "<<energy_error<<"\n"
                      <<"          --energy-error [Float]:  same as -e\n"
                      <<"          --eta-4th:     [Float]:  "<<eta_4th<<"\n"
@@ -227,6 +233,7 @@ int main(int argc, char **argv){
     ar_manager.interaction.eps_sq = eps_sq.value;
     ar_manager.interaction.gravitational_constant = grav_const.value;
     ar_manager.time_step_min = manager.step.getDtMin();
+    ar_manager.ds_scale = ds_scale.value;
     if (time_error.value == 0.0) ar_manager.time_error_max = 0.25*ar_manager.time_step_min;
     else ar_manager.time_error_max = time_error.value;
 

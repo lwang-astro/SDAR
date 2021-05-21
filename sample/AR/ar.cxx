@@ -43,6 +43,7 @@ int main(int argc, char **argv){
     COMM::IOParams<double> r_break      (input_par_store, 1e-3, "distance criterion for checking stability"); // binary break criterion
     COMM::IOParams<int>   nstep        (input_par_store,  0, "number of integration steps (higher priority than time_end)"); // total step size
     COMM::IOParams<double> s            (input_par_store, 0.0,  "step size, not physical time step","auto");    // step size
+    COMM::IOParams<double> ds_scale     (input_par_store, 1.0,  "step size scaling factor");    // step size scaling factor
     COMM::IOParams<double> gravitational_constant   (input_par_store, 1.0, "gravitational constant"); // gravitational constant
     COMM::IOParams<double> dt_min       (input_par_store, 1e-13,"minimum physical time step"); // minimum physical time step
     COMM::IOParams<double> dt_out       (input_par_store, 0.0,"output time interval"); // output time interval
@@ -85,6 +86,7 @@ int main(int argc, char **argv){
         {"slowdown-timescale-max",required_argument, 0, 9},
         {"print-width",required_argument, 0, 10},
         {"print-precision",required_argument, 0, 11},
+        {"ds-scale",required_argument, 0, 12},
         {"load-data",no_argument, 0, 'l'},
         {"help",no_argument, 0, 'h'},
         {0,0,0,0}
@@ -130,6 +132,9 @@ int main(int argc, char **argv){
             break;
         case 11:
             print_precision.value = atoi(optarg);
+            break;
+        case 12:
+            ds_scale.value = atof(optarg);
             break;
         case 'G':
             gravitational_constant.value = atof(optarg);
@@ -179,6 +184,7 @@ int main(int argc, char **argv){
                      <<"Input data file format: each line: mass, x, y, z, vx, vy, vz\n"
                      <<"Options: (*) show defaulted values\n"
                      <<"          --dt-min          [int]  :  "<<dt_min<<"\n"
+                     <<"          --ds-scale        [Float]:  "<<ds_scale<<"\n"
                      <<"    -e [Float]:  "<<energy_error<<"\n"
                      <<"          --energy-error    [Float]:  same as -e\n"
                      <<"          --fix-step-option [char] :  "<<fix_step_option<<"\n"
@@ -226,6 +232,7 @@ int main(int argc, char **argv){
     TimeTransformedSymplecticManager<Interaction> manager;
     manager.interaction.gravitational_constant = gravitational_constant.value;
     manager.time_step_min = dt_min.value;
+    manager.ds_scale = ds_scale.value;
     if (time_error.value>0.0)  manager.time_error_max = time_error.value;
     else manager.time_error_max = 0.25*dt_min.value;
     manager.energy_error_relative_max = energy_error.value; 
@@ -295,7 +302,7 @@ int main(int argc, char **argv){
     if(!load_flag) {
         // initialization 
         sym_int.initialIntegration(time_zero.value);
-        sym_int.info.calcDsAndStepOption(manager.step.getOrder(), manager.interaction.gravitational_constant);
+        sym_int.info.calcDsAndStepOption(manager.step.getOrder(), manager.interaction.gravitational_constant, manager.ds_scale);
     }
 
     // use input fix step option

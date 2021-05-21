@@ -99,7 +99,7 @@ namespace AR {
 #endif
 
         //! initializer, set ds to zero, fix_step_option to none
-        Information(): ds(Float(0.0)), time_offset(0.0), r_break_crit(-1.0), fix_step_option(AR::FixStepOption::none), binarytree() {
+        Information(): ds(0.0), time_offset(0.0), r_break_crit(-1.0), fix_step_option(AR::FixStepOption::none), binarytree() {
 #ifdef AR_DEBUG_DUMP
             dump_flag = false;
 #endif
@@ -175,7 +175,7 @@ namespace AR {
         //! calculate average kepler ds iterately for a binary tree
         /*! use calcDsMinKeplerIter
          */
-        Float calcDsKeplerBinaryTree(BinaryTree<Tparticle>& _bin, const int _int_order, const Float& _G) {
+        Float calcDsKeplerBinaryTree(BinaryTree<Tparticle>& _bin, const int _int_order, const Float& _G, const Float& _ds_scale) {
             Float ds_over_ebin_min=NUMERIC_FLOAT_MAX;
             Float ds_min_hyp=NUMERIC_FLOAT_MAX;
             Float ds_min_bin=NUMERIC_FLOAT_MAX;
@@ -183,17 +183,18 @@ namespace AR {
             calcDsMinKeplerIter(ds_over_ebin_min, ds_min_bin, ds_min_hyp, etot_sd, _G, 1.0, _bin, _int_order);
             //Float ds_min_bin = ds_over_ebin_min*etot_sd/(bin_root.getMemberN()-1);
             ASSERT(ds_min_hyp<NUMERIC_FLOAT_MAX||ds_min_bin<NUMERIC_FLOAT_MAX);
-            return std::min(ds_min_bin,ds_min_hyp);
+            return _ds_scale*std::min(ds_min_bin,ds_min_hyp);
         }
 
         //! calculate ds from the inner most binary with minimum period, determine the fix step option
         /*! Estimate ds first from the inner most binary orbit (eccentric anomaly), set fix_step_option to later
           @param[in] _int_order: accuracy order of the symplectic integrator.
           @param[in] _G: gravitational constant
+          @param[in] _ds_scale: scaling factor to determine ds
          */
-        void calcDsAndStepOption(const int _int_order, const Float& _G) {
+        void calcDsAndStepOption(const int _int_order, const Float& _G, const Float& _ds_scale) {
             auto& bin_root = getBinaryTreeRoot();
-            ds = calcDsKeplerBinaryTree(bin_root, _int_order, _G);
+            ds = calcDsKeplerBinaryTree(bin_root, _int_order, _G, _ds_scale);
             ASSERT(ds>0);
 
             // Avoid too small step
