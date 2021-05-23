@@ -564,19 +564,20 @@ namespace COMM{
                         else {
 
                             Float incline=acos(std::min(Float(1.0), _bin.am*bin_in->am/sqrt((_bin.am*_bin.am)*(bin_in->am*bin_in->am))));
-                    
+                            
+                            Float cosinc = cos(incline);
                             Float fac = 1.0 - 2.0*bin_in->ecc/3.0 * (1.0 - 0.5*bin_in->ecc*bin_in->ecc) 
-                                - 0.3*cos(incline)*(1.0 - 0.5*bin_in->ecc + 2.0*cos(incline)*(1.0 - 2.5*pow(bin_in->ecc,1.5) - cos(incline)));
+                                - 0.3*cosinc*(1.0 - 0.5*bin_in->ecc + 2.0*cosinc*(1.0 - 2.5*pow(bin_in->ecc,1.5) - cosinc));
 
                             Float min = bin_in->mass;
                             Float g = sqrt(std::max(bin_in->m1,bin_in->m2) /min)*(1.0 + mout/min);
     
-                            Float q = 1.52*pow(sqrt(_t_crit/_bin.period)/(1.0 - _bin.ecc),1.0/6.0)*pow(fac*g,1.0/3.0);
+                            Float qst = 1.52*pow(sqrt(_t_crit/_bin.period)/(1.0 - _bin.ecc),1.0/6.0)*pow(fac*g,1.0/3.0);
 
                             Float peri_out = _bin.semi * (_bin.ecc + 1.0);
-                            Float rp = peri_out/bin_in->semi;
+                            Float q = peri_out/bin_in->semi;
                     
-                            _bin.stab = std::max(_bin.stab, q/rp);
+                            _bin.stab = std::max(_bin.stab, qst/q);
                         }
                     }
                 }

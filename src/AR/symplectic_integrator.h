@@ -370,7 +370,7 @@ namespace AR {
         /*!
           @param[in] _bin: binary tree for calculating slowdown
         */
-        void calcSlowDownInnerBinary(BinaryTree<Tparticle>& _bin) {
+        void calcSlowDownInnerBinary(BinaryTree<Tparticle>& _bin, const Float& _period_amplify_max) {
             _bin.slowdown.pert_in = manager->interaction.calcPertFromBinary(_bin);
 
             Float pert_out = 0.0;
@@ -387,12 +387,15 @@ namespace AR {
             // get min of velocity and force dependent values
             //Float t_min = std::min(trv_ave, sqrt(sdtdat.trf2_min));
             _bin.slowdown.timescale = std::min(_bin.slowdown.getTimescaleMax(), sqrt(t_min_sq));
+
+            Float timescale_stab = _period_amplify_max*_bin.period;
+            _bin.slowdown.timescale = std::min(_bin.slowdown.timescale, timescale_stab);
 #else
             _bin.slowdown.timescale = _bin.slowdown.getTimescaleMax();
 #endif
 
-            // only set slowdown if semi > 0 
-            if (_bin.semi>0) {
+            // only set slowdown if semi > 0 and stable
+            if (_bin.semi>0&&_bin.stab<=1.0) {
                 _bin.slowdown.period = _bin.period;
                 _bin.slowdown.calcSlowDownFactor();
             }
@@ -1341,6 +1344,7 @@ namespace AR {
             manager->interaction.calcSlowDownPert(sd_root.pert_out, t_min_sq, getTime(), particles.cm, perturber);
             sd_root.timescale = std::min(sd_root.getTimescaleMax(), sqrt(t_min_sq));
 
+            Float period_amplify_max = NUMERIC_FLOAT_MAX;
             if (_stable_check_flag) {
                 // check whether the system is stable for 10000 out period and the apo-center is below break criterion
                 Float stab = bin_root.stableCheckIter(bin_root,10000*bin_root.period);
@@ -1350,6 +1354,13 @@ namespace AR {
                     sd_root.calcSlowDownFactor();
                 }
                 else sd_root.setSlowDownFactor(1.0);
+
+                // stablility criterion
+                // The slowdown factor should not make the system unstable, thus the Qst/Q set the limitation of the increasing of inner semi-major axis.
+                if (stab>0) {
+                    Float semi_amplify_max =  std::max(1.0,1.0/stab);
+                    period_amplify_max = pow(semi_amplify_max,3.0/2.0);
+                }
             }
             else if (bin_root.semi>0) {
                 sd_root.period = bin_root.period;
@@ -1368,9 +1379,7 @@ namespace AR {
                 auto& bini = info.binarytree[i];
                 //if (time_>=bini.slowdown.getUpdateTime()) {
                 bini.calcCenterOfMass();
-                calcSlowDownInnerBinary(bini);
-                // if unstable, set slowdown factor to 1.0
-                if (bini.stab>=1.0) bini.slowdown.setSlowDownFactor(1.0);
+                calcSlowDownInnerBinary(bini, period_amplify_max);
 
                 //sdi->slowdown.increaseUpdateTimeOnePeriod();
                 sd_org_inner_max = std::max(bini.slowdown.getSlowDownFactorOrigin(),sd_org_inner_max);
@@ -1435,6 +1444,7 @@ namespace AR {
             manager->interaction.calcSlowDownPert(sd_root.pert_out, t_min_sq, getTime(), particles.cm, perturber);
             sd_root.timescale = std::min(sd_root.getTimescaleMax(), sqrt(t_min_sq));
 
+            Float period_amplify_max = NUMERIC_FLOAT_MAX;
             if (_stable_check_flag) {
                 // check whether the system is stable for 10000 out period
                 Float stab = bin_root.stableCheckIter(bin_root,10000*bin_root.period);
@@ -1443,6 +1453,12 @@ namespace AR {
                     sd_root.calcSlowDownFactor();
                 }
                 else sd_root.setSlowDownFactor(1.0);
+                // stablility criterion
+                // The slowdown factor should not make the system unstable, thus the Qst/Q set the limitation of the increasing of inner semi-major axis.
+                if (stab>0) {
+                    Float semi_amplify_max =  std::max(1.0,1.0/stab);
+                    period_amplify_max = pow(semi_amplify_max,3.0/2.0);
+                }
             }
             else if (bin_root.semi>0) {
                 sd_root.period = bin_root.period;
@@ -1453,6 +1469,7 @@ namespace AR {
             //sd_root.increaseUpdateTimeOnePeriod();
             //}
 
+
             // inner binary slowdown
             int n = binary_slowdown.getSize();
             bool modified_flag=false;
@@ -1460,8 +1477,7 @@ namespace AR {
                 auto* sdi = binary_slowdown[i];
                 //if (time_>=sdi->slowdown.getUpdateTime()) {
                 sdi->calcCenterOfMass();
-                calcSlowDownInnerBinary(*sdi);
-                if (sdi->stab>=1.0) sdi->slowdown.setSlowDownFactor(1.0);
+                calcSlowDownInnerBinary(*sdi,period_amplify_max);
                 //sdi->slowdown.increaseUpdateTimeOnePeriod();
                 modified_flag=true;
                 //}
