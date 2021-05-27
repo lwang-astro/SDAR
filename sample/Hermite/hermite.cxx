@@ -278,7 +278,7 @@ int main(int argc, char **argv){
     h4_int.particles.calcCenterOfMass();
         
     Float m_ave = h4_int.particles.cm.mass/h4_int.particles.getSize();
-    manager.step.calcAcc0OffsetSq(m_ave, r_search.value);
+    manager.step.calcAcc0OffsetSq(m_ave, r_search.value, grav_const.value);
 #ifdef SLOWDOWN_MASSRATIO
     if (slowdown_mass_ref.value<=0.0) ar_manager.slowdown_mass_ref = m_ave;
     else ar_manager.slowdown_mass_ref = slowdown_mass_ref.value;
