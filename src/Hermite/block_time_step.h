@@ -23,12 +23,13 @@ namespace H4{
         }        
 
         //! calculate a0_offset_sq
-        /*! calculate a0_offset_sq for timestep determination: 0.1*_mass/_r^2
+        /*! calculate a0_offset_sq for timestep determination: (0.1*_mass/_r^2)^2
           @param[in] _mass: mass criterion 
           @param[in] _r_crit: distance criterion
         */
         void calcAcc0OffsetSq(const Float _mass, const Float _r) {
             acc0_offset_sq = 0.1 * _mass / (_r*_r);
+            acc0_offset_sq = acc0_offset_sq*acc0_offset_sq;
         }
 
 
