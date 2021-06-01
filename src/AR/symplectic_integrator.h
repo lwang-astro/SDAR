@@ -1357,7 +1357,7 @@ namespace AR {
 
                 // stablility criterion
                 // The slowdown factor should not make the system unstable, thus the Qst/Q set the limitation of the increasing of inner semi-major axis.
-                if (stab>0) {
+                if (stab>0 && stab != NUMERIC_FLOAT_MAX) {
                     Float semi_amplify_max =  std::max(1.0,1.0/stab);
                     period_amplify_max = pow(semi_amplify_max,3.0/2.0);
                 }
