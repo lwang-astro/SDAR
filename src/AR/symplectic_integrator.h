@@ -2282,7 +2282,9 @@ namespace AR {
 #endif
 
                                 info.ds = info.calcDsKeplerBinaryTree(*bin_interrupt.adr, manager->step.getOrder(), G, manager->ds_scale);
-                                if (ds_init!=info.ds) {
+                                Float ds_max = manager->step.calcStepModifyFactorFromErrorRatio(2.0)*ds_init;
+                                Float ds_min = manager->step.calcStepModifyFactorFromErrorRatio(0.5)*ds_init;
+                                if (info.ds>ds_max || info.ds<ds_min) {
 #ifdef AR_DEBUG_PRINT
                                     std::cerr<<"Change ds after interruption: ds(init): "<<ds_init<<" ds(new): "<<info.ds<<" ds(now): "<<ds[0]<<std::endl;
 #endif
@@ -2292,6 +2294,7 @@ namespace AR {
                                     ds_backup.initial(info.ds);
                                     ds_init = info.ds;
                                 }
+                                else info.ds = ds_init;
 
                                 // return one should be the top root
                                 if (bin_interrupt_return.status!=InterruptStatus::none) {
