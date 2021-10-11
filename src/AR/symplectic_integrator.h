@@ -2302,6 +2302,8 @@ namespace AR {
                                         // give root address if interrupted binaries are different from previous one
                                         bin_interrupt_return.adr = &(info.getBinaryTreeRoot());
                                     }
+                                    if (bin_interrupt.status==InterruptStatus::merge) 
+                                        bin_interrupt_return.status = InterruptStatus::merge;
                                 }
                                 else bin_interrupt_return = bin_interrupt;
                             }
