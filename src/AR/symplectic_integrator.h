@@ -570,8 +570,6 @@ namespace AR {
             return gt_kick_inv;
         }
 
-        calc
-
         //! calc gt_drift_inv for binary tree
         Float calcGtDriftInvIter(AR::BinaryTree<Tparticle>& _bin){
             Float gt_drift_inv= calInvR(*_bin.getLeftMember(), *_bin.getRightMember());
@@ -1358,7 +1356,7 @@ namespace AR {
                 // stablility criterion
                 // The slowdown factor should not make the system unstable, thus the Qst/Q set the limitation of the increasing of inner semi-major axis.
                 if (stab>0 && stab != NUMERIC_FLOAT_MAX) {
-                    Float semi_amplify_max =  std::max(1.0,1.0/stab);
+                    Float semi_amplify_max =  std::max(Float(1.0),1.0/stab);
                     period_amplify_max = pow(semi_amplify_max,3.0/2.0);
                 }
             }
@@ -1456,7 +1454,7 @@ namespace AR {
                 // stablility criterion
                 // The slowdown factor should not make the system unstable, thus the Qst/Q set the limitation of the increasing of inner semi-major axis.
                 if (stab>0) {
-                    Float semi_amplify_max =  std::max(1.0,1.0/stab);
+                    Float semi_amplify_max =  std::max(Float(1.0),1.0/stab);
                     period_amplify_max = pow(semi_amplify_max,3.0/2.0);
                 }
             }
@@ -2690,7 +2688,7 @@ namespace AR {
                         // increase step size if energy error is small, not works correctly, integration error may not increase when ds becomes larger, then a very large ds may appear after several iterations. suppress
                         else if(integration_error_rel_abs<0.5*energy_error_rel_max && dt>0.0 && dt_full/dt>std::max(100.0,0.02*manager->step_count_max)) {
                             Float integration_error_ratio = energy_error_rel_max/integration_error_rel_abs;
-                            Float step_modify_factor = std::min(100.0,manager->step.calcStepModifyFactorFromErrorRatio(integration_error_ratio));
+                            Float step_modify_factor = std::min(Float(100.0),manager->step.calcStepModifyFactorFromErrorRatio(integration_error_ratio));
                             ASSERT(step_modify_factor>0.0);
                             ds[1-ds_switch] *= step_modify_factor;
                             info.ds = ds[1-ds_switch];

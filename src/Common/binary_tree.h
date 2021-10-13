@@ -559,7 +559,7 @@ namespace COMM{
                     if (_bin.stab<1.0) {
                         // if zero mass exist, set unstable
                         if (_bin.getMember(1-k)->mass ==0.0) {
-                            _bin.stab = std::max(_bin.stab, 1000.0);
+                            _bin.stab = std::max(_bin.stab, Float(1000.0));
                         }
                         else {
 

@@ -181,7 +181,9 @@ int main(int argc, char **argv){
             break;
         case 'h':
             std::cout<<bin_name<<" [option] data_filename\n"
-                     <<"Input data file format: each line: mass, x, y, z, vx, vy, vz\n"
+                     <<"Input data file format: \n"
+                     <<"    header line: number_of_particle\n"
+                     <<"    following lines: mass, x, y, z, vx, vy, vz, radius\n"
                      <<"Options: (*) show defaulted values\n"
                      <<"          --dt-min          [int]  :  "<<dt_min<<"\n"
                      <<"          --ds-scale        [Float]:  "<<ds_scale<<"\n"
