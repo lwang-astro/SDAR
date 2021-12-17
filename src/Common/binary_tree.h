@@ -577,6 +577,7 @@ namespace COMM{
                             Float peri_out = _bin.semi * (_bin.ecc + 1.0);
                             Float q = peri_out/bin_in->semi;
                     
+                            bin_in->stab = std::max(bin_in->stab, qst/q);
                             _bin.stab = std::max(_bin.stab, qst/q);
                         }
                     }
