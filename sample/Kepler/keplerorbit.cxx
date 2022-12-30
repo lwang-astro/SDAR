@@ -39,7 +39,7 @@ int main(int argc, char **argv){
            std::cout<<"keplerorbit [option] datafilename\n"
                     <<"    pariticle data (two lines): \n";
            Particle::printColumnTitle(std::cout, 12);
-           std::cout<<"\n    orbital data (one line): (period, r, L.(x/y/z) are not used)\n";
+           std::cout<<"\n    orbital data (one line): (t_peri, period, r, L.(x/y/z) are not used)\n";
            COMM::BinaryTree<Particle,COMM::Binary>::printColumnTitle(std::cout, 12);
            std::cout<<"\nOptions: (*) show defaulted values\n"
                     <<"   -i:        read particle data, output kepler orbit data (one line)\n"

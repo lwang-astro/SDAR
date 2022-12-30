@@ -759,6 +759,11 @@ namespace H4{
                 _nbi.checkAndAddNeighborGroup(r2, groupj, j+index_offset_group_);
             }
             ASSERT(_nbi.n_neighbor_group + _nbi.n_neighbor_single == _nbi.neighbor_address.getSize());
+
+#ifdef HERMITE_PERT_FORCE
+            // perturber
+            manager->interaction.calcAccJerkPerturber(_fi, _pi, particles.cm, perturber);
+#endif
         }
 
         //! calculate one cm group interaction from all singles and groups
@@ -820,6 +825,11 @@ namespace H4{
                 nbi.checkAndAddNeighborGroup(r2, groupj, j+index_offset_group_);
             }
             ASSERT(nbi.n_neighbor_group + nbi.n_neighbor_single == nbi.neighbor_address.getSize());
+
+#ifdef HERMITE_PERT_FORCE
+            // perturber
+            manager->interaction.calcAccJerkPerturber(_fi, _pi, particles.cm, perturber);
+#endif
         }        
 
         //! calculate one resolved group interaction from all singles and groups
@@ -903,6 +913,7 @@ namespace H4{
                 auto& fkj = force_ptr[kj];
                 auto& nbkj = neighbor_ptr[kj];
                 calcOneSingleAccJerkNB(fkj, nbkj, pkj, _pi.id);
+
                 // replace the cm. force with the summation of members
                 _fi.acc0[0] += pkj.mass * fkj.acc0[0]; 
                 _fi.acc0[1] += pkj.mass * fkj.acc0[1]; 
@@ -929,7 +940,7 @@ namespace H4{
             _fi.acc1[2] /= _pi.mass;
 
             _fi.pot /= _pi.mass;
-            
+
         }
         
         //! Calculate acc and jerk for lists of particles from all particles and update neighbor lists

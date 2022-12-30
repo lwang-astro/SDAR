@@ -169,7 +169,7 @@ int main(int argc, char **argv){
             std::cout<<"hermite [option] data_filename\n"
                      <<"Input data file format: \n"
                      <<"  First   line:  number of particles(N)\n"
-                     <<"  2-(N+1) line:  mass, x, y, z, vx, vy, vz\n"
+                     <<"  2-(N+1) line:  mass, x, y, z, vx, vy, vz, radius\n"
                      <<"  last    line:  N_group, group_offset_index_lst[N_group], group_member_particle_index[N_member_total]\n"
                      <<"Options: (*) show defaulted values\n"
                      <<"          --dt-max-power [Float]:  "<<dt_max_power_index<<"\n"
