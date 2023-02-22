@@ -1,6 +1,8 @@
 ## TARGET
 TARGET=hermite
 
+INSTALL_PATH=~/bin
+
 VPATH=../../src 
 
 SOURCE=${shell ls ../../src/*/*.h} ${shell ls ./*.h}
@@ -71,8 +73,8 @@ endif
 hermite: hermite.cxx ${SOURCE}
 	$(CXX) $(CXXFLAGS) $< -o $@ $(CXXLIBS)
 
-install: hermite
-	mv hermite ~/bin
+install: $(TARGET)
+	install -m 755 $(TARGET) $(INSTALL_PATH)
 
 clean:
 	rm -f $(TARGET)

@@ -1,4 +1,6 @@
-TARGET: keplerorbit keplertree
+TARGET= keplerorbit keplertree
+
+INSTALL_PATH=~/bin
 
 VPATH=../../src 
 
@@ -53,6 +55,9 @@ keplerorbit: keplerorbit.cxx  ${SOURCE}
 
 keplertree: keplertree.cxx ${SOURCE}
 	$(CXX) $(CXXFLAGS) $< -o $@ $(CXXLIBS)
+
+install: $(TARGET)
+	install -m 755 $(TARGET) $(INSTALL_PATH)
 
 clean:
 	rm -f $(TARGET)

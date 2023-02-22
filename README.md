@@ -30,10 +30,18 @@ To use AR and Hermite, additional header files which define the interactions (ca
 
 ## Use as independent code
 In sample directories, three subdirectories provide sample codes using the library, which can be used as independent codes for integrating few-body motions.
+Use `make` to compile the sample codes and `make install` to install the excutable fieles.
+The default install path is the bin directory in user's home path. 
+To change the install path, please modify `INSTALL_PATH` in Makefile in each sample subdirectory.
+
+Here are the description of three subdirectories:
 1. Kepler: two tools for transformation between Kepler orbits and particle positions and velocities.
     1. keplerorbit: transformation between a group of binaries with mass, positions and velocities and a group of Kepler orbital parameters (semi-major axis, eccentricity, Euler angles and eccentric anomaly).
     2. keplertree: generate a hierarchical Kepler binary tree from a group of particles (hyperbolic orbits can also be detected) or use a hierarchical orbital input to generate the group of particles (mass, positions and velocities).
-2. AR: a _N_-body integrator using AR library. Four sample codes are generated: ar.logh, ar.logh.sd, ar.ttl, ar.ttl.sd. The suffix 'logh' and 'ttl' indicate the AR methods (see paper or docs for details); 'sd' indicates the slowdown method is included for inner binaries in a hierarchical systems.
+2. AR: a _N_-body integrator using AR library. Six sample executable files are generated: ar.logh, ar.logh.sd.a ar.log.sd.t, ar.ttl, ar.ttl.sd.a ar.ttl.sd.t. The meaning of suffixes:
+    1. 'logh' and 'ttl' indicate the AR methods (see paper or docs for details).
+    2. 'sd' indicates the slowdown method is included for inner binaries in a hierarchical systems. 
+    3. 'a' means that the slowdown method is only used for inner binaries in a hierarchical system; 't' means that the slowdown method is used hierachically for inner and outer binaries in a system.
 3. Hermite: a _N_-body integrator combines Hermite and AR method, the code name is hermite.
 
 In sample/input directory, users can find several input samples for using AR or Hermite codes.

@@ -1,5 +1,7 @@
 TARGET= ar.logh ar.logh.sd.a ar.logh.sd.t ar.ttl ar.ttl.sd.a ar.ttl.sd.t
 
+INSTALL_PATH=~/bin
+
 all: $(TARGET)
 
 VPATH=../../src 
@@ -84,7 +86,7 @@ ar.ttl.sd.t: ar.cxx ${SOURCE}
 	$(CXX) $(CXXFLAGS) -D AR_TTL -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE  $< -o $@ $(CXXLIBS)
 
 install: $(TARGET)
-	mv $(TARGET) ~/bin
+	install -m 755 $(TARGET) $(INSTALL_PATH)
 
 clean:
 	rm -f $(TARGET)
