@@ -185,6 +185,41 @@ namespace H4{
         }
     };
 
+    //! Recorder of interrupted binaries information
+    template <class Tparticle>
+    struct InterruptInfo{
+        AR::InterruptBinary<Tparticle> binary; // copy of interrupt binary
+        Tparticle members_backup[2]; // backup of two members at the interrupt time
+
+        InterruptInfo(): binary(), members_backup{} {}
+
+        InterruptInfo(AR::InterruptBinary<Tparticle> _interrupt_binary) {
+            binary = _interrupt_binary;
+            members_backup[0] = *(binary.adr->getMember(0));
+            members_backup[1] = *(binary.adr->getMember(1));
+        }
+        
+        //! print titles of class members using column style
+        /*! print titles of class members in one line for column style
+          @param[out] _fout: std::ostream output object
+          @param[in] _width: print width (defaulted 20)
+        */
+        void printColumnTitle(std::ostream & _fout, const int _width=20) {
+            binary.adr->printColumnTitle(_fout, _width);
+        }
+        
+
+        //! print data of class members using column style
+        /*! print data of class members in one line for column style. Notice no newline is printed at the end
+          @param[out] _fout: std::ostream output object
+          @param[in] _width: print width (defaulted 20)
+        */
+        void printColumn(std::ostream & _fout, const int _width=20) {
+            binary.adr->printColumn(_fout, _width);
+        }
+
+    };
+
     //!Hermite integrator class
     template <class Tparticle, class Tpcm, class Tpert, class TARpert, class Tacc, class TARacc, class Tinfo>
     class HermiteIntegrator{
@@ -215,10 +250,10 @@ namespace H4{
         int index_offset_group_; /// offset of group index in pred_, force_ and time_next_
 
         // interrupt group 
-        int interrupt_group_dt_sorted_group_index_; /// interrupt group position in index_dt_sorted_group_
-        AR::InterruptBinary<Tparticle> interrupt_binary_; /// interrupt binary tree address
+        //int interrupt_group_dt_sorted_group_index_; /// interrupt group position in index_dt_sorted_group_
+        //AR::InterruptBinary<Tparticle> interrupt_binary_; /// interrupt binary tree address
         COMM::List<int> index_group_merger_; /// merger group index
-
+        COMM::List<InterruptInfo<Tparticle>> interrupt_binary_info_list_; /// interrupt binary information list
         // flags
         bool initial_system_flag_; /// flag to indicate whether the system is initialized with all array size defined (reest in initialSystem)
         bool modify_system_flag_;  /// flag to indicate whether the system (group/single) is added/removed (reset in adjustSystemAfterModify)
@@ -273,7 +308,9 @@ namespace H4{
                              n_act_single_(0), n_act_group_(0), 
                              n_init_single_(0), n_init_group_(0), 
                              index_offset_group_(0), 
-                             interrupt_group_dt_sorted_group_index_(-1), interrupt_binary_(), index_group_merger_(),
+                             //interrupt_group_dt_sorted_group_index_(-1), interrupt_binary_(), 
+                             index_group_merger_(),
+                             interrupt_binary_info_list_(),
                              initial_system_flag_(false), modify_system_flag_(false),
                              index_dt_sorted_single_(), index_dt_sorted_group_(), 
                              index_group_resolve_(), index_group_cm_(), 
@@ -292,9 +329,10 @@ namespace H4{
             energy_sd_.clear();
             n_act_single_ = n_act_group_ = n_init_single_ = n_init_group_ = 0;
             index_offset_group_ = 0;
-            interrupt_group_dt_sorted_group_index_ = -1;
-            interrupt_binary_.clear();
+            //interrupt_group_dt_sorted_group_index_ = -1;
+            //interrupt_binary_.clear();
             index_group_merger_.clear();
+            interrupt_binary_info_list_.clear();
             initial_system_flag_ = false;
             modify_system_flag_ = false;
 
@@ -340,6 +378,8 @@ namespace H4{
             neighbors.setMode(COMM::ListMode::local);
 
             index_group_merger_.reserveMem(nmax_group);
+            interrupt_binary_info_list_.setMode(COMM::ListMode::local);
+            interrupt_binary_info_list_.reserveMem(nmax_group);
             
             index_dt_sorted_single_.reserveMem(nmax);
             index_dt_sorted_group_.reserveMem(nmax_group);
@@ -2106,7 +2146,7 @@ namespace H4{
             ASSERT(checkParams());
             ASSERT(!particles.isModified());
             ASSERT(initial_system_flag_);
-            ASSERT(ar_manager->interrupt_detection_option!=2||(ar_manager->interrupt_detection_option==2&&interrupt_binary_.status==AR::InterruptStatus::none));
+            //ASSERT(ar_manager->interrupt_detection_option!=2||(ar_manager->interrupt_detection_option==2&&interrupt_binary_.status==AR::InterruptStatus::none));
             modify_system_flag_=true;
 
             // check
@@ -2309,9 +2349,11 @@ namespace H4{
 
         //! Integrate groups
         /*! Integrate all groups to time
-          \return interrupted binarytree if exist
+           For interruption case, 
+           if ar_manager->interrupt_detection_option==1, modify groups depending on mergers or destroy
+           else ar_manager->interrupt_detection_option==2, record interrupted binary information
          */
-        AR::InterruptBinary<Tparticle>& integrateGroupsOneStep() {
+        void integrateGroupsOneStep() {
             ASSERT(checkParams());
             ASSERT(!particles.isModified());
             ASSERT(initial_system_flag_);
@@ -2321,103 +2363,114 @@ namespace H4{
             // get next time
             Float time_next = getNextTime();
 
-            if (ar_manager->interrupt_detection_option==1) {
-                interrupt_group_dt_sorted_group_index_ = -1;
-                interrupt_binary_.clear();
-            }
+            //if (ar_manager->interrupt_detection_option>0) {
+            //    interrupt_group_dt_sorted_group_index_ = -1;
+            //    interrupt_binary_.clear();
+            //}
 
-#ifdef HERMITE_DEBUG            
-            if (interrupt_binary_.status!=AR::InterruptStatus::none) ASSERT(interrupt_group_dt_sorted_group_index_>=0);
-#endif
+//#ifdef HERMITE_DEBUG            
+//            if (interrupt_binary_.status!=AR::InterruptStatus::none) ASSERT(interrupt_group_dt_sorted_group_index_>=0);
+//#endif
 
             // integrate groups loop 
             const int n_group_tot = index_dt_sorted_group_.getSize();
-            const int i_start = interrupt_group_dt_sorted_group_index_>=0 ? interrupt_group_dt_sorted_group_index_ : 0;
+            //const int i_start = interrupt_group_dt_sorted_group_index_>=0 ? interrupt_group_dt_sorted_group_index_ : 0;
             int interrupt_index_dt_group_list[n_group_tot];
             int n_interrupt_change_dt=0;
 
-            for (int i=i_start; i<n_group_tot; i++) {
+            //for (int i=i_start; i<n_group_tot; i++) {
+            for (int i=0; i<n_group_tot; i++) {
                 const int k = index_dt_sorted_group_[i];
 
-#ifdef HERMITE_DEBUG            
-                ASSERT(table_group_mask_[k]==false);
-                if (i!=interrupt_group_dt_sorted_group_index_) 
-                    ASSERT(abs(groups[k].getTime()-time_)<=ar_manager->time_error_max);
-#endif
+//#ifdef HERMITE_DEBUG            
+//                ASSERT(table_group_mask_[k]==false);
+//                if (i!=interrupt_group_dt_sorted_group_index_) 
+//                    ASSERT(abs(groups[k].getTime()-time_)<=ar_manager->time_error_max);
+//#endif
                 // get ds estimation
                 groups[k].info.calcDsAndStepOption(ar_manager->step.getOrder(), ar_manager->interaction.gravitational_constant, ar_manager->ds_scale);
 
                 // group integration 
-                interrupt_binary_ = groups[k].integrateToTime(time_next);
+                auto interrupt_binary = groups[k].integrateToTime(time_next);
 
                 // profile
                 profile.ar_step_count += groups[k].profile.step_count;
                 profile.ar_step_count_tsyn += groups[k].profile.step_count_tsyn;
 
-                // record interrupt group and quit
-                if (interrupt_binary_.status!=AR::InterruptStatus::none) {
-                    // particle cm is the old cm in original frame
-                    auto& pcm = groups[k].particles.cm;
+                if (interrupt_binary.status!=AR::InterruptStatus::none) {
+                    // processing interruption case
+                    if (ar_manager->interrupt_detection_option==1) {
+                        // particle cm is the old cm in original frame
+                        auto& pcm = groups[k].particles.cm;
 
-                    if (interrupt_binary_.status==AR::InterruptStatus::merge||interrupt_binary_.status==AR::InterruptStatus::destroy) {
-                        index_group_merger_.addMember(k);
-                    }
-                    else {
-                        // set initial step flag 
-                        groups[k].perturber.initial_step_flag=true;
-
-                        if (pcm.time + pcm.dt >time_next) {
-                            ASSERT(i>=n_act_group_);
-                            // set cm step to reach time_next
-                            pcm.dt = time_next - pcm.time;
-                            time_next_[k+index_offset_group_] = time_next;
-                            // recored index in index_dt_sort of the interrupt case for moving later
-                            interrupt_index_dt_group_list[n_interrupt_change_dt++] = i;
+                        if (interrupt_binary.status==AR::InterruptStatus::merge||interrupt_binary.status==AR::InterruptStatus::destroy)  {
+                            index_group_merger_.addMember(k);
                         }
-                    }
+                        else {
+                            // set initial step flag 
+                            groups[k].perturber.initial_step_flag=true;
+
+                            if (pcm.time + pcm.dt >time_next) {
+                                ASSERT(i>=n_act_group_);
+                                // set cm step to reach time_next
+                                pcm.dt = time_next - pcm.time;
+                                time_next_[k+index_offset_group_] = time_next;
+                                // recored index in index_dt_sort of the interrupt case for moving later
+                                interrupt_index_dt_group_list[n_interrupt_change_dt++] = i;
+                            }
+                        }
                     
-                    // correct cm potential energy 
-                    //Float dm = correctMassChangePotEnergyBinaryIter(*interrupt_binary_.adr);
-                    // notice the bin_root represent new c.m. in rest frame
-                    auto& bink = groups[k].info.getBinaryTreeRoot();
-                    Float dm = bink.mass - pcm.mass;
-                    Float de_pot = force_[k+index_offset_group_].pot*dm;
-                    energy_.de_cum += de_pot;
-                    energy_.de_binary_interrupt += de_pot;
-                    energy_sd_.de_cum += de_pot;
-                    energy_sd_.de_binary_interrupt += de_pot;
+                        // correct cm potential energy 
+                        //Float dm = correctMassChangePotEnergyBinaryIter(*interrupt_binary.adr);
+                        // notice the bin_root represent new c.m. in rest frame
+                        auto& bink = groups[k].info.getBinaryTreeRoot();
+                        Float dm = bink.mass - pcm.mass;
+                        Float de_pot = force_[k+index_offset_group_].pot*dm;
+                        energy_.de_cum += de_pot;
+                        energy_.de_binary_interrupt += de_pot;
+                        energy_sd_.de_cum += de_pot;
+                        energy_sd_.de_binary_interrupt += de_pot;
 
-                    // correct kinetic energy of cm
-                    ASSERT(!groups[k].particles.isOriginFrame());
-                   // first remove mass loss kinetic energy assuming original cm velocity
-                    auto& vcm = pcm.vel;
-                    auto& vbin = bink.vel;
-                    auto& vbin_bk = groups[k].info.vcm_record;
-                    //Float vbcm[3] = {vcm[0] + vbin_bk[0], vcm[1] + vbin_bk[1], vcm[2] + vbin_bk[2]};
-                    Float de_kin = 0.5*dm*(vcm[0]*vcm[0]+vcm[1]*vcm[1]+vcm[2]*vcm[2]);
-                    // then correct c.m. motion if the c.m. velocity is shifted, 
-                    // this can be by adding m_cm(new) * v_cm(new;rest) \dot v_cm(old;origin)
-                    Float dvbin[3] = {vbin[0] - vbin_bk[0], vbin[1] - vbin_bk[1], vbin[2] - vbin_bk[2]};
-                    de_kin += bink.mass*(dvbin[0]*vcm[0]+dvbin[1]*vcm[1]+dvbin[2]*vcm[2]);
-                    energy_.de_cum += de_kin;
-                    energy_.de_binary_interrupt += de_kin;
-                    energy_sd_.de_cum += de_kin;
-                    energy_sd_.de_binary_interrupt += de_kin;
+                        // correct kinetic energy of cm
+                        ASSERT(!groups[k].particles.isOriginFrame());
+                        // first remove mass loss kinetic energy assuming original cm velocity
+                        auto& vcm = pcm.vel;
+                        auto& vbin = bink.vel;
+                        auto& vbin_bk = groups[k].info.vcm_record;
+                        //Float vbcm[3] = {vcm[0] + vbin_bk[0], vcm[1] + vbin_bk[1], vcm[2] + vbin_bk[2]};
+                        Float de_kin = 0.5*dm*(vcm[0]*vcm[0]+vcm[1]*vcm[1]+vcm[2]*vcm[2]);
+                        // then correct c.m. motion if the c.m. velocity is shifted, 
+                        // this can be by adding m_cm(new) * v_cm(new;rest) \dot v_cm(old;origin)
+                        Float dvbin[3] = {vbin[0] - vbin_bk[0], vbin[1] - vbin_bk[1], vbin[2] - vbin_bk[2]};
+                        de_kin += bink.mass*(dvbin[0]*vcm[0]+dvbin[1]*vcm[1]+dvbin[2]*vcm[2]);
+                        energy_.de_cum += de_kin;
+                        energy_.de_binary_interrupt += de_kin;
+                        energy_sd_.de_cum += de_kin;
+                        energy_sd_.de_binary_interrupt += de_kin;
 
-                    // back up vcm for later on perturbation kinetic energy correction
-                    vbin_bk[0] = vbin[0];
-                    vbin_bk[1] = vbin[1];
-                    vbin_bk[2] = vbin[2];
+                        // back up vcm for later on perturbation kinetic energy correction
+                        vbin_bk[0] = vbin[0];
+                        vbin_bk[1] = vbin[1];
+                        vbin_bk[2] = vbin[2];
 
 
-                    // update particle dm, velocity should not change to be consistent with frame
-                    pcm.mass += dm;
-                    //particles.cm.mass += dm;
+                        // update particle dm, velocity should not change to be consistent with frame
+                        pcm.mass += dm;
+                        //particles.cm.mass += dm;
 
-                    if (ar_manager->interrupt_detection_option==2) { // quit integration
-                        interrupt_group_dt_sorted_group_index_ = i;
-                        ASSERT(time_next - interrupt_binary_.time_now + ar_manager->time_error_max >= 0.0);
-                        return interrupt_binary_;
+                    }
+                    // record interrupt information
+                    else if (ar_manager->interrupt_detection_option==2) { 
+                        auto bin = interrupt_binary.adr;
+                        if (!bin->isMemberTree(1) && !bin->isMemberTree(2)){
+                            // only recored binary interruption
+                            interrupt_binary_info_list_.addMember(InterruptInfo<Tparticle>(interrupt_binary));
+                        }
+                            
+                        //    interrupt_group_dt_sorted_group_index_ = i;
+                        // ASSERT(time_next - interrupt_binary_.time_now + ar_manager->time_error_max >= 0.0);
+                        //    return interrupt_binary_;
+                        //
                     }
                 }
 
@@ -2482,7 +2535,7 @@ namespace H4{
             //interrupt_group_dt_sorted_group_index_ = -1;
             //interrupt_binary_.clear();
 
-            return interrupt_binary_;
+            //return interrupt_binary_;
         }
 
         //! modify single particles due to external functions, update energy
@@ -2570,7 +2623,7 @@ namespace H4{
             ASSERT(initial_system_flag_);
             ASSERT(!modify_system_flag_);
             ASSERT(n_init_group_==0&&n_init_single_==0);
-            ASSERT(ar_manager->interrupt_detection_option!=2||(ar_manager->interrupt_detection_option==2&&interrupt_binary_.status==AR::InterruptStatus::none));
+            //ASSERT(ar_manager->interrupt_detection_option!=2||(ar_manager->interrupt_detection_option==2&&interrupt_binary_.status==AR::InterruptStatus::none));
             
             // get next time
             Float time_next = getNextTime();
@@ -3005,17 +3058,29 @@ namespace H4{
         //! get interrupt group index
         /*! if not exist, return -1
          */
-        int getInterruptGroupIndex() const {
-            if (interrupt_group_dt_sorted_group_index_>=0) 
-                return index_dt_sorted_group_[interrupt_group_dt_sorted_group_index_];
-            else return -1;
-        }
+        //int getInterruptGroupIndex() const {
+        //    if (interrupt_group_dt_sorted_group_index_>=0) 
+        //        return index_dt_sorted_group_[interrupt_group_dt_sorted_group_index_];
+        //    else return -1;
+        //}
 
         //! get interrupt binary (tree) address
         /*! if not exist, return NULL
          */
-        AR::InterruptBinary<Tparticle>& getInterruptBinary() {
-            return interrupt_binary_;
+        //AR::InterruptBinary<Tparticle>& getInterruptBinary() {
+        //    return interrupt_binary_;
+        //}
+
+        //! get interrupt binary number
+        int getNInterrupt() const {
+            return interrupt_binary_info_list_.getSize();
+        }
+
+        //! get interrupt binary information list
+        /*! 
+         */
+        InterruptInfo<Tparticle>& getInterruptInfo(const int _index) {
+            return interrupt_binary_info_list_[_index];
         }
 
         //! get active number of particles of singles

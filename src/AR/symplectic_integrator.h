@@ -2108,15 +2108,18 @@ namespace AR {
                         //bin_intr_ptr = bin_root.processRootIter(bin_intr_ptr, Tmethod::modifyAndInterruptIter);
                         ASSERT(bin_interrupt.checkParams());
                         if (bin_interrupt.status!=InterruptStatus::none) {
-                            // the mode return back to the root scope
                             if (manager->interrupt_detection_option==2) {
                                 // cumulative step count 
-                                profile.step_count = step_count;
-                                profile.step_count_tsyn = step_count_tsyn;
-                                profile.step_count_sum += step_count;
-                                profile.step_count_tsyn_sum += step_count_tsyn;
+                                //profile.step_count = step_count;
+                                //profile.step_count_tsyn = step_count_tsyn;
+                                //profile.step_count_sum += step_count;
+                                //profile.step_count_tsyn_sum += step_count_tsyn;
 
-                                return bin_interrupt;
+                                //return bin_interrupt;
+
+                                // return the first one of detection
+                                if (bin_interrupt_return.status == InterruptStatus::none) 
+                                    bin_interrupt_return = bin_interrupt;
                             }
                             else {
 

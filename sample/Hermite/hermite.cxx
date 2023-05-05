@@ -341,10 +341,12 @@ int main(int argc, char **argv){
 
     // integration loop
     while (h4_int.getTime()<time_end.value) {
-        auto bin_interrupt = h4_int.integrateGroupsOneStep();
-        if (bin_interrupt.status!=AR::InterruptStatus::none) {
-            std::cerr<<"Interrupt condition triggered! ";
-            switch (bin_interrupt.status) {
+        h4_int.integrateGroupsOneStep();
+        int n_interrupt = h4_int.getNInterrupt();
+        for (int i=0; i<n_interrupt; i++) {
+            auto& interrupt_info = h4_int.getInterruptInfo(i);
+            std::cerr<<"Interrupt <<"<<i<<" : ";
+            switch (interrupt_info.binary.status) {
             case AR::InterruptStatus::change:
                 std::cerr<<" Change";
                 break;
@@ -357,18 +359,10 @@ int main(int argc, char **argv){
             case AR::InterruptStatus::none:
                 break;
             }
-            std::cerr<<" Time: "<<bin_interrupt.time_now<<std::endl;
-            bin_interrupt.adr->printColumnTitle(std::cerr);
+            interrupt_info.printColumnTitle(std::cerr);
             std::cerr<<std::endl;
-            bin_interrupt.adr->printColumn(std::cerr);
+            interrupt_info.printColumn(std::cerr);
             std::cerr<<std::endl;
-            Particle::printColumnTitle(std::cerr);
-            std::cerr<<std::endl;
-            for (int j=0; j<2; j++) {
-                bin_interrupt.adr->getMember(j)->printColumn(std::cerr);
-                std::cerr<<std::endl;
-            }
-            if (ar_manager.interrupt_detection_option==2) continue;
         }
         h4_int.integrateSingleOneStepAct();
         h4_int.adjustGroups(false);
