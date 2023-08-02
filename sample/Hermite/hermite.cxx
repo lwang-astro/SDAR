@@ -181,7 +181,7 @@ int main(int argc, char **argv){
                      <<"          --eta-2nd:     [Float]:  "<<eta_2nd<<"\n"
                      <<"          --eps:         [Float]:  "<<eps_sq<<"\n"
                      <<"    -G [Float]:  "<<grav_const<<"\n"
-                     <<"    -i [string]: "<<interrupt_detection_option<<"\n"
+                     <<"    -i [int]:    "<<interrupt_detection_option<<"\n"
                      <<"    -k [int]:    "<<sym_order<<"\n"
                      <<"          --load-par     [string]: "<<filename_par<<"\n"
                      <<"          --n-step-max   [int]  :  "<<nstep_max<<"\n"
@@ -247,6 +247,7 @@ int main(int argc, char **argv){
     // set symplectic order
     ar_manager.step.initialSymplecticCofficients(sym_order.value);
     ar_manager.interrupt_detection_option = interrupt_detection_option.value;
+    ar_manager.interaction.interrupt_detection_option = interrupt_detection_option.value;
 
     // store input parameters
     std::string fpar_out = std::string(filename) + ".par";
@@ -257,6 +258,15 @@ int main(int argc, char **argv){
     }
     input_par_store.writeAscii(fout);
     fclose(fout);
+
+    // interrupt file output
+    std::ofstream finterrupt;
+    if (interrupt_detection_option.value>0) {
+        std::string finterrupt_name = std::string(filename) + ".interrupt";
+        finterrupt.open(finterrupt_name.c_str(),std::ofstream::out);
+        AR::InterruptBinary<Particle>::printColumnTitle(finterrupt,20,true);
+        finterrupt<<std::endl;
+    }
 
     // integrator
     H4Int h4_int;
@@ -345,8 +355,8 @@ int main(int argc, char **argv){
         int n_interrupt = h4_int.getNInterrupt();
         for (int i=0; i<n_interrupt; i++) {
             auto& interrupt_info = h4_int.getInterruptInfo(i);
-            std::cerr<<"Interrupt <<"<<i<<" : ";
-            switch (interrupt_info.binary.status) {
+            std::cerr<<"Interrupt "<<i<<" : ";
+            switch (interrupt_info.status) {
             case AR::InterruptStatus::change:
                 std::cerr<<" Change";
                 break;
@@ -359,10 +369,15 @@ int main(int argc, char **argv){
             case AR::InterruptStatus::none:
                 break;
             }
+            std::cerr<<std::endl;
             interrupt_info.printColumnTitle(std::cerr);
             std::cerr<<std::endl;
             interrupt_info.printColumn(std::cerr);
             std::cerr<<std::endl;
+            if (interrupt_detection_option.value>0) {
+                interrupt_info.printColumn(finterrupt, 20, true);
+                finterrupt<<std::endl;
+            }
         }
         h4_int.integrateSingleOneStepAct();
         h4_int.adjustGroups(false);

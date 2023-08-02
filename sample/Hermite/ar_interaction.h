@@ -13,8 +13,8 @@ public:
 
     Float eps_sq; // softening 
     Float gravitational_constant; ///> gravitational constant
-
-    ARInteraction(): eps_sq(Float(-1.0)), gravitational_constant(Float(-1.0)) {}
+    int interrupt_detection_option;    /// 2: record binary status when the pair distance is less than the sum of two members' radii, 1: merge when the pair distance is less than the sum of two members' radii; 0: no interruption
+    ARInteraction(): eps_sq(Float(-1.0)), gravitational_constant(Float(-1.0)), interrupt_detection_option(0) {}
 
     //! (Necessary) check whether publicly initialized parameters are correctly set
     /*! \return true: all parmeters are correct. In this case no parameters, return true;
@@ -28,7 +28,8 @@ public:
     //! print parameters
     void print(std::ostream & _fout) const{
         _fout<<"eps_sq: "<<eps_sq<<std::endl
-             <<"G     : "<<gravitational_constant<<std::endl;
+             <<"G     : "<<gravitational_constant<<std::endl
+             <<"Interrupt_option: "<<interrupt_detection_option<<std::endl;
     }    
 
     //! (Necessary) calculate inner member acceleration, potential and time transformation function gradient and factor for kick (two-body case)
@@ -568,24 +569,30 @@ public:
       @param[in] _bin: binarytree to check iteratively
      */
     void modifyAndInterruptIter(AR::InterruptBinary<Particle>& _bin_interrupt, AR::BinaryTree<Particle>& _bin) {
-        if (_bin_interrupt.status==AR::InterruptStatus::none) {
+        if (_bin_interrupt.status==AR::InterruptStatus::none && interrupt_detection_option>0) {
             auto* p1 = _bin.getLeftMember();
             auto* p2 = _bin.getRightMember();
 
             auto merge = [&]() {
-                _bin_interrupt.adr = &_bin;
+                _bin_interrupt.setBinaryTreeAddress(&_bin);
                 _bin_interrupt.status = AR::InterruptStatus::merge;
-                Float mcm = p1->mass + p2->mass;
-                for (int k=0; k<3; k++) {
-                    p1->pos[k] = (p1->mass*p1->pos[k] + p2->mass*p2->pos[k])/mcm;
-                    p1->vel[k] = (p1->mass*p1->vel[k] + p2->mass*p2->vel[k])/mcm;
+                if (interrupt_detection_option==1) {
+                    Float mcm = p1->mass + p2->mass;
+                    for (int k=0; k<3; k++) {
+                        p1->pos[k] = (p1->mass*p1->pos[k] + p2->mass*p2->pos[k])/mcm;
+                        p1->vel[k] = (p1->mass*p1->vel[k] + p2->mass*p2->vel[k])/mcm;
+                    }
+                    p1->setBinaryInterruptState(BinaryInterruptState::none);
+                    p2->setBinaryInterruptState(BinaryInterruptState::none);
+                    p1->dm = mcm - p1->mass;
+                    p2->dm = -p2->mass;
+                    p1->mass = mcm;
+                    p2->mass = 0.0;
                 }
-                p1->setBinaryInterruptState(BinaryInterruptState::none);
-                p2->setBinaryInterruptState(BinaryInterruptState::none);
-                p1->dm = mcm - p1->mass;
-                p2->dm = -p2->mass;
-                p1->mass = mcm*0.8;
-                p2->mass = 0.0;
+                else if (interrupt_detection_option==2) {
+                    p1->setBinaryInterruptState(BinaryInterruptState::regist);
+                    p2->setBinaryInterruptState(BinaryInterruptState::regist);
+                }
             };
 
             if(_bin.getMemberN()==2) {
@@ -593,7 +600,7 @@ public:
                     p2->getBinaryInterruptState()== BinaryInterruptState::collision &&
                     (p1->time_check<_bin_interrupt.time_end || p2->time_check<_bin_interrupt.time_end) &&
                     (p1->getBinaryPairID()==p2->id||p2->getBinaryPairID()==p1->id)) merge();
-                else {
+                else if (p1->getBinaryInterruptState() != BinaryInterruptState::regist && p2->getBinaryInterruptState() != BinaryInterruptState::regist) {
                     Float radius = p1->radius + p2->radius;
                     // slowdown case
                     if (_bin.slowdown.getSlowDownFactor()>1.0) {

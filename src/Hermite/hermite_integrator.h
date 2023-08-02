@@ -185,41 +185,6 @@ namespace H4{
         }
     };
 
-    //! Recorder of interrupted binaries information
-    template <class Tparticle>
-    struct InterruptInfo{
-        AR::InterruptBinary<Tparticle> binary; // copy of interrupt binary
-        Tparticle members_backup[2]; // backup of two members at the interrupt time
-
-        InterruptInfo(): binary(), members_backup{} {}
-
-        InterruptInfo(AR::InterruptBinary<Tparticle> _interrupt_binary) {
-            binary = _interrupt_binary;
-            members_backup[0] = *(binary.adr->getMember(0));
-            members_backup[1] = *(binary.adr->getMember(1));
-        }
-        
-        //! print titles of class members using column style
-        /*! print titles of class members in one line for column style
-          @param[out] _fout: std::ostream output object
-          @param[in] _width: print width (defaulted 20)
-        */
-        void printColumnTitle(std::ostream & _fout, const int _width=20) {
-            binary.adr->printColumnTitle(_fout, _width);
-        }
-        
-
-        //! print data of class members using column style
-        /*! print data of class members in one line for column style. Notice no newline is printed at the end
-          @param[out] _fout: std::ostream output object
-          @param[in] _width: print width (defaulted 20)
-        */
-        void printColumn(std::ostream & _fout, const int _width=20) {
-            binary.adr->printColumn(_fout, _width);
-        }
-
-    };
-
     //!Hermite integrator class
     template <class Tparticle, class Tpcm, class Tpert, class TARpert, class Tacc, class TARacc, class Tinfo>
     class HermiteIntegrator{
@@ -253,7 +218,7 @@ namespace H4{
         //int interrupt_group_dt_sorted_group_index_; /// interrupt group position in index_dt_sorted_group_
         //AR::InterruptBinary<Tparticle> interrupt_binary_; /// interrupt binary tree address
         COMM::List<int> index_group_merger_; /// merger group index
-        COMM::List<InterruptInfo<Tparticle>> interrupt_binary_info_list_; /// interrupt binary information list
+        COMM::List<AR::InterruptBinary<Tparticle>> interrupt_binary_info_list_; /// interrupt binary information list
         // flags
         bool initial_system_flag_; /// flag to indicate whether the system is initialized with all array size defined (reest in initialSystem)
         bool modify_system_flag_;  /// flag to indicate whether the system (group/single) is added/removed (reset in adjustSystemAfterModify)
@@ -2400,6 +2365,28 @@ namespace H4{
                 if (interrupt_binary.status!=AR::InterruptStatus::none) {
                     // processing interruption case
                     if (ar_manager->interrupt_detection_option==1) {
+
+#ifdef HERMITE_DEBUG
+                        std::cerr<<"Interrupt ";
+                        switch (interrupt_binary.status) {
+                        case AR::InterruptStatus::change:
+                            std::cerr<<" Change";
+                            break;
+                        case AR::InterruptStatus::merge:
+                            std::cerr<<" Merge";
+                            break;
+                        case AR::InterruptStatus::destroy:
+                            std::cerr<<" Destroy";
+                            break;
+                        case AR::InterruptStatus::none:
+                            break;
+                        }
+                        std::cerr<<std::endl;
+                        interrupt_binary.printColumnTitle(std::cerr);
+                        std::cerr<<std::endl;
+                        interrupt_binary.printColumn(std::cerr);
+                        std::cerr<<std::endl;
+#endif
                         // particle cm is the old cm in original frame
                         auto& pcm = groups[k].particles.cm;
 
@@ -2461,10 +2448,12 @@ namespace H4{
                     }
                     // record interrupt information
                     else if (ar_manager->interrupt_detection_option==2) { 
-                        auto bin = interrupt_binary.adr;
-                        if (!bin->isMemberTree(1) && !bin->isMemberTree(2)){
+                        auto bin = interrupt_binary.getBinaryTreeAddress();
+                        if (!bin->isMemberTree(0) && !bin->isMemberTree(1)){
                             // only recored binary interruption
-                            interrupt_binary_info_list_.addMember(InterruptInfo<Tparticle>(interrupt_binary));
+                            interrupt_binary_info_list_.addMember(interrupt_binary);
+                            auto& binfo = interrupt_binary_info_list_.getLastMember();
+                            binfo.backupBinaryTreeLocal();
                         }
                             
                         //    interrupt_group_dt_sorted_group_index_ = i;
@@ -3079,7 +3068,7 @@ namespace H4{
         //! get interrupt binary information list
         /*! 
          */
-        InterruptInfo<Tparticle>& getInterruptInfo(const int _index) {
+        AR::InterruptBinary<Tparticle>& getInterruptInfo(const int _index) {
             return interrupt_binary_info_list_[_index];
         }
 

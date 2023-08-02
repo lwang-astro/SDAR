@@ -52,7 +52,7 @@ int main(int argc, char **argv){
     COMM::IOParams<double> slowdown_mass_ref (input_par_store, 0.0, "slowdowm mass reference","averaged mass"); // slowdown mass reference
 #endif
     COMM::IOParams<double> slowdown_timescale_max (input_par_store, 0.0, "maximum timescale for maximum slowdown factor","time-end"); // slowdown timescale
-    COMM::IOParams<int>   interrupt_detection_option(input_par_store, 0, "modify orbits and check interruption: 0: turn off; 1: modify the binary orbits based on detetion criterion; 2. modify and also interrupt integrations");  // modify orbit or check interruption using modifyAndInterruptIter function
+    COMM::IOParams<int>   interrupt_detection_option(input_par_store, 0, "modify orbits and check interruption: 0: turn off; 1: modify the binary orbits based on interruption criterion; 2. recored binary parameters based on interruption criterion");  // modify orbit or check interruption using modifyAndInterruptIter function
     COMM::IOParams<int>   fix_step_option (input_par_store, -1, "fix step options: always, later, none","auto"); // if true; use input fix step option
     COMM::IOParams<std::string> filename_par (input_par_store, "", "filename to load manager parameters","input name"); // par dumped filename
     bool load_flag=false;  // if true; load dumped data
@@ -245,7 +245,9 @@ int main(int argc, char **argv){
     manager.step_count_max = nstep_max.value;
     // set symplectic order
     manager.step.initialSymplecticCofficients(sym_order.value);
+
     manager.interrupt_detection_option = interrupt_detection_option.value;
+    manager.interaction.interrupt_detection_option = interrupt_detection_option.value;
 
 
     // store input parameters
@@ -374,8 +376,6 @@ int main(int argc, char **argv){
             auto bin_interrupt = sym_int.integrateToTime(dt_out.value*i);
             if (bin_interrupt.status!=InterruptStatus::none) {
                 std::cerr<<"Interrupt condition triggered! ";
-                Particle* p1 = bin_interrupt.adr->getLeftMember();
-                Particle* p2 = bin_interrupt.adr->getRightMember();
                 switch (bin_interrupt.status) {
                 case InterruptStatus::change:
                     std::cerr<<" Change";
@@ -389,18 +389,14 @@ int main(int argc, char **argv){
                 case InterruptStatus::none:
                     break;
                 }
-                std::cerr<<" Time: "<<bin_interrupt.time_now<<std::endl;
-                bin_interrupt.adr->printColumnTitle(std::cerr);
                 std::cerr<<std::endl;
-                bin_interrupt.adr->printColumn(std::cerr);
+                bin_interrupt.printColumnTitle(std::cerr);
                 std::cerr<<std::endl;
-                Particle::printColumnTitle(std::cerr);
+                bin_interrupt.printColumn(std::cerr);
                 std::cerr<<std::endl;
-                for (int j=0; j<2; j++) {
-                    bin_interrupt.adr->getMember(j)->printColumn(std::cerr);
-                    std::cerr<<std::endl;
-                }
 
+                Particle* p1 = bin_interrupt.getBinaryTreeAddress()->getLeftMember();
+                Particle* p2 = bin_interrupt.getBinaryTreeAddress()->getRightMember();
                 // merger case, quit integration
                 if (n_particle==2&&(p1->mass==0||p2->mass==0)) {
                     sym_int.printColumn(std::cout, print_width.value, n_sd);

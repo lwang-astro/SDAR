@@ -2300,7 +2300,7 @@ namespace AR {
                                 updateSlowDownAndCorrectEnergy(true, true);
 #endif
 
-                                info.ds = info.calcDsKeplerBinaryTree(*bin_interrupt.adr, manager->step.getOrder(), G, manager->ds_scale);
+                                info.ds = info.calcDsKeplerBinaryTree(*bin_interrupt.getBinaryTreeAddress(), manager->step.getOrder(), G, manager->ds_scale);
                                 Float ds_max = manager->step.calcStepModifyFactorFromErrorRatio(2.0)*ds_init;
                                 Float ds_min = manager->step.calcStepModifyFactorFromErrorRatio(0.5)*ds_init;
                                 if (info.ds>ds_max || info.ds<ds_min) {
@@ -2317,9 +2317,9 @@ namespace AR {
 
                                 // return one should be the top root
                                 if (bin_interrupt_return.status!=InterruptStatus::none) {
-                                    if (bin_interrupt_return.adr!= bin_interrupt.adr) {
+                                    if (bin_interrupt_return.getBinaryTreeAddress()!= bin_interrupt.getBinaryTreeAddress()) {
                                         // give root address if interrupted binaries are different from previous one
-                                        bin_interrupt_return.adr = &(info.getBinaryTreeRoot());
+                                        bin_interrupt_return.setBinaryTreeAddress(&(info.getBinaryTreeRoot()));
                                     }
                                     if (bin_interrupt.status==InterruptStatus::merge) 
                                         bin_interrupt_return.status = InterruptStatus::merge;

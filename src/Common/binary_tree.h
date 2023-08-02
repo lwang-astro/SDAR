@@ -25,6 +25,17 @@ namespace COMM{
         Vector3<Float> am;  // specific angular momentum
         Float stab;         // stability factor 
 
+        //! Constructor
+        /*! Set all variables to numeric maximum of Float, convenient for debugging
+         */
+        Binary(): semi(NUMERIC_FLOAT_MAX), ecc(NUMERIC_FLOAT_MAX), 
+                  incline(NUMERIC_FLOAT_MAX), rot_horizon(NUMERIC_FLOAT_MAX),
+                  rot_self(NUMERIC_FLOAT_MAX), t_peri(NUMERIC_FLOAT_MAX),
+                  period(NUMERIC_FLOAT_MAX), ecca(NUMERIC_FLOAT_MAX),
+                  m1(NUMERIC_FLOAT_MAX), m2(NUMERIC_FLOAT_MAX), r(NUMERIC_FLOAT_MAX),
+                  am(NUMERIC_FLOAT_MAX,NUMERIC_FLOAT_MAX,NUMERIC_FLOAT_MAX), stab(NUMERIC_FLOAT_MAX) {}
+                  
+
         //! Orbit to position and velocity
         /*! refer to the P3T code developed by Iwasawa M.
           @param[out]: _p1: particle 1
@@ -480,7 +491,7 @@ namespace COMM{
                                 2                  0  1 2  3               
                           -------------------------------------------------*/
         int n_members; ///> Total member number belong to the tree (can be more than 2)
-        int member_index[2];        ///> particle index of original list, -1 indicate member is binarytree
+        int member_index[2];        ///> particle index of original list, -1 indicate member is binarytree, -2 indicates member is particle and its memory is locally allocated; -3 initial values
         Tptcl* member[2]; ///> member pointer
 
     public:
@@ -532,8 +543,38 @@ namespace COMM{
     
 
     public:
-        BinaryTree(): Tptcl(), Tbinary(), n_members(-1), member_index{-1,-1}, member{NULL,NULL}, level(-1), branch(-1) {}
 
+        //! constructor
+        BinaryTree(): Tptcl(), Tbinary(), n_members(-1), member_index{-3,-3}, member{NULL,NULL}, level(-1), branch(-1) {}
+
+        //! allocate memory for two members as particles
+        /*! allocate memory as particle types for two members
+            set member index to -2
+         */
+        void allocateParticleMember() {
+            ASSERT(member_index[0]!=-2);
+            ASSERT(member_index[1]!=-2);
+            member[0] = new Tptcl();
+            member[1] = new Tptcl();
+            member_index[0] = -2;
+            member_index[1] = -2;
+        }
+
+        //! clear memory allocation
+        void clear() {
+            for (int i=0; i<2; i++) {
+                if (member_index[i] == -2) { 
+                    delete member[i];
+                    member[i] = NULL;
+                    member_index[i] = -3;
+                }
+            }
+        }
+
+        //! destructor
+        ~BinaryTree() {
+            clear();
+        }
 
         // copy function
         //BinaryTreeLocal & operator = (const BinaryTreeLocal& _bin) {
@@ -767,9 +808,9 @@ namespace COMM{
             ASSERT(member[1]!=NULL);
 #endif
             n_members = 0;
-            if (member_index[0]<0) n_members += ((BinaryTreeLocal*)member[0])->getMemberN();
+            if (member_index[0]==-1) n_members += ((BinaryTreeLocal*)member[0])->getMemberN();
             else n_members++;
-            if (member_index[1]<0) n_members += ((BinaryTreeLocal*)member[1])->getMemberN();
+            if (member_index[1]==-1) n_members += ((BinaryTreeLocal*)member[1])->getMemberN();
             else n_members++;
             return n_members;
         }
@@ -786,9 +827,9 @@ namespace COMM{
             ASSERT(member[1]!=NULL);
 #endif
             n_members = 0;
-            if (member_index[0]<0) n_members += (BinaryTreeLocal*)member[0]->calcMemberNIter();
+            if (member_index[0]==-1) n_members += (BinaryTreeLocal*)member[0]->calcMemberNIter();
             else n_members++;
-            if (member_index[1]<0) n_members += (BinaryTreeLocal*)member[1]->calcMemberNIter();
+            if (member_index[1]==-1) n_members += (BinaryTreeLocal*)member[1]->calcMemberNIter();
             else n_members++;
             return n_members;
         }
@@ -809,9 +850,9 @@ namespace COMM{
             ASSERT(member[0]!=NULL);
             ASSERT(member[1]!=NULL);
 #endif
-            if (member_index[0]<0) ((BinaryTreeLocal*)member[0])->processLeafIter(_dat, _f);
+            if (member_index[0]==-1) ((BinaryTreeLocal*)member[0])->processLeafIter(_dat, _f);
             else _f(_dat, member[0]);
-            if (member_index[1]<0) ((BinaryTreeLocal*)member[1])->processLeafIter(_dat, _f);
+            if (member_index[1]==-1) ((BinaryTreeLocal*)member[1])->processLeafIter(_dat, _f);
             else _f(_dat, member[1]);
         }
 
@@ -831,7 +872,7 @@ namespace COMM{
             ASSERT(member[1]!=NULL);
             T dat_new = _f(_dat, *this);
             for (int k=0; k<2; k++) 
-                if (member_index[k]<0) dat_new = ((BinaryTreeLocal*)member[k])->processRootIter(dat_new, _f);
+                if (member_index[k]==-1) dat_new = ((BinaryTreeLocal*)member[k])->processRootIter(dat_new, _f);
             return dat_new;
         }
 
@@ -847,7 +888,7 @@ namespace COMM{
             ASSERT(member[1]!=NULL);
             Troot dat_new = _f_root(_dat_root, *this);
             for (int k=0; k<2; k++)  {
-                if (member_index[k]<0) dat_new = ((BinaryTreeLocal*)member[k])->processRootLeafIter(dat_new, _f_root, _dat_leaf, _f_leaf);
+                if (member_index[k]==-1) dat_new = ((BinaryTreeLocal*)member[k])->processRootLeafIter(dat_new, _f_root, _dat_leaf, _f_leaf);
                 else _f_leaf(_dat_leaf, member[k]);
             }
             return dat_new;
@@ -871,7 +912,7 @@ namespace COMM{
             ASSERT(member[1]!=NULL);
             Tr res[2] = {_res1, _res2};
             for (int k=0; k<2; k++) 
-                if (member_index[k]<0) res[k] = ((BinaryTreeLocal*)member[k])->processTreeIter(_dat, _res1, _res2, _f);
+                if (member_index[k]==-1) res[k] = ((BinaryTreeLocal*)member[k])->processTreeIter(_dat, _res1, _res2, _f);
             return _f(_dat, res[0], res[1], *this);
         }
     
@@ -886,7 +927,7 @@ namespace COMM{
             int inow = _i; // array index to fill (backwards moving)
             _bin_out[_i] = *this;
             for (int k=0; k<2; k++) {
-                if (member_index[k]<0) {
+                if (member_index[k]==-1) {
                     inow--;
                     ASSERT(inow>=0);
                     _bin_out[_i].member[k] = &_bin_out[inow];
@@ -904,6 +945,8 @@ namespace COMM{
           @param[in] _i2: particle 2 index (should be >=0 if it is not binary tree)
          */
         void setMembers(Tptcl* _p1, Tptcl* _p2, const int _i1, const int _i2) {
+            ASSERT(member_index[0]!=-2);
+            ASSERT(member_index[1]!=-2);
             member[0] = _p1;
             member[1] = _p2;
             member_index[0] = _i1;
@@ -931,7 +974,7 @@ namespace COMM{
 
         bool isMemberTree(const size_t i) const {
             ASSERT(i<2);
-            return (member_index[i]<0);
+            return (member_index[i]==-1);
         }
 
         //! get left member
@@ -966,7 +1009,7 @@ namespace COMM{
         //    for (int k=0; k<2; k++) {
         //        if (_bin.member[k]!=NULL)  {
         //            // if a member is another binarytree
-        //            if (_bin.member_index[k]<0) {
+        //            if (_bin.member_index[k]==-1) {
         //                // Add the address difference to make the new member address consistent in the new binary tree array
         //                member[k] += adr_diff;
         //            }
@@ -1016,14 +1059,14 @@ namespace COMM{
             Tbinary::printColumn(_fout, _width);
             for (int k=0; k<2; k++) member[k]->printColumn(_fout,_width);
             for (int k=0; k<2; k++) 
-                if (member_index[k]<0) ((BinaryTreeLocal*)member[k])->printBinaryTreeIter(_fout, _width);
+                if (member_index[k]==-1) ((BinaryTreeLocal*)member[k])->printBinaryTreeIter(_fout, _width);
         }
 
         //! print binary function
         void printBinaryIter(std::ostream & _fout, const int _width=20){
             printColumn(_fout, _width);
             for (int k=0; k<2; k++) {
-                if (member_index[k]<0) ((BinaryTreeLocal*)member[k])->printBinaryIter(_fout, _width);
+                if (member_index[k]==-1) ((BinaryTreeLocal*)member[k])->printBinaryIter(_fout, _width);
             }
         }
     };
