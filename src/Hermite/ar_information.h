@@ -105,7 +105,7 @@ namespace H4{
         //! get two branch particle index
         /*!
           @param[out] _particle_index_origin_output: origin index of particles for output
-          @param[in] _origin_particle_address: particle begining address to calculate index
+          @param[in] _first_particle_address: particle begining address to calculate index
           \return the split index to separate two branches, index is the right boundary 
          */
         int getTwoBranchParticleIndexOriginFromBinaryTree(int* _particle_index_origin_output, Tparticle* _first_particle_address) {
@@ -122,7 +122,7 @@ namespace H4{
         //! get dr * dv for two particles
         /*!
           @param[out] _dr2: dr*dr
-          @param[out] _drdr: dr*dv
+          @param[out] _drdv: dr*dv
           @param[in] _p1: particle 1
           @param[in] _p2: particle 2
         */

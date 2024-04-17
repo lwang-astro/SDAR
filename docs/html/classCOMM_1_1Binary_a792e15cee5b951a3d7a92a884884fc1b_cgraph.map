@@ -1,0 +1,4 @@
+<map id="COMM::Binary::rotateToOriginalFrame" name="COMM::Binary::rotateToOriginalFrame">
+<area shape="rect" id="node1" title="rotate position vector from binary rest&#45;frame to original frame based on three angles" alt="" coords="5,5,208,47"/>
+<area shape="rect" id="node2" href="$classCOMM_1_1Matrix3.html#a7737c9224752c6c5b8d8785de5268b17" title=" " alt="" coords="256,13,416,39"/>
+</map>

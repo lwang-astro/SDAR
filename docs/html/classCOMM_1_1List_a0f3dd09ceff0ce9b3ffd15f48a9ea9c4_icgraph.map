@@ -1,11 +1,8 @@
 <map id="COMM::List::resizeNoInitialize" name="COMM::List::resizeNoInitialize">
-<area shape="rect" id="node2" href="$classH4_1_1ARInformation.html#a621aae6cac384b1897d410fc204e775a" title="Initialize group of particles from a binarytree. " alt="" coords="252,5,459,47"/>
-<area shape="rect" id="node3" href="$classH4_1_1HermiteIntegrator.html#ab37772f7b30dbb9cc6de51bf58a20fae" title="reserve memory for system " alt="" coords="515,163,668,204"/>
-<area shape="rect" id="node4" href="$classH4_1_1HermiteIntegrator.html#ae588ac618961f983b7c8710b2e6a65dc" title="Initial system array. " alt="" coords="283,123,427,164"/>
-<area shape="rect" id="node5" href="$classAR_1_1Information.html#a14e49407402b8d9e350b9e4cde688e0d" title="generate binary tree for the particle group " alt="" coords="244,187,467,243"/>
-<area shape="rect" id="node6" href="$classH4_1_1Neighbor.html#afe89ca65c2ced4c9e36ccf027bc4ff81" title="reset neighbor information " alt="" coords="265,267,445,294"/>
-<area shape="rect" id="node7" href="$classH4_1_1Neighbor.html#adb50a3684215fd3b4951fe6ccf4dc8c7" title="clear no release memory " alt="" coords="255,318,455,345"/>
-<area shape="rect" id="node8" href="$classAR_1_1TimeTransformedSymplecticIntegrator.html#aa655bbfc4e9f9af1ae7f7a09fc193443" title="operator = " alt="" coords="250,369,461,411"/>
-<area shape="rect" id="node9" href="$classAR_1_1TimeTransformedSymplecticIntegrator.html#a4db984abe326fd1a30b3d52f6537e5eb" title="initialization for integration " alt="" coords="250,435,461,476"/>
-<area shape="rect" id="node10" href="$classAR_1_1TimeTransformedSymplecticIntegrator.html#a9a5c7bd3dfff2fd3ab96fd639ec30d27" title="read class data with BINARY format and initial the array " alt="" coords="250,500,461,541"/>
+<area shape="rect" id="node1" title="increase size without initialization" alt="" coords="460,111,655,138"/>
+<area shape="rect" id="node2" href="$classH4_1_1HermiteIntegrator.html#aa2e53961f55ac16a239a07471cbe6110" title="Check break condition." alt="" coords="233,5,379,47"/>
+<area shape="rect" id="node4" href="$classAR_1_1TimeTransformedSymplecticIntegrator.html#adc635c0084f56558f2e87c86d1a80b00" title="initialization for integration" alt="" coords="200,71,412,112"/>
+<area shape="rect" id="node5" href="$classH4_1_1HermiteIntegrator.html#ae588ac618961f983b7c8710b2e6a65dc" title="Initial system array." alt="" coords="233,136,379,177"/>
+<area shape="rect" id="node6" href="$classAR_1_1TimeTransformedSymplecticIntegrator.html#a9a5c7bd3dfff2fd3ab96fd639ec30d27" title="read class data with BINARY format and initial the array" alt="" coords="200,201,412,243"/>
+<area shape="rect" id="node3" href="$classH4_1_1HermiteIntegrator.html#a4681b656dd42eae01d3d85e66ac55112" title="adjust groups" alt="" coords="5,5,152,47"/>
 </map>

@@ -1,10 +1,7 @@
 var hierarchy =
 [
     [ "COMM::Binary", "classCOMM_1_1Binary.html", [
-      [ "COMM::BinaryTree< H4::ParticleAR >", "classCOMM_1_1BinaryTree.html", null ],
-      [ "COMM::BinaryTree< ParticleAR< Tparticle > >", "classCOMM_1_1BinaryTree.html", null ],
-      [ "COMM::BinaryTree< Tparticle >", "classCOMM_1_1BinaryTree.html", null ],
-      [ "COMM::BinaryTree< Tptcl >", "classCOMM_1_1BinaryTree.html", null ]
+      [ "AR::BinarySlowDown", "classAR_1_1BinarySlowDown.html", null ]
     ] ],
     [ "AR::Force", "structAR_1_1Force.html", null ],
     [ "H4::ForceH4", "classH4_1_1ForceH4.html", null ],
@@ -13,16 +10,16 @@ var hierarchy =
     [ "H4::HermiteManager< Tmethod >", "classH4_1_1HermiteManager.html", null ],
     [ "H4::HermiteManager< Tacc >", "classH4_1_1HermiteManager.html", null ],
     [ "AR::Information< Tparticle, Tpcm >", "classAR_1_1Information.html", null ],
-    [ "AR::Information< ParticleAR< Tparticle >, ParticleH4< Tparticle > >", "classAR_1_1Information.html", [
+    [ "AR::Information< Tparticle, ParticleH4< Tparticle > >", "classAR_1_1Information.html", [
       [ "H4::ARInformation< Tparticle >", "classH4_1_1ARInformation.html", null ]
     ] ],
+    [ "AR::InterruptBinary< Tparticle >", "structAR_1_1InterruptBinary.html", null ],
     [ "COMM::IOParams< Type >", "structCOMM_1_1IOParams.html", null ],
     [ "COMM::IOParamsContainer", "classCOMM_1_1IOParamsContainer.html", null ],
     [ "COMM::List< Ttype >", "classCOMM_1_1List.html", null ],
     [ "COMM::List< AR::Force >", "classCOMM_1_1List.html", null ],
     [ "COMM::List< AR::TimeTransformedSymplecticIntegrator >", "classCOMM_1_1List.html", null ],
     [ "COMM::List< bool >", "classCOMM_1_1List.html", null ],
-    [ "COMM::List< COMM::BinaryTree< ParticleAR< Tparticle > > >", "classCOMM_1_1List.html", null ],
     [ "COMM::List< COMM::BinaryTree< Tparticle > >", "classCOMM_1_1List.html", null ],
     [ "COMM::List< Float >", "classCOMM_1_1List.html", null ],
     [ "COMM::List< H4::ForceH4 >", "classCOMM_1_1List.html", null ],
@@ -38,13 +35,15 @@ var hierarchy =
     [ "COMM::Matrix3< T >", "classCOMM_1_1Matrix3.html", null ],
     [ "H4::NBAdr< Tparticle >", "structH4_1_1NBAdr.html", null ],
     [ "H4::Neighbor< Tparticle >", "classH4_1_1Neighbor.html", null ],
-    [ "ParticleAR", null, [
-      [ "COMM::BinaryTree< ParticleAR< Tparticle > >", "classCOMM_1_1BinaryTree.html", null ]
-    ] ],
+    [ "H4::ParticleH4< Tparticle >", "classH4_1_1ParticleH4.html", null ],
     [ "AR::Profile", "classAR_1_1Profile.html", null ],
     [ "H4::Profile", "classH4_1_1Profile.html", null ],
     [ "AR::SlowDown", "classAR_1_1SlowDown.html", null ],
     [ "AR::SymplecticStep", "classAR_1_1SymplecticStep.html", null ],
+    [ "Tbinary", null, [
+      [ "COMM::BinaryTree< Tparticle >", "classCOMM_1_1BinaryTree.html", null ],
+      [ "COMM::BinaryTree< Tptcl, Tbinary >", "classCOMM_1_1BinaryTree.html", null ]
+    ] ],
     [ "AR::TimeMeasure", "structAR_1_1TimeMeasure.html", null ],
     [ "H4::TimeStep4th", "classH4_1_1TimeStep4th.html", [
       [ "H4::BlockTimeStep4th", "classH4_1_1BlockTimeStep4th.html", null ]
@@ -53,15 +52,11 @@ var hierarchy =
     [ "AR::TimeTransformedSymplecticManager< Tmethod >", "classAR_1_1TimeTransformedSymplecticManager.html", null ],
     [ "AR::TimeTransformedSymplecticManager< TARacc >", "classAR_1_1TimeTransformedSymplecticManager.html", null ],
     [ "Tparticle", null, [
-      [ "COMM::BinaryTree< Tparticle >", "classCOMM_1_1BinaryTree.html", null ],
-      [ "H4::ParticleAR< Tparticle >", "classH4_1_1ParticleAR.html", [
-        [ "COMM::BinaryTree< H4::ParticleAR >", "classCOMM_1_1BinaryTree.html", null ]
-      ] ],
-      [ "H4::ParticleH4< Tparticle >", "classH4_1_1ParticleH4.html", null ]
+      [ "COMM::BinaryTree< Tparticle >", "classCOMM_1_1BinaryTree.html", null ]
+    ] ],
+    [ "Tptcl", null, [
+      [ "COMM::BinaryTree< Tptcl, Tbinary >", "classCOMM_1_1BinaryTree.html", null ]
     ] ],
     [ "COMM::Vector3< T >", "classCOMM_1_1Vector3.html", null ],
-    [ "COMM::Vector3< Float >", "classCOMM_1_1Vector3.html", null ],
-    [ "Tptcl", null, [
-      [ "COMM::BinaryTree< Tptcl >", "classCOMM_1_1BinaryTree.html", null ]
-    ] ]
+    [ "COMM::Vector3< Float >", "classCOMM_1_1Vector3.html", null ]
 ];

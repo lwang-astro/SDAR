@@ -1,0 +1,5 @@
+<map id="COMM::Binary::calcEccAnomaly" name="COMM::Binary::calcEccAnomaly">
+<area shape="rect" id="node1" title="calculate eccentric anomaly from separation (0&#45;pi)" alt="" coords="429,5,636,32"/>
+<area shape="rect" id="node2" href="$classCOMM_1_1Binary.html#a223000b97a96b3c97941d8ec6af32dbc" title="solve kepler orbit after dt" alt="" coords="203,5,381,32"/>
+<area shape="rect" id="node3" href="$classCOMM_1_1Binary.html#ab71d171dc5e238a22dbc93e62397137c" title="Solve kepler motion for dt." alt="" coords="5,5,155,32"/>
+</map>

@@ -1,8 +1,8 @@
 <map id="COMM::List::reserveMem" name="COMM::List::reserveMem">
-<area shape="rect" id="node2" href="$classH4_1_1ARInformation.html#a2bebff4ce2ba995af165f03e72b6b088" title="reserve memory " alt="" coords="257,5,391,47"/>
-<area shape="rect" id="node3" href="$classH4_1_1HermiteIntegrator.html#ab37772f7b30dbb9cc6de51bf58a20fae" title="reserve memory for system " alt="" coords="247,71,401,112"/>
-<area shape="rect" id="node4" href="$classAR_1_1Information.html#a989cdd6a1b4bf633d8361946ca1c87f9" title="reserve memory of binarytree list " alt="" coords="233,135,415,191"/>
-<area shape="rect" id="node5" href="$classH4_1_1Neighbor.html#a87e10f1f0d865d9bfd7bae47884ff95a" title="reserve memory for neighbor lists " alt="" coords="239,215,409,242"/>
-<area shape="rect" id="node6" href="$classAR_1_1TimeTransformedSymplecticIntegrator.html#ac00641c72ad0f21c9796e8e6cb574530" title="reserve memory for force " alt="" coords="219,267,429,308"/>
-<area shape="rect" id="node7" href="$classAR_1_1TimeTransformedSymplecticIntegrator.html#a9a5c7bd3dfff2fd3ab96fd639ec30d27" title="read class data with BINARY format and initial the array " alt="" coords="219,332,429,373"/>
+<area shape="rect" id="node1" title="Memory allocation for storing members." alt="" coords="265,143,435,170"/>
+<area shape="rect" id="node2" href="$classCOMM_1_1List.html#a9bab371ce70f4b606893f8df2562b06d" title="operator = is copy" alt="" coords="27,5,196,47"/>
+<area shape="rect" id="node3" href="$classAR_1_1TimeTransformedSymplecticIntegrator.html#a9a5c7bd3dfff2fd3ab96fd639ec30d27" title="read class data with BINARY format and initial the array" alt="" coords="5,71,217,112"/>
+<area shape="rect" id="node4" href="$classAR_1_1TimeTransformedSymplecticIntegrator.html#ac00641c72ad0f21c9796e8e6cb574530" title="reserve memory for force" alt="" coords="5,136,217,177"/>
+<area shape="rect" id="node5" href="$classH4_1_1HermiteIntegrator.html#ab37772f7b30dbb9cc6de51bf58a20fae" title="reserve memory for system" alt="" coords="34,201,189,243"/>
+<area shape="rect" id="node6" href="$classH4_1_1ARInformation.html#a2bebff4ce2ba995af165f03e72b6b088" title="reserve memory" alt="" coords="44,267,179,308"/>
 </map>

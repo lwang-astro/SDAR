@@ -101,7 +101,7 @@ namespace H4{
         }
 
         //! read class data to file with binary format
-        /*! @param[in] _fp: FILE type file for reading
+        /*! @param[in] _fin: FILE type file for reading
          */
         void readBinary(FILE *_fin) {
             //size_t size = sizeof(*this) - sizeof(interaction) - sizeof(step);
@@ -615,7 +615,7 @@ namespace H4{
           @param[in,out] _new_group_particle_index_origin: particle index (for hermite particle data) of new group members
           @param[in,out] _new_n_group_offset:  group member boundary, first value is defined already 
           @param[in,out] _new_n_particle: total number of new member particles 
-          @param[in,out] _new_n_group:    number of new group
+          @param[in,out] _new_n_group: number of new group
           @param[in,out] _break_group_index_with_offset:   break group index in groups
           @param[out] _n_break_no_add: number of break groups without adding new particles
           @param[in] _n_break:   number of break groups
@@ -1566,14 +1566,15 @@ namespace H4{
         }
 
         //! Check break condition
-        /*! Check whether it is necessary to break the chain\n
+        /*! Check whether it is necessary to break the chain \n
           1. Inner distance criterion, for outmost pair: \n
-             If r>r_break_crit, and ecca>0.0, break. Also predict next step r to ensure break early enough\n
-          2. Perturbation criterion for closed orbit:\n
-             For two body case, if slowdown factor >1.0 break. 
-             For few-body, if no inner AR slowdown, break when inner kappa is large. \n
-          @param[out] _break_group_index_with_offset: group index list to break (with index_offset_group_ added)
-          @parma[out] _n_break: number of groups need to break
+             If  \f$r>\f$r_break_crit, and ecca\f$>0.0\f$, break. Also predict next step r to ensure break early enough. \n
+          2. Perturbation criterion for closed orbit:  \n
+             For two body case, if slowdown factor \f$>1.0\f$ break. \n
+             For few-body, if no inner AR slowdown, break when inner kappa is large.  \n
+             
+          @param[out] _break_group_index_with_offset: group index list to break with an offset of $index_offset_group_
+          @param[out] _n_break: number of groups need to break
           @param[in] _start_flag: indicate this is the first adjust of the groups in the integration
         */
         void checkBreak(int* _break_group_index_with_offset, int& _n_break, const bool _start_flag) {

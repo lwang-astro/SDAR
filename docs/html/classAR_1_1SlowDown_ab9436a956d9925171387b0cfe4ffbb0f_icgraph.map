@@ -1,5 +1,7 @@
 <map id="AR::SlowDown::initialSlowDownReference" name="AR::SlowDown::initialSlowDownReference">
-<area shape="rect" id="node2" href="$classH4_1_1HermiteIntegrator.html#aa2e53961f55ac16a239a07471cbe6110" title="Check break condition. " alt="" coords="257,5,401,47"/>
-<area shape="rect" id="node3" href="$classH4_1_1HermiteIntegrator.html#a51b5efc55abeab0975009596cd5507bf" title="check the pair with distance below r_crit for ptcl in adr_dt_sorted_ " alt="" coords="257,71,401,112"/>
-<area shape="rect" id="node4" href="$classAR_1_1TimeTransformedSymplecticIntegrator.html#a4db984abe326fd1a30b3d52f6537e5eb" title="initialization for integration " alt="" coords="224,136,435,177"/>
+<area shape="rect" id="node1" title="initialize slow&#45;down parameters" alt="" coords="460,71,633,112"/>
+<area shape="rect" id="node2" href="$classH4_1_1HermiteIntegrator.html#aa2e53961f55ac16a239a07471cbe6110" title="Check break condition." alt="" coords="233,5,379,47"/>
+<area shape="rect" id="node4" href="$classH4_1_1HermiteIntegrator.html#a51b5efc55abeab0975009596cd5507bf" title="check the pair with distance below r_crit for ptcl in adr_dt_sorted_" alt="" coords="233,71,379,112"/>
+<area shape="rect" id="node5" href="$classAR_1_1TimeTransformedSymplecticIntegrator.html#adc635c0084f56558f2e87c86d1a80b00" title="initialization for integration" alt="" coords="200,136,412,177"/>
+<area shape="rect" id="node3" href="$classH4_1_1HermiteIntegrator.html#a4681b656dd42eae01d3d85e66ac55112" title="adjust groups" alt="" coords="5,39,152,80"/>
 </map>

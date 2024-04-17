@@ -1,3 +1,4 @@
 <map id="COMM::ParticleGroup::writeBinary" name="COMM::ParticleGroup::writeBinary">
-<area shape="rect" id="node2" href="$classAR_1_1TimeTransformedSymplecticIntegrator.html#a72cd3195cd03b8e4b516e8b574e6defb" title="write class data with BINARY format " alt="" coords="201,29,412,71"/>
+<area shape="rect" id="node1" title="write particle data to files (notice original address is lost)" alt="" coords="265,29,413,71"/>
+<area shape="rect" id="node2" href="$classAR_1_1TimeTransformedSymplecticIntegrator.html#a72cd3195cd03b8e4b516e8b574e6defb" title="write class data with BINARY format" alt="" coords="5,29,217,71"/>
 </map>

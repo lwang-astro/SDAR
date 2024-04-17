@@ -1,4 +1,8 @@
 <map id="slow_down.h" name="slow_down.h">
-<area shape="rect" id="node2" href="$symplectic__integrator_8h.html" title="symplectic_integrator.h" alt="" coords="5,80,160,107"/>
-<area shape="rect" id="node3" href="$hermite__integrator_8h.html" title="hermite_integrator.h" alt="" coords="15,155,151,181"/>
+<area shape="rect" id="node1" title=" " alt="" coords="165,5,262,32"/>
+<area shape="rect" id="node2" href="$information_8h.html" title=" " alt="" coords="123,80,219,107"/>
+<area shape="rect" id="node4" href="$symplectic__integrator_8h.html" title=" " alt="" coords="144,229,299,256"/>
+<area shape="rect" id="node3" href="$interrupt_8h.html" title=" " alt="" coords="174,155,253,181"/>
+<area shape="rect" id="node6" href="$ar__information_8h.html" title=" " alt="" coords="5,229,120,256"/>
+<area shape="rect" id="node5" href="$hermite__integrator_8h.html" title=" " alt="" coords="73,304,209,331"/>
 </map>

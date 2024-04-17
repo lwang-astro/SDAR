@@ -1,7 +1,6 @@
 <map id="COMM::List::getLastMember" name="COMM::List::getLastMember">
-<area shape="rect" id="node2" href="$classH4_1_1ARInformation.html#a621aae6cac384b1897d410fc204e775a" title="Initialize group of particles from a binarytree. " alt="" coords="241,5,448,47"/>
-<area shape="rect" id="node3" href="$classH4_1_1ARInformation.html#a54e2345bbf41103ae4e06dcf474ec304" title="get two branch particle index " alt="" coords="237,70,452,126"/>
-<area shape="rect" id="node4" href="$classH4_1_1HermiteIntegrator.html#aefaac6ef510ac839a678081a80e69131" title="add groups from lists of particle index " alt="" coords="273,149,417,191"/>
-<area shape="rect" id="node5" href="$classH4_1_1HermiteIntegrator.html#a51b5efc55abeab0975009596cd5507bf" title="check the pair with distance below r_crit for ptcl in adr_dt_sorted_ " alt="" coords="273,215,417,256"/>
-<area shape="rect" id="node6" href="$classAR_1_1TimeTransformedSymplecticIntegrator.html#aa655bbfc4e9f9af1ae7f7a09fc193443" title="operator = " alt="" coords="239,280,450,321"/>
+<area shape="rect" id="node1" title="return last member" alt="" coords="419,46,607,73"/>
+<area shape="rect" id="node2" href="$classH4_1_1HermiteIntegrator.html#aefaac6ef510ac839a678081a80e69131" title="add groups from lists of particle index" alt="" coords="224,39,371,80"/>
+<area shape="rect" id="node3" href="$classH4_1_1HermiteIntegrator.html#a4681b656dd42eae01d3d85e66ac55112" title="adjust groups" alt="" coords="17,5,164,47"/>
+<area shape="rect" id="node4" href="$classH4_1_1HermiteIntegrator.html#aa1916dc7e970885940bd74ed52aa222c" title="Add group based on a configure file." alt="" coords="5,71,176,112"/>
 </map>

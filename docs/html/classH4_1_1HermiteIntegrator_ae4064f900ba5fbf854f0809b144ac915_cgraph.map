@@ -1,0 +1,4 @@
+<map id="H4::HermiteIntegrator::getEtot" name="H4::HermiteIntegrator::getEtot">
+<area shape="rect" id="node1" title="Get current total energy from ekin and epot." alt="" coords="5,5,152,47"/>
+<area shape="rect" id="node2" href="$structH4_1_1HermiteEnergy.html#a6bdafc9006735804870117f62e9431b9" title="calc total energy" alt="" coords="200,5,336,47"/>
+</map>

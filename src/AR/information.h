@@ -19,7 +19,7 @@ namespace AR {
         }
 
         //! read class data to file with binary format
-        /*! @param[in] _fp: FILE type file for reading
+        /*! @param[in] _fin FILE type file for reading
          */
         void readBinary(FILE *_fin) {
             size_t rcount = fread(this, sizeof(*this),1,_fin);
@@ -222,7 +222,9 @@ namespace AR {
         }
 
         //! generate binary tree for the particle group
-        /*! @param[in] _particles: particle group 
+        /*! 
+          @param[in] _particles: particle group 
+          @param[in] _G: gravitational constant
          */
         void generateBinaryTree(COMM::ParticleGroup<Tparticle, Tpcm>& _particles, const Float _G) {
             const int n_particle = _particles.getSize();
@@ -360,7 +362,7 @@ namespace AR {
         }
 
         //! write class data to file with binary format
-        /*! @param[in] _fp: FILE type file for output
+        /*! @param[in] _fout: FILE type file for output
          */
         void writeBinary(FILE *_fout) const {
             fwrite(&ds, sizeof(int),1,_fout);
@@ -370,7 +372,7 @@ namespace AR {
         }
 
         //! read class data to file with binary format
-        /*! @param[in] _fp: FILE type file for reading
+        /*! @param[in] _fin: FILE type file for reading
          */
         void readBinary(FILE *_fin) {
             size_t rcount = fread(&ds, sizeof(int),1,_fin);

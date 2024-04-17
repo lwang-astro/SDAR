@@ -1,5 +1,7 @@
 <map id="COMM::Matrix3::rotation" name="COMM::Matrix3::rotation">
-<area shape="rect" id="node2" href="$classCOMM_1_1Binary.html#ad34e7d44a73fecd129d4178465d21d5a" title="Orbit to position and velocity. " alt="" coords="213,31,408,57"/>
-<area shape="rect" id="node3" href="$classCOMM_1_1Binary.html#a3b9864bdad2ae38b335514c786a3d04a" title="calculate two components from kepler Orbit " alt="" coords="471,5,656,32"/>
-<area shape="rect" id="node4" href="$classCOMM_1_1Binary.html#aec312d069f58972cc73c7a8ca77d3e5a" title="calculate two components from kepler Orbit with input eccentricity anomaly " alt="" coords="456,56,671,83"/>
+<area shape="rect" id="node1" title=" " alt="" coords="519,60,679,87"/>
+<area shape="rect" id="node2" href="$classCOMM_1_1Binary.html#ad34e7d44a73fecd129d4178465d21d5a" title="Orbit to position and velocity." alt="" coords="272,31,467,57"/>
+<area shape="rect" id="node5" href="$classCOMM_1_1Binary.html#a792e15cee5b951a3d7a92a884884fc1b" title="rotate position vector from binary rest&#45;frame to original frame based on three angles" alt="" coords="268,82,471,123"/>
+<area shape="rect" id="node3" href="$classCOMM_1_1Binary.html#a63121141b69896f59f742cf9b97bb409" title="calculate two components from kepler Orbit" alt="" coords="19,5,206,32"/>
+<area shape="rect" id="node4" href="$classCOMM_1_1Binary.html#a3b76733f76ca3f8696e2f5b2dcc9393f" title="calculate two components from kepler Orbit with input eccentricity anomaly" alt="" coords="5,56,220,83"/>
 </map>

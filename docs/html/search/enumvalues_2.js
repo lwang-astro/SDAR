@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['group',['group',['../namespaceH4.html#aa1cbff574e465b1f9a7a10d3eb3e195badb0f6f37ebeb6ea09489124345af2a45',1,'H4']]]
+  ['destroy_869',['destroy',['../namespaceAR.html#afdb4a12827ee94d71cf89e2bc12fd1f5afb14982288108e1fbd6207ef55f05027',1,'AR']]]
 ];

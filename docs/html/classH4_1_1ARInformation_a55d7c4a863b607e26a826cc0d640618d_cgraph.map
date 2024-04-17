@@ -1,0 +1,6 @@
+<map id="H4::ARInformation::addParticlesAndCopyBinaryTree" name="H4::ARInformation::addParticlesAndCopyBinaryTree">
+<area shape="rect" id="node1" title="Initialize group of particles from a binarytree." alt="" coords="5,86,213,127"/>
+<area shape="rect" id="node2" href="$classAR_1_1Information.html#a850f893bb19c9093a2894f5ff7032bc9" title="get the root of binary tree" alt="" coords="279,5,455,61"/>
+<area shape="rect" id="node3" href="$classCOMM_1_1BinaryTree.html#a5f1c2ffc8671b88ada31015c546c0e67" title="collect BinaryTree data iteratively and save to a BinaryTree array" alt="" coords="281,86,454,127"/>
+<area shape="rect" id="node4" href="$classCOMM_1_1BinaryTree.html#aa3dab2972f971be5a3bff5fa10cfcfa8" title="get total number of members" alt="" coords="261,152,473,179"/>
+</map>

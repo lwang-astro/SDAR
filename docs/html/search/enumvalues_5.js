@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['single',['single',['../namespaceH4.html#aa1cbff574e465b1f9a7a10d3eb3e195badd5c07036f2975ff4bce568b6511d3bc',1,'H4']]]
+  ['merge_874',['merge',['../namespaceAR.html#afdb4a12827ee94d71cf89e2bc12fd1f5a65464c31b2e6ac04da1fcaa37c9bd9c7',1,'AR']]]
 ];

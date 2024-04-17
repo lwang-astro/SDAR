@@ -1,6 +1,4 @@
 <map id="COMM::Binary" name="COMM::Binary">
-<area shape="rect" id="node2" href="$classCOMM_1_1BinaryTree.html" title="COMM::BinaryTree\&lt; H4\l::ParticleAR \&gt;" alt="" coords="181,5,339,47"/>
-<area shape="rect" id="node3" href="$classCOMM_1_1BinaryTree.html" title="COMM::BinaryTree\&lt; Particle\lAR\&lt; Tparticle \&gt; \&gt;" alt="" coords="167,71,353,112"/>
-<area shape="rect" id="node4" href="$classCOMM_1_1BinaryTree.html" title="COMM::BinaryTree\&lt; Tparticle \&gt;" alt="" coords="159,137,361,163"/>
-<area shape="rect" id="node5" href="$classCOMM_1_1BinaryTree.html" title="Binary tree cell. " alt="" coords="169,187,351,214"/>
+<area shape="rect" id="node1" title="Binary parameter class." alt="" coords="25,5,130,32"/>
+<area shape="rect" id="node2" href="$classAR_1_1BinarySlowDown.html" title="binary parameter with slowdown" alt="" coords="5,80,149,107"/>
 </map>

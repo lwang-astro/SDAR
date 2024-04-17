@@ -33,7 +33,7 @@ The disadvantage is that the time transformation usually results in an inseparab
 (2) \f$ g(\mathbf{Q},\mathbf{P}) = \frac{f(T(\mathbf{P})) - f(-U(\mathbf{Q}))}{T(\mathbf{P}) + U(\mathbf{Q})} \f$
 
 that the Hamiltonian can be written in a separable style, in order to use the explicit symplectic integrator.
-Especially, for an isolated binary system, if \f$ f(x) = log(x) \f$, so that $\mathrm{d} t \approx \mathrm{d} s/ |U|$, where $|U|$ is the absolute value of the binary potential energy (similar like the Burdet-Heggie time transformation), the integrator behaviors dramatically well for the Kepler orbit, i.e., the numerical trajectory follows the exact one with a phase error of time.
+Especially, for an isolated binary system, if \f$ f(x) = log(x) \f$, so that \f$\mathrm{d} t \approx \mathrm{d} s/ |U|\f$, where \f$|U|\f$ is the absolute value of the binary potential energy (similar like the Burdet-Heggie time transformation), the integrator behaviors dramatically well for the Kepler orbit, i.e., the numerical trajectory follows the exact one with a phase error of time.
 
 \subsection H_sec Hamiltonian in Extended Phase Space
 
@@ -155,7 +155,7 @@ This is only for the isolated system. If the system has external force from pert
 
 
 <A HREF="http://adsabs.harvard.edu/abs/2002CeMDA..84..343M">Mikkola & Aarseth (2002)</A> introduced a modified version of time transformed symplectic method.
-Instead of calculating $T(\mathbf{P})$, one can also define a variable,
+Instead of calculating \f$T(\mathbf{P})\f$, one can also define a variable,
 
 (18) \f$  u = \int \frac{\partial U(\mathbf{q})}{\partial \mathbf{q}} \cdot \frac{\mathrm{d} \mathbf{q}}{\mathrm{d} t} \f$
 

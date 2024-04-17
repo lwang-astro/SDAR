@@ -1,5 +1,0 @@
-<map id="H4::HermiteEnergy::getEtot" name="H4::HermiteEnergy::getEtot">
-<area shape="rect" id="node2" href="$classH4_1_1HermiteIntegrator.html#aafda8d20755ddd59875994844de3f0c3" title="calculate slowdown energy " alt="" coords="188,5,339,47"/>
-<area shape="rect" id="node3" href="$classH4_1_1HermiteIntegrator.html#a1b0757a9332d82ee38645d66c35b110b" title="Get current total energy from ekin and epot. " alt="" coords="191,71,335,112"/>
-<area shape="rect" id="node4" href="$classH4_1_1HermiteIntegrator.html#a50ad05d56f2b59581cbad8ded5e28d37" title="Get current total energy with slowdown from ekin_sd and epot_sd. " alt="" coords="191,136,335,177"/>
-</map>

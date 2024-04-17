@@ -1,0 +1,12 @@
+<map id="AR::TimeTransformedSymplecticIntegrator::initialIntegration" name="AR::TimeTransformedSymplecticIntegrator::initialIntegration">
+<area shape="rect" id="node1" title="initialization for integration" alt="" coords="5,235,217,276"/>
+<area shape="rect" id="node2" href="$classCOMM_1_1ParticleGroup.html#ae6aeae77c0ba7d3fe9a48e55c8db4c82" title="calculate center&#45;of&#45;mass" alt="" coords="289,5,437,47"/>
+<area shape="rect" id="node3" href="$classCOMM_1_1List.html#ad6c06deee95952a09db820733ea428f9" title="return member data array address" alt="" coords="287,71,439,112"/>
+<area shape="rect" id="node4" href="$classCOMM_1_1List.html#a929bb5bdaaa7ce70d872ae0c758c77ae" title="get current member number" alt="" coords="287,136,439,177"/>
+<area shape="rect" id="node5" href="$classCOMM_1_1List.html#a610a134731844b13df4b22ef0d9ad603" title="increase size without initialization" alt="" coords="277,201,448,243"/>
+<area shape="rect" id="node6" href="$classAR_1_1SlowDown.html#ab9436a956d9925171387b0cfe4ffbb0f" title="initialize slow&#45;down parameters" alt="" coords="276,267,449,308"/>
+<area shape="rect" id="node7" href="$classCOMM_1_1ParticleGroup.html#a26f8bf8385483a36a879c846aa1a1719" title="return true if the system is the in their origin frame" alt="" coords="289,332,437,373"/>
+<area shape="rect" id="node8" href="$classCOMM_1_1List.html#a0f3dd09ceff0ce9b3ffd15f48a9ea9c4" title="increase size without initialization" alt="" coords="265,398,460,425"/>
+<area shape="rect" id="node9" href="$classCOMM_1_1List.html#afe063c29e3ae8df95f65db67d7d8ba81" title="Reset modified status to false." alt="" coords="287,449,439,491"/>
+<area shape="rect" id="node10" href="$classCOMM_1_1ParticleGroup.html#a46a5186631babb11c1be415ba740315d" title="shift particle to their c.m. frame" alt="" coords="268,515,457,556"/>
+</map>

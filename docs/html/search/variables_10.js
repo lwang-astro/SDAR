@@ -1,5 +1,5 @@
 var searchData=
 [
-  ['write_5fprecision',['WRITE_PRECISION',['../Float_8h.html#aa281fbf9e0e41ce49b364f7f17432af1',1,'Float.h']]],
-  ['write_5fwidth',['WRITE_WIDTH',['../Float_8h.html#ad9cf81e75da0343660af7eea82db4904',1,'Float.h']]]
+  ['value_838',['value',['../structCOMM_1_1IOParams.html#abdbbe1dccb63f6e779a971a3c64953b1',1,'COMM::IOParams']]],
+  ['vcm_5frecord_839',['vcm_record',['../classH4_1_1ARInformation.html#a872019677d84a0edacda834362b49857',1,'H4::ARInformation']]]
 ];

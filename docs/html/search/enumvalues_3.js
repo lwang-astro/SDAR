@@ -1,6 +1,4 @@
 var searchData=
 [
-  ['later',['later',['../namespaceAR.html#a67c328d9c95dd7715ecd102207029196ac18788c2f274c779da72d9854ea4bfbf',1,'AR']]],
-  ['link',['link',['../namespaceCOMM.html#aa0ca1c24dcb00331c6dca89a0a188fe3a2a304a1348456ccd2234cd71a81bd338',1,'COMM']]],
-  ['local',['local',['../namespaceCOMM.html#aa0ca1c24dcb00331c6dca89a0a188fe3af5ddaf0ca7929578b408c909429f68f2',1,'COMM']]]
+  ['group_870',['group',['../namespaceH4.html#aa1cbff574e465b1f9a7a10d3eb3e195badb0f6f37ebeb6ea09489124345af2a45',1,'H4']]]
 ];

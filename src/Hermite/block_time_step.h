@@ -25,7 +25,7 @@ namespace H4{
         //! calculate a0_offset_sq
         /*! calculate a0_offset_sq for timestep determination: (G*_mass/_r^2)^2
           @param[in] _mass: mass criterion 
-          @param[in] _r_crit: distance criterion
+          @param[in] _r: distance criterion
           @param[in] _G: gravitational constant
         */
         void calcAcc0OffsetSq(const Float _mass, const Float _r, const Float _G) {
@@ -105,7 +105,7 @@ namespace H4{
         }
 
         //! read class data to file with binary format
-        /*! @param[in] _fp: FILE type file for reading
+        /*! @param[in] _fin: FILE type file for reading
          */
         void readBinary(FILE *_fin) {
             size_t rcount = fread(this, sizeof(*this),1,_fin);
@@ -217,6 +217,7 @@ namespace H4{
           @param[in] acc1: first order derivative of acc0
           @param[in] acc2: second order derivative of acc0
           @param[in] acc3: thrid  order derivative of acc0
+          @param[in] _dt_limit: maximum step limit
           \return step size, if dt<dt_min, return -dt;
         */
         Float calcBlockDt4th(const Float* acc0, 
@@ -276,7 +277,7 @@ namespace H4{
         }
 
         //! read class data to file with binary format
-        /*! @param[in] _fp: FILE type file for reading
+        /*! @param[in] _fin: FILE type file for reading
          */
         void readBinary(FILE *_fin) {
             size_t rcount = fread(this, sizeof(*this),1,_fin);

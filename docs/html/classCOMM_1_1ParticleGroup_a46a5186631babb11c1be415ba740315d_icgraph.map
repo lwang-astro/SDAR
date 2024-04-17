@@ -1,3 +1,4 @@
 <map id="COMM::ParticleGroup::shiftToCenterOfMassFrame" name="COMM::ParticleGroup::shiftToCenterOfMassFrame">
-<area shape="rect" id="node2" href="$classAR_1_1TimeTransformedSymplecticIntegrator.html#a4db984abe326fd1a30b3d52f6537e5eb" title="initialization for integration " alt="" coords="240,5,451,47"/>
+<area shape="rect" id="node1" title="shift particle to their c.m. frame" alt="" coords="265,5,455,47"/>
+<area shape="rect" id="node2" href="$classAR_1_1TimeTransformedSymplecticIntegrator.html#adc635c0084f56558f2e87c86d1a80b00" title="initialization for integration" alt="" coords="5,5,217,47"/>
 </map>

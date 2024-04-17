@@ -1,3 +1,4 @@
 <map id="COMM::ParticleGroup::restoreParticlePosVel" name="COMM::ParticleGroup::restoreParticlePosVel">
-<area shape="rect" id="node2" href="$classAR_1_1TimeTransformedSymplecticIntegrator.html#aefc316aac9438bf9bf6e84aed6c7a952" title="Restore integration data. " alt="" coords="204,5,415,47"/>
+<area shape="rect" id="node1" title="restore member particle position and velocity" alt="" coords="265,5,420,47"/>
+<area shape="rect" id="node2" href="$classAR_1_1TimeTransformedSymplecticIntegrator.html#aefc316aac9438bf9bf6e84aed6c7a952" title="Restore integration data." alt="" coords="5,5,217,47"/>
 </map>

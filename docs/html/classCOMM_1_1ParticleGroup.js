@@ -5,8 +5,8 @@ var classCOMM_1_1ParticleGroup =
     [ "backupParticlePosVel", "classCOMM_1_1ParticleGroup.html#ae28ed1ffac4d21b920fdec8b32d1215c", null ],
     [ "calcCenterOfMass", "classCOMM_1_1ParticleGroup.html#ae6aeae77c0ba7d3fe9a48e55c8db4c82", null ],
     [ "clear", "classCOMM_1_1ParticleGroup.html#affe5e5681cc87ff9c695059f68106c8c", null ],
-    [ "getBackupDataSize", "classCOMM_1_1ParticleGroup.html#a1f2bf3c79eca0f4eaa338c3191b92d2c", null ],
-    [ "isOriginFrame", "classCOMM_1_1ParticleGroup.html#a04903afdcfee09b36b30600a2683c99e", null ],
+    [ "getBackupDataSize", "classCOMM_1_1ParticleGroup.html#ace08ed4d883ead99d031234c0f57407e", null ],
+    [ "isOriginFrame", "classCOMM_1_1ParticleGroup.html#a26f8bf8385483a36a879c846aa1a1719", null ],
     [ "operator=", "classCOMM_1_1ParticleGroup.html#a0fa5fc6a653a06e524e1355e41944118", null ],
     [ "printColumn", "classCOMM_1_1ParticleGroup.html#a785c959cd78824f9b7801a6529f96ac6", null ],
     [ "printColumnTitle", "classCOMM_1_1ParticleGroup.html#a2d92a2c26818cf9820ea13026091fb81", null ],
@@ -16,6 +16,6 @@ var classCOMM_1_1ParticleGroup =
     [ "shiftToCenterOfMassFrame", "classCOMM_1_1ParticleGroup.html#a46a5186631babb11c1be415ba740315d", null ],
     [ "shiftToOriginFrame", "classCOMM_1_1ParticleGroup.html#a07f315dae72de4da41ae17491807d6fa", null ],
     [ "writeBinary", "classCOMM_1_1ParticleGroup.html#a9841046fae8fbbd01ddfa4c549aaa23d", null ],
-    [ "writeMemberAscii", "classCOMM_1_1ParticleGroup.html#a903e4bca1fce9c07c9c2a2fc1e4c0ef8", null ],
+    [ "writeMemberAscii", "classCOMM_1_1ParticleGroup.html#a139e8e807596361e7b05d8f530c92b08", null ],
     [ "cm", "classCOMM_1_1ParticleGroup.html#a8118a3c955b14d3924269d3b8b6e953b", null ]
 ];

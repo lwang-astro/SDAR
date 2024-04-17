@@ -1,4 +1,6 @@
 <map id="AR::SlowDown::printColumn" name="AR::SlowDown::printColumn">
-<area shape="rect" id="node2" href="$classH4_1_1HermiteIntegrator.html#ade66bdfa99fd6fb866ca64bf8abbc41b" title="print data of class members using column style " alt="" coords="268,5,412,47"/>
-<area shape="rect" id="node3" href="$classAR_1_1TimeTransformedSymplecticIntegrator.html#a73d3b8fc6bae672f8f935a8c44545730" title="print data of class members using column style " alt="" coords="235,71,445,112"/>
+<area shape="rect" id="node1" title="print data of class members using column style" alt="" coords="265,78,448,105"/>
+<area shape="rect" id="node2" href="$classAR_1_1BinarySlowDown.html#a992939dec4d361ed70c4115918af4ec3" title="print data of class members using column style" alt="" coords="39,5,183,47"/>
+<area shape="rect" id="node3" href="$classH4_1_1HermiteIntegrator.html#ade66bdfa99fd6fb866ca64bf8abbc41b" title="print data of class members using column style" alt="" coords="38,71,185,112"/>
+<area shape="rect" id="node4" href="$classAR_1_1TimeTransformedSymplecticIntegrator.html#a73d3b8fc6bae672f8f935a8c44545730" title="print data of class members using column style" alt="" coords="5,136,217,177"/>
 </map>

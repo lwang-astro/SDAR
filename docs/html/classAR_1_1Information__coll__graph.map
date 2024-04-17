@@ -1,6 +1,7 @@
 <map id="AR::Information&lt; Tparticle, Tpcm &gt;" name="AR::Information&lt; Tparticle, Tpcm &gt;">
-<area shape="rect" id="node2" href="$classCOMM_1_1List.html" title="COMM::List\&lt; COMM::Binary\lTree\&lt; Tparticle \&gt; \&gt;" alt="" coords="15,275,198,316"/>
-<area shape="rect" id="node3" href="$classCOMM_1_1BinaryTree.html" title="COMM::BinaryTree\&lt; Tparticle \&gt;" alt="" coords="5,171,208,197"/>
-<area shape="rect" id="node5" href="$classCOMM_1_1Binary.html" title="Binary parameter class. " alt="" coords="131,95,237,121"/>
-<area shape="rect" id="node6" href="$classCOMM_1_1Vector3.html" title="COMM::Vector3\&lt; Float \&gt;" alt="" coords="102,5,266,32"/>
+<area shape="rect" id="node1" title="A class contains information (e.g. parameters, binary tree, indices) about the particle group." alt="" coords="19,289,195,331"/>
+<area shape="rect" id="node2" href="$classCOMM_1_1List.html" title=" " alt="" coords="14,185,199,227"/>
+<area shape="rect" id="node3" href="$classCOMM_1_1BinaryTree.html" title=" " alt="" coords="5,81,208,108"/>
+<area shape="rect" id="node4" title=" " alt="" coords="25,5,97,32"/>
+<area shape="rect" id="node5" title=" " alt="" coords="121,5,185,32"/>
 </map>

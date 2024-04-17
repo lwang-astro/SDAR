@@ -1,0 +1,7 @@
+<map id="H4::HermiteEnergy::getEnergyError" name="H4::HermiteEnergy::getEnergyError">
+<area shape="rect" id="node1" title="calc energy error" alt="" coords="423,71,559,112"/>
+<area shape="rect" id="node2" href="$classH4_1_1HermiteIntegrator.html#aa647267ce6ec87ae8bea4f36aa7f83a4" title="get energy error" alt="" coords="214,5,361,47"/>
+<area shape="rect" id="node3" href="$classH4_1_1HermiteIntegrator.html#a54e0079387cbd810ec86e92bbec1a2ea" title="get slowdown energy error" alt="" coords="200,71,375,112"/>
+<area shape="rect" id="node4" href="$structH4_1_1HermiteEnergy.html#a23fb5809bab0975984e73254f46090b2" title="print data of class members using column style" alt="" coords="219,136,355,177"/>
+<area shape="rect" id="node5" href="$classH4_1_1HermiteIntegrator.html#ade66bdfa99fd6fb866ca64bf8abbc41b" title="print data of class members using column style" alt="" coords="5,136,152,177"/>
+</map>

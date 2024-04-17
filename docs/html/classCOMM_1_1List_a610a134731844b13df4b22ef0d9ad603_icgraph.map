@@ -1,6 +1,9 @@
 <map id="COMM::List::increaseSizeNoInitialize" name="COMM::List::increaseSizeNoInitialize">
-<area shape="rect" id="node2" href="$classH4_1_1HermiteIntegrator.html#ae588ac618961f983b7c8710b2e6a65dc" title="Initial system array. " alt="" coords="255,5,399,47"/>
-<area shape="rect" id="node3" href="$classH4_1_1HermiteIntegrator.html#aefaac6ef510ac839a678081a80e69131" title="add groups from lists of particle index " alt="" coords="255,71,399,112"/>
-<area shape="rect" id="node4" href="$classH4_1_1HermiteIntegrator.html#a58a59fd478331237bafbe42b0fbe9d4b" title="break groups " alt="" coords="255,136,399,177"/>
-<area shape="rect" id="node5" href="$classAR_1_1TimeTransformedSymplecticIntegrator.html#aa655bbfc4e9f9af1ae7f7a09fc193443" title="operator = " alt="" coords="221,201,432,243"/>
+<area shape="rect" id="node1" title="increase size without initialization" alt="" coords="484,104,655,145"/>
+<area shape="rect" id="node2" href="$classH4_1_1HermiteIntegrator.html#aefaac6ef510ac839a678081a80e69131" title="add groups from lists of particle index" alt="" coords="257,71,403,112"/>
+<area shape="rect" id="node5" href="$classH4_1_1HermiteIntegrator.html#a58a59fd478331237bafbe42b0fbe9d4b" title="break groups" alt="" coords="257,5,403,47"/>
+<area shape="rect" id="node6" href="$classAR_1_1TimeTransformedSymplecticIntegrator.html#adc635c0084f56558f2e87c86d1a80b00" title="initialization for integration" alt="" coords="224,136,436,177"/>
+<area shape="rect" id="node7" href="$classH4_1_1HermiteIntegrator.html#ae588ac618961f983b7c8710b2e6a65dc" title="Initial system array." alt="" coords="257,201,403,243"/>
+<area shape="rect" id="node3" href="$classH4_1_1HermiteIntegrator.html#a4681b656dd42eae01d3d85e66ac55112" title="adjust groups" alt="" coords="17,5,164,47"/>
+<area shape="rect" id="node4" href="$classH4_1_1HermiteIntegrator.html#aa1916dc7e970885940bd74ed52aa222c" title="Add group based on a configure file." alt="" coords="5,71,176,112"/>
 </map>

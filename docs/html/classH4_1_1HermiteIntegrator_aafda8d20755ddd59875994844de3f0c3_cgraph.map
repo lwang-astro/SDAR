@@ -1,5 +1,8 @@
 <map id="H4::HermiteIntegrator::calcEnergySlowDown" name="H4::HermiteIntegrator::calcEnergySlowDown">
-<area shape="rect" id="node2" href="$classCOMM_1_1List.html#a125e4f93ee02b677f8377bd541f2105d" title="return member data array address " alt="" coords="204,5,355,47"/>
-<area shape="rect" id="node3" href="$classCOMM_1_1List.html#af1c92acd831f62c52f3385a71d6403e7" title="get current member number " alt="" coords="204,71,355,112"/>
-<area shape="rect" id="node4" href="$structH4_1_1HermiteEnergy.html#a50daca35966723e7de348d726e4ece09" title="calc total energy " alt="" coords="212,136,347,177"/>
+<area shape="rect" id="node1" title="calculate slowdown energy" alt="" coords="5,115,159,156"/>
+<area shape="rect" id="node2" href="$classH4_1_1HermiteIntegrator.html#a410704caed145bb7191651ce059ee8c0" title="correct Etot slowdown reference due to the groups change" alt="" coords="207,5,397,47"/>
+<area shape="rect" id="node3" href="$classCOMM_1_1List.html#a929bb5bdaaa7ce70d872ae0c758c77ae" title="get current member number" alt="" coords="445,71,585,98"/>
+<area shape="rect" id="node4" href="$classCOMM_1_1List.html#ad6c06deee95952a09db820733ea428f9" title="return member data array address" alt="" coords="207,122,397,149"/>
+<area shape="rect" id="node5" href="$structH4_1_1HermiteEnergy.html#a6bdafc9006735804870117f62e9431b9" title="calc total energy" alt="" coords="234,173,370,215"/>
+<area shape="rect" id="node6" href="$classH4_1_1HermiteIntegrator.html#a332dd3e31b1a67d014b8be0fb16363e2" title="write back group members to particles" alt="" coords="215,239,389,280"/>
 </map>

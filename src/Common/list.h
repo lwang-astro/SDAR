@@ -146,7 +146,7 @@ namespace COMM {
         }
 
         //! get current member number
-        /*! \return Current member number in member address list #p
+        /*! \return Current member number in member address list #data_
          */
         int getSize() const {
             return num_;
@@ -213,7 +213,7 @@ namespace COMM {
         //! copy one member and its address
         /*! add a member by copying member into local allocated memory and storing the original memory address of it.
           Only work for #ListMode::copy
-          @param [in] a: a member to store (push back at the end of local array)
+          @param [in] _member: a member to store (push back at the end of local array)
         */
         template <class T>
         void addMemberAndAddress(T &_member) {
@@ -228,7 +228,7 @@ namespace COMM {
         //! copy one member and its address
         /*! add a member by copying it into local allocated memory.
           Only work for #ListMode::local
-          @param [in] a: a member to store (push back at the end of local array)
+          @param [in] _member: a member to store (push back at the end of local array)
         */
         template <class T>
         void addMember(const T &_member) {
@@ -291,7 +291,7 @@ namespace COMM {
         //! create remove table for removing a list of members
         /*!
           @param[in] _index: member index list for remove
-          @param[in] _n_list: number of removing members
+          @param[in] _n_index: number of removing member indice
           @param[in] _n_member: number of total members in the table
           @param[out] _remove_table: remove_table generated, the size should be at least number of members to avoid overflow. for index i in table, value <0: no remove; <\a _number_member: new position; = \a _number_member: delete
          */
@@ -376,7 +376,7 @@ namespace COMM {
 
         //! remove a list of member based on remove table
         /*!
-          @param[in] _remove_table: table map the member new position and deleted ones, generated from #createRemoveTable
+          @param[in] remove_table: table map the member new position and deleted ones, generated from #createRemoveTable
          */
         void removeMemberTable(const int* remove_table) {
             const int num_org = num_;
@@ -415,7 +415,7 @@ namespace COMM {
         //! remove a list of member based on an index list
         /*!
           @param[in] _index: member index list for remove
-          @param[in] _n_list: number of removing members
+          @param[in] _n_index: number of removing member indices
          */
         void removeMemberList(const int* _index, const int _n_index) {
             ASSERT(_n_index<=num_);

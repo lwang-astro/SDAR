@@ -1,8 +1,11 @@
 <map id="H4::HermiteIntegrator::breakGroups" name="H4::HermiteIntegrator::breakGroups">
-<area shape="rect" id="node2" href="$classH4_1_1HermiteManager.html#ad5ab496b530db1dfab24bebc39fabe8e" title="time step calculator " alt="" coords="212,5,351,47"/>
-<area shape="rect" id="node3" href="$classCOMM_1_1List.html#aaddc8ba775e2a6504eb393d7d0c2235b" title="Get modified status. " alt="" coords="206,71,357,112"/>
-<area shape="rect" id="node4" href="$classCOMM_1_1List.html#af1c92acd831f62c52f3385a71d6403e7" title="get current member number " alt="" coords="212,137,351,163"/>
-<area shape="rect" id="node5" href="$classCOMM_1_1List.html#adeefdc2865fe56e2413b2cada9772a5e" title="copy one member and its address " alt="" coords="200,187,363,214"/>
-<area shape="rect" id="node6" href="$classCOMM_1_1List.html#a610a134731844b13df4b22ef0d9ad603" title="increase size without initialization " alt="" coords="197,239,365,280"/>
-<area shape="rect" id="node7" href="$classCOMM_1_1List.html#aceaeddd10f8a05984f25a258a48c2620" title="Clear function. " alt="" coords="220,305,343,331"/>
+<area shape="rect" id="node1" title="break groups" alt="" coords="5,166,152,207"/>
+<area shape="rect" id="node2" href="$classH4_1_1HermiteIntegrator.html#a0ab6545fc47c14c3ea6e8de7b47b5679" title="correct Etot slowdown reference due to the groups change" alt="" coords="200,5,424,61"/>
+<area shape="rect" id="node3" href="$classCOMM_1_1List.html#adeefdc2865fe56e2413b2cada9772a5e" title="copy one member and its address" alt="" coords="229,85,395,112"/>
+<area shape="rect" id="node4" href="$classH4_1_1HermiteIntegrator.html#a5c92334f487ce31326f4469035b24ba7" title="check whether parameters values are correct" alt="" coords="239,137,385,178"/>
+<area shape="rect" id="node7" href="$classCOMM_1_1List.html#aceaeddd10f8a05984f25a258a48c2620" title="Clear function." alt="" coords="249,203,375,229"/>
+<area shape="rect" id="node8" href="$classCOMM_1_1List.html#a929bb5bdaaa7ce70d872ae0c758c77ae" title="get current member number" alt="" coords="242,253,382,280"/>
+<area shape="rect" id="node9" href="$classCOMM_1_1List.html#a610a134731844b13df4b22ef0d9ad603" title="increase size without initialization" alt="" coords="227,305,397,346"/>
+<area shape="rect" id="node5" href="$classH4_1_1HermiteManager.html#ad5ab496b530db1dfab24bebc39fabe8e" title="time step calculator" alt="" coords="507,105,649,146"/>
+<area shape="rect" id="node6" href="$classAR_1_1TimeTransformedSymplecticManager.html#a8921a86541d095de3a8685f4aad2da48" title="check whether parameters values are correct" alt="" coords="472,170,684,211"/>
 </map>

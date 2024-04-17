@@ -1,4 +1,5 @@
 <map id="COMM::Binary::evolve" name="COMM::Binary::evolve">
-<area shape="rect" id="node2" href="$classCOMM_1_1Binary.html#a223000b97a96b3c97941d8ec6af32dbc" title="solve kepler orbit after dt " alt="" coords="200,5,377,32"/>
-<area shape="rect" id="node3" href="$classCOMM_1_1Binary.html#ae8246518943ce101664139f52f11fac1" title="calculate eccentricy anomaly from mean anomaly " alt="" coords="425,5,632,32"/>
+<area shape="rect" id="node1" title="Solve kepler motion for dt." alt="" coords="5,5,155,32"/>
+<area shape="rect" id="node2" href="$classCOMM_1_1Binary.html#a223000b97a96b3c97941d8ec6af32dbc" title="solve kepler orbit after dt" alt="" coords="203,5,381,32"/>
+<area shape="rect" id="node3" href="$classCOMM_1_1Binary.html#aa67e18ce883bda9e858c76e3d8a56ca8" title="calculate eccentric anomaly from separation (0&#45;pi)" alt="" coords="429,5,636,32"/>
 </map>

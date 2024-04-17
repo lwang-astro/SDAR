@@ -1,0 +1,5 @@
+<map id="COMM::Binary::particleToSemiEccPeriod" name="COMM::Binary::particleToSemiEccPeriod">
+<area shape="rect" id="node1" title="calcualte semi, ecc and period" alt="" coords="5,35,173,76"/>
+<area shape="rect" id="node2" href="$classCOMM_1_1Binary.html#aa62b03710eadfe19836f1f5e5be57585" title="position velocity to orbit semi&#45;major axis and eccentricity" alt="" coords="233,5,401,47"/>
+<area shape="rect" id="node3" href="$classCOMM_1_1Binary.html#a848fd22c8797e437e3be8d967259aea7" title="from semi&#45;major axis calculate period;" alt="" coords="221,71,412,98"/>
+</map>

@@ -1,13 +1,10 @@
 var searchData=
 [
-  ['n_5fneighbor_5fgroup',['n_neighbor_group',['../classH4_1_1Neighbor.html#ac5f0f851c616eccae99335cf1b0b5a2d',1,'H4::Neighbor']]],
-  ['n_5fneighbor_5fsingle',['n_neighbor_single',['../classH4_1_1Neighbor.html#ac40eb04b5959a390320f1a13cc0cc23c',1,'H4::Neighbor']]],
-  ['name',['name',['../structCOMM_1_1IOParams.html#a1c6ea1284cf984fd47203189555bfa1d',1,'COMM::IOParams']]],
-  ['need_5fresolve_5fflag',['need_resolve_flag',['../classH4_1_1Neighbor.html#a8351ad442a5cda2d6b8c08e77a814704',1,'H4::Neighbor']]],
-  ['neighbor_5faddress',['neighbor_address',['../classH4_1_1Neighbor.html#a3fe02a89c0b84ad066129764b98424b9',1,'H4::Neighbor']]],
-  ['neighbors',['neighbors',['../classH4_1_1HermiteIntegrator.html#af004b73a125379b5d44777b702a8f3f3',1,'H4::HermiteIntegrator']]],
-  ['new_5fgroup_5fcount',['new_group_count',['../classH4_1_1Profile.html#ad8aac3aa9f2f03bb1c0a90af45aeda0e',1,'H4::Profile']]],
-  ['nmax_5f',['nmax_',['../classCOMM_1_1List.html#a2d0f00e472d08c37dcd9a9486de9606b',1,'COMM::List']]],
-  ['num_5f',['num_',['../classCOMM_1_1List.html#a07ce264105a527c460b9765827fd94da',1,'COMM::List']]],
-  ['numeric_5ffloat_5fmax',['NUMERIC_FLOAT_MAX',['../Float_8h.html#a6ebb7d0016576040f554cc60ca74512f',1,'Float.h']]]
+  ['m1_779',['m1',['../classCOMM_1_1Binary.html#a97ba8a3b411228142453409b3bd07ace',1,'COMM::Binary']]],
+  ['m2_780',['m2',['../classCOMM_1_1Binary.html#a94dc83fca96c5cbbc52d0895871529e5',1,'COMM::Binary']]],
+  ['manager_781',['manager',['../classAR_1_1TimeTransformedSymplecticIntegrator.html#a81522aaa0bf529c877d78ab4c831fb4e',1,'AR::TimeTransformedSymplecticIntegrator::manager()'],['../classH4_1_1HermiteIntegrator.html#a143ef191278fb0e18cd8ae98893891a0',1,'H4::HermiteIntegrator::manager()']]],
+  ['mass_5fmin_782',['mass_min',['../classH4_1_1Neighbor.html#a05c879c6e5eb8fbb38d07655dceae5bc',1,'H4::Neighbor']]],
+  ['mass_5fmin_5findex_783',['mass_min_index',['../classH4_1_1Neighbor.html#a31839d84360d3c15fbf588ea28469b32',1,'H4::Neighbor']]],
+  ['mode_5f_784',['mode_',['../classCOMM_1_1List.html#a2b3634688ff4ea18c311f5d60205b05e',1,'COMM::List']]],
+  ['modified_5fflag_5f_785',['modified_flag_',['../classCOMM_1_1List.html#a890b93417a368293616a1fc1b1c521c1',1,'COMM::List']]]
 ];
