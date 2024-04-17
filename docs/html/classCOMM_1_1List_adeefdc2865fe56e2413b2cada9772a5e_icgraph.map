@@ -1,7 +1,8 @@
 <map id="COMM::List::addMember" name="COMM::List::addMember">
-<area shape="rect" id="node2" href="$classH4_1_1HermiteIntegrator.html#ab37772f7b30dbb9cc6de51bf58a20fae" title="reserve memory for system " alt="" coords="447,173,600,214"/>
-<area shape="rect" id="node3" href="$classH4_1_1HermiteIntegrator.html#aefaac6ef510ac839a678081a80e69131" title="add groups from lists of particle index " alt="" coords="235,42,379,83"/>
-<area shape="rect" id="node4" href="$classH4_1_1HermiteIntegrator.html#a58a59fd478331237bafbe42b0fbe9d4b" title="break groups " alt="" coords="235,107,379,149"/>
-<area shape="rect" id="node5" href="$classH4_1_1Neighbor.html#afe801875b722e5c7e4f5768732a2198e" title="check and add neighbor of single " alt="" coords="216,173,399,214"/>
-<area shape="rect" id="node6" href="$classH4_1_1Neighbor.html#a40356c84992c14e25386c81af4fce181" title="check and add neighbor of group " alt="" coords="216,238,399,279"/>
+<area shape="rect" id="node1" title="copy one member and its address" alt="" coords="443,78,608,105"/>
+<area shape="rect" id="node2" href="$classH4_1_1HermiteIntegrator.html#aefaac6ef510ac839a678081a80e69131" title="add groups from lists of particle index" alt="" coords="236,71,383,112"/>
+<area shape="rect" id="node5" href="$classH4_1_1HermiteIntegrator.html#a58a59fd478331237bafbe42b0fbe9d4b" title="break groups" alt="" coords="236,5,383,47"/>
+<area shape="rect" id="node6" href="$classH4_1_1HermiteIntegrator.html#acaf43160d505e983bab7dff3f57150ce" title="Integrate groups." alt="" coords="224,136,395,177"/>
+<area shape="rect" id="node3" href="$classH4_1_1HermiteIntegrator.html#a4681b656dd42eae01d3d85e66ac55112" title="adjust groups" alt="" coords="17,5,164,47"/>
+<area shape="rect" id="node4" href="$classH4_1_1HermiteIntegrator.html#aa1916dc7e970885940bd74ed52aa222c" title="Add group based on a configure file." alt="" coords="5,71,176,112"/>
 </map>

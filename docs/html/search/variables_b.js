@@ -1,12 +1,13 @@
 var searchData=
 [
-  ['particle_5findex',['particle_index',['../classH4_1_1ARInformation.html#a3407081c765ab63c53b6674a6c98a796',1,'H4::ARInformation']]],
-  ['particles',['particles',['../classAR_1_1TimeTransformedSymplecticIntegrator.html#aa562a1c5d18cfff4c0c3fae32d6569fa',1,'AR::TimeTransformedSymplecticIntegrator::particles()'],['../classH4_1_1HermiteIntegrator.html#ac5535bc5eb82f403b9b5d574c527fdd4',1,'H4::HermiteIntegrator::particles()']]],
-  ['period',['period',['../classAR_1_1SlowDown.html#a19844a1929a37369624b4edef09b33c8',1,'AR::SlowDown::period()'],['../classCOMM_1_1Binary.html#a3617a4071fefba0dc4384de42b294d81',1,'COMM::Binary::period()']]],
-  ['pert_5fin',['pert_in',['../classAR_1_1SlowDown.html#a11c002ea70b55e7b4e3d1fafe9dc46ed',1,'AR::SlowDown']]],
-  ['pert_5fout',['pert_out',['../classAR_1_1SlowDown.html#a0e548a3a05cc24edb37361ee25025a09',1,'AR::SlowDown']]],
-  ['perturber',['perturber',['../classAR_1_1TimeTransformedSymplecticIntegrator.html#a357fd0ba51c03e4fb25b7c7f86ab5ef7',1,'AR::TimeTransformedSymplecticIntegrator::perturber()'],['../classH4_1_1HermiteIntegrator.html#a295fc73468424b9cc78c814f1d77d98a',1,'H4::HermiteIntegrator::perturber()']]],
-  ['pi',['PI',['../namespaceCOMM.html#a60233745d61fdeed12df4ea5e2eca794',1,'COMM']]],
-  ['pot',['pot',['../classH4_1_1ParticleH4.html#ad426dabb94513cea30c104dbae329541',1,'H4::ParticleH4::pot()'],['../classH4_1_1ForceH4.html#a329ac3cb84bd52cb434f6f06f1c9d794',1,'H4::ForceH4::pot()']]],
-  ['profile',['profile',['../classAR_1_1TimeTransformedSymplecticIntegrator.html#a5c45f143d6a385e8fcd353805cec2215',1,'AR::TimeTransformedSymplecticIntegrator::profile()'],['../classH4_1_1HermiteIntegrator.html#af6a904033cb08b042d74e9498a6e9df6',1,'H4::HermiteIntegrator::profile()']]]
+  ['n_5fneighbor_5fgroup_786',['n_neighbor_group',['../classH4_1_1Neighbor.html#ac5f0f851c616eccae99335cf1b0b5a2d',1,'H4::Neighbor']]],
+  ['n_5fneighbor_5fsingle_787',['n_neighbor_single',['../classH4_1_1Neighbor.html#ac40eb04b5959a390320f1a13cc0cc23c',1,'H4::Neighbor']]],
+  ['name_788',['name',['../structCOMM_1_1IOParams.html#a1c6ea1284cf984fd47203189555bfa1d',1,'COMM::IOParams']]],
+  ['need_5fresolve_5fflag_789',['need_resolve_flag',['../classH4_1_1Neighbor.html#a8351ad442a5cda2d6b8c08e77a814704',1,'H4::Neighbor']]],
+  ['neighbor_5faddress_790',['neighbor_address',['../classH4_1_1Neighbor.html#a3fe02a89c0b84ad066129764b98424b9',1,'H4::Neighbor']]],
+  ['neighbors_791',['neighbors',['../classH4_1_1HermiteIntegrator.html#af004b73a125379b5d44777b702a8f3f3',1,'H4::HermiteIntegrator']]],
+  ['new_5fgroup_5fcount_792',['new_group_count',['../classH4_1_1Profile.html#ad8aac3aa9f2f03bb1c0a90af45aeda0e',1,'H4::Profile']]],
+  ['nmax_5f_793',['nmax_',['../classCOMM_1_1List.html#a2d0f00e472d08c37dcd9a9486de9606b',1,'COMM::List']]],
+  ['num_5f_794',['num_',['../classCOMM_1_1List.html#a07ce264105a527c460b9765827fd94da',1,'COMM::List']]],
+  ['numeric_5ffloat_5fmax_795',['NUMERIC_FLOAT_MAX',['../Float_8h.html#a6ebb7d0016576040f554cc60ca74512f',1,'Float.h']]]
 ];

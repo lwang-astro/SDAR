@@ -1,11 +1,13 @@
 <map id="H4::HermiteManager::checkParams" name="H4::HermiteManager::checkParams">
-<area shape="rect" id="node2" href="$classH4_1_1HermiteIntegrator.html#a5c92334f487ce31326f4469035b24ba7" title="check whether parameters values are correct " alt="" coords="213,5,357,47"/>
-<area shape="rect" id="node3" href="$classH4_1_1HermiteIntegrator.html#ae588ac618961f983b7c8710b2e6a65dc" title="Initial system array. " alt="" coords="213,71,357,112"/>
-<area shape="rect" id="node4" href="$classH4_1_1HermiteIntegrator.html#aefaac6ef510ac839a678081a80e69131" title="add groups from lists of particle index " alt="" coords="213,136,357,177"/>
-<area shape="rect" id="node5" href="$classH4_1_1HermiteIntegrator.html#a58a59fd478331237bafbe42b0fbe9d4b" title="break groups " alt="" coords="213,201,357,243"/>
-<area shape="rect" id="node6" href="$classH4_1_1HermiteIntegrator.html#a4681b656dd42eae01d3d85e66ac55112" title="adjust groups " alt="" coords="213,267,357,308"/>
-<area shape="rect" id="node7" href="$classH4_1_1HermiteIntegrator.html#a6e40f52b15e96a4d4e7f3cf89241e300" title="Initial Hermite integrator. " alt="" coords="213,332,357,373"/>
-<area shape="rect" id="node8" href="$classH4_1_1HermiteIntegrator.html#a8b104c2fbf143829c88cd64c06fb1098" title="Integrate groups. " alt="" coords="199,397,370,439"/>
-<area shape="rect" id="node9" href="$classH4_1_1HermiteIntegrator.html#a1aaef2826d6bb2c6cc4cafef39fbfaca" title="Integration single active particles and update steps. " alt="" coords="192,463,377,504"/>
-<area shape="rect" id="node10" href="$classH4_1_1HermiteIntegrator.html#aee9e179800b8e384c3c0807c22b9e6de" title="Integration a list of particle to current time (ingore dt) " alt="" coords="213,528,357,569"/>
+<area shape="rect" id="node1" title="time step calculator" alt="" coords="652,221,793,263"/>
+<area shape="rect" id="node2" href="$classH4_1_1HermiteIntegrator.html#a5c92334f487ce31326f4469035b24ba7" title="check whether parameters values are correct" alt="" coords="457,221,604,263"/>
+<area shape="rect" id="node3" href="$classH4_1_1HermiteIntegrator.html#aefaac6ef510ac839a678081a80e69131" title="add groups from lists of particle index" alt="" coords="243,5,390,47"/>
+<area shape="rect" id="node4" href="$classH4_1_1HermiteIntegrator.html#a4681b656dd42eae01d3d85e66ac55112" title="adjust groups" alt="" coords="17,96,164,137"/>
+<area shape="rect" id="node6" href="$classH4_1_1HermiteIntegrator.html#a58a59fd478331237bafbe42b0fbe9d4b" title="break groups" alt="" coords="243,123,390,164"/>
+<area shape="rect" id="node7" href="$classH4_1_1HermiteIntegrator.html#a6e40f52b15e96a4d4e7f3cf89241e300" title="Initial Hermite integrator." alt="" coords="243,188,390,229"/>
+<area shape="rect" id="node8" href="$classH4_1_1HermiteIntegrator.html#ae588ac618961f983b7c8710b2e6a65dc" title="Initial system array." alt="" coords="243,253,390,295"/>
+<area shape="rect" id="node9" href="$classH4_1_1HermiteIntegrator.html#acaf43160d505e983bab7dff3f57150ce" title="Integrate groups." alt="" coords="231,319,402,360"/>
+<area shape="rect" id="node10" href="$classH4_1_1HermiteIntegrator.html#a1aaef2826d6bb2c6cc4cafef39fbfaca" title="Integration single active particles and update steps." alt="" coords="224,384,409,425"/>
+<area shape="rect" id="node11" href="$classH4_1_1HermiteIntegrator.html#aee9e179800b8e384c3c0807c22b9e6de" title="Integration a list of particle to current time (ingore dt)" alt="" coords="243,449,390,491"/>
+<area shape="rect" id="node5" href="$classH4_1_1HermiteIntegrator.html#aa1916dc7e970885940bd74ed52aa222c" title="Add group based on a configure file." alt="" coords="5,5,176,47"/>
 </map>

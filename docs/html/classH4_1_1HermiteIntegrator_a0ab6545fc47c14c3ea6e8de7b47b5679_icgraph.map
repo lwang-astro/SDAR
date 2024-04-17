@@ -1,0 +1,5 @@
+<map id="H4::HermiteIntegrator::accumDESlowDownChangeBreakGroup" name="H4::HermiteIntegrator::accumDESlowDownChangeBreakGroup">
+<area shape="rect" id="node1" title="correct Etot slowdown reference due to the groups change" alt="" coords="395,5,619,61"/>
+<area shape="rect" id="node2" href="$classH4_1_1HermiteIntegrator.html#a58a59fd478331237bafbe42b0fbe9d4b" title="break groups" alt="" coords="200,13,347,54"/>
+<area shape="rect" id="node3" href="$classH4_1_1HermiteIntegrator.html#a4681b656dd42eae01d3d85e66ac55112" title="adjust groups" alt="" coords="5,13,152,54"/>
+</map>

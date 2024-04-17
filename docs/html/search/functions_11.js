@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['updateslowdownandcorrectenergy',['updateSlowDownAndCorrectEnergy',['../classAR_1_1TimeTransformedSymplecticIntegrator.html#aef58e7b1ec25846a506b9b0281522a1f',1,'AR::TimeTransformedSymplecticIntegrator']]]
+  ['vector3_724',['Vector3',['../classCOMM_1_1Vector3.html#a1c9f251f1d681bde027b130ecc2509f5',1,'COMM::Vector3::Vector3()'],['../classCOMM_1_1Vector3.html#a4ed8379efed2289cd5cc1e3569f7f260',1,'COMM::Vector3::Vector3(const T _x, const T _y, const T _z)']]]
 ];

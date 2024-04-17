@@ -1,5 +1,11 @@
 <map id="information.h" name="information.h">
-<area shape="rect" id="node2" href="$Float_8h.html" title="Common/Float.h" alt="" coords="5,80,123,107"/>
-<area shape="rect" id="node4" href="$binary__tree_8h.html" title="Common/binary_tree.h" alt="" coords="147,80,298,107"/>
-<area shape="rect" id="node7" href="$matrix_8h.html" title="Common/matrix.h" alt="" coords="284,155,407,181"/>
+<area shape="rect" id="node1" title=" " alt="" coords="33,5,129,32"/>
+<area shape="rect" id="node2" href="$Float_8h.html" title=" " alt="" coords="16,155,133,181"/>
+<area shape="rect" id="node4" href="$binary__tree_8h.html" title=" " alt="" coords="164,80,315,107"/>
+<area shape="rect" id="node9" href="$slow__down_8h.html" title=" " alt="" coords="22,80,140,107"/>
+<area shape="rect" id="node3" title=" " alt="" coords="48,229,101,256"/>
+<area shape="rect" id="node5" title=" " alt="" coords="196,229,254,256"/>
+<area shape="rect" id="node6" title=" " alt="" coords="208,155,282,181"/>
+<area shape="rect" id="node7" href="$matrix_8h.html" title=" " alt="" coords="306,155,429,181"/>
+<area shape="rect" id="node8" title=" " alt="" coords="334,229,401,256"/>
 </map>

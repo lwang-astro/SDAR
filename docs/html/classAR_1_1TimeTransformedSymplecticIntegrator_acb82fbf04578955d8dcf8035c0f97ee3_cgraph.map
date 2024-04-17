@@ -1,5 +1,4 @@
 <map id="AR::TimeTransformedSymplecticIntegrator::integrateOneStep" name="AR::TimeTransformedSymplecticIntegrator::integrateOneStep">
-<area shape="rect" id="node2" href="$classAR_1_1TimeTransformedSymplecticManager.html#a8921a86541d095de3a8685f4aad2da48" title="check whether parameters values are correct " alt="" coords="264,5,475,47"/>
-<area shape="rect" id="node3" href="$classCOMM_1_1List.html#aaddc8ba775e2a6504eb393d7d0c2235b" title="Get modified status. " alt="" coords="294,71,445,112"/>
-<area shape="rect" id="node4" href="$classAR_1_1SlowDown.html#ad5c3d75646774b843eb1eefc86f10b52" title="get real time value " alt="" coords="277,137,462,163"/>
+<area shape="rect" id="node1" title="integration for one step" alt="" coords="5,5,217,47"/>
+<area shape="rect" id="node2" href="$classCOMM_1_1List.html#ae7f0254c3a70d0459c3cdf8073c20b0d" title="Get modified status." alt="" coords="265,5,417,47"/>
 </map>

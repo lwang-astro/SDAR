@@ -1,0 +1,6 @@
+<map id="COMM::ParticleGroup::isOriginFrame" name="COMM::ParticleGroup::isOriginFrame">
+<area shape="rect" id="node1" title="return true if the system is the in their origin frame" alt="" coords="316,71,464,112"/>
+<area shape="rect" id="node2" href="$classAR_1_1TimeTransformedSymplecticIntegrator.html#ad9d82c4c1565d944c64a1a48961980e6" title="correct CM drift" alt="" coords="21,5,252,47"/>
+<area shape="rect" id="node3" href="$classAR_1_1TimeTransformedSymplecticIntegrator.html#adc635c0084f56558f2e87c86d1a80b00" title="initialization for integration" alt="" coords="31,71,243,112"/>
+<area shape="rect" id="node4" href="$classAR_1_1TimeTransformedSymplecticIntegrator.html#a0f18041128f371f6c76d87b2684499cb" title="write back particles to original address" alt="" coords="5,136,268,177"/>
+</map>

@@ -3,6 +3,19 @@ Please read this short manual before start to use the code.
 Any questions that are already answered here won't get reply from developers and GitHub Issue.
 You can find the [SDAR documentation](https://lwang-astro.github.io/SDAR/docs/html/index.html) written in the Doxygen style.
 
+# About the version
+SDAR code is maintained across multiple branches, and for users seeking stability, it is advisable to obtain the released version (see tags on GitHub webpage). The master branch undergoes regular updates to introduce new features and address bugs. Users can opt for this version if they find the new features beneficial.
+
+Other branches may not function correctly, and users are advised against interacting with them unless they have consulted the developer and comprehended the implementations and existing issues.
+
+Users can retrieve the code version in VERSION file.
+The major modes of versions are as follows:
+
+- **Release mode (r)**: This mode signifies a stable version recommended for general use. Release versions are infrequently updated, with the initial release currently being prepared.
+- **Master mode**: This mode is suitable for most conditions and is expected to function correctly. Users can use it for production runs.
+- **Develop mode (e)**: In this mode, the code should operate correctly but may contain bugs that lead to unexpected results. It is advisable to consult developers before use.
+- **Test mode (test)**: This mode is unverified for proper functioning and should not be employed for production purposes.
+
 ## User Guide
 This c++11 library contains three components: _BinaryTree_, _AR_ and _Hermite_.
 1. _BinaryTree_: transformation between Kepler orbital parameters and positions and velocities of binary components; construction for hierarchical systems by using binary tree.

@@ -1,5 +1,6 @@
 <map id="AR::TimeTransformedSymplecticIntegrator::correctCenterOfMassDrift" name="AR::TimeTransformedSymplecticIntegrator::correctCenterOfMassDrift">
-<area shape="rect" id="node2" href="$classCOMM_1_1ParticleGroup.html#a04903afdcfee09b36b30600a2683c99e" title="return true if the system is the in their origin frame " alt="" coords="284,5,432,47"/>
-<area shape="rect" id="node3" href="$classCOMM_1_1List.html#a125e4f93ee02b677f8377bd541f2105d" title="return member data array address " alt="" coords="283,71,433,112"/>
-<area shape="rect" id="node4" href="$classCOMM_1_1List.html#af1c92acd831f62c52f3385a71d6403e7" title="get current member number " alt="" coords="283,136,433,177"/>
+<area shape="rect" id="node1" title="correct CM drift" alt="" coords="5,71,236,112"/>
+<area shape="rect" id="node2" href="$classCOMM_1_1List.html#ad6c06deee95952a09db820733ea428f9" title="return member data array address" alt="" coords="284,5,436,47"/>
+<area shape="rect" id="node3" href="$classCOMM_1_1List.html#a929bb5bdaaa7ce70d872ae0c758c77ae" title="get current member number" alt="" coords="284,71,436,112"/>
+<area shape="rect" id="node4" href="$classCOMM_1_1ParticleGroup.html#a26f8bf8385483a36a879c846aa1a1719" title="return true if the system is the in their origin frame" alt="" coords="286,136,434,177"/>
 </map>

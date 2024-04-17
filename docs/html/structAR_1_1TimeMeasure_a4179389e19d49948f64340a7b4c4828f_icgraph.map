@@ -1,4 +1,5 @@
 <map id="AR::TimeMeasure::get_wtime" name="AR::TimeMeasure::get_wtime">
-<area shape="rect" id="node2" href="$structAR_1_1TimeMeasure.html#ad66e3a8995f060a23f4e8683ed233b68" title="AR::TimeMeasure::start" alt="" coords="201,5,356,32"/>
-<area shape="rect" id="node3" href="$structAR_1_1TimeMeasure.html#aba82f59cd1a2ffc67d974209dd385970" title="AR::TimeMeasure::end" alt="" coords="203,56,354,83"/>
+<area shape="rect" id="node1" title=" " alt="" coords="211,23,360,65"/>
+<area shape="rect" id="node2" href="$structAR_1_1TimeMeasure.html#aba82f59cd1a2ffc67d974209dd385970" title=" " alt="" coords="8,5,160,32"/>
+<area shape="rect" id="node3" href="$structAR_1_1TimeMeasure.html#ad66e3a8995f060a23f4e8683ed233b68" title=" " alt="" coords="5,56,163,83"/>
 </map>

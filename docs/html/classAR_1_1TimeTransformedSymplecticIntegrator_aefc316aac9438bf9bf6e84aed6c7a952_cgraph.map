@@ -1,4 +1,4 @@
 <map id="AR::TimeTransformedSymplecticIntegrator::restoreIntData" name="AR::TimeTransformedSymplecticIntegrator::restoreIntData">
-<area shape="rect" id="node2" href="$classCOMM_1_1ParticleGroup.html#aa7e0c949d709205186148cab38e5cd96" title="restore member particle position and velocity " alt="" coords="278,5,429,47"/>
-<area shape="rect" id="node3" href="$classAR_1_1SlowDown.html#a9a08a4212d82104f92a7b870f5d523fb" title="restore real time and force ratio " alt="" coords="264,71,443,112"/>
+<area shape="rect" id="node1" title="Restore integration data." alt="" coords="5,5,217,47"/>
+<area shape="rect" id="node2" href="$classCOMM_1_1ParticleGroup.html#aa7e0c949d709205186148cab38e5cd96" title="restore member particle position and velocity" alt="" coords="265,5,420,47"/>
 </map>

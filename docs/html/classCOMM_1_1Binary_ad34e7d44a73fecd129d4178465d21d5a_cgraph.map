@@ -1,3 +1,4 @@
 <map id="COMM::Binary::orbitToParticle" name="COMM::Binary::orbitToParticle">
-<area shape="rect" id="node2" href="$classCOMM_1_1Matrix3.html#a7737c9224752c6c5b8d8785de5268b17" title="COMM::Matrix3::rotation" alt="" coords="248,5,408,32"/>
+<area shape="rect" id="node1" title="Orbit to position and velocity." alt="" coords="5,5,200,32"/>
+<area shape="rect" id="node2" href="$classCOMM_1_1Matrix3.html#a7737c9224752c6c5b8d8785de5268b17" title=" " alt="" coords="248,5,408,32"/>
 </map>

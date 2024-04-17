@@ -1,6 +1,0 @@
-<map id="COMM::ParticleGroup::isOriginFrame" name="COMM::ParticleGroup::isOriginFrame">
-<area shape="rect" id="node2" href="$classAR_1_1TimeTransformedSymplecticIntegrator.html#a4db984abe326fd1a30b3d52f6537e5eb" title="initialization for integration " alt="" coords="227,5,437,47"/>
-<area shape="rect" id="node3" href="$classAR_1_1TimeTransformedSymplecticIntegrator.html#ad9d82c4c1565d944c64a1a48961980e6" title="correct CM drift " alt="" coords="217,71,447,112"/>
-<area shape="rect" id="node4" href="$classAR_1_1TimeTransformedSymplecticIntegrator.html#ad24173534adac2b1e58a40de5e525baf" title="write back particles with slowdown velocity " alt="" coords="207,136,457,177"/>
-<area shape="rect" id="node5" href="$classAR_1_1TimeTransformedSymplecticIntegrator.html#a0f18041128f371f6c76d87b2684499cb" title="write back particles to original address " alt="" coords="201,201,463,243"/>
-</map>

@@ -1,5 +1,5 @@
 <map id="AR::TimeTransformedSymplecticIntegrator::printColumnTitle" name="AR::TimeTransformedSymplecticIntegrator::printColumnTitle">
-<area shape="rect" id="node2" href="$classAR_1_1SlowDown.html#aa871b6ffb269568fa6108c547234f09f" title="print titles of class members using column style " alt="" coords="264,5,445,47"/>
-<area shape="rect" id="node3" href="$classAR_1_1Profile.html#a1b5aebbb911d06727642ccf97eca9c31" title="print titles of class members using column style " alt="" coords="276,71,433,112"/>
-<area shape="rect" id="node4" href="$classCOMM_1_1ParticleGroup.html#a2d92a2c26818cf9820ea13026091fb81" title="print titles of class members using column style " alt="" coords="281,136,429,177"/>
+<area shape="rect" id="node1" title="print titles of class members using column style" alt="" coords="5,39,217,80"/>
+<area shape="rect" id="node2" href="$classAR_1_1Profile.html#a1b5aebbb911d06727642ccf97eca9c31" title="print titles of class members using column style" alt="" coords="265,5,423,47"/>
+<area shape="rect" id="node3" href="$classCOMM_1_1ParticleGroup.html#a2d92a2c26818cf9820ea13026091fb81" title="print titles of class members using column style" alt="" coords="270,71,418,112"/>
 </map>

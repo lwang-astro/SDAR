@@ -27,9 +27,11 @@ namespace COMM{
 
         //! Orbit to position and velocity
         /*! refer to the P3T code developed by Iwasawa M.
-          @param[out]: _p1: particle 1
-          @param[out]: _p2: particle 2
-          @param[in]: _bin: binary parameter
+          @param[out] _p1: particle 1
+          @param[out] _p2: particle 2
+          @param[in] _bin: binary parameter
+          @param[in] _ecca: eccentric anomaly (-pi, pi)
+          @param[in] _G: gravitational constant
         */
         template <class Tptcl>
         static void orbitToParticle(Tptcl& _p1, Tptcl& _p2, const Binary& _bin, const Float& _ecca, const Float _G) {
@@ -90,9 +92,10 @@ namespace COMM{
 
         //! position velocity to orbit
         /* refer to the P3T code developed by Iwasawa M.
-           @param[out]: _bin: binary parameter
-           @param[in]:  _p1: particle 1
-           @param[in]:  _p2: particle 2
+           @param[out] _bin: binary parameter
+           @param[in]  _p1: particle 1
+           @param[in]  _p2: particle 2
+           @param[in] _G: gravitational constant
         */
         template <class Tptcl>
         static void particleToOrbit(Binary& _bin, const Tptcl& _p1, const Tptcl& _p2, const Float _G){
@@ -156,9 +159,9 @@ namespace COMM{
 
         //! from period calculate semi-major axis
         /*!
-          @param[in]: _period: period
-          @param[in]: _mtot: total mass of binary
-          @param[in]: _G: gravitational constant
+          @param[in] _period: period
+          @param[in] _mtot: total mass of binary
+          @param[in] _G: gravitational constant
          */
         static Float periodToSemi(const Float& _period, const Float& _mtot, const Float& _G) {
             return pow(_period*_period*_G*_mtot/(4*PI*PI),1.0/3.0);
@@ -166,9 +169,9 @@ namespace COMM{
 
         //! from semi-major axis calculate period;
         /*!
-          @param[in]: _semi: semi-major axis
-          @param[in]: _mtot: total mass of binary
-          @param[in]: _G: gravitational constant
+          @param[in] _semi: semi-major axis
+          @param[in] _mtot: total mass of binary
+          @param[in] _G: gravitational constant
          */
         static Float semiToPeriod(const Float& _semi, const Float& _mtot, const Float& _G) {
             Float mean_motion = sqrt(_G*_mtot/(fabs(_semi*_semi*_semi))); 
@@ -177,13 +180,13 @@ namespace COMM{
         
 
         //! position velocity to orbit semi-major axis and eccentricity
-        /*! @param[out]: _semi: semi-major axis
-           @param[out]: _ecc:  eccentricity
-           @param[out]: _r: distance between two particles
-           @param[out]: _rv: relative position dot velocity
-           @param[in]:  _p1: particle 1
-           @param[in]:  _p2: particle 2
-           @param[in]:  _G: gravitational constant
+        /*! @param[out] _semi: semi-major axis
+           @param[out] _ecc:  eccentricity
+           @param[out] _r: distance between two particles
+           @param[out] _rv: relative position dot velocity
+           @param[in]  _p1: particle 1
+           @param[in]  _p2: particle 2
+           @param[in]  _G: gravitational constant
         */
         template <class Tpi, class Tpj>
         static void particleToSemiEcc(Float& _semi, Float& _ecc, Float& _r, Float& _rv, const Tpi& _p1, const Tpj& _p2, const Float _G){
@@ -201,6 +204,11 @@ namespace COMM{
         }
 
         //! calcualte semi, ecc and period
+        /*! 
+           @param[in,out]  _p1: particle 1
+           @param[in,out]  _p2: particle 2
+           @param[in]  _G: gravitational constant
+        */
         template <class Tpi, class Tpj>
         void particleToSemiEccPeriod(const Tpi& _p1, const Tpj& _p2, const Float _G) {
             Float r,rv;
@@ -210,6 +218,10 @@ namespace COMM{
         }
 
         //! calculate eccentric anomaly from separation (0-pi)
+        /*!
+          @param[in] _r: seperation
+          \return eccentric anomaly
+         */
         Float calcEccAnomaly(const Float _r) {
             if (semi>0) {
                 Float cos_ecca = (1.0-_r/semi)/ecc;
@@ -222,6 +234,11 @@ namespace COMM{
         }
 
         //! calculate mean anomaly from eccentric anomaly (0-pi)
+        /*!
+           @param[in] _ecca:  eccentric anomaly
+           @param[in] _ecc:  eccentricity
+           \return mean anomaly
+         */
         static Float calcMeanAnomaly(const Float _ecca, const Float _ecc) {
             if (_ecc<1.0) return _ecca - _ecc*sin(_ecca); 
             else return _ecc*sinh(_ecca) - _ecca;
@@ -275,8 +292,9 @@ namespace COMM{
     
         //! calculate kepler Orbit from particles
         /*! 
-          @param[out]: _p1: particle 1
-          @param[out]: _p2: particle 2
+          @param[out] _p1: particle 1
+          @param[out] _p2: particle 2
+          @param[in] _G: gravitational constant
         */    
         template <class Tptcl>
         void calcOrbit(const Tptcl& _p1, const Tptcl& _p2, const Float _G) {
@@ -285,8 +303,9 @@ namespace COMM{
 
         //! calculate two components from kepler Orbit 
         /*! 
-          @param[out]: _p1: particle 1
-          @param[out]: _p2: particle 2
+          @param[out] _p1: particle 1
+          @param[out] _p2: particle 2
+          @param[in] _G: gravitational constant
         */    
         template <class Tptcl>
         void calcParticles(Tptcl& _p1, Tptcl& _p2, const Float& _G) {
@@ -295,7 +314,7 @@ namespace COMM{
 
         //! from period calculate semi-major axis
         /*!
-          @param[in]: _G: gravitational constant
+          @param[in] _G: gravitational constant
          */
         void calcSemiFromPeriod(const Float& _G) {
             Float mtot = m1+m2;
@@ -304,9 +323,10 @@ namespace COMM{
 
         //! calculate two components from kepler Orbit with input eccentricity anomaly
         /*! 
-          @param[out]: _p1: particle 1
-          @param[out]: _p2: particle 2
-          @param[in]: _ecca: eccentricity anomaly
+          @param[out] _p1: particle 1
+          @param[out] _p2: particle 2
+          @param[in] _ecca: eccentricity anomaly
+          @param[in] _G: gravitational constant
         */    
         template <class Tptcl>
         void calcParticlesEcca(Tptcl& _p1, Tptcl& _p2, const Float _ecca, const Float _G) const {
@@ -314,6 +334,9 @@ namespace COMM{
         }
 
         //! rotate position vector from binary rest-frame to original frame based on three angles
+        /*!
+          @param[out] _vec: vector to rotate
+         */
         void rotateToOriginalFrame(Float* _vec ) {
             Matrix3<Float> rot;
             rot.rotation(incline, rot_horizon, rot_self);
@@ -404,7 +427,7 @@ namespace COMM{
         }
 
         //! read class data to file with binary format
-        /*! @param[in] _fp: FILE type file for reading
+        /*! @param[in] _fin: FILE type file for reading
          */
         void readBinary(FILE *_fin) {
             size_t rcount = fread(this, sizeof(*this),1,_fin);
@@ -799,8 +822,8 @@ namespace COMM{
     
         //! Process (bottom) leaf data with extra dat iteratively (from left to right)
         /*!
-          @param[in] _dat: data for processing loop from left to right 
-          @param[in] _f: function to process root information
+          @param[in] _dat: data for processing loop from left to right
+          @param[in] _f: function to process leaf information
           \return: new data generated by processing function
         */
         template <class T>
@@ -837,8 +860,10 @@ namespace COMM{
 
         //! Process root and leaf data and return result iteratively
         /*! The process go from top root to leafs from left to right
-          @param[in] _dat: data return from upper level processing function 
-          @param[in] _f: function to process root information
+          @param[in] _dat_root: data return from upper root processing function 
+          @param[in] _f_root: function to process root information
+          @param[in] _dat_leaf: data for processing loop from left to right
+          @param[in] _f_leaf: function to process leaf information
           \return: new data generated by processing function
         */
         template <class Troot, class Tleaf>
@@ -860,8 +885,8 @@ namespace COMM{
         //! Process tree data with extra dat iteratively (from bottom to top)
         /*! 
           @param[in] _dat: general data type for process using
-          @param[in] _return_1: return from branch 1 
-          @param[in] _return_2: return from branch 2 
+          @param[in] _res1: return from branch 1 
+          @param[in] _res2: return from branch 2 
           @param[in] _f: function to process root information
           \return: new data generated by processing function
         */

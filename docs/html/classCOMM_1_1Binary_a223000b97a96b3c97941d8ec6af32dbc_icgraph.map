@@ -1,3 +1,4 @@
 <map id="COMM::Binary::solveKepler" name="COMM::Binary::solveKepler">
-<area shape="rect" id="node2" href="$classCOMM_1_1Binary.html#ab71d171dc5e238a22dbc93e62397137c" title="Solve kepler motion for dt. " alt="" coords="231,5,377,32"/>
+<area shape="rect" id="node1" title="solve kepler orbit after dt" alt="" coords="203,5,381,32"/>
+<area shape="rect" id="node2" href="$classCOMM_1_1Binary.html#ab71d171dc5e238a22dbc93e62397137c" title="Solve kepler motion for dt." alt="" coords="5,5,155,32"/>
 </map>

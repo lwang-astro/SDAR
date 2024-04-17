@@ -254,7 +254,7 @@ namespace AR {
         
         //! Symplectic coefficients generation for input order
         /*!
-          @param [in] n: symplectic integrator order, should be even, otherwise reduce to closest even number; if 0, not set; if negative, use second solution from Yoshida (1990), but only -6 and -8 works
+          @param [in] _n: symplectic integrator order, should be even, otherwise reduce to closest even number; if 0, not set; if negative, use second solution from Yoshida (1990), but only -6 and -8 works
          */
         void initialSymplecticCofficients(const int _n) {
             // if already initialized, clear

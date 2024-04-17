@@ -1,8 +1,10 @@
 <map id="H4::HermiteIntegrator::initialIntegration" name="H4::HermiteIntegrator::initialIntegration">
-<area shape="rect" id="node2" href="$classCOMM_1_1List.html#aaddc8ba775e2a6504eb393d7d0c2235b" title="Get modified status. " alt="" coords="215,5,366,47"/>
-<area shape="rect" id="node3" href="$classCOMM_1_1List.html#af1c92acd831f62c52f3385a71d6403e7" title="get current member number " alt="" coords="215,71,366,112"/>
-<area shape="rect" id="node4" href="$classCOMM_1_1List.html#a125e4f93ee02b677f8377bd541f2105d" title="return member data array address " alt="" coords="197,137,384,163"/>
-<area shape="rect" id="node5" href="$classH4_1_1HermiteManager.html#ad5ab496b530db1dfab24bebc39fabe8e" title="time step calculator " alt="" coords="221,188,360,229"/>
-<area shape="rect" id="node6" href="$classH4_1_1BlockTimeStep4th.html#a8532dd2e9fbbba336390b56295e21b76" title="calculate the maximum time step limit for next block step based on the input (current) time ..." alt="" coords="215,253,366,295"/>
-<area shape="rect" id="node7" href="$classAR_1_1SymplecticStep.html#a191a4dfa707aa4bbe6258c90c6ae80bc" title="get Symplectic order " alt="" coords="222,319,359,360"/>
+<area shape="rect" id="node1" title="Initial Hermite integrator." alt="" coords="5,129,152,171"/>
+<area shape="rect" id="node2" href="$classH4_1_1BlockTimeStep4th.html#a8532dd2e9fbbba336390b56295e21b76" title="calculate the maximum time step limit for next block step based on the input (current) time" alt="" coords="219,5,371,47"/>
+<area shape="rect" id="node3" href="$classH4_1_1HermiteIntegrator.html#a5c92334f487ce31326f4469035b24ba7" title="check whether parameters values are correct" alt="" coords="222,71,369,112"/>
+<area shape="rect" id="node6" href="$classCOMM_1_1List.html#ad6c06deee95952a09db820733ea428f9" title="return member data array address" alt="" coords="200,137,391,163"/>
+<area shape="rect" id="node7" href="$classH4_1_1BlockTimeStep4th.html#ab72d7e4dc79d4f9fd7a85184d59f0135" title="get maximum time step" alt="" coords="219,188,371,229"/>
+<area shape="rect" id="node8" href="$classCOMM_1_1List.html#a929bb5bdaaa7ce70d872ae0c758c77ae" title="get current member number" alt="" coords="225,254,365,281"/>
+<area shape="rect" id="node4" href="$classH4_1_1HermiteManager.html#ad5ab496b530db1dfab24bebc39fabe8e" title="time step calculator" alt="" coords="474,39,615,80"/>
+<area shape="rect" id="node5" href="$classAR_1_1TimeTransformedSymplecticManager.html#a8921a86541d095de3a8685f4aad2da48" title="check whether parameters values are correct" alt="" coords="439,104,651,145"/>
 </map>

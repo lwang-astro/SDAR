@@ -1,4 +1,5 @@
 <map id="H4::HermiteIntegrator::checkParams" name="H4::HermiteIntegrator::checkParams">
-<area shape="rect" id="node2" href="$classH4_1_1HermiteManager.html#ad5ab496b530db1dfab24bebc39fabe8e" title="time step calculator " alt="" coords="233,5,372,47"/>
-<area shape="rect" id="node3" href="$classAR_1_1TimeTransformedSymplecticManager.html#a8921a86541d095de3a8685f4aad2da48" title="check whether parameters values are correct " alt="" coords="197,71,408,112"/>
+<area shape="rect" id="node1" title="check whether parameters values are correct" alt="" coords="5,39,152,80"/>
+<area shape="rect" id="node2" href="$classH4_1_1HermiteManager.html#ad5ab496b530db1dfab24bebc39fabe8e" title="time step calculator" alt="" coords="235,5,377,47"/>
+<area shape="rect" id="node3" href="$classAR_1_1TimeTransformedSymplecticManager.html#a8921a86541d095de3a8685f4aad2da48" title="check whether parameters values are correct" alt="" coords="200,71,412,112"/>
 </map>

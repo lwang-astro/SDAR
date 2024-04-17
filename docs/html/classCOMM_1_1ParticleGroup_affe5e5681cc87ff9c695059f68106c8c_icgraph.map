@@ -1,5 +1,4 @@
 <map id="COMM::ParticleGroup::clear" name="COMM::ParticleGroup::clear">
-<area shape="rect" id="node2" href="$classH4_1_1HermiteIntegrator.html#a7729add39ba30b96c19aa6337dd38293" title="clear function " alt="" coords="235,5,379,47"/>
-<area shape="rect" id="node3" href="$classCOMM_1_1ParticleGroup.html#ad24d34c19dcf7f18c085d9cc01c388b1" title="destructor " alt="" coords="229,70,384,126"/>
-<area shape="rect" id="node4" href="$classAR_1_1TimeTransformedSymplecticIntegrator.html#aaa3a79d58bda3139dc300f0f46bff536" title="Clear function. " alt="" coords="201,149,412,191"/>
+<area shape="rect" id="node1" title="Clear function." alt="" coords="211,13,359,54"/>
+<area shape="rect" id="node2" href="$classCOMM_1_1ParticleGroup.html#ad24d34c19dcf7f18c085d9cc01c388b1" title="destructor" alt="" coords="5,5,163,61"/>
 </map>

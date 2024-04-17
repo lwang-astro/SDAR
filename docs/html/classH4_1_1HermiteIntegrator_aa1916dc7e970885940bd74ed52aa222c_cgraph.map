@@ -1,0 +1,13 @@
+<map id="H4::HermiteIntegrator::readGroupConfigureAscii" name="H4::HermiteIntegrator::readGroupConfigureAscii">
+<area shape="rect" id="node1" title="Add group based on a configure file." alt="" coords="5,181,176,222"/>
+<area shape="rect" id="node2" href="$classH4_1_1HermiteIntegrator.html#aefaac6ef510ac839a678081a80e69131" title="add groups from lists of particle index" alt="" coords="224,181,371,222"/>
+<area shape="rect" id="node3" href="$classCOMM_1_1List.html#adeefdc2865fe56e2413b2cada9772a5e" title="copy one member and its address" alt="" coords="430,5,595,32"/>
+<area shape="rect" id="node4" href="$classH4_1_1HermiteIntegrator.html#a5c92334f487ce31326f4469035b24ba7" title="check whether parameters values are correct" alt="" coords="439,57,586,98"/>
+<area shape="rect" id="node7" href="$classCOMM_1_1List.html#a4de82aa7b73a5f74ae2917e4740e3cb8" title="increase size without initialization" alt="" coords="425,122,600,163"/>
+<area shape="rect" id="node8" href="$classCOMM_1_1List.html#abcdc25c6ecaf2d352583fa75f9fa1180" title="return last member" alt="" coords="419,188,607,215"/>
+<area shape="rect" id="node9" href="$classCOMM_1_1List.html#a929bb5bdaaa7ce70d872ae0c758c77ae" title="get current member number" alt="" coords="443,239,583,265"/>
+<area shape="rect" id="node10" href="$classCOMM_1_1List.html#a610a134731844b13df4b22ef0d9ad603" title="increase size without initialization" alt="" coords="427,290,598,331"/>
+<area shape="rect" id="node11" href="$classCOMM_1_1Binary.html#ad1447e83c38bd8604ad129877f860da5" title="print titles of class members using column style" alt="" coords="423,355,603,397"/>
+<area shape="rect" id="node5" href="$classH4_1_1HermiteManager.html#ad5ab496b530db1dfab24bebc39fabe8e" title="time step calculator" alt="" coords="690,25,831,66"/>
+<area shape="rect" id="node6" href="$classAR_1_1TimeTransformedSymplecticManager.html#a8921a86541d095de3a8685f4aad2da48" title="check whether parameters values are correct" alt="" coords="655,90,867,131"/>
+</map>

@@ -1,3 +1,6 @@
 <map id="AR::Profile::clear" name="AR::Profile::clear">
-<area shape="rect" id="node2" href="$classAR_1_1TimeTransformedSymplecticIntegrator.html#aaa3a79d58bda3139dc300f0f46bff536" title="Clear function. " alt="" coords="169,5,380,47"/>
+<area shape="rect" id="node1" title=" " alt="" coords="569,50,685,77"/>
+<area shape="rect" id="node2" href="$classAR_1_1TimeTransformedSymplecticIntegrator.html#aaa3a79d58bda3139dc300f0f46bff536" title="Clear function." alt="" coords="309,43,521,84"/>
+<area shape="rect" id="node3" href="$classAR_1_1TimeTransformedSymplecticIntegrator.html#aa655bbfc4e9f9af1ae7f7a09fc193443" title="operator =" alt="" coords="27,5,239,47"/>
+<area shape="rect" id="node4" href="$classAR_1_1TimeTransformedSymplecticIntegrator.html#aab55b52156245634a8d78c7728b5c802" title="destructor" alt="" coords="5,71,261,127"/>
 </map>

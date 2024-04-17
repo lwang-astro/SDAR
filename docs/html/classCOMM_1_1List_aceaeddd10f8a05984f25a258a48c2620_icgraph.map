@@ -1,8 +1,12 @@
 <map id="COMM::List::clear" name="COMM::List::clear">
-<area shape="rect" id="node2" href="$classH4_1_1ARInformation.html#a35dab173023966109fc3a7cd4747159d" title="H4::ARInformation::\lclear" alt="" coords="215,5,348,47"/>
-<area shape="rect" id="node3" href="$classH4_1_1HermiteIntegrator.html#a7729add39ba30b96c19aa6337dd38293" title="clear function " alt="" coords="209,71,353,112"/>
-<area shape="rect" id="node4" href="$classH4_1_1HermiteIntegrator.html#a58a59fd478331237bafbe42b0fbe9d4b" title="break groups " alt="" coords="209,136,353,177"/>
-<area shape="rect" id="node5" href="$classAR_1_1Information.html#ab8e8198bc43281784e7f84e988ecf7bc" title="clear function " alt="" coords="192,201,371,257"/>
-<area shape="rect" id="node6" href="$classH4_1_1Neighbor.html#a8b785d84927d544959711bcde3f6c668" title="clear function " alt="" coords="217,281,346,307"/>
-<area shape="rect" id="node7" href="$classAR_1_1TimeTransformedSymplecticIntegrator.html#aaa3a79d58bda3139dc300f0f46bff536" title="Clear function. " alt="" coords="176,332,387,373"/>
+<area shape="rect" id="node1" title="Clear function." alt="" coords="569,177,695,203"/>
+<area shape="rect" id="node2" href="$classH4_1_1HermiteIntegrator.html#a58a59fd478331237bafbe42b0fbe9d4b" title="break groups" alt="" coords="342,5,489,47"/>
+<area shape="rect" id="node4" href="$classH4_1_1ARInformation.html#a35dab173023966109fc3a7cd4747159d" title=" " alt="" coords="348,71,483,112"/>
+<area shape="rect" id="node5" href="$classAR_1_1TimeTransformedSymplecticIntegrator.html#aaa3a79d58bda3139dc300f0f46bff536" title="Clear function." alt="" coords="309,136,521,177"/>
+<area shape="rect" id="node8" href="$classH4_1_1HermiteIntegrator.html#a7729add39ba30b96c19aa6337dd38293" title="clear function" alt="" coords="342,201,489,243"/>
+<area shape="rect" id="node9" href="$classCOMM_1_1List.html#a9bab371ce70f4b606893f8df2562b06d" title="operator = is copy" alt="" coords="331,267,500,308"/>
+<area shape="rect" id="node10" href="$classCOMM_1_1List.html#a2daf57dafa6922cba90337d4eaf88ea3" title="destructor" alt="" coords="331,332,500,373"/>
+<area shape="rect" id="node3" href="$classH4_1_1HermiteIntegrator.html#a4681b656dd42eae01d3d85e66ac55112" title="adjust groups" alt="" coords="60,5,207,47"/>
+<area shape="rect" id="node6" href="$classAR_1_1TimeTransformedSymplecticIntegrator.html#aa655bbfc4e9f9af1ae7f7a09fc193443" title="operator =" alt="" coords="27,104,239,145"/>
+<area shape="rect" id="node7" href="$classAR_1_1TimeTransformedSymplecticIntegrator.html#aab55b52156245634a8d78c7728b5c802" title="destructor" alt="" coords="5,170,261,226"/>
 </map>

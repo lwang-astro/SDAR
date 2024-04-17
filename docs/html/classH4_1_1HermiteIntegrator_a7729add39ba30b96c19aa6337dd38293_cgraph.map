@@ -1,6 +1,7 @@
 <map id="H4::HermiteIntegrator::clear" name="H4::HermiteIntegrator::clear">
-<area shape="rect" id="node2" href="$structH4_1_1HermiteEnergy.html#a716caf752e5366863b7b8abfbc1e269d" title="clear function " alt="" coords="204,5,339,47"/>
-<area shape="rect" id="node3" href="$classCOMM_1_1ParticleGroup.html#affe5e5681cc87ff9c695059f68106c8c" title="Clear function. " alt="" coords="197,71,345,112"/>
-<area shape="rect" id="node4" href="$classCOMM_1_1List.html#aceaeddd10f8a05984f25a258a48c2620" title="Clear function. " alt="" coords="210,137,333,163"/>
-<area shape="rect" id="node5" href="$classH4_1_1Profile.html#acddb468fc57a003b653b6d2181e0e1f0" title="H4::Profile::clear" alt="" coords="214,187,329,214"/>
+<area shape="rect" id="node1" title="clear function" alt="" coords="5,86,152,127"/>
+<area shape="rect" id="node2" href="$classH4_1_1Profile.html#acddb468fc57a003b653b6d2181e0e1f0" title=" " alt="" coords="211,5,325,32"/>
+<area shape="rect" id="node3" href="$structAR_1_1InterruptBinary.html#a1309ddc9ea338b2990190c72c37d8c06" title=" " alt="" coords="203,57,333,98"/>
+<area shape="rect" id="node4" href="$classCOMM_1_1List.html#aceaeddd10f8a05984f25a258a48c2620" title="Clear function." alt="" coords="205,123,331,149"/>
+<area shape="rect" id="node5" href="$structH4_1_1HermiteEnergy.html#a716caf752e5366863b7b8abfbc1e269d" title="clear function" alt="" coords="200,174,336,215"/>
 </map>

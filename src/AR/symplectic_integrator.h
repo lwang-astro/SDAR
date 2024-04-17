@@ -1920,7 +1920,6 @@ namespace AR {
         
         // Integrate the system to a given time
         /*!
-          @param[in] _ds: the integration step size
           @param[in] _time_end: the expected finishing time without offset
           \return binary tree of the pair which triggers interruption condition
          */
@@ -3245,7 +3244,7 @@ namespace AR {
 
 
         //! Backup integration data 
-        /*! Backup #time_, #etot_, #ekin_, $epot_, #gt_drift_, $gt_kick_inv_, #particles, $slowdown to one Float data array
+        /*! Backup $time_, $etot_, $ekin_, $epot_, $gt_drift_, $gt_kick_inv_, #particles, $slowdown to one Float data array
           \return backup array size
         */
         int backupIntData(Float* _bk) {
@@ -3279,7 +3278,7 @@ namespace AR {
         }
 
         //! Restore integration data
-        /*! restore #time_, #etot_, #ekin_, $epot_, #gt_drift_, $gt_kick_inv_, #particles, $slowdown from one Float data array
+        /*! restore $time_, $etot_, $ekin_, $epot_, $gt_drift_, $gt_kick_inv_, #particles, $slowdown from one Float data array
           \return backup array size
         */
         int restoreIntData(Float* _bk) {

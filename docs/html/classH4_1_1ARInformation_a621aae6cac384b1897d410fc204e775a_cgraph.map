@@ -1,7 +1,0 @@
-<map id="H4::ARInformation::addParticlesAndCopyBinaryTree" name="H4::ARInformation::addParticlesAndCopyBinaryTree">
-<area shape="rect" id="node2" href="$classCOMM_1_1BinaryTree.html#ae05cbd6fc87aebd60f87fa37db6ed2a2" title="get total number of members " alt="" coords="260,5,471,32"/>
-<area shape="rect" id="node3" href="$classCOMM_1_1List.html#a0f3dd09ceff0ce9b3ffd15f48a9ea9c4" title="increase size without initialization " alt="" coords="270,56,461,83"/>
-<area shape="rect" id="node4" href="$classCOMM_1_1BinaryTree.html#a9931d373087dd5a8fceae5f3f14020e2" title="collect BinaryTree data iteratively and save to a BinaryTree array " alt="" coords="279,107,452,149"/>
-<area shape="rect" id="node5" href="$classCOMM_1_1List.html#abcdc25c6ecaf2d352583fa75f9fa1180" title="return last member " alt="" coords="273,173,457,200"/>
-<area shape="rect" id="node6" href="$classCOMM_1_1BinaryTree.html#a9afa87b53ab8657e922afb707dda1e2f" title="Process (bottom) leaf data with extra dat iteratively (from left to right) " alt="" coords="275,225,456,266"/>
-</map>

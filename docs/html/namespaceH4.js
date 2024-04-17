@@ -8,7 +8,6 @@ var namespaceH4 =
     [ "HermiteManager", "classH4_1_1HermiteManager.html", "classH4_1_1HermiteManager" ],
     [ "NBAdr", "structH4_1_1NBAdr.html", "structH4_1_1NBAdr" ],
     [ "Neighbor", "classH4_1_1Neighbor.html", "classH4_1_1Neighbor" ],
-    [ "ParticleAR", "classH4_1_1ParticleAR.html", "classH4_1_1ParticleAR" ],
     [ "ParticleH4", "classH4_1_1ParticleH4.html", "classH4_1_1ParticleH4" ],
     [ "Profile", "classH4_1_1Profile.html", "classH4_1_1Profile" ],
     [ "TimeStep4th", "classH4_1_1TimeStep4th.html", "classH4_1_1TimeStep4th" ]
