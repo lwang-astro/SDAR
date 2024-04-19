@@ -246,7 +246,6 @@ int main(int argc, char **argv){
     // set symplectic order
     manager.step.initialSymplecticCofficients(sym_order.value);
 
-    manager.interrupt_detection_option = interrupt_detection_option.value;
     manager.interaction.interrupt_detection_option = interrupt_detection_option.value;
 
 

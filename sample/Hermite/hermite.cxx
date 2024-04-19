@@ -41,7 +41,7 @@ int main(int argc, char **argv){
     COMM::IOParams<int> dt_max_power_index (input_par_store, 2, "power index of 0.5 for maximum hermite time step"); // maximum physical time step
     COMM::IOParams<int> dt_out_power_index (input_par_store, 2, "power index of 0.5 for output time interval"); // output time interval
     COMM::IOParams<double> ds_scale     (input_par_store, 1.0,  "step size scaling factor for Ar integration");    // step size scaling factor
-    COMM::IOParams<int>   interrupt_detection_option(input_par_store, 0, "modify orbits and check interruption: 0: turn off; 1: modify the binary orbits based on detetion criterion; 2. modify and also interrupt integrations");  // modify orbit or check interruption using modifyAndInterruptIter function
+    COMM::IOParams<int>   interrupt_detection_option(input_par_store, 0, "modify orbits and check interruption: 0: turn off; 1: modify the binary orbits based on detection criterion; 2. only record the binary information when interruption criterion is triggered");  // modify orbit or check interruption using modifyAndInterruptIter function
     COMM::IOParams<double> energy_error (input_par_store, 1e-10,"relative energy error limit for AR"); // phase error requirement
     COMM::IOParams<double> time_error   (input_par_store, 0.0, "time synchronization absolute error limit for AR","default is 0.25*dt-min"); // time synchronization error
     COMM::IOParams<double> time_zero    (input_par_store, 0.0, "initial physical time");    // initial physical time
@@ -246,7 +246,6 @@ int main(int argc, char **argv){
     ar_manager.step_count_max = nstep_max.value;
     // set symplectic order
     ar_manager.step.initialSymplecticCofficients(sym_order.value);
-    ar_manager.interrupt_detection_option = interrupt_detection_option.value;
     ar_manager.interaction.interrupt_detection_option = interrupt_detection_option.value;
 
     // store input parameters

@@ -67,7 +67,6 @@ namespace AR {
 #endif
         Float slowdown_timescale_max;       ///> slowdown maximum timescale to calculate maximum slowdown factor
         long long unsigned int step_count_max; ///> maximum step counts
-        int interrupt_detection_option;    ///> 1: detect interruption; 0: no detection
         
         Tmethod interaction; ///> class contain interaction function
         SymplecticStep step;  ///> class to manager kick drift step
@@ -78,7 +77,7 @@ namespace AR {
                                             slowdown_mass_ref(Float(-1.0)), 
 #endif
                                             slowdown_timescale_max(0.0),
-                                            step_count_max(0), interrupt_detection_option(0), interaction(), step() {}
+                                            step_count_max(0), interaction(), step() {}
 
         //! check whether parameters values are correct
         /*! \return true: all correct
@@ -2094,7 +2093,7 @@ namespace AR {
                 
                 if(backup_flag) {
                     // check interrupt condiction, ensure that time end not reach
-                    if (manager->interrupt_detection_option>0 && !time_end_flag) {
+                    if (manager->interaction.interrupt_detection_option>0 && !time_end_flag) {
                         bin_interrupt.time_now = time_ + info.time_offset;
                         bin_interrupt.time_end = _time_end + info.time_offset;
                         // calc perturbation energy
@@ -2107,7 +2106,7 @@ namespace AR {
                         //bin_intr_ptr = bin_root.processRootIter(bin_intr_ptr, Tmethod::modifyAndInterruptIter);
                         ASSERT(bin_interrupt.checkParams());
                         if (bin_interrupt.status!=InterruptStatus::none) {
-                            if (manager->interrupt_detection_option==2) {
+                            if (manager->interaction.interrupt_detection_option==2) {
                                 // cumulative step count 
                                 //profile.step_count = step_count;
                                 //profile.step_count_tsyn = step_count_tsyn;

@@ -2365,7 +2365,7 @@ namespace H4{
 
                 if (interrupt_binary.status!=AR::InterruptStatus::none) {
                     // processing interruption case
-                    if (ar_manager->interrupt_detection_option==1) {
+                    if (ar_manager->interaction.interrupt_detection_option==1) {
 
 #ifdef HERMITE_DEBUG
                         std::cerr<<"Interrupt ";
@@ -2448,7 +2448,7 @@ namespace H4{
 
                     }
                     // record interrupt information
-                    else if (ar_manager->interrupt_detection_option==2) { 
+                    else if (ar_manager->interaction.interrupt_detection_option==2) { 
                         auto bin = interrupt_binary.getBinaryTreeAddress();
                         if (!bin->isMemberTree(0) && !bin->isMemberTree(1)){
                             // only recored binary interruption
