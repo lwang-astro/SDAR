@@ -7,7 +7,7 @@
 #define NAN_CHECK(val) assert((val) == (val));
 #endif
 
-enum class BinaryInterruptState:int {none = 0, form = 1, exchange = 2, collision = 3};
+enum class BinaryInterruptState:int {none = 0, form = 1, exchange = 2, collision = 3, regist = 4};
 #define BINARY_STATE_ID_SHIFT 4
 #define BINARY_INTERRUPT_STATE_MASKER 0xF
 

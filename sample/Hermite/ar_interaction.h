@@ -588,6 +588,10 @@ public:
                     p1->mass = mcm;
                     p2->mass = 0.0;
                 }
+                else if (interrupt_detection_option == 2) {
+                    p1->setBinaryInterruptState(BinaryInterruptState::regist);
+                    p2->setBinaryInterruptState(BinaryInterruptState::regist);
+                }
             };
 
             if(_bin.getMemberN()==2) {
@@ -595,7 +599,7 @@ public:
                     p2->getBinaryInterruptState()== BinaryInterruptState::collision &&
                     (p1->time_check<_bin_interrupt.time_end || p2->time_check<_bin_interrupt.time_end) &&
                     (p1->getBinaryPairID()==p2->id||p2->getBinaryPairID()==p1->id)) merge();
-                else if (p1->getBinaryInterruptState() != BinaryInterruptState::collision && p2->getBinaryInterruptState() != BinaryInterruptState::collision) {
+                else if (p1->getBinaryInterruptState() != BinaryInterruptState::regist && p2->getBinaryInterruptState() != BinaryInterruptState::regist) {
                     Float radius = p1->radius + p2->radius;
                     // slowdown case
                     if (_bin.slowdown.getSlowDownFactor()>1.0) {
