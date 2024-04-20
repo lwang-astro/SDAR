@@ -575,6 +575,7 @@ public:
 
             auto merge = [&]() {
                 _bin_interrupt.setBinaryTreeAddress(&_bin);
+                _bin_interrupt.status = AR::InterruptStatus::merge;
                 if (interrupt_detection_option==1) {
                     Float mcm = p1->mass + p2->mass;
                     for (int k=0; k<3; k++) {
@@ -589,17 +590,17 @@ public:
                     p2->mass = 0.0;
                 }
                 else if (interrupt_detection_option == 2) {
-                    p1->setBinaryInterruptState(BinaryInterruptState::regist);
-                    p2->setBinaryInterruptState(BinaryInterruptState::regist);
+                    p1->setBinaryInterruptState(BinaryInterruptState::collision);
+                    p2->setBinaryInterruptState(BinaryInterruptState::collision);
                 }
             };
 
             if(_bin.getMemberN()==2) {
-                if (p1->getBinaryInterruptState()== BinaryInterruptState::collision && 
-                    p2->getBinaryInterruptState()== BinaryInterruptState::collision &&
+                if (p1->getBinaryInterruptState()== BinaryInterruptState::delaycollision && 
+                    p2->getBinaryInterruptState()== BinaryInterruptState::delaycollision &&
                     (p1->time_check<_bin_interrupt.time_end || p2->time_check<_bin_interrupt.time_end) &&
                     (p1->getBinaryPairID()==p2->id||p2->getBinaryPairID()==p1->id)) merge();
-                else if (p1->getBinaryInterruptState() != BinaryInterruptState::regist && p2->getBinaryInterruptState() != BinaryInterruptState::regist) {
+                else if (p1->getBinaryInterruptState() != BinaryInterruptState::collision && p2->getBinaryInterruptState() != BinaryInterruptState::collision) {
                     Float radius = p1->radius + p2->radius;
                     // slowdown case
                     if (_bin.slowdown.getSlowDownFactor()>1.0) {
@@ -615,8 +616,8 @@ public:
                             else if (_bin.semi>0||(_bin.semi<0&&drdv<0)) {
                                 p1->setBinaryPairID(p2->id);
                                 p2->setBinaryPairID(p1->id);
-                                p1->setBinaryInterruptState(BinaryInterruptState::collision);
-                                p2->setBinaryInterruptState(BinaryInterruptState::collision);
+                                p1->setBinaryInterruptState(BinaryInterruptState::delaycollision);
+                                p2->setBinaryInterruptState(BinaryInterruptState::delaycollision);
                                 p1->time_check = std::min(p1->time_check, _bin_interrupt.time_now + drdv<0 ? t_peri : (_bin.period - t_peri));
                                 p2->time_check = std::min(p1->time_check, p2->time_check);
                             }
