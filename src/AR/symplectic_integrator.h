@@ -2140,14 +2140,15 @@ namespace AR {
 #ifdef AR_DEBUG_PRINT
                                     std::cerr<<"Interrupt condition triggered! Destroy";
                                     std::cerr<<" Time: "<<time_;
-                                    bin_interrupt.adr->printColumnTitle(std::cerr);
+                                    auto bin_adr = bin_interrupt.getBinaryTreeAddress();
+                                    bin_adr->printColumnTitle(std::cerr);
                                     std::cerr<<std::endl;
-                                    bin_interrupt.adr->printColumn(std::cerr);
+                                    bin_adr->printColumn(std::cerr);
                                     std::cerr<<std::endl;
                                     Tparticle::printColumnTitle(std::cerr);
                                     std::cerr<<std::endl;
                                     for (int j=0; j<2; j++) {
-                                        bin_interrupt.adr->getMember(j)->printColumn(std::cerr);
+                                        bin_adr->getMember(j)->printColumn(std::cerr);
                                         std::cerr<<std::endl;
                                     }
 #endif
@@ -2237,14 +2238,15 @@ namespace AR {
                                 std::cerr<<" Energy change: dE_SD: "<<de_sd<<" dH_SD: "<<dH_sd;
                                 std::cerr<<" Slowdown: "<<bin_root.slowdown.getSlowDownFactor()<<std::endl;
 #endif
-                                bin_interrupt.adr->printColumnTitle(std::cerr);
+                                auto bin_adr = bin_interrupt.getBinaryTreeAddress();
+                                bin_adr->printColumnTitle(std::cerr);
                                 std::cerr<<std::endl;
-                                bin_interrupt.adr->printColumn(std::cerr);
+                                bin_adr->printColumn(std::cerr);
                                 std::cerr<<std::endl;
                                 Tparticle::printColumnTitle(std::cerr);
                                 std::cerr<<std::endl;
                                 for (int j=0; j<2; j++) {
-                                    bin_interrupt.adr->getMember(j)->printColumn(std::cerr);
+                                    bin_adr->getMember(j)->printColumn(std::cerr);
                                     std::cerr<<std::endl;
                                 }
 #endif

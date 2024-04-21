@@ -33,8 +33,8 @@ namespace AR {
         /*! 
           @param[in] clear_backup: if true and there is local backup of binarytree, clear up the backup first
          */
-        void setBinaryTreeAddress(AR::BinaryTree<Tparticle>* _adr, const bool clear_backup=false) {
-            if (clear_backup && is_local_backup) {
+        void setBinaryTreeAddress(AR::BinaryTree<Tparticle>* _adr) {
+            if (is_local_backup) {
                 delete adr;
                 is_local_backup = false;
             }
@@ -54,15 +54,30 @@ namespace AR {
             ASSERT(adr->getMemberN()==2);
             ASSERT(!is_local_backup);
             ASSERT(adr!=NULL);
-            auto bin_adr = adr;
+            auto backup_adr = adr;
             adr = new AR::BinaryTree<Tparticle>;
-            *adr = *bin_adr;
-            adr->allocateParticleMember();
-            for (int i=0; i<2; i++) {
-                auto pi = adr->getMember(i);
-                *pi = *(bin_adr->getMember(i));
-            };
+            *adr = *backup_adr;
+            if (!backup_adr->isAllocatedMembers()) {
+                adr->allocateParticleMember();
+                for (int i=0; i<2; i++) {
+                    auto pi = adr->getMember(i);
+                    *pi = *(backup_adr->getMember(i));
+                }
+            }
             is_local_backup = true;
+        }
+
+        //! operator = 
+        /*! Copy function will remove the local allocated data and backup copied data.
+         */
+        InterruptBinary & operator = (const InterruptBinary& _bin) {
+            clear();
+            adr = _bin.adr;
+            time_now = _bin.time_now;
+            time_end = _bin.time_end;
+            status = _bin.status;
+            if (_bin.is_local_backup) backupBinaryTreeLocal();
+            return *this;
         }
 
         void clear() { 

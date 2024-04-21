@@ -583,6 +583,11 @@ namespace COMM{
             member_index[1] = -2;
         }
 
+        //! check whether memory is allocated
+        bool isAllocatedMembers() {
+            return (member_index[0] == -2 || member_index[1] == -2);
+        }
+
         //! clear memory allocation
         void clear() {
             for (int i=0; i<2; i++) {
@@ -1022,26 +1027,28 @@ namespace COMM{
             return (BinaryTreeLocal*)member[1];
         }
 
-        ////! copy operator = 
-        ///*! Copy the data and member address. If member address point to a particle (id>0), copy address; else if it is a binary tree, copy the address and also correct the address difference, this assume the whole BinaryTree is stored in a continuing array, thus correct address difference also make the new binary tree have consistent member address in new array.
-        // */
-        //BinaryTreeLocal & operator = (const BinaryTreeLocal& _bin) {
-        //    // copy everything first
-        //    std::memcpy(this, &_bin, sizeof(BinaryTreeLocal));
-        //    // get Different of address
-        //    const BinaryTreeLocal* adr_diff = (const BinaryTreeLocal*)this - &_bin; 
-        //    // correct member address
-        //    for (int k=0; k<2; k++) {
-        //        if (_bin.member[k]!=NULL)  {
-        //            // if a member is another binarytree
-        //            if (_bin.member_index[k]==-1) {
-        //                // Add the address difference to make the new member address consistent in the new binary tree array
-        //                member[k] += adr_diff;
-        //            }
-        //        }
-        //    }
-        //    return *this;
-        //}
+        //! copy operator = 
+        /*! Copy the data and member address. If target binary members are allocated particles, also allocated memory for members and copy the particle data.
+        */
+        BinaryTreeLocal & operator = (const BinaryTreeLocal& _bin) {
+            clear();
+            n_members = _bin.n_members;
+            for (int k=0; k<2; k++) {
+                if (_bin.member_index[k] == -2) {
+                    member[k] = new Tptcl();
+                    *member[k] = *(_bin.member[k]);
+                    member_index[k] == -2;
+                }
+                else {
+                    member[k] = _bin.member[k];
+                    member_index[k] = _bin.member_index[k];
+                }
+            }
+            level = _bin.level;
+            branch = _bin.branch;
+
+            return *this;
+        }
 
         //! print titles of class members using column style
         /*! print titles of class members in one line for column style
