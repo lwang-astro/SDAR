@@ -30,7 +30,14 @@ namespace AR {
         //}
 
         //! set binary tree address
-        void setBinaryTreeAddress(AR::BinaryTree<Tparticle>* _adr) {
+        /*! 
+          @param[in] clear_backup: if true and there is local backup of binarytree, clear up the backup first
+         */
+        void setBinaryTreeAddress(AR::BinaryTree<Tparticle>* _adr, const bool clear_backup=false) {
+            if (clear_backup && is_local_backup) {
+                delete adr;
+                is_local_backup = false;
+            }
             ASSERT(!is_local_backup);
             adr = _adr;
         }
