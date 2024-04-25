@@ -1037,7 +1037,7 @@ namespace COMM{
                 if (_bin.member_index[k] == -2) {
                     member[k] = new Tptcl();
                     *member[k] = *(_bin.member[k]);
-                    member_index[k] == -2;
+                    member_index[k] = -2;
                 }
                 else {
                     member[k] = _bin.member[k];
