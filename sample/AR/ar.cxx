@@ -35,7 +35,7 @@ int main(int argc, char **argv){
     COMM::IOParams<int> print_width    (input_par_store, WRITE_WIDTH,     "print width of value"); //print width
     COMM::IOParams<int> print_precision(input_par_store, WRITE_PRECISION, "print digital precision"); //print digital precision
     COMM::IOParams<int> nstep_max      (input_par_store, 1000000, "number of maximum (integrate/output) step for AR integration"); // maximum time step allown for tsyn integration
-    COMM::IOParams<int> sym_order      (input_par_store, -6,   "Symplectic integrator order, should be even number"); // symplectic integrator order
+    COMM::IOParams<int> sym_order      (input_par_store, -6,   "Symplectic integrator order, should be even number, positive value for Yoshida 1st method (can be arbitrary precision); negative value for Yoshida 2nd method (only limited to double precision)"); // symplectic integrator order
     COMM::IOParams<double> energy_error (input_par_store, 1e-10,"relative energy error limit for AR"); // phase error requirement
     COMM::IOParams<double> time_error   (input_par_store, 0.0,  "time synchronization absolute error limit for AR","default is 0.25*dt-min"); // time synchronization error
     COMM::IOParams<double> time_zero    (input_par_store, 0.0,  "initial physical time");    // initial physical time
@@ -248,6 +248,9 @@ int main(int argc, char **argv){
 
     manager.interaction.interrupt_detection_option = interrupt_detection_option.value;
 
+#ifdef USE_MPFRC
+    mpreal::set_default_prec(mpfr::digits2bits(DIGITS_MPFRC));
+#endif
 
     // store input parameters
     std::string fpar_out = std::string(filename) + ".par";

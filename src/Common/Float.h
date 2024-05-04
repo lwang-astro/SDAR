@@ -20,6 +20,17 @@ const Float NUMERIC_FLOAT_MAX = std::numeric_limits<double>::max();
 const int WRITE_WIDTH=38;
 const int WRITE_PRECISION=30;
 
+#elif USE_MPFRC
+#include <mpreal.h>
+using mpfr::mpreal;
+typedef mpreal Float;
+#define to_int(x)     int(x)
+const int DIGITS_MPFRC = 80;
+const Float ROUND_OFF_ERROR_LIMIT = std::numeric_limits<mpreal>::epsilon();
+const Float NUMERIC_FLOAT_MAX = std::numeric_limits<mpreal>::max();
+const int WRITE_WIDTH = DIGITS_MPFRC + 8;
+const int WRITE_PRECISION = DIGITS_MPFRC;
+
 #else
 #include <limits>
 typedef double Float;
@@ -43,7 +54,7 @@ using std::cos;
 //#endif
 #endif
 
-#if (defined USE_QD) || (defined USE_DD)
+#if (defined USE_QD) || (defined USE_DD) || (defined USE_MPFRC)
 #define ISNAN(x) isnan(x)
 #define ISINF(x) isinf(x)
 #else

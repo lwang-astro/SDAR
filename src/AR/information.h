@@ -127,15 +127,120 @@ namespace AR {
             return binarytree[n-1];
         }
 
-        inline Float calcDsElliptic(BinaryTree<Tparticle>& _bin, const Float& _G) {
-            //kepler orbit, step ds=dt*G*m1*m2/r estimation (1/32 orbit): 2*pi/32*sqrt(G*semi/(m1+m2))*m1*m2 
-            return 0.19634954084*sqrt(_G*_bin.semi/(_bin.m1+_bin.m2))*(_bin.m1*_bin.m2);
+        //! calculate ds for an elliptic orbit
+        /*!
+          For an ellpitic orbit, step ds=dt*G*m1*m2/r, the estimation of ds for one orbit is: 2*pi*sqrt(G*semi/(m1+m2))*m1*m2 
+          @param[in] _bin: binary tree to check
+          @param[in] _G: gravitational constant
+          @param[in] _coff: coefficient for ds, default is 2*pi/32 (1/32 orbit)
+         */
+        inline Float calcDsElliptic(BinaryTree<Tparticle>& _bin, const Float& _G, const Float _coff = 0.19634954084) {
+            return _coff*sqrt(_G*_bin.semi/(_bin.m1+_bin.m2))*(_bin.m1*_bin.m2);
         }
 
-        inline Float calcDsHyperbolic(BinaryTree<Tparticle>& _bin, const Float& _G) {
-            //hyperbolic orbit, step ds=dt*m1*m2/r estimation (1/256 orbit): pi/128*sqrt(G*semi/(m1+m2))*m1*m2
-            return 0.0245436926*sqrt(-_G*_bin.semi/(_bin.m1+_bin.m2))*(_bin.m1*_bin.m2);
+        //! calculate ds for a hyperbolic orbit
+        /*!
+          For an hyperbolic orbit, step ds=dt*G*m1*m2/r, the estimation of ds for one orbit is: 2*pi*sqrt(-G*semi/(m1+m2))*m1*m2 
+          @param[in] _bin: binary tree to check
+          @param[in] _G: gravitational constant
+          @param[in] _coff: coefficient for ds, default is 2*pi/256 (1/256 orbit)
+         */
+        inline Float calcDsHyperbolic(BinaryTree<Tparticle>& _bin, const Float& _G, const Float _coff = 0.0245436926) {
+            return _coff*sqrt(-_G*_bin.semi/(_bin.m1+_bin.m2))*(_bin.m1*_bin.m2);
         }
+
+#ifdef AR_TIME_FUNCTION_MULTI_R
+        //! iteration function to calculate summation and production of ds for all inner kepler orbits of a binary tree
+        /*! 
+          @param[out] ds_sum: summation of inner binaries' ds
+          @param[out] ds_prod: production of inner binaries' ds
+          @param[in] _bin: binary tree to check
+          @param[in] _int_order: symplectic integrator accurate order
+          @param[in] _G: gravitational constant
+         */
+        /*
+        void calcSumProdDsKeplerIter(Float& ds_sum, Float& ds_prod, BinaryTree<Tparticle>& _bin, const int _int_order, const Float& _G) {
+            if (_bin.getMemberN()>2) { // if not inner most kepler orbit, go inside members
+                for (int k=0; k<2; k++) 
+                    if (_bin.isMemberTree(k)) calcSumProdDsKeplerIter(ds_sum, ds_prod, *_bin.getMemberAsTree(k), _int_order, _G);
+            }
+            else {
+                // zero mass cause ds=0
+                if (_bin.m1>0 && _bin.m2>0) { 
+                    // perturbation ratio
+                    Float pert_ratio = (_bin.slowdown.pert_out>0&&_bin.slowdown.pert_in>0)? _bin.slowdown.pert_in/_bin.slowdown.pert_out: 1.0;
+                    // scale step based on perturbation and sym method order
+                    Float scale_factor = std::min(Float(1.0),pow(1e-1*pert_ratio,1.0/Float(_int_order)));
+
+                    Float ds;
+                    if (_bin.semi>0) ds = calcDsElliptic(_bin, _G, 1.0)*scale_factor;
+                    else ds = calcDsHyperbolic(_bin, _G, 1.0);
+                    ASSERT(ds<NUMERIC_FLOAT_MAX && ds>0);
+
+                    ds_sum += ds;
+                    ds_prod *= ds;
+                }
+            }
+        }
+        */
+
+        //! calculate ds for a binary tree with multiple inner binaries/hyperbolics 
+        /*! use calcSumProdDsKeplerIter with additional _ds_scale factor
+          @param[in] _bin: binary tree to check
+          @param[in] _int_order: symplectic integrator accurate order
+          @param[in] _G: gravitational constant
+          @param[in] _ds_scale: global scaling for final ds returned from calcProdDsKeplerIter (default: 1.0)
+          
+          \return ds: cumulative production of ds for all inner most kepler orbit of _bin
+         */
+        /*
+        Float calcDsKeplerBinaryTree(BinaryTree<Tparticle>& _bin, const int _int_order, const Float& _G, const Float& _ds_scale = 1.0) {
+            Float ds_sum = 0.0;
+            Float ds_prod = 1.0;
+            calcSumProdDsKeplerIter(ds_sum, ds_prod, _bin, _int_order, _G);
+            // cofficient of 2*pi/32
+            return 0.19634954084*_ds_scale*ds_prod/ds_sum;
+        }
+        */
+
+        //! calculate ds for a binary tree with multiple inner binaries/hyperbolics 
+        /*! calculate ds via formula: 1/ds = 1/ds1 + 1/ds2 + ..., where ds1, ds2 are ds estimated fro each inner most kepler orbit
+          @param[in] _bin: binary tree to check
+          @param[in] _int_order: symplectic integrator accurate order
+          @param[in] _G: gravitational constant
+          @param[in] _ds_scale: global scaling for final ds returned from calcProdDsKeplerIter (default: 1.0)
+          
+          \return ds: ds estimated based on all inner most kepler orbit of _bin
+         */
+        Float calcDsKeplerBinaryTree(BinaryTree<Tparticle>& _bin, const int _int_order, const Float& _G, const Float& _ds_scale = 1.0) {
+            Float ds = 0.0;
+            if (_bin.getMemberN()>2) { // if not inner most kepler orbit, go inside members
+                for (int k=0; k<2; k++) 
+                    if (_bin.isMemberTree(k)) {
+                        Float dsk = calcDsKeplerBinaryTree(*_bin.getMemberAsTree(k), _int_order, _G);
+                        if (ds == 0.0) ds = dsk;
+                        else if (dsk > 0) ds = ds*dsk/(ds+dsk);
+                    }
+            }
+            else {
+                // zero mass cause ds=0
+                if (_bin.m1>0 && _bin.m2>0) { 
+                    // perturbation ratio
+                    Float pert_ratio = (_bin.slowdown.pert_out>0&&_bin.slowdown.pert_in>0)? _bin.slowdown.pert_in/_bin.slowdown.pert_out: 1.0;
+                    // scale step based on perturbation and sym method order
+                    Float scale_factor = std::min(Float(1.0),pow(1e-1*pert_ratio,1.0/Float(_int_order)));
+
+                    if (_bin.semi>0) ds = calcDsElliptic(_bin, _G)*scale_factor;
+                    else ds = calcDsHyperbolic(_bin, _G);
+                    ASSERT(ds<NUMERIC_FLOAT_MAX && ds>0);
+                }
+            }
+
+            // cofficient of 2*pi/32
+            return _ds_scale*ds;
+        }
+
+#else        
 
         //! iteration function to calculate average kepler ds for a binary tree
         void calcDsMinKeplerIter(Float& _ds_over_ebin_min_bin, Float& _ds_min_bin, Float& _ds_min_hyp, Float& _etot_sd, const Float& _G, const Float& _nest_sd_up, BinaryTree<Tparticle>& _bin, const int _intergrator_order) {
@@ -185,6 +290,8 @@ namespace AR {
             ASSERT(ds_min_hyp<NUMERIC_FLOAT_MAX||ds_min_bin<NUMERIC_FLOAT_MAX);
             return _ds_scale*std::min(ds_min_bin,ds_min_hyp);
         }
+
+#endif
 
         //! calculate ds from the inner most binary with minimum period, determine the fix step option
         /*! Estimate ds first from the inner most binary orbit (eccentric anomaly), set fix_step_option to later

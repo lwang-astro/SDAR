@@ -567,26 +567,6 @@ namespace AR {
         }
 
 #ifdef AR_TIME_FUNCTION_MULTI_R
-        //! calc multiplied inverse R of binary tree
-        Float calcMultiInvRIter(AR::BinaryTree<Tparticle>& _bin){
-            if (_bin.getMemberN()==2) {// particle-particle
-                Tparticle* p1 = _bin.getLeftMember();
-                Tparticle* p2 = _bin.getRightMember();
-                Float dr[3] = {p1.pos[0] - p2.pos[0], 
-                    p1.pos[1] - p2.pos[1], 
-                    p1.pos[2] - p2.pos[2]};
-                Float r2 = dr[0]*dr[0] + dr[1]*dr[1] + dr[2]*dr[2];
-                Float invr = 1/sqrt(r2);
-                return invr;
-            }
-            else { // binary tree
-                Float gt_kick_inv = 1.0;
-                for (int k=0; k<2; k++)  
-                    if (_bin.isMemberTree(k))  // inner binary
-                        gt_kick_inv *= calcMultiInvRIter(*(_bin.getMemberAsTree(k)));
-                return gt_kick_inv;
-            }
-        }
 
         //! calc force, potential and inverse time transformation factor for one pair of particles
         /*!
@@ -713,7 +693,6 @@ namespace AR {
 
             return gt_kick_inv;
         }
-        
 
 #else // NO AR_TIME_FUNCTION_MULTI_R
 
@@ -1989,13 +1968,18 @@ namespace AR {
 
 #if (defined AR_SLOWDOWN_ARRAY ) || (defined AR_SLOWDOWN_TREE)
                 // integrate gt_drift_inv
-                gt_drift_inv_ +=  2.0*dt*kappa_inv*kappa_inv* (vel1[0] * gtgrad1[0] +
-                                                               vel1[1] * gtgrad1[1] +
-                                                               vel1[2] * gtgrad1[2] +
-                                                               vel2[0] * gtgrad2[0] +
-                                                               vel2[1] * gtgrad2[1] +
-                                                               vel2[2] * gtgrad2[2]);
-#else
+                Float dgt_drift_inv = 2.0*dt*kappa_inv*kappa_inv* (vel1[0] * gtgrad1[0] +
+                                                                   vel1[1] * gtgrad1[1] +
+                                                                   vel1[2] * gtgrad1[2] +
+                                                                   vel2[0] * gtgrad2[0] +
+                                                                   vel2[1] * gtgrad2[1] +
+                                                                   vel2[2] * gtgrad2[2]);
+#ifdef AR_TIME_FUNCTION_MULTI_R
+                dgt_drift_inv *= gt_kick_inv_;
+#endif
+                gt_drift_inv_ += dgt_drift_inv;
+
+#else // NO Slowdown
                 // integrate gt_drift_inv
                 gt_drift_inv_ +=  2.0*dt* (vel1[0] * gtgrad1[0] +
                                            vel1[1] * gtgrad1[1] +
@@ -2003,7 +1987,7 @@ namespace AR {
                                            vel2[0] * gtgrad2[0] +
                                            vel2[1] * gtgrad2[1] +
                                            vel2[2] * gtgrad2[2]);
-#endif 
+#endif // END SLOWDOWN
 
 #endif // AR_TTL
 

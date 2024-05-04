@@ -75,7 +75,7 @@ public:
 #ifdef AR_TTL 
         // trans formation function gradient
 #ifdef AR_TIME_FUNCTION_MULTI_R
-        Float gm1m2or3 = gm1m2*inv_r*inv_r; // one inv_r is in gt_kick_inv, thus need to be removed
+        Float gm1m2or3 = inv_r*inv_r; // gt_kick_inv will be multiplied latter, thus only need 1/r^2
 #else
         Float gm1m2or3 = gm1m2*inv_r3;
 #endif

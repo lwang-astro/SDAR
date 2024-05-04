@@ -10,7 +10,8 @@ SOURCE=${shell ls ../../src/AR/*.h} ${shell ls ../../src/Common/*.h} ${shell ls 
 
 use_x86=yes
 #use_k_computer=yes
-#QD_PATH=/opt/qd-2.3.22
+QD_PATH=../../../../
+#MPFRC_PATH=../../../mpfrc++
 #GPERF_PATH = /opt/gperftools-2.6.1
 
 
@@ -61,6 +62,11 @@ CXXFLAGS += -D USE_DD ${shell ${QD_PATH}/bin/qd-config --cxxflags}
 CXXLIBS += ${shell ${QD_PATH}/bin/qd-config --libs}
 endif
 
+## mpfrc++-lib----------------------------------------#
+ifneq (x$(MPFRC_PATH),x)
+CXXFLAGS += -D USE_MPFRC -I $(MPFRC_PATH)
+CXXLIBS += -lmpfr -lgmp
+endif
 
 ## Target --------------------------------------------#
 
