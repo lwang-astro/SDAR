@@ -149,7 +149,7 @@ namespace AR {
             return _coff*sqrt(-_G*_bin.semi/(_bin.m1+_bin.m2))*(_bin.m1*_bin.m2);
         }
 
-#ifdef AR_TIME_FUNCTION_MULTI_R
+#ifdef AR_TIME_FUNCTION_MUL_POT
         //! iteration function to calculate summation and production of ds for all inner kepler orbits of a binary tree
         /*! 
           @param[out] ds_sum: summation of inner binaries' ds

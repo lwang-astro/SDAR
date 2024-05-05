@@ -194,6 +194,45 @@ namespace AR {
         Float dH_sd_change_cum_;  // slowdown Hamiltonian change 
         Float de_sd_change_interrupt_;   // slowdown energy change due to interruption
         Float dH_sd_change_interrupt_;   // slowdown energy change due to interruption
+#ifdef AR_TIME_FUNCTION_MAX_POT
+        struct GtKickInvMaxInfo{
+            Float value;  ///< value of minimum gt_kick_inv with slowdown
+            int i; ///< index of binary member 1 having minimum gt_kick_inv
+            int j; ///< index of binary member 1 having minimum gt_kick_inv
+            Float gtgrad[2][3]; ///< time transformation function gradient with slowdown
+            
+            GtKickInvMaxInfo(): value(0.0), i(-1), j(-1), gtgrad{0.0, 0.0, 0.0, 0.0, 0.0, 0.0} {}
+
+            //* update minimum value of time transformation function gradient (gt_kick_inv) and save two paritcle indices and gtgrad values
+            /*!
+              if _gt_kick_inv*_inv_nest_sd < saved value, update the information
+              @param[in] _gt_kick_inv_sd: time transformation function gradient with slowdown 
+              @param[in] _i: particle 1 index
+              @param[in] _j: particle 2 index
+             */
+            void update(const Float& _gt_kick_inv_sd, const int _i, const int _j, const Force* _fij, const Float _inv_nest_sd) {
+                Float gt_kick_inv_sd = _gt_kick_inv_sd * _inv_nest_sd;
+                if (gt_kick_inv_sd > value) {
+                    value = gt_kick_inv_sd;
+                    i = _i;
+                    j = _j;
+                    gtgrad[0][0] = _fij[0].gtgrad[0]*_inv_nest_sd;
+                    gtgrad[0][1] = _fij[0].gtgrad[1]*_inv_nest_sd;
+                    gtgrad[0][2] = _fij[0].gtgrad[2]*_inv_nest_sd;
+                    gtgrad[1][0] = _fij[1].gtgrad[0]*_inv_nest_sd;
+                    gtgrad[1][1] = _fij[1].gtgrad[1]*_inv_nest_sd;
+                    gtgrad[1][2] = _fij[1].gtgrad[2]*_inv_nest_sd;
+                }
+            }
+
+            void clear() {
+                value = 0.0;
+                i = j = -1;
+            }
+
+        } gt_kick_inv_max_info_;
+#endif // END AR_TIME_FUNCTION_MAX_POT
+
 #endif
 
 #ifdef AR_TTL
@@ -220,6 +259,9 @@ namespace AR {
 #if (defined AR_SLOWDOWN_ARRAY) || (defined AR_SLOWDOWN_TREE)
                                                ekin_sd_(0), epot_sd_(0), etot_sd_ref_(0), 
                                                de_sd_change_cum_(0), dH_sd_change_cum_(0), de_sd_change_interrupt_(0), dH_sd_change_interrupt_(0),
+#ifdef AR_TIME_FUNCTION_MAX_POT
+                                               gt_kick_inv_max_info_(),
+#endif
 #endif
 #ifdef AR_TTL
                                 gt_drift_inv_(0), gt_kick_inv_(0), 
@@ -566,8 +608,6 @@ namespace AR {
             driftPosTreeIter(_dt, vel_cm, sd_factor, bin_root);
         }
 
-#ifdef AR_TIME_FUNCTION_MULTI_R
-
         //! calc force, potential and inverse time transformation factor for one pair of particles
         /*!
           @param[in] _inv_nest_sd: inverse nested slowdown factor
@@ -576,7 +616,7 @@ namespace AR {
           @param[in] _calc_gtgrad: if true, calculate gtgrad for two particles and return gt_kick_inv; else return 1.0;
           \return gt_kick_inv: inverse time transformation factor for kick
          */
-        Float calcAccPotAndGTKickInvTwo(const Float& _inv_nest_sd, const int _i, const int _j, const bool _calc_gtgrad) {
+        Float calcAccPotAndGTKickInvTwo(const Float& _inv_nest_sd, const int _i, const int _j, const bool _calc_gtgrad = true) {
             ASSERT(_i>=0&&_i<particles.getSize());
             ASSERT(_j>=0&&_j<particles.getSize());
             
@@ -584,6 +624,10 @@ namespace AR {
             Force fij[2];
             Float epotij;
             Float gt_kick_inv = manager->interaction.calcInnerAccPotAndGTKickInvTwo(fij[0], fij[1], epotij, particles[_i], particles[_j]);
+
+#ifdef AR_TIME_FUNCTION_MAX_POT
+            gt_kick_inv_max_info_.update(gt_kick_inv, _i, _j, fij, _inv_nest_sd);
+#endif
 
             // scale binary pair force with slowdown 
             force_[_i].acc_in[0] += fij[0].acc_in[0]*_inv_nest_sd;
@@ -596,20 +640,33 @@ namespace AR {
             epot_    += epotij;
             epot_sd_ += epotij*_inv_nest_sd;
 
+#ifdef AR_TTL
             // scale gtgrad with slowdown
-            if (_calc_gtgrad) {
-                force_[_i].gtgrad[0] = fij[0].gtgrad[0]*_inv_nest_sd;
-                force_[_i].gtgrad[1] = fij[0].gtgrad[1]*_inv_nest_sd;
-                force_[_i].gtgrad[2] = fij[0].gtgrad[2]*_inv_nest_sd;
-                force_[_j].gtgrad[0] = fij[1].gtgrad[0]*_inv_nest_sd;
-                force_[_j].gtgrad[1] = fij[1].gtgrad[1]*_inv_nest_sd;
-                force_[_j].gtgrad[2] = fij[1].gtgrad[2]*_inv_nest_sd;
-            
-                return gt_kick_inv * _inv_nest_sd;
+#ifdef AR_TIME_FUNCTION_MUL_POT
+            // Here gtgrad excludes gt_kick_inv and slowdown factor, these factors will be multipled when gt_drift_inv is calculated.
+            if (_calc_gtgrad) { 
+                force_[_i].gtgrad[0] = fij[0].gtgrad[0];
+                force_[_i].gtgrad[1] = fij[0].gtgrad[1];
+                force_[_i].gtgrad[2] = fij[0].gtgrad[2];
+                force_[_j].gtgrad[0] = fij[1].gtgrad[0];
+                force_[_j].gtgrad[1] = fij[1].gtgrad[1];
+                force_[_j].gtgrad[2] = fij[1].gtgrad[2];
             }
-            else 
-                return 1.0;
+            else return 1.0;
+#elif (not defined AR_TIME_FUNCTION_MAX_POT)
+            // scale gtgrad with slowdown
+            force_[_i].gtgrad[0] += fij[0].gtgrad[0]*_inv_nest_sd;
+            force_[_i].gtgrad[1] += fij[0].gtgrad[1]*_inv_nest_sd;
+            force_[_i].gtgrad[2] += fij[0].gtgrad[2]*_inv_nest_sd;
+            force_[_j].gtgrad[0] += fij[1].gtgrad[0]*_inv_nest_sd;
+            force_[_j].gtgrad[1] += fij[1].gtgrad[1]*_inv_nest_sd;
+            force_[_j].gtgrad[2] += fij[1].gtgrad[2]*_inv_nest_sd;
+#endif 
+#endif 
+            return gt_kick_inv * _inv_nest_sd;
         }
+
+#if (defined AR_TIME_FUNCTION_MUL_POT) || (defined AR_TIME_FUNCTION_MAX_POT)
 
         //! calc force, potential and inverse time transformation factor for one particle by walking binary tree
         /*!
@@ -689,52 +746,10 @@ namespace AR {
                 }
             }
 
-            //gt_kick_inv = calcMultiInvRIter(_bin);
-
             return gt_kick_inv;
         }
 
-#else // NO AR_TIME_FUNCTION_MULTI_R
-
-        //! calc force, potential and inverse time transformation factor for one pair of particles
-        /*!
-          @param[in] _inv_nest_sd: inverse nested slowdown factor
-          @param[in] _i: particle i index
-          @param[in] _j: particle j index
-          \return gt_kick_inv: inverse time transformation factor for kick
-         */
-        Float calcAccPotAndGTKickInvTwo(const Float& _inv_nest_sd, const int _i, const int _j) {
-            ASSERT(_i>=0&&_i<particles.getSize());
-            ASSERT(_j>=0&&_j<particles.getSize());
-            
-            // calculate pair interaction
-            Force fij[2];
-            Float epotij;
-            Float gt_kick_inv = manager->interaction.calcInnerAccPotAndGTKickInvTwo(fij[0], fij[1], epotij, particles[_i], particles[_j]);
-
-            // scale binary pair force with slowdown 
-            force_[_i].acc_in[0] += fij[0].acc_in[0]*_inv_nest_sd;
-            force_[_i].acc_in[1] += fij[0].acc_in[1]*_inv_nest_sd;
-            force_[_i].acc_in[2] += fij[0].acc_in[2]*_inv_nest_sd;
-            force_[_j].acc_in[0] += fij[1].acc_in[0]*_inv_nest_sd;
-            force_[_j].acc_in[1] += fij[1].acc_in[1]*_inv_nest_sd;
-            force_[_j].acc_in[2] += fij[1].acc_in[2]*_inv_nest_sd;
-
-            epot_    += epotij;
-            epot_sd_ += epotij*_inv_nest_sd;
-
-#ifdef AR_TTL
-            // scale gtgrad with slowdown
-            force_[_i].gtgrad[0] += fij[0].gtgrad[0]*_inv_nest_sd;
-            force_[_i].gtgrad[1] += fij[0].gtgrad[1]*_inv_nest_sd;
-            force_[_i].gtgrad[2] += fij[0].gtgrad[2]*_inv_nest_sd;
-            force_[_j].gtgrad[0] += fij[1].gtgrad[0]*_inv_nest_sd;
-            force_[_j].gtgrad[1] += fij[1].gtgrad[1]*_inv_nest_sd;
-            force_[_j].gtgrad[2] += fij[1].gtgrad[2]*_inv_nest_sd;
-#endif 
-            
-            return gt_kick_inv * _inv_nest_sd;
-        }
+#else // NO AR_TIME_FUNCTION_MUL_POT or MAX_POT
 
         //! calc force, potential and inverse time transformation factor for one particle by walking binary tree
         /*!
@@ -822,7 +837,7 @@ namespace AR {
             return gt_kick_inv;
         }
         
-#endif // AR_TIME_FUNCTION_MULTI_R
+#endif // END NO AR_TIME_FUNCTION_MUL_POT
 
         //! calc force, potential and inverse time transformation factor for kick
         /*!
@@ -833,9 +848,19 @@ namespace AR {
             epot_sd_ = 0.0;
             for (int i=0; i<force_.getSize(); i++) force_[i].clear();
 
+#ifdef AR_TIME_FUNCTION_MAX_POT
+            gt_kick_inv_max_info_.clear();
+#endif
             Float gt_kick_inv = calcAccPotAndGTKickInvTreeIter(1.0, info.getBinaryTreeRoot());
+
+#ifdef AR_TIME_FUNCTION_MAX_POT
+            // replace standard gt_kick_inv with minimum one of two particles
+            gt_kick_inv = gt_kick_inv_max_info_.value;
+#endif
+
             // pertuber force
             manager->interaction.calcAccPert(force_.getDataAddress(), particles.getDataAddress(), particles.getSize(), particles.cm, perturber, getTime());
+
             return gt_kick_inv;
         }
 
@@ -870,19 +895,31 @@ namespace AR {
                     ASSERT(i>=0&&i<particles.getSize());
                     ASSERT(&particles[i]==_bin.getMember(k));
                     
-                    Float* gtgrad = force_[i].gtgrad;
-                    Float* pert   = force_[i].acc_pert;
                     Float* vel = particles[i].getVel();
                     Float vel_sd[3] = {(vel[0] - vel_cm[0]) * inv_nest_sd + _vel_sd_up[0], 
                                        (vel[1] - vel_cm[1]) * inv_nest_sd + _vel_sd_up[1], 
                                        (vel[2] - vel_cm[2]) * inv_nest_sd + _vel_sd_up[2]};
 
+#ifndef AR_TIME_FUNCTION_MAX_POT
+                    Float* gtgrad = force_[i].gtgrad;
+#else
+                    // use recored gtgrad in gt_kick_inv_max_info instead of force_[i].gtgrad (not calculated)
+                    Float* gtgrad = NULL;
+                    if (i == gt_kick_inv_max_info_.i) 
+                        gtgrad = gt_kick_inv_max_info_.gtgrad[0];
+                    else if (i == gt_kick_inv_max_info_.j)
+                        gtgrad = gt_kick_inv_max_info_.gtgrad[1];
+                    if (gtgrad != NULL)
+#endif
+                        dgt_drift_inv += (vel_sd[0] * gtgrad[0] + 
+                                          vel_sd[1] * gtgrad[1] +
+                                          vel_sd[2] * gtgrad[2]);
+
+                    Float* pert   = force_[i].acc_pert;
+
                     de += particles[i].mass * (vel[0] * pert[0] +
                                                vel[1] * pert[1] +
                                                vel[2] * pert[2]);
-                    dgt_drift_inv +=  (vel_sd[0] * gtgrad[0] +
-                                       vel_sd[1] * gtgrad[1] +
-                                       vel_sd[2] * gtgrad[2]);
                 }
             }
             etot_ref_     += _dt * de;
@@ -903,7 +940,7 @@ namespace AR {
             Float sd_factor=1.0;
 
             Float dgt_drift_inv = kickEtotAndGTDriftTreeIter(_dt, vel_cm, sd_factor, bin_root);
-#ifdef AR_TIME_FUNCTION_MULTI_R
+#ifdef AR_TIME_FUNCTION_MUL_POT
             dgt_drift_inv *= gt_kick_inv_;
 #endif
             gt_drift_inv_ += dgt_drift_inv*_dt;
@@ -960,7 +997,7 @@ namespace AR {
                     Force fi[2];
                     Float epoti;
                     Float gt_kick_inv_i = manager->interaction.calcInnerAccPotAndGTKickInvTwo(fi[0], fi[1], epoti, particles[i1], particles[i2]);
-                                    // scale binary pair force with slowdown 
+                    // scale binary pair force with slowdown 
                     force_[i1].acc_in[0] += fi[0].acc_in[0]*kappa_inv - fi[0].acc_in[0];
                     force_[i1].acc_in[1] += fi[0].acc_in[1]*kappa_inv - fi[0].acc_in[1];
                     force_[i1].acc_in[2] += fi[0].acc_in[2]*kappa_inv - fi[0].acc_in[2];
@@ -1211,39 +1248,19 @@ namespace AR {
           \return gt_kick_inv: inverse time transformation factor for kick
          */
         inline Float calcAccPotAndGTKickInv() {
-            Float gt_kick_inv = manager->interaction.calcAccPotAndGTKickInv(force_.getDataAddress(), epot_, particles.getDataAddress(), particles.getSize(), particles.cm, perturber, getTime());            
 
-//#ifdef AR_DEBUG
-//            // check c.m. force 
-//            Force fcm;
-//            Float mcm=0.0;
-//            for (int i=0; i<particles.getSize(); i++) {
-//                for (int k=0; k<3; k++) {
-//                    fcm.acc_in[k] += particles[i].mass * force_[i].acc_in[k];
-//                }
-//                mcm += particles[i].mass;
-//            }
-//            for (int k=0; k<3; k++) {
-//                fcm.acc_in[k] /= mcm;
-//                ASSERT(abs(fcm.acc_in[k])<1e-10);
-//            }
-//#endif
+            Float gt_kick_inv;
+            if (particles.getSize()==2) 
+                gt_kick_inv = manager->interaction.calcInnerAccPotAndGTKickInvTwo(force_[0], force_[1], epot_, particles[0], particles[1]);
+            else 
+                gt_kick_inv = manager->interaction.calcInnerAccPotAndGTKickInv(force_.getDataAddress(), epot_, particles.getDataAddress(), particles.getSize());
+
+            // pertuber force
+            manager->interaction.calcAccPert(force_.getDataAddress(), particles.getDataAddress(), particles.getSize(), particles.cm, perturber, getTime());
+
 #ifdef AR_SLOWDOWN_ARRAY
             // slowdown binary acceleration
             correctAccPotGTKickInvSlowDownInner(gt_kick_inv);
-//#ifdef AR_DEBUG
-//            // check c.m. force 
-//            fcm.acc_in[0] = fcm.acc_in[1] = fcm.acc_in[2] = 0.0;
-//            for (int i=0; i<particles.getSize(); i++) {
-//                for (int k=0; k<3; k++) {
-//                    fcm.acc_in[k] += particles[i].mass * force_[i].acc_in[k];
-//                }
-//            }
-//            for (int k=0; k<3; k++) {
-//                fcm.acc_in[k] /= mcm;
-//                ASSERT(abs(fcm.acc_in[k])<1e-10);
-//            }
-//#endif
 #endif
             return gt_kick_inv;
         }
@@ -1597,8 +1614,7 @@ namespace AR {
 
                 if (modified_flag) {
                     // initialize the gt_drift_inv_ with new slowdown factor
-                    Float gt_kick_inv_sdi = manager->interaction.calcAccPotAndGTKickInv(force_.getDataAddress(), epot_, particles.getDataAddress(), particles.getSize(), particles.cm, perturber, getTime());
-                    correctAccPotGTKickInvSlowDownInner(gt_kick_inv_sdi);
+                    Float gt_kick_inv_sdi = calcAccPotAndGTKickInv();
 #ifdef AR_TTL
                     gt_drift_inv_ += gt_kick_inv_sdi - gt_kick_inv_;
                     gt_kick_inv_ = gt_kick_inv_sdi;
@@ -1688,9 +1704,11 @@ namespace AR {
                 // update c.m. of binaries 
                 //updateCenterOfMassForBinaryWithSlowDownInner();
             }
-#endif
+#endif // END NO AR_SLOWDOWN_TREE
 
             updateSlowDownAndCorrectEnergy(false,true);
+
+#endif // END SLOWDOWN
 
 #ifdef AR_TTL
             gt_kick_inv_ = calcAccPotAndGTKickInv();
@@ -1702,9 +1720,12 @@ namespace AR {
             calcAccPotAndGTKickInv();
 #endif
 
+            // calculate kinetic energy
             calcEKin();
 
             etot_ref_ = ekin_ + epot_;
+
+#if (defined AR_SLOWDOWN_ARRAY) || (defined AR_SLOWDOWN_TREE)
             etot_sd_ref_ = ekin_sd_ + epot_sd_;
 
             Float de_sd = etot_sd_ref_ - etot_ref_;
@@ -1712,27 +1733,6 @@ namespace AR {
             // add slowdown change to the global slowdown energy
             de_sd_change_cum_ += de_sd;
             dH_sd_change_cum_ = 0.0;
-
-#else // No SLOWDOWN
-            Tparticle* particle_data = particles.getDataAddress();
-            Force* force_data = force_.getDataAddress();
-
-#ifdef AR_TTL
-            gt_kick_inv_ = manager->interaction.calcAccPotAndGTKickInv(force_data, epot_, particle_data, n_particle, particles.cm,  perturber, _time);
-
-            // initially gt_drift 
-            gt_drift_inv_ = gt_kick_inv_;
-
-#else
-            manager->interaction.calcAccPotAndGTKickInv(force_data, epot_, particle_data, n_particle, particles.cm,  perturber, _time);
-#endif
-
-            // calculate kinetic energy
-            calcEKin();
-
-            // initial total energy
-            etot_ref_ = ekin_ + epot_;
-
 #endif
         }
 
@@ -1899,7 +1899,10 @@ namespace AR {
                 // step for kick
                 ds = manager->step.getDK(i)*_ds;
 
-                gt_inv = manager->interaction.calcAccPotAndGTKickInv(force_data, epot_, particle_data, n_particle, particles.cm, perturber, _time_table[i]);
+                gt_inv = manager->interaction.calcInnerAccPotAndGTKickInvTwo(force_data[0], force_data[1], epot_, particle_data[0], particle_data[1]);
+
+                // pertuber force
+                manager->interaction.calcAccPert(force_data, particle_data, n_particle, particles.cm, perturber, _time_table[i]);
 
                 ASSERT(!ISNAN(epot_));
 
@@ -1974,7 +1977,7 @@ namespace AR {
                                                                    vel2[0] * gtgrad2[0] +
                                                                    vel2[1] * gtgrad2[1] +
                                                                    vel2[2] * gtgrad2[2]);
-#ifdef AR_TIME_FUNCTION_MULTI_R
+#ifdef AR_TIME_FUNCTION_MUL_POT
                 dgt_drift_inv *= gt_kick_inv_;
 #endif
                 gt_drift_inv_ += dgt_drift_inv;
@@ -2162,7 +2165,7 @@ namespace AR {
                 int nnew = binary_slowdown.getSize();
                 // in case slowdown is disabled in the next step, gt_drift_inv_ should be re-initialized
                 if (nold>0&&nnew==0) {
-                    gt_kick_inv_ = manager->interaction.calcAccPotAndGTKickInv(force_.getDataAddress(), epot_, particles.getDataAddress(), particles.getSize(), particles.cm, perturber, time_);
+                    gt_kick_inv_ = calcAccPotAndGTKickInv();
                     gt_drift_inv_ = gt_kick_inv_;
                 }
             }

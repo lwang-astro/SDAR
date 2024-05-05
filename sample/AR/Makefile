@@ -1,4 +1,4 @@
-TARGET= ar.logh ar.logh.sd.a ar.logh.sd.t ar.ttl ar.ttl.sd.a ar.ttl.sd.t ar.ttl.sd.t.mr
+TARGET= ar.logh ar.logh.sd.a ar.logh.sd.t ar.ttl ar.ttl.sd.a ar.ttl.sd.t ar.ttl.sd.t.mulpot ar.ttl.sd.t.maxpot
 
 INSTALL_PATH=~/bin
 
@@ -91,8 +91,11 @@ ar.ttl.sd.a: ar.cxx ${SOURCE}
 ar.ttl.sd.t: ar.cxx ${SOURCE}
 	$(CXX) $(CXXFLAGS) -D AR_TTL -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE  $< -o $@ $(CXXLIBS)
 
-ar.ttl.sd.t.mr: ar.cxx ${SOURCE}
-	$(CXX) $(CXXFLAGS) -D AR_TTL -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE -D AR_TIME_FUNCTION_MULTI_R $< -o $@ $(CXXLIBS)
+ar.ttl.sd.t.mulpot: ar.cxx ${SOURCE}
+	$(CXX) $(CXXFLAGS) -D AR_TTL -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE -D AR_TIME_FUNCTION_MUL_POT $< -o $@ $(CXXLIBS)
+
+ar.ttl.sd.t.maxpot: ar.cxx ${SOURCE}
+	$(CXX) $(CXXFLAGS) -D AR_TTL -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE -D AR_TIME_FUNCTION_MAX_POT $< -o $@ $(CXXLIBS)
 
 install: $(TARGET)
 	install -m 755 $(TARGET) $(INSTALL_PATH)
