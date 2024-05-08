@@ -25,11 +25,20 @@ const int WRITE_PRECISION=30;
 using mpfr::mpreal;
 typedef mpreal Float;
 #define to_int(x)     int(x)
-const int DIGITS_MPFRC = 80;
-const Float ROUND_OFF_ERROR_LIMIT = std::numeric_limits<mpreal>::epsilon();
-const Float NUMERIC_FLOAT_MAX = std::numeric_limits<mpreal>::max();
-const int WRITE_WIDTH = DIGITS_MPFRC + 8;
-const int WRITE_PRECISION = DIGITS_MPFRC;
+static Float ROUND_OFF_ERROR_LIMIT = std::numeric_limits<mpreal>::epsilon();
+static Float NUMERIC_FLOAT_MAX = std::numeric_limits<mpreal>::max();
+static int WRITE_WIDTH = 38;
+static int WRITE_PRECISION = 30;
+
+//* set MPFRC digits
+void setMPFRPrec(const int digits) {
+    mpreal::set_default_prec(mpfr::digits2bits(digits));
+    ROUND_OFF_ERROR_LIMIT = std::numeric_limits<mpreal>::epsilon();
+    NUMERIC_FLOAT_MAX = std::numeric_limits<mpreal>::max();
+    WRITE_WIDTH = digits + 8;
+    WRITE_PRECISION = digits;
+    std::cerr<<"Set MPFR precision to "<<digits<<" digits."<<std::endl;
+}
 
 #else
 #include <limits>

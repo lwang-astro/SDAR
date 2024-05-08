@@ -54,6 +54,9 @@ int main(int argc, char **argv){
     COMM::IOParams<double> slowdown_timescale_max (input_par_store, 0.0, "maximum timescale for maximum slowdown factor","time-end"); // slowdown timescale
     COMM::IOParams<int>   interrupt_detection_option(input_par_store, 0, "modify orbits and check interruption: 0: turn off; 1: modify the binary orbits based on interruption criterion; 2. recored binary parameters based on interruption criterion");  // modify orbit or check interruption using modifyAndInterruptIter function
     COMM::IOParams<int>   fix_step_option (input_par_store, -1, "fix step options: always, later, none","auto"); // if true; use input fix step option
+#ifdef USE_MPFRC
+    COMM::IOParams<int>   mpfr_digits     (input_par_store, 30, "dights for MPFR precison");
+#endif
     COMM::IOParams<std::string> filename_par (input_par_store, "", "filename to load manager parameters","input name"); // par dumped filename
     bool load_flag=false;  // if true; load dumped data
     bool synch_flag=false; // if true, switch on time synchronization
@@ -87,6 +90,9 @@ int main(int argc, char **argv){
         {"print-width",required_argument, 0, 10},
         {"print-precision",required_argument, 0, 11},
         {"ds-scale",required_argument, 0, 12},
+#ifdef USE_MPFRC
+        {"mpfr-dights", required_argument, 0, 13},
+#endif
         {"load-data",no_argument, 0, 'l'},
         {"help",no_argument, 0, 'h'},
         {0,0,0,0}
@@ -136,6 +142,10 @@ int main(int argc, char **argv){
         case 12:
             ds_scale.value = atof(optarg);
             break;
+#ifdef USE_MPFRC
+        case 13:
+            mpfr_digits.value = atoi(optarg);
+#endif
         case 'G':
             gravitational_constant.value = atof(optarg);
             break;
@@ -191,10 +201,13 @@ int main(int argc, char **argv){
                      <<"          --energy-error    [Float]:  same as -e\n"
                      <<"          --fix-step-option [char] :  "<<fix_step_option<<"\n"
                      <<"    -G [Float]:  "<<gravitational_constant<<"\n"
+                     <<"    -k [int]:    "<<sym_order<<"\n"
                      <<"    -i [string]: "<<interrupt_detection_option<<"\n"
                      <<"    -l :          load dumped data for restart (if used, the input file is dumped data)\n"
                      <<"          --load-data (same as -l)\n"
-                     <<"    -k [int]:    "<<sym_order<<"\n"
+#ifdef USE_MPFRC
+                     <<"          --mpfr-digits     [int]  :  "<<mpfr_digits<<"\n"
+#endif
                      <<"    -n [int]:    "<<nstep<<"\n"
                      <<"    -o [float]:  "<<dt_out<<"\n"
                      <<"    -p [string]: "<<filename_par<<"\n"
@@ -230,6 +243,10 @@ int main(int argc, char **argv){
     // data file name
     char* filename = argv[argc-1];
 
+#ifdef USE_MPFRC
+    setMPFRPrec(mpfr_digits.value);
+#endif
+
     // manager
     TimeTransformedSymplecticManager<Interaction> manager;
     manager.interaction.gravitational_constant = gravitational_constant.value;
@@ -248,9 +265,6 @@ int main(int argc, char **argv){
 
     manager.interaction.interrupt_detection_option = interrupt_detection_option.value;
 
-#ifdef USE_MPFRC
-    mpreal::set_default_prec(mpfr::digits2bits(DIGITS_MPFRC));
-#endif
 
     // store input parameters
     std::string fpar_out = std::string(filename) + ".par";
