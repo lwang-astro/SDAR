@@ -1,4 +1,4 @@
-TARGET= ar.logh ar.logh.sd.a ar.logh.sd.t ar.ttl ar.ttl.sd.a ar.ttl.sd.t ar.ttl.sd.t.mulpot ar.ttl.sd.t.maxpot
+TARGET= ar.logh ar.logh.sd.a ar.logh.sd.t ar.ttl ar.ttl.sd.a ar.ttl.sd.t ar.ttl.sd.t.mulpot ar.ttl.sd.t.maxpot ar.ttl.sd.t.addpot
 
 INSTALL_PATH=~/bin
 
@@ -10,7 +10,7 @@ SOURCE=${shell ls ../../src/AR/*.h} ${shell ls ../../src/Common/*.h} ${shell ls 
 
 use_x86=yes
 #use_k_computer=yes
-QD_PATH=../../../../
+#QD_PATH=../../../../
 #MPFRC_PATH=../../../mpfrc++
 #GPERF_PATH = /opt/gperftools-2.6.1
 
@@ -96,6 +96,9 @@ ar.ttl.sd.t.mulpot: ar.cxx ${SOURCE}
 
 ar.ttl.sd.t.maxpot: ar.cxx ${SOURCE}
 	$(CXX) $(CXXFLAGS) -D AR_TTL -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE -D AR_TIME_FUNCTION_MAX_POT $< -o $@ $(CXXLIBS)
+
+ar.ttl.sd.t.addpot: ar.cxx ${SOURCE}
+	$(CXX) $(CXXFLAGS) -D AR_TTL -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE -D AR_TIME_FUNCTION_ADD_POT $< -o $@ $(CXXLIBS)
 
 install: $(TARGET)
 	install -m 755 $(TARGET) $(INSTALL_PATH)

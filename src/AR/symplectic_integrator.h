@@ -642,202 +642,173 @@ namespace AR {
 
 #ifdef AR_TTL
             // scale gtgrad with slowdown
-#ifdef AR_TIME_FUNCTION_MUL_POT
-            // Here gtgrad excludes gt_kick_inv and slowdown factor, these factors will be multipled when gt_drift_inv is calculated.
             if (_calc_gtgrad) { 
+#ifdef AR_TIME_FUNCTION_MUL_POT
+                // Here gtgrad excludes gt_kick_inv and slowdown factor, these factors will be multipled when gt_drift_inv is calculated.
                 force_[_i].gtgrad[0] = fij[0].gtgrad[0];
                 force_[_i].gtgrad[1] = fij[0].gtgrad[1];
                 force_[_i].gtgrad[2] = fij[0].gtgrad[2];
                 force_[_j].gtgrad[0] = fij[1].gtgrad[0];
                 force_[_j].gtgrad[1] = fij[1].gtgrad[1];
                 force_[_j].gtgrad[2] = fij[1].gtgrad[2];
+#else
+                // scale gtgrad with slowdown
+                force_[_i].gtgrad[0] += fij[0].gtgrad[0]*_inv_nest_sd;
+                force_[_i].gtgrad[1] += fij[0].gtgrad[1]*_inv_nest_sd;
+                force_[_i].gtgrad[2] += fij[0].gtgrad[2]*_inv_nest_sd;
+                force_[_j].gtgrad[0] += fij[1].gtgrad[0]*_inv_nest_sd;
+                force_[_j].gtgrad[1] += fij[1].gtgrad[1]*_inv_nest_sd;
+                force_[_j].gtgrad[2] += fij[1].gtgrad[2]*_inv_nest_sd;
+#endif
+                gt_kick_inv *= _inv_nest_sd;
             }
-            else return 1.0;
-#elif (not defined AR_TIME_FUNCTION_MAX_POT)
-            // scale gtgrad with slowdown
-            force_[_i].gtgrad[0] += fij[0].gtgrad[0]*_inv_nest_sd;
-            force_[_i].gtgrad[1] += fij[0].gtgrad[1]*_inv_nest_sd;
-            force_[_i].gtgrad[2] += fij[0].gtgrad[2]*_inv_nest_sd;
-            force_[_j].gtgrad[0] += fij[1].gtgrad[0]*_inv_nest_sd;
-            force_[_j].gtgrad[1] += fij[1].gtgrad[1]*_inv_nest_sd;
-            force_[_j].gtgrad[2] += fij[1].gtgrad[2]*_inv_nest_sd;
-#endif 
-#endif 
+            else {
+#ifdef AR_TIME_FUNCTION_MUL_POT
+                gt_kick_inv = 1.0;
+#else
+                gt_kick_inv = 0.0;
+#endif
+            }
+            return gt_kick_inv;
+#else // NO AR_TTL
             return gt_kick_inv * _inv_nest_sd;
+#endif
         }
-
-#if (defined AR_TIME_FUNCTION_MUL_POT) || (defined AR_TIME_FUNCTION_MAX_POT)
 
         //! calc force, potential and inverse time transformation factor for one particle by walking binary tree
         /*!
           @param[in] _inv_nest_sd: inverse nested slowdown factor
           @param[in] _i: particle index
           @param[in] _bin: binary tree for walking
+          @param[in] _calc_gt_kick_inv: if true, calculate summation of gt_kick_inv, else return 0
           \return gt_kick_inv: inverse time transformation factor for kick
          */
-        void calcAccPotAndGTKickInvOneTreeIter(const Float& _inv_nest_sd, const int _i, AR::BinaryTree<Tparticle>& _bin) {
-            for (int k=0; k<2; k++) {
-                if (_bin.isMemberTree(k)) // particle - tree
-                    calcAccPotAndGTKickInvOneTreeIter(_inv_nest_sd, _i, *(_bin.getMemberAsTree(k)));
-                else  // particle - particle
-                    calcAccPotAndGTKickInvTwo(_inv_nest_sd, _i, _bin.getMemberIndex(k), false);
-            }
-        }
-
-        //! calc crossing force, potential and inverse time transformation factor between binary tree i and binary tree j
-        /*!
-          @param[in] _inv_nest_sd: inverse nested slowdown factor
-          @param[in] _bini: binary tree i for walking
-          @param[in] _binj: binary tree j for walking
-         */
-        void calcAccPotAndGTKickInvCrossTreeIter(const Float& _inv_nest_sd, AR::BinaryTree<Tparticle>& _bini, AR::BinaryTree<Tparticle>& _binj) {
-            ASSERT(&_bini!=&_binj);
-            for (int k=0; k<2; k++) { 
-                if (_bini.isMemberTree(k))  // tree - tree
-                    calcAccPotAndGTKickInvCrossTreeIter(_inv_nest_sd, *(_bini.getMemberAsTree(k)), _binj);
-                else  // particle - tree
-                    calcAccPotAndGTKickInvOneTreeIter(_inv_nest_sd, _bini.getMemberIndex(k), _binj);
-            }
-        }
-
-        //! calc force, potential and inverse time transformation factor for kick
-        /*!
-          @param[in] _inv_nest_sd_up: upper inverse nested slowdown factor
-          @param[in] _bin: current binary to drift pos
-          \return gt_kick_inv: inverse time transformation factor for kick
-         */
-        Float calcAccPotAndGTKickInvTreeIter(const Float& _inv_nest_sd_up, AR::BinaryTree<Tparticle>& _bin) {
-            // current nested sd factor
-            Float inv_nest_sd = _inv_nest_sd_up/_bin.slowdown.getSlowDownFactor();
-            Float gt_kick_inv = 1.0;
-
-            // check left 
-            if (_bin.isMemberTree(0)) { // left is tree
-                auto* bin_left = _bin.getMemberAsTree(0);
-                // inner interaction of left tree
-                gt_kick_inv *= calcAccPotAndGTKickInvTreeIter(inv_nest_sd, *bin_left);
-
-                if (_bin.isMemberTree(1)) { // right is tree
-                    auto* bin_right = _bin.getMemberAsTree(1);
-
-                    // inner interaction of right tree
-                    gt_kick_inv *= calcAccPotAndGTKickInvTreeIter(inv_nest_sd, *bin_right);
-                    
-                    // cross interaction
-                    calcAccPotAndGTKickInvCrossTreeIter(inv_nest_sd, *bin_left, *bin_right);
-                }
-                else { // right is particle
-                    // cross interaction from particle j to tree left
-                    calcAccPotAndGTKickInvOneTreeIter(inv_nest_sd,  _bin.getMemberIndex(1), *bin_left);
-                }
-            }
-            else { // left is particle
-                if (_bin.isMemberTree(1)) { // right is tree
-                    auto* bin_right = _bin.getMemberAsTree(1);
-                    // inner interaction of right tree
-                    gt_kick_inv *= calcAccPotAndGTKickInvTreeIter(inv_nest_sd, *bin_right);
-
-                    // cross interaction from particle i to tree right
-                    calcAccPotAndGTKickInvOneTreeIter(inv_nest_sd, _bin.getMemberIndex(0), *bin_right);
-                }
-                else { // right is particle
-                    // particle - particle interaction
-                    gt_kick_inv *= calcAccPotAndGTKickInvTwo(inv_nest_sd, _bin.getMemberIndex(0), _bin.getMemberIndex(1), true);
-                }
-            }
-
-            return gt_kick_inv;
-        }
-
-#else // NO AR_TIME_FUNCTION_MUL_POT or MAX_POT
-
-        //! calc force, potential and inverse time transformation factor for one particle by walking binary tree
-        /*!
-          @param[in] _inv_nest_sd: inverse nested slowdown factor
-          @param[in] _i: particle index
-          @param[in] _bin: binary tree for walking
-          \return gt_kick_inv: inverse time transformation factor for kick
-         */
-        Float calcAccPotAndGTKickInvOneTreeIter(const Float& _inv_nest_sd, const int _i, AR::BinaryTree<Tparticle>& _bin) {
-            Float gt_kick_inv=0.0;
-            for (int k=0; k<2; k++) {
-                if (_bin.isMemberTree(k)) // particle - tree
-                    gt_kick_inv += calcAccPotAndGTKickInvOneTreeIter(_inv_nest_sd, _i, *(_bin.getMemberAsTree(k)));
-                else  // particle - particle
-                    gt_kick_inv += calcAccPotAndGTKickInvTwo(_inv_nest_sd, _i, _bin.getMemberIndex(k));
-            }
-            return gt_kick_inv;
-        }
-
-        //! calc crossing force, potential and inverse time transformation factor between binary tree i and binary tree j
-        /*!
-          @param[in] _inv_nest_sd: inverse nested slowdown factor
-          @param[in] _bini: binary tree i for walking
-          @param[in] _binj: binary tree j for walking
-          \return gt_kick_inv: inverse time transformation factor for kick
-         */
-        Float calcAccPotAndGTKickInvCrossTreeIter(const Float& _inv_nest_sd, AR::BinaryTree<Tparticle>& _bini, AR::BinaryTree<Tparticle>& _binj) {
-            ASSERT(&_bini!=&_binj);
-            Float gt_kick_inv=0.0;
-            for (int k=0; k<2; k++) { 
-                if (_bini.isMemberTree(k))  // tree - tree
-                    gt_kick_inv += calcAccPotAndGTKickInvCrossTreeIter(_inv_nest_sd, *(_bini.getMemberAsTree(k)), _binj);
-                else  // particle - tree
-                    gt_kick_inv += calcAccPotAndGTKickInvOneTreeIter(_inv_nest_sd, _bini.getMemberIndex(k), _binj);
-            }
-            return gt_kick_inv;
-        }
-
-        //! calc force, potential and inverse time transformation factor for kick
-        /*!
-          @param[in] _inv_nest_sd_up: upper inverse nested slowdown factor
-          @param[in] _bin: current binary to drift pos
-          \return gt_kick_inv: inverse time transformation factor for kick
-         */
-        Float calcAccPotAndGTKickInvTreeIter(const Float& _inv_nest_sd_up, AR::BinaryTree<Tparticle>& _bin) {
-            // current nested sd factor
-            Float inv_nest_sd = _inv_nest_sd_up/_bin.slowdown.getSlowDownFactor();
+        Float calcAccPotAndGTKickInvOneTreeIter(const Float& _inv_nest_sd, const int _i, AR::BinaryTree<Tparticle>& _bin, const bool _calc_gt_kick_inv) {
             Float gt_kick_inv = 0.0;
+            Float gt_kick_inv_k = 0.0;
+            for (int k=0; k<2; k++) {
+                if (_bin.isMemberTree(k)) // particle - tree
+                    gt_kick_inv_k = calcAccPotAndGTKickInvOneTreeIter(_inv_nest_sd, _i, *(_bin.getMemberAsTree(k)), _calc_gt_kick_inv);
+                else  // particle - particle
+                    gt_kick_inv_k = calcAccPotAndGTKickInvTwo(_inv_nest_sd, _i, _bin.getMemberIndex(k), _calc_gt_kick_inv);
+                if (_calc_gt_kick_inv) gt_kick_inv += gt_kick_inv_k;
+            }
+            return gt_kick_inv;
+        }
+
+        //! calc crossing force, potential and inverse time transformation factor between binary tree i and binary tree j
+        /*!
+          @param[in] _inv_nest_sd: inverse nested slowdown factor
+          @param[in] _bini: binary tree i for walking
+          @param[in] _binj: binary tree j for walking
+          @param[in] _calc_gt_kick_inv: if true, calculate summation of gt_kick_inv, else return 0
+          \return gt_kick_inv: inverse time transformation factor for kick
+         */
+        Float calcAccPotAndGTKickInvCrossTreeIter(const Float& _inv_nest_sd, AR::BinaryTree<Tparticle>& _bini, AR::BinaryTree<Tparticle>& _binj, const bool _calc_gt_kick_inv) {
+            ASSERT(&_bini!=&_binj);
+            Float gt_kick_inv = 0.0;
+            Float gt_kick_inv_k = 0.0;
+            for (int k=0; k<2; k++) { 
+                if (_bini.isMemberTree(k))  // tree - tree
+                    gt_kick_inv_k = calcAccPotAndGTKickInvCrossTreeIter(_inv_nest_sd, *(_bini.getMemberAsTree(k)), _binj, _calc_gt_kick_inv);
+                else  // particle - tree
+                    gt_kick_inv_k = calcAccPotAndGTKickInvOneTreeIter(_inv_nest_sd, _bini.getMemberIndex(k), _binj, _calc_gt_kick_inv);
+                if (_calc_gt_kick_inv) gt_kick_inv += gt_kick_inv_k;
+            }
+            return gt_kick_inv;
+        }
+
+        //! calc force, potential and inverse time transformation factor for kick
+        /*!
+          @param[in] _inv_nest_sd_up: upper inverse nested slowdown factor
+          @param[in] _bin: current binary to drift pos
+          \return gt_kick_inv: inverse time transformation factor for kick
+         */
+        Float calcAccPotAndGTKickInvTreeIter(const Float& _inv_nest_sd_up, AR::BinaryTree<Tparticle>& _bin) {
+            // current nested sd factor
+            Float inv_nest_sd = _inv_nest_sd_up/_bin.slowdown.getSlowDownFactor();
+#ifdef AR_TIME_FUNCTION_MUL_POT
+            Float gt_kick_inv = 1.0;
+#else
+            Float gt_kick_inv = 0.0;
+#endif
 
             // check left 
             if (_bin.isMemberTree(0)) { // left is tree
                 auto* bin_left = _bin.getMemberAsTree(0);
                 // inner interaction of left tree
-                gt_kick_inv += calcAccPotAndGTKickInvTreeIter(inv_nest_sd, *bin_left);
+                Float gt_kick_inv_left = calcAccPotAndGTKickInvTreeIter(inv_nest_sd, *bin_left);
+#ifdef AR_TIME_FUNCTION_MUL_POT
+                gt_kick_inv *= gt_kick_inv_left;
+#else
+#ifndef AR_TIME_FUNCTION_MAX_POT
+                gt_kick_inv += gt_kick_inv_left;
+#endif
+#endif
 
                 if (_bin.isMemberTree(1)) { // right is tree
                     auto* bin_right = _bin.getMemberAsTree(1);
 
                     // inner interaction of right tree
-                    gt_kick_inv += calcAccPotAndGTKickInvTreeIter(inv_nest_sd, *bin_right);
+                    Float gt_kick_inv_right = calcAccPotAndGTKickInvTreeIter(inv_nest_sd, *bin_right);
+
+#ifdef AR_TIME_FUNCTION_MUL_POT
+                    gt_kick_inv *= gt_kick_inv_right;
+#else
+#ifndef AR_TIME_FUNCTION_MAX_POT
+                    gt_kick_inv += gt_kick_inv_right;
+#endif
+#endif
                     
                     // cross interaction
-                    gt_kick_inv += calcAccPotAndGTKickInvCrossTreeIter(inv_nest_sd, *bin_left, *bin_right);
+#if (not defined AR_TIME_FUNCTION_MUL_POT) && (not defined AR_TIME_FUNCTION_ADD_POT) && (not defined AR_TIME_FUNCTION_MAX_POT)
+                    gt_kick_inv += calcAccPotAndGTKickInvCrossTreeIter(inv_nest_sd, *bin_left, *bin_right, true);
+#else
+                    calcAccPotAndGTKickInvCrossTreeIter(inv_nest_sd, *bin_left, *bin_right, false);
+#endif
                 }
                 else { // right is particle
                     // cross interaction from particle j to tree left
-                    gt_kick_inv += calcAccPotAndGTKickInvOneTreeIter(inv_nest_sd,  _bin.getMemberIndex(1), *bin_left);
+#if (not defined AR_TIME_FUNCTION_MUL_POT) && (not defined AR_TIME_FUNCTION_ADD_POT) && (not defined AR_TIME_FUNCTION_MAX_POT)
+                    gt_kick_inv += calcAccPotAndGTKickInvOneTreeIter(inv_nest_sd,  _bin.getMemberIndex(1), *bin_left, true);
+#else
+                    calcAccPotAndGTKickInvOneTreeIter(inv_nest_sd,  _bin.getMemberIndex(1), *bin_left, false);
+#endif
                 }
             }
             else { // left is particle
                 if (_bin.isMemberTree(1)) { // right is tree
                     auto* bin_right = _bin.getMemberAsTree(1);
                     // inner interaction of right tree
-                    gt_kick_inv += calcAccPotAndGTKickInvTreeIter(inv_nest_sd, *bin_right);
+                    Float gt_kick_inv_right = calcAccPotAndGTKickInvTreeIter(inv_nest_sd, *bin_right);
+#ifdef AR_TIME_FUNCTION_MUL_POT
+                    gt_kick_inv *= gt_kick_inv_right;
+#else
+                    gt_kick_inv += gt_kick_inv_right;
+#endif
 
                     // cross interaction from particle i to tree right
-                    gt_kick_inv += calcAccPotAndGTKickInvOneTreeIter(inv_nest_sd, _bin.getMemberIndex(0), *bin_right);
+#if (not defined AR_TIME_FUNCTION_MUL_POT) && (not defined AR_TIME_FUNCTION_ADD_POT) && (not defined AR_TIME_FUNCTION_MAX_POT)
+                    gt_kick_inv += calcAccPotAndGTKickInvOneTreeIter(inv_nest_sd, _bin.getMemberIndex(0), *bin_right, true);
+#else
+                    calcAccPotAndGTKickInvOneTreeIter(inv_nest_sd, _bin.getMemberIndex(0), *bin_right, false);
+#endif
                 }
                 else { // right is particle
                     // particle - particle interaction
-                    gt_kick_inv += calcAccPotAndGTKickInvTwo(inv_nest_sd, _bin.getMemberIndex(0), _bin.getMemberIndex(1));
+                    Float gt_kick_inv_bin = calcAccPotAndGTKickInvTwo(inv_nest_sd, _bin.getMemberIndex(0), _bin.getMemberIndex(1), true);
+#ifdef AR_TIME_FUNCTION_MUL_POT
+                    gt_kick_inv *= gt_kick_inv_bin;
+#else
+#ifndef AR_TIME_FUNCTION_MAX_POT
+                    gt_kick_inv += gt_kick_inv_bin;
+#endif
+#endif
                 }
             }
 
             return gt_kick_inv;
         }
-        
-#endif // END NO AR_TIME_FUNCTION_MUL_POT
 
         //! calc force, potential and inverse time transformation factor for kick
         /*!
