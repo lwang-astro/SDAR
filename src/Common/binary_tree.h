@@ -516,6 +516,7 @@ namespace COMM{
         int n_members; ///> Total member number belong to the tree (can be more than 2)
         int member_index[2];        ///> particle index of original list, -1 indicate member is binarytree, -2 indicates member is particle and its memory is locally allocated; -3 initial values
         Tptcl* member[2]; ///> member pointer
+        bool origin_frame_flag; //!< true: particles are in original frame; false: particles are in c.m. frames of their host binary systems
 
     public:
         int level;     ///> binary tree level, start from zero for root tree. Then each subtree increase level by one.
@@ -568,7 +569,7 @@ namespace COMM{
     public:
 
         //! constructor
-        BinaryTree(): Tptcl(), Tbinary(), n_members(-1), member_index{-3,-3}, member{NULL,NULL}, level(-1), branch(-1) {}
+        BinaryTree(): Tptcl(), Tbinary(),n_members(-1), member_index{-3,-3}, member{NULL,NULL},  origin_frame_flag(true), level(-1), branch(-1) {}
 
         //! allocate memory for two members as particles
         /*! allocate memory as particle types for two members
@@ -596,7 +597,13 @@ namespace COMM{
                     member[i] = NULL;
                     member_index[i] = -3;
                 }
+                else {
+                    if (!origin_frame_flag) {
+                        std::cerr<<"Warning: the binary tree is cleared but the member "<<i<<" are still in the center-of-the-mass frame!\n";
+                    }
+                }
             }
+            origin_frame_flag = true;
         }
 
         //! destructor
@@ -812,6 +819,47 @@ namespace COMM{
             this->vel[0] /=this->mass;
             this->vel[1] /=this->mass;
             this->vel[2] /=this->mass;
+        }
+
+        //! shift member position and velocity to binary c.m. frame
+        /*! For binary tree, the shift is done iteratively. Each two members shift to their host binary c.m. frame
+         */
+        void shiftToCenterOfMassFrame() {
+            if (origin_frame_flag) {
+                for (int k=0; k<2; k++) {
+                    if (isMemberTree(k)) member[k]->shiftToCenterOfMassFrame();
+                    else {
+                        for (int i=0; i<3; i++) member[k]->pos[i] -= this->pos[i];
+                        for (int i=0; i<3; i++) member[k]->vel[i] -= this->vel[i];
+                    }
+                }
+                origin_frame_flag = false;
+            }
+            else {
+                std::cerr<<"Warning: particles are already in the center-of-mass frame!\n";
+            }      
+        }
+
+        //! shift particle to their original frame
+        /*! Shift positions and velocities of particles from center-of-mass frame to original frame
+        */
+        void shiftToOriginFrame() {
+            if (origin_frame_flag) {
+                std::cerr<<"Warning: particles are already in original frame!\n";
+            }
+            else {
+                for (int k=0; k<2; k++) {
+                    for (int i=0; i<3; i++) member[k]->pos[i] -= this->pos[i];
+                    for (int i=0; i<3; i++) member[k]->vel[i] -= this->vel[i];
+                    if (isMemberTree(k)) member[k]->shiftToOriginFrame();
+                }
+                origin_frame_flag = true;
+            }
+        }
+
+        //! return true if the system is the in their origin frame
+        bool isOriginFrame() const {
+            return origin_frame_flag;
         }
 
         //! calculate Kepler orbit semi, ecc and period only
