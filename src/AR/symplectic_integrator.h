@@ -473,7 +473,9 @@ namespace AR {
         */
         void calcTwoEKinIter(const Float& _inv_nest_sd_up, AR::BinaryTree<Tparticle>& _bin){
             Float inv_nest_sd = _inv_nest_sd_up/_bin.slowdown.getSlowDownFactor();
+#ifndef USE_CM_FRAME
             Float* vel_cm = _bin.getVel();
+#endif
             for (int k=0; k<2; k++) {
                 Float* vk;
                 Float  mk;
@@ -561,16 +563,15 @@ namespace AR {
             // current nested sd factor
             Float inv_nest_sd = _inv_nest_sd_up/_bin.slowdown.getSlowDownFactor();
 
-            Float* vel_cm = _bin.getVel();
-
 #ifdef USE_CM_FRAME
             // when members are in the c.m. frame, no need to include c.m. velocity
             auto driftPos=[&](Float* pos, Float* vel) {
                 pos[0] += _dt * vel[0] * inv_nest_sd;
                 pos[1] += _dt * vel[1] * inv_nest_sd;
                 pos[2] += _dt * vel[2] * inv_nest_sd;
-            }
+            };
 #else
+            Float* vel_cm = _bin.getVel();
             auto driftPos=[&](Float* pos, Float* vel, Float* vel_sd) {
                 //scale velocity referring to binary c.m.
                 vel_sd[0] = (vel[0] - vel_cm[0]) * inv_nest_sd + _vel_sd_up[0];
@@ -616,13 +617,13 @@ namespace AR {
             time_ += _dt;
 
             // the particle cm velocity is zero (assume in rest-frame)
-            ASSERT(!particles.isOriginFrame());
             auto& bin_root=info.getBinaryTreeRoot();
             Float sd_factor=1.0;
 #ifdef USE_CM_FRAME
             ASSERT(!bin_root.isOriginFrame());
             driftPosTreeIter(_dt, sd_factor, bin_root);
 #else
+            ASSERT(!particles.isOriginFrame());
             Float vel_cm[3] = {0.0,0.0,0.0};
             driftPosTreeIter(_dt, vel_cm, sd_factor, bin_root);
 #endif
@@ -776,7 +777,7 @@ namespace AR {
             Float gt_kick_inv_k = 0.0;
             for (int k=0; k<2; k++) { 
 #ifdef USE_CM_FRAME
-                auto* posk = _bin.getMember(k)->pos;
+                auto* posk = _bini.getMember(k)->pos;
                 Float pos_offset[3] = {
                     _pos_offset[0] - posk[0],
                     _pos_offset[1] - posk[1],
@@ -874,10 +875,11 @@ namespace AR {
                 }
                 else { // right is particle
 #ifdef USE_CM_FRAME
+                    auto* p_right = _bin.getMember(1);
                     Float pos_offset[3] = {
-                        bin_left->pos[0] - bin_right->pos[0], 
-                        bin_left->pos[1] - bin_right->pos[1], 
-                        bin_left->pos[2] - bin_right->pos[2]};
+                        bin_left->pos[0] - p_right->pos[0], 
+                        bin_left->pos[1] - p_right->pos[1], 
+                        bin_left->pos[2] - p_right->pos[2]};
 #endif
                     // cross interaction from particle j to tree left
 #if (not defined AR_TIME_FUNCTION_MUL_POT) && (not defined AR_TIME_FUNCTION_ADD_POT) && (not defined AR_TIME_FUNCTION_MAX_POT)
@@ -911,10 +913,11 @@ namespace AR {
 #endif
 
 #ifdef USE_CM_FRAME
+                    auto* p_left = _bin.getMember(0);
                     Float pos_offset[3] = {
-                        bin_right->pos[0] - bin_left->pos[0], 
-                        bin_right->pos[1] - bin_left->pos[1], 
-                        bin_right->pos[2] - bin_left->pos[2]};
+                        bin_right->pos[0] - p_left->pos[0], 
+                        bin_right->pos[1] - p_left->pos[1], 
+                        bin_right->pos[2] - p_left->pos[2]};
 #endif
                     // cross interaction from particle i to tree right
 #if (not defined AR_TIME_FUNCTION_MUL_POT) && (not defined AR_TIME_FUNCTION_ADD_POT) && (not defined AR_TIME_FUNCTION_MAX_POT)
@@ -938,7 +941,7 @@ namespace AR {
                 else { // right is particle
                     // particle - particle interaction
 #ifdef USE_CM_FRAME
-                    Flaot pos_offset[3] = {0.0, 0.0, 0.0};
+                    Float pos_offset[3] = {0.0, 0.0, 0.0};
 #endif
                     Float gt_kick_inv_bin = calcAccPotAndGTKickInvTwo(inv_nest_sd, _bin.getMemberIndex(0), _bin.getMemberIndex(1), 
 #ifdef USE_CM_FRAME
@@ -999,7 +1002,7 @@ namespace AR {
         */
         Float kickEtotAndGTDriftTreeIter(const Float& _dt, 
 #ifdef USE_CM_FRAME
-                                         const Float& _vel_up,
+                                         const Float* _vel_up,
 #endif
                                          const Float* _vel_sd_up, 
                                          const Float& _inv_nest_sd_up, 
@@ -1009,7 +1012,9 @@ namespace AR {
             Float dgt_drift_inv = 0.0;
             Float de = 0.0;
 
+#ifndef USE_CM_FRAME
             Float* vel_cm = _bin.getVel();
+#endif
             for (int k=0; k<2; k++) {
                 if (_bin.isMemberTree(k)) {
                     auto* bink = _bin.getMemberAsTree(k);
@@ -1032,7 +1037,7 @@ namespace AR {
 
                     dgt_drift_inv += kickEtotAndGTDriftTreeIter(_dt, 
 #ifdef USE_CM_FRAME
-                                                                vel_org,
+                                                                vel,
 #endif
                                                                 vel_sd, 
                                                                 inv_nest_sd, 
@@ -1092,14 +1097,16 @@ namespace AR {
         */
         void kickEtotAndGTDrift(const Float _dt) {
             // the particle cm velocity is zero (assume in rest-frame)
-            ASSERT(!particles.isOriginFrame());
             auto& bin_root=info.getBinaryTreeRoot();
             Float vel_cm[3] = {0.0,0.0,0.0};
             Float sd_factor=1.0;
 #ifdef USE_CM_FRAME
             ASSERT(!bin_root.isOriginFrame());
-#endif
+            Float dgt_drift_inv = kickEtotAndGTDriftTreeIter(_dt, vel_cm, vel_cm, sd_factor, bin_root); 
+#else
+            ASSERT(!particles.isOriginFrame());
             Float dgt_drift_inv = kickEtotAndGTDriftTreeIter(_dt, vel_cm, sd_factor, bin_root);
+#endif
 #ifdef AR_TIME_FUNCTION_MUL_POT
             dgt_drift_inv *= gt_kick_inv_;
 #endif
@@ -1846,6 +1853,7 @@ namespace AR {
             particles.setModifiedFalse();
 
             // check the center-of-mass initialization
+#ifndef USE_CM_FRAME
             if(particles.isOriginFrame()) {
                 particles.calcCenterOfMass();
                 particles.shiftToCenterOfMassFrame();
@@ -1861,13 +1869,14 @@ namespace AR {
             }
             ASSERT(info.getBinaryTreeRoot().pos[0]*info.getBinaryTreeRoot().pos[0]<1e-10);
             ASSERT(info.getBinaryTreeRoot().vel[0]*info.getBinaryTreeRoot().vel[0]<1e-10);
+#endif
 
 #if (defined AR_SLOWDOWN_ARRAY) || (defined AR_SLOWDOWN_TREE)
 #ifdef AR_SLOWDOWN_TREE
-#ifdef USE_CM_FRAME
-            auto& bin_root = info.getBinaryTreeRoot();
-            if (bin_root.isOriginFrame()) bin_root.shiftToCenterOfMassFrame();
-#endif
+//#ifdef USE_CM_FRAME
+//            auto& bin_root = info.getBinaryTreeRoot();
+//            if (bin_root.isOriginFrame()) bin_root.shiftToCenterOfMassFrame();
+//#endif
             for (int i=0; i<info.binarytree.getSize(); i++) 
                 info.binarytree[i].slowdown.initialSlowDownReference(manager->slowdown_pert_ratio_ref, manager->slowdown_timescale_max);
 #else
@@ -2005,6 +2014,10 @@ namespace AR {
             const Float kappa_inv = 1.0/info.getBinaryTreeRoot().slowdown.getSlowDownFactor();
 #endif
 
+#ifdef USE_CM_FRAME
+            const Float pos_offset[3] = {0.0, 0.0, 0.0};
+#endif
+
             Tparticle* particle_data = particles.getDataAddress();
             Float mass1 = particle_data[0].mass;
             Float* pos1 = particle_data[0].getPos();
@@ -2080,7 +2093,13 @@ namespace AR {
                 // step for kick
                 ds = manager->step.getDK(i)*_ds;
 
-                gt_inv = manager->interaction.calcInnerAccPotAndGTKickInvTwo(force_data[0], force_data[1], epot_, particle_data[0], particle_data[1]);
+                gt_inv = manager->interaction.calcInnerAccPotAndGTKickInvTwo(
+                    force_data[0], force_data[1], 
+                    epot_, particle_data[0], particle_data[1]
+#ifdef USE_CM_FRAME
+                    , pos_offset
+#endif
+                    );
 
                 // pertuber force
                 manager->interaction.calcAccPert(force_data, particle_data, n_particle, particles.cm, perturber, _time_table[i]);
@@ -3270,8 +3289,8 @@ namespace AR {
         void writeBackSlowDownParticles(const Tptcl& _particle_cm) {
             //! iteration function using binarytree
             auto& bin_root=info.getBinaryTreeRoot();
-            Float* vel_cm = &(_particles_cm.vel[0]);
-            Float* pos_cm = &(_particles_cm.pos[0]);
+            Float* vel_cm = &(_particle_cm.vel[0]);
+            Float* pos_cm = &(_particle_cm.pos[0]);
             Float sd_factor=1.0;
             writeBackSlowDownParticlesIter(pos_cm, vel_cm, sd_factor, bin_root);
         }
@@ -3283,7 +3302,7 @@ namespace AR {
         //! write back slowdown particle iteration function
         /*!
           @param[in] _pos_up: upper cm position
-          @param[in] _vel_sd_up: upper slowdown cm velocity
+          @param[in] _vel_up: upper cm velocity
           @param[in] _bin: current binary
          */
         template <class Tptcl>
@@ -3897,6 +3916,7 @@ namespace AR {
 #endif
 #endif
 #ifdef USE_CM_FRAME
+            _fout<<std::setw(_width)<<particles.getSize();
             info.getBinaryTreeRoot().printMemberIter(_fout, _width);
 #else                
             particles.printColumn(_fout, _width);
@@ -3919,6 +3939,8 @@ namespace AR {
             for (int i=0; i<size; i++) force_[i].writeBinary(_fout);
 
 #ifdef USE_CM_FRAME
+            int n_particle = particles.getSize();
+            fwrite(&n_particle, sizeof(int), 1, _fout);
             info.getBinaryTreeRoot().writeMemberBinaryIter(_fout);
 #else
             particles.writeBinary(_fout);

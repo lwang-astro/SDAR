@@ -827,7 +827,7 @@ namespace COMM{
         void shiftToCenterOfMassFrame() {
             if (origin_frame_flag) {
                 for (int k=0; k<2; k++) {
-                    if (isMemberTree(k)) member[k]->shiftToCenterOfMassFrame();
+                    if (isMemberTree(k)) getMemberAsTree(k)->shiftToCenterOfMassFrame();
                     else {
                         for (int i=0; i<3; i++) member[k]->pos[i] -= this->pos[i];
                         for (int i=0; i<3; i++) member[k]->vel[i] -= this->vel[i];
@@ -849,9 +849,9 @@ namespace COMM{
             }
             else {
                 for (int k=0; k<2; k++) {
-                    for (int i=0; i<3; i++) member[k]->pos[i] -= this->pos[i];
-                    for (int i=0; i<3; i++) member[k]->vel[i] -= this->vel[i];
-                    if (isMemberTree(k)) member[k]->shiftToOriginFrame();
+                    for (int i=0; i<3; i++) member[k]->pos[i] += this->pos[i];
+                    for (int i=0; i<3; i++) member[k]->vel[i] += this->vel[i];
+                    if (isMemberTree(k)) getMemberAsTree(k)->shiftToOriginFrame();
                 }
                 origin_frame_flag = true;
             }
@@ -1135,10 +1135,92 @@ namespace COMM{
         }       
 
         //! print member information
-        void printMemberIter(std::ostream & _fout, const int _width=20){
-            for (int k=0; k<2; k++) 
-                if (isMemberTree(k)) getMemberAsTree(k)->printBinaryTreeIter(_fout, _width);
-                else member[k]->printColumn(_fout, _width);
+        /*! @param[in] _fout: std:osteram file for print
+          @param[in] _width: print width (defaulted 20)
+          @param[in] _pos_up: upper cm position, default NULL
+          @param[in] _vel_up: upper cm velocity, default NULL
+         */
+        void printMemberIter(std::ostream & _fout, const int _width=20, const Float* _pos_up=NULL, const Float* _vel_up=NULL) const {
+            if (isOriginFrame()) {
+                for (int k=0; k<2; k++) 
+                    if (isMemberTree(k)) getMemberAsTree(k)->printMemberIter(_fout, _width);
+                    else member[k]->printColumn(_fout, _width);
+            }
+            else {
+                for (int k=0; k<2; k++) 
+                    if (isMemberTree(k)) {
+                        auto* bink = getMemberAsTree(k);
+                        if (_pos_up) {
+                            ASSERT(_vel_up);
+                            Float pos[3] = {bink->pos[0] + _pos_up[0],
+                                            bink->pos[1] + _pos_up[1],
+                                            bink->pos[2] + _pos_up[2]};
+                            Float vel[3] = {bink->vel[0] + _vel_up[0],
+                                            bink->vel[1] + _vel_up[1],
+                                            bink->vel[2] + _vel_up[2]};
+                            bink->printMemberIter(_fout, _width, pos, vel);
+                        }
+                        else bink->printMemberIter(_fout, _width, &(bink->pos[0]), &(bink->vel[0]));
+                    }
+                    else {
+                        if (_pos_up) {
+                            ASSERT(_vel_up);
+                            Tptcl pk = *member[k];
+                            pk.pos[0] += _pos_up[0];
+                            pk.pos[1] += _pos_up[1];
+                            pk.pos[2] += _pos_up[2];
+                            pk.vel[0] += _vel_up[0];
+                            pk.vel[1] += _vel_up[1];
+                            pk.vel[2] += _vel_up[2];
+                            pk.printColumn(_fout, _width);
+                        }
+                        else member[k]->printColumn(_fout, _width);
+                    }
+            }
+        }
+
+        //! write binary member in BINARY format iteratively
+        /*! @param[in] _fp: FILE type file for output
+          @param[in] _pos_up: upper cm position, default NULL
+          @param[in] _vel_up: upper cm velocity, default NULL
+         */
+        void writeMemberBinaryIter(FILE *_fp, const Float* _pos_up=NULL, const Float* _vel_up=NULL) const {
+            if (isOriginFrame()) {
+                for (int k=0; k<2; k++) 
+                    if (isMemberTree(k)) getMemberAsTree(k)->writeMemberBinaryIter(_fp);
+                    else member[k]->writeBinary(_fp);
+            }
+            else {
+                for (int k=0; k<2; k++) 
+                    if (isMemberTree(k)) {
+                        auto* bink = getMemberAsTree(k);
+                        if (_pos_up) {
+                            ASSERT(_vel_up);
+                            Float pos[3] = {bink->pos[0] + _pos_up[0],
+                                            bink->pos[1] + _pos_up[1],
+                                            bink->pos[2] + _pos_up[2]};
+                            Float vel[3] = {bink->vel[0] + _vel_up[0],
+                                            bink->vel[1] + _vel_up[1],
+                                            bink->vel[2] + _vel_up[2]};
+                            bink->writeMemberBinaryIter(_fp, pos, vel);
+                        }
+                        else bink->writeMemberBinaryIter(_fp, &(bink->pos[0]), &(bink->vel[0]));
+                    }
+                    else {
+                        if (_pos_up) {
+                            ASSERT(_vel_up);
+                            Tptcl pk = *member[k];
+                            pk.pos[0] += _pos_up[0];
+                            pk.pos[1] += _pos_up[1];
+                            pk.pos[2] += _pos_up[2];
+                            pk.vel[0] += _vel_up[0];
+                            pk.vel[1] += _vel_up[1];
+                            pk.vel[2] += _vel_up[2];
+                            pk.writeBinary(_fp);
+                        }
+                        else member[k]->writeBinary(_fp);
+                    }
+            }
         }
 
         //! print binary and member information

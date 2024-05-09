@@ -1,4 +1,4 @@
-TARGET= ar.logh ar.logh.sd.a ar.logh.sd.t ar.ttl ar.ttl.sd.a ar.ttl.sd.t ar.ttl.sd.t.mulpot ar.ttl.sd.t.maxpot ar.ttl.sd.t.addpot
+TARGET= ar.logh ar.logh.sd.a ar.logh.sd.t ar.ttl ar.ttl.sd.a ar.ttl.sd.t ar.ttl.sd.t.mulpot ar.ttl.sd.t.maxpot ar.ttl.sd.t.addpot ar.ttl.sd.t.cm
 
 INSTALL_PATH=~/bin
 
@@ -18,8 +18,8 @@ use_x86=yes
 ## compiler-------------------------------------------#
 ifeq ($(use_x86),yes)
 CXX= g++
-CXXFLAGS += -O2 -Wall
-#CXXFLAGS += -g -fbounds-check -Wall -O0
+#CXXFLAGS += -O2 -Wall
+CXXFLAGS += -g -fbounds-check -Wall -O0
 endif
 
 ifeq ($(use_k_computer),yes)
@@ -90,6 +90,9 @@ ar.ttl.sd.a: ar.cxx ${SOURCE}
 
 ar.ttl.sd.t: ar.cxx ${SOURCE}
 	$(CXX) $(CXXFLAGS) -D AR_TTL -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE  $< -o $@ $(CXXLIBS)
+
+ar.ttl.sd.t.cm: ar.cxx ${SOURCE}
+	$(CXX) $(CXXFLAGS) -D AR_TTL -D USE_CM_FRAME -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE  $< -o $@ $(CXXLIBS)
 
 ar.ttl.sd.t.mulpot: ar.cxx ${SOURCE}
 	$(CXX) $(CXXFLAGS) -D AR_TTL -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE -D AR_TIME_FUNCTION_MUL_POT $< -o $@ $(CXXLIBS)

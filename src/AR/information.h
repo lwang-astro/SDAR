@@ -336,8 +336,10 @@ namespace AR {
         void generateBinaryTree(COMM::ParticleGroup<Tparticle, Tpcm>& _particles, const Float _G) {
             // If the existing binarytree is not in original frame, first shift to original frame
 #ifdef USE_CM_FRAME
-            auto& bin_root = binarytree.getBinaryTreeRoot();
-            if (!bin_root.isOriginFrame()) bin_root.shiftToOriginFrame();
+            if (binarytree.getSize()>0) {
+                auto& bin_root = getBinaryTreeRoot();
+                if (!bin_root.isOriginFrame()) bin_root.shiftToOriginFrame();
+            }
 #endif
 
             const int n_particle = _particles.getSize();
@@ -413,7 +415,7 @@ namespace AR {
             }
 
 #ifdef USE_CM_FRAME
-            binarytree.getBinaryTreeRoot().shiftToCenterOfMassFrame();
+            getBinaryTreeRoot().shiftToCenterOfMassFrame();
 #endif
 
         }

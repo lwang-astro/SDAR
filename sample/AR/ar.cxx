@@ -437,6 +437,10 @@ int main(int argc, char **argv){
     sym_int.writeBinary(fout);
     fclose(fout);
 
+#ifdef USE_CM_FRAME
+    sym_int.info.getBinaryTreeRoot().shiftToOriginFrame();
+#endif
+
     //fpu_fix_end(&oldcw);
 
     return 0;
