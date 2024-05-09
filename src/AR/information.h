@@ -411,6 +411,11 @@ namespace AR {
                     binarytree[ilast].vel[2] = binarytree[ilast-1].vel[2];
                 }
             }
+
+#ifdef USE_CM_FRAME
+            binarytree.getBinaryTreeRoot().shiftToCenterOfMassFrame();
+#endif
+
         }
 
         //! check binary tree member pair id, if consisent, return ture. otherwise set the member pair id

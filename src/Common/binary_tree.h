@@ -1134,19 +1134,26 @@ namespace COMM{
             Tbinary::readAscii(_fin);
         }       
 
+        //! print member information
+        void printMemberIter(std::ostream & _fout, const int _width=20){
+            for (int k=0; k<2; k++) 
+                if (isMemberTree(k)) getMemberAsTree(k)->printBinaryTreeIter(_fout, _width);
+                else member[k]->printColumn(_fout, _width);
+        }
+
         //! print binary and member information
         void printBinaryTreeIter(std::ostream & _fout, const int _width=20){
             Tbinary::printColumn(_fout, _width);
             for (int k=0; k<2; k++) member[k]->printColumn(_fout,_width);
             for (int k=0; k<2; k++) 
-                if (member_index[k]==-1) ((BinaryTreeLocal*)member[k])->printBinaryTreeIter(_fout, _width);
+                if (isMemberTree(k)) getMemberAsTree(k)->printBinaryTreeIter(_fout, _width);
         }
 
         //! print binary function
         void printBinaryIter(std::ostream & _fout, const int _width=20){
             printColumn(_fout, _width);
             for (int k=0; k<2; k++) {
-                if (member_index[k]==-1) ((BinaryTreeLocal*)member[k])->printBinaryIter(_fout, _width);
+                if (isMemberTree(k)) getMemberAsTree(k)->printBinaryIter(_fout, _width);
             }
         }
     };
