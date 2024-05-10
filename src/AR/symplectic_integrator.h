@@ -727,15 +727,14 @@ namespace AR {
                                                 const bool _calc_gt_kick_inv) {
             Float gt_kick_inv = 0.0;
             Float gt_kick_inv_k = 0.0;
-            for (int k=0; k<2; k++) {
 #ifdef USE_CM_FRAME
-                auto* posk = _bin.getMember(k)->pos;
-                Float pos_offset[3] = {
-                    _pos_offset[0] + posk[0],
-                    _pos_offset[1] + posk[1],
-                    _pos_offset[2] + posk[2]};
+            Float pos_offset[3] = {
+                _pos_offset[0] + _bin.pos[0],
+                _pos_offset[1] + _bin.pos[1],
+                _pos_offset[2] + _bin.pos[2]};
 #endif
-                if (_bin.isMemberTree(k)) // particle - tree
+            for (int k=0; k<2; k++) {
+                if (_bin.isMemberTree(k)) { // particle - tree
                     gt_kick_inv_k = calcAccPotAndGTKickInvOneTreeIter(_inv_nest_sd,
                                                                       _i,
                                                                       *(_bin.getMemberAsTree(k)), 
@@ -743,6 +742,7 @@ namespace AR {
                                                                       pos_offset,
 #endif
                                                                       _calc_gt_kick_inv);
+                }
                 else  // particle - particle
                     gt_kick_inv_k = calcAccPotAndGTKickInvTwo(_inv_nest_sd, 
                                                               _i, 
@@ -775,15 +775,14 @@ namespace AR {
             ASSERT(&_bini!=&_binj);
             Float gt_kick_inv = 0.0;
             Float gt_kick_inv_k = 0.0;
-            for (int k=0; k<2; k++) { 
 #ifdef USE_CM_FRAME
-                auto* posk = _bini.getMember(k)->pos;
-                Float pos_offset[3] = {
-                    _pos_offset[0] - posk[0],
-                    _pos_offset[1] - posk[1],
-                    _pos_offset[2] - posk[2]};
+            Float pos_offset[3] = {
+                _pos_offset[0] - _bini.pos[0],
+                _pos_offset[1] - _bini.pos[1],
+                _pos_offset[2] - _bini.pos[2]};
 #endif
-                if (_bini.isMemberTree(k))  // tree - tree
+            for (int k=0; k<2; k++) { 
+                if (_bini.isMemberTree(k)) { // tree - tree
                     gt_kick_inv_k = calcAccPotAndGTKickInvCrossTreeIter(_inv_nest_sd, 
                                                                         *(_bini.getMemberAsTree(k)), 
                                                                         _binj, 
@@ -791,6 +790,7 @@ namespace AR {
                                                                         pos_offset,
 #endif
                                                                         _calc_gt_kick_inv);
+                }
                 else  // particle - tree
                     gt_kick_inv_k = calcAccPotAndGTKickInvOneTreeIter(_inv_nest_sd,
                                                                       _bini.getMemberIndex(k), 
@@ -818,6 +818,9 @@ namespace AR {
             Float gt_kick_inv = 1.0;
 #else
             Float gt_kick_inv = 0.0;
+#endif
+#ifdef USE_CM_FRAME
+            Float pos_offset[3] = {0.0, 0.0, 0.0};
 #endif
 
             // check left 
@@ -847,13 +850,6 @@ namespace AR {
 #endif
 #endif
 
-#ifdef USE_CM_FRAME
-                    Float pos_offset[3] = {
-                        bin_right->pos[0] - bin_left->pos[0], 
-                        bin_right->pos[1] - bin_left->pos[1], 
-                        bin_right->pos[2] - bin_left->pos[2]};
-#endif
-                    
                     // cross interaction
 #if (not defined AR_TIME_FUNCTION_MUL_POT) && (not defined AR_TIME_FUNCTION_ADD_POT) && (not defined AR_TIME_FUNCTION_MAX_POT)
                     gt_kick_inv += calcAccPotAndGTKickInvCrossTreeIter(inv_nest_sd, 
@@ -874,20 +870,13 @@ namespace AR {
 #endif
                 }
                 else { // right is particle
-#ifdef USE_CM_FRAME
-                    auto* p_right = _bin.getMember(1);
-                    Float pos_offset[3] = {
-                        bin_left->pos[0] - p_right->pos[0], 
-                        bin_left->pos[1] - p_right->pos[1], 
-                        bin_left->pos[2] - p_right->pos[2]};
-#endif
                     // cross interaction from particle j to tree left
 #if (not defined AR_TIME_FUNCTION_MUL_POT) && (not defined AR_TIME_FUNCTION_ADD_POT) && (not defined AR_TIME_FUNCTION_MAX_POT)
                     gt_kick_inv += calcAccPotAndGTKickInvOneTreeIter(inv_nest_sd, 
                                                                      _bin.getMemberIndex(1), 
                                                                      *bin_left, 
 #ifdef USE_CM_FRAME
-                                                                     pos_offset, 
+                                                                     pos_offset,
 #endif
                                                                      true);
 #else
@@ -895,7 +884,7 @@ namespace AR {
                                                       _bin.getMemberIndex(1), 
                                                       *bin_left, 
 #ifdef USE_CM_FRAME
-                                                      pos_offset, 
+                                                      pos_offset,
 #endif
                                                       false);
 #endif
@@ -912,20 +901,13 @@ namespace AR {
                     gt_kick_inv += gt_kick_inv_right;
 #endif
 
-#ifdef USE_CM_FRAME
-                    auto* p_left = _bin.getMember(0);
-                    Float pos_offset[3] = {
-                        bin_right->pos[0] - p_left->pos[0], 
-                        bin_right->pos[1] - p_left->pos[1], 
-                        bin_right->pos[2] - p_left->pos[2]};
-#endif
                     // cross interaction from particle i to tree right
 #if (not defined AR_TIME_FUNCTION_MUL_POT) && (not defined AR_TIME_FUNCTION_ADD_POT) && (not defined AR_TIME_FUNCTION_MAX_POT)
                     gt_kick_inv += calcAccPotAndGTKickInvOneTreeIter(inv_nest_sd, 
                                                                      _bin.getMemberIndex(0), 
                                                                      *bin_right, 
 #ifdef USE_CM_FRAME
-                                                                     pos_offset, 
+                                                                     pos_offset,
 #endif
                                                                      true);
 #else
@@ -933,16 +915,13 @@ namespace AR {
                                                       _bin.getMemberIndex(0), 
                                                       *bin_right, 
 #ifdef USE_CM_FRAME
-                                                      pos_offset, 
+                                                      pos_offset,
 #endif
                                                       false);
 #endif
                 }
                 else { // right is particle
                     // particle - particle interaction
-#ifdef USE_CM_FRAME
-                    Float pos_offset[3] = {0.0, 0.0, 0.0};
-#endif
                     Float gt_kick_inv_bin = calcAccPotAndGTKickInvTwo(inv_nest_sd, _bin.getMemberIndex(0), _bin.getMemberIndex(1), 
 #ifdef USE_CM_FRAME
                                                                       pos_offset, 
@@ -1686,7 +1665,10 @@ namespace AR {
             for (int i=0; i<n_bin-1; i++) {
                 auto& bini = info.binarytree[i];
                 //if (time_>=bini.slowdown.getUpdateTime()) {
+#ifndef USE_CM_FRAME
+                // this is already updated when USE_CM_FRAME is used, should not calculate twice
                 bini.calcCenterOfMass();
+#endif
                 calcSlowDownInnerBinary(bini);
 
                 //sdi->slowdown.increaseUpdateTimeOnePeriod();

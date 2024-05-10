@@ -800,6 +800,7 @@ namespace COMM{
 
         //! calculate center-of-mass from members
         void calcCenterOfMass() {
+            ASSERT(isOriginFrame());
 #ifdef BINARY_DEBUG
             ASSERT(member[0]!=NULL);
             ASSERT(member[1]!=NULL);
@@ -828,10 +829,8 @@ namespace COMM{
             if (origin_frame_flag) {
                 for (int k=0; k<2; k++) {
                     if (isMemberTree(k)) getMemberAsTree(k)->shiftToCenterOfMassFrame();
-                    else {
-                        for (int i=0; i<3; i++) member[k]->pos[i] -= this->pos[i];
-                        for (int i=0; i<3; i++) member[k]->vel[i] -= this->vel[i];
-                    }
+                    for (int i=0; i<3; i++) member[k]->pos[i] -= this->pos[i];
+                    for (int i=0; i<3; i++) member[k]->vel[i] -= this->vel[i];
                 }
                 origin_frame_flag = false;
             }
