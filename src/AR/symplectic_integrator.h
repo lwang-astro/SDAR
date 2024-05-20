@@ -526,25 +526,12 @@ namespace AR {
           @param[in] _dt: time size
         */
         void kickVel(const Float& _dt) {
-            const int num = particles.getSize();            
-            Tparticle* pdat = particles.getDataAddress();
-            Force* force = force_.getDataAddress();
-            for (int i=0; i<num; i++) {
-                // kick velocity
-                Float* vel = pdat[i].getVel();
-                Float* acc = force[i].acc_in;
-                Float* pert= force[i].acc_pert;
-                // half dv 
-                vel[0] += _dt * (acc[0] + pert[0]);
-                vel[1] += _dt * (acc[1] + pert[1]);
-                vel[2] += _dt * (acc[2] + pert[2]);
-            }
             // update binary c.m. velocity interation
             auto& bin_root=info.getBinaryTreeRoot();
 #ifdef USE_CM_FRAME
             ASSERT(!bin_root.isOriginFrame());
 #endif
-            updateBinaryVelIter(bin_root);
+            kickVelIter(bin_root, _dt);
         }
 
         //! drift position with slowdown tree
@@ -584,12 +571,23 @@ namespace AR {
             };
 #endif
 
+#if (defined USE_CM_FRAME) && (defined AR_DEBUG)
+            Float dpb[3] = {0.0, 0.0, 0.0}; // c.m. position difference
+            Float mcm_inv = 1.0/_bin.mass;
+            ASSERT(_bin.mass == _bin.getMember(0)->mass + _bin.getMember(1)->mass);
+#endif
             for (int k=0; k<2; k++) {
                 if (_bin.isMemberTree(k)) {
                     auto* pj = _bin.getMemberAsTree(k);
 #ifdef USE_CM_FRAME
                     driftPos(pj->getPos(), pj->getVel());
                     driftPosTreeIter(_dt, inv_nest_sd, *pj);
+
+#ifdef AR_DEBUG
+                    dpb[0] += pj->mass*pj->pos[0];
+                    dpb[1] += pj->mass*pj->pos[1];
+                    dpb[2] += pj->mass*pj->pos[2];
+#endif
 #else
                     Float vel_sd[3];
                     driftPos(pj->getPos(), pj->getVel(), vel_sd);
@@ -600,12 +598,39 @@ namespace AR {
                     auto* pj = _bin.getMember(k);
 #ifdef USE_CM_FRAME
                     driftPos(pj->getPos(), pj->getVel());
+
+#ifdef AR_DEBUG
+                    dpb[0] += pj->mass*pj->pos[0];
+                    dpb[1] += pj->mass*pj->pos[1];
+                    dpb[2] += pj->mass*pj->pos[2];
+#endif
 #else
                     Float vel_sd[3];
                     driftPos(pj->getPos(), pj->getVel(), vel_sd);
 #endif
                 }
+
             }
+
+#if (defined USE_CM_FRAME) && (defined AR_DEBUG)
+            dpb[0] *= mcm_inv;
+            dpb[1] *= mcm_inv;
+            dpb[2] *= mcm_inv;
+
+            Float dpbm = sqrt(dpb[0]*dpb[0] + dpb[1]*dpb[1] + dpb[2]*dpb[2]);
+            ASSERT(dpbm<ROUND_OFF_ERROR_LIMIT*10);
+            /*// correct c.m. position
+            _bin.pos[0] += dpb[0];
+            _bin.pos[1] += dpb[1];
+            _bin.pos[2] += dpb[2];
+            for (int k=0; k<2; k++) {
+                auto* pk = _bin.getMember(k);
+                pk->pos[0] -= dpb[0];
+                pk->pos[1] -= dpb[1];
+                pk->pos[2] -= dpb[2];
+            }
+            */
+#endif
         }
 
         //! drift time and position with slowdown tree
@@ -1498,25 +1523,43 @@ namespace AR {
 
 #endif // AR_SLOWDOWN_TREE
 
-        //! update slowdown velocity iteration function with binary tree
-        void updateBinaryVelIter(AR::BinaryTree<Tparticle>& _bin) {
+        //! iteraction function to kick velocity with binary tree
+        /*! First time step will be calculated, the velocities are kicked
+          @param[in,out] _bin: binary tree to process
+          @param[in] _dt: time step
+        */
+        void kickVelIter(AR::BinaryTree<Tparticle>& _bin, const Float& _dt) {
             Float dvb[3] = {0.0,0.0,0.0};
             for (int k=0; k<2; k++) {
                 if (_bin.isMemberTree(k)) {
                     auto* bink = _bin.getMemberAsTree(k);
-                    updateBinaryVelIter(*bink);
+                    kickVelIter(*bink, _dt);
                     dvb[0] += bink->mass*bink->vel[0];
                     dvb[1] += bink->mass*bink->vel[1];
                     dvb[2] += bink->mass*bink->vel[2];
                 }
                 else {
                     auto* pk = _bin.getMember(k);
-                    dvb[0] += pk->mass*pk->vel[0];
-                    dvb[1] += pk->mass*pk->vel[1];
-                    dvb[2] += pk->mass*pk->vel[2];
+                    
+                    // kick velocity
+                    int pki = _bin.getMemberIndex(k);
+                    Float* acc = force_[pki].acc_in;
+                    Float* pert = force_[pki].acc_pert;
+                    Float* vel = pk->getVel();
+                    vel[0] += _dt * (acc[0] + pert[0]);
+                    vel[1] += _dt * (acc[1] + pert[1]);
+                    vel[2] += _dt * (acc[2] + pert[2]);
+
+                    // calculate new c.m. velocity
+                    dvb[0] += pk->mass*vel[0];
+                    dvb[1] += pk->mass*vel[1];
+                    dvb[2] += pk->mass*vel[2];
                 }
             }
             Float mcm_inv = 1.0/_bin.mass;
+#ifdef AR_DEBUG
+            ASSERT(_bin.mass == _bin.getMember(0)->mass + _bin.getMember(1)->mass);
+#endif
             dvb[0] *= mcm_inv;
             dvb[1] *= mcm_inv;
             dvb[2] *= mcm_inv;

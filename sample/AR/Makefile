@@ -1,4 +1,4 @@
-TARGET= ar.logh ar.logh.sd.a ar.logh.sd.t ar.ttl ar.ttl.sd.a ar.ttl.sd.t ar.ttl.sd.t.mulpot ar.ttl.sd.t.maxpot ar.ttl.sd.t.addpot ar.ttl.sd.t.cm
+TARGET= ar.logh ar.logh.sd.a ar.logh.sd.t ar.ttl ar.ttl.sd.a ar.ttl.sd.t ar.ttl.sd.t.mulpot ar.ttl.sd.t.mulpot.cm ar.ttl.sd.t.mulpot.cm.mpfrc ar.ttl.sd.t.maxpot ar.ttl.sd.t.addpot.cm ar.ttl.sd.t.cm
 
 INSTALL_PATH=~/bin
 
@@ -11,15 +11,15 @@ SOURCE=${shell ls ../../src/AR/*.h} ${shell ls ../../src/Common/*.h} ${shell ls 
 use_x86=yes
 #use_k_computer=yes
 #QD_PATH=../../../../
-#MPFRC_PATH=../../../mpfrc++
+MPFRC_PATH=../../../mpfrc++
 #GPERF_PATH = /opt/gperftools-2.6.1
 
 
 ## compiler-------------------------------------------#
 ifeq ($(use_x86),yes)
 CXX= g++
-#CXXFLAGS += -O2 -Wall
-CXXFLAGS += -g -fbounds-check -Wall -O0
+CXXFLAGS += -O2 -Wall
+#CXXFLAGS += -g -fbounds-check -Wall -O0 -D AR_DEBUG
 endif
 
 ifeq ($(use_k_computer),yes)
@@ -64,8 +64,8 @@ endif
 
 ## mpfrc++-lib----------------------------------------#
 ifneq (x$(MPFRC_PATH),x)
-CXXFLAGS += -D USE_MPFRC -I $(MPFRC_PATH)
-CXXLIBS += -lmpfr -lgmp
+MPFRC_FLAGS += -D USE_MPFRC -I $(MPFRC_PATH)
+MPFRC_LIBS += -lmpfr -lgmp
 endif
 
 ## Target --------------------------------------------#
@@ -95,12 +95,18 @@ ar.ttl.sd.t.cm: ar.cxx ${SOURCE}
 	$(CXX) $(CXXFLAGS) -D AR_TTL -D USE_CM_FRAME -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE  $< -o $@ $(CXXLIBS)
 
 ar.ttl.sd.t.mulpot: ar.cxx ${SOURCE}
+	$(CXX) $(CXXFLAGS) -D AR_TTL -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE -D AR_TIME_FUNCTION_MUL_POT $< -o $@ $(CXXLIBS)
+
+ar.ttl.sd.t.mulpot.cm: ar.cxx ${SOURCE}
 	$(CXX) $(CXXFLAGS) -D AR_TTL -D USE_CM_FRAME -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE -D AR_TIME_FUNCTION_MUL_POT $< -o $@ $(CXXLIBS)
 
-ar.ttl.sd.t.maxpot: ar.cxx ${SOURCE}
+ar.ttl.sd.t.mulpot.cm.mpfrc: ar.cxx ${SOURCE}
+	$(CXX) $(CXXFLAGS) $(MPFRC_FLAGS) -D AR_TTL -D USE_CM_FRAME -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE -D AR_TIME_FUNCTION_MUL_POT $< -o $@ $(CXXLIBS) $(MPFRC_LIBS)
+
+ar.ttl.sd.t.maxpot.cm: ar.cxx ${SOURCE}
 	$(CXX) $(CXXFLAGS) -D AR_TTL -D USE_CM_FRAME -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE -D AR_TIME_FUNCTION_MAX_POT $< -o $@ $(CXXLIBS)
 
-ar.ttl.sd.t.addpot: ar.cxx ${SOURCE}
+ar.ttl.sd.t.addpot.cm: ar.cxx ${SOURCE}
 	$(CXX) $(CXXFLAGS) -D AR_TTL -D USE_CM_FRAME -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE -D AR_TIME_FUNCTION_ADD_POT $< -o $@ $(CXXLIBS)
 
 install: $(TARGET)
