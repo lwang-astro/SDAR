@@ -39,11 +39,7 @@ public:
       @param[in] _pos_offset: position offset need to be added to calculate dr
       \return the time transformation factor (gt_kick_inv) for kick step
     */
-    inline Float calcInnerAccPotAndGTKickInvTwo(AR::Force& _f1, AR::Force& _f2, Float& _epot, const Particle& _p1, const Particle& _p2
-#ifdef USE_CM_FRAME
-                                                , const Float* _pos_offset
-#endif
-        ) {
+    inline Float calcInnerAccPotAndGTKickInvTwo(AR::Force& _f1, AR::Force& _f2, Float& _epot, const Particle& _p1, const Particle& _p2, const Float* _pos_offset) {
         // acceleration
         const Float mass1 = _p1.mass;
         const Float* pos1 = _p1.pos;
