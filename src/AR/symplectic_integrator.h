@@ -208,6 +208,11 @@ namespace AR {
             int i; ///< index of binary member 1 having minimum gt_kick_inv
             int j; ///< index of binary member 1 having minimum gt_kick_inv
             Float gtgrad[2][3]; ///< time transformation function gradient with slowdown
+            Float max; ///< max of gt_kick_inv
+            Float scale; ///< scale factor to smooth gt_kick_inv change 
+            bool initial;
+            int inew;
+            int jnew;
 #elif AR_TIME_FUNCTION_MUL_POT
             int nbin; ///< number of binaries included in gt_kick_inv
             Float mul_pot_no_pow; ///< production of potential with no power
@@ -216,7 +221,7 @@ namespace AR {
             // initialization
             GtKickInv(): 
 #ifdef AR_TIME_FUNCTION_MAX_POT
-                value(0.0), i(-1), j(-1), gtgrad{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}  
+                value(0.0), i(-1), j(-1), gtgrad{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}, max(0.0), scale(1.0), initial(false), inew(-1), jnew(-1)
 #elif AR_TIME_FUNCTION_MUL_POT
                 value(1.0), nbin(0)
 #else
@@ -224,11 +229,29 @@ namespace AR {
 #endif
             {}
 
+            // reset 
+            void reset() {
+#ifdef AR_TIME_FUNCTION_MAX_POT
+                value = 0.0;
+                max = 0.0;
+                initial = false;
+#elif AR_TIME_FUNCTION_MUL_POT
+                value = 1.0;
+                nbin = 0;
+#else
+                value = 0.0;
+#endif
+            }
+
             // clear up
             void clear() {
 #ifdef AR_TIME_FUNCTION_MAX_POT
                 value = 0.0;
                 i = j = -1;
+                max = 0.0;
+                scale = 1.0;
+                initial = false;
+                inew = jnew = -1;
 #elif AR_TIME_FUNCTION_MUL_POT
                 value = 1.0;
                 nbin = 0;
@@ -688,16 +711,35 @@ namespace AR {
 #ifdef AR_TIME_FUNCTION_MAX_POT
                 // update maximum value of time transformation function gradient (gt_kick_inv) and save two paritcle indices and gtgrad values
                 // if gt_kick_inv_sd > saved value, update the information
-                if (gt_kick_inv_sd > value) {
-                    gt_kick_inv_.value = gt_kick_inv_sd;
-                    gt_kick_inv_.i = _i;
-                    gt_kick_inv_.j = _j;
-                    gt_kick_inv_.gtgrad[0][0] = _fij[0].gtgrad[0]*_inv_nest_sd;
-                    gt_kick_inv_.gtgrad[0][1] = _fij[0].gtgrad[1]*_inv_nest_sd;
-                    gt_kick_inv_.gtgrad[0][2] = _fij[0].gtgrad[2]*_inv_nest_sd;
-                    gt_kick_inv_.gtgrad[1][0] = _fij[1].gtgrad[0]*_inv_nest_sd;
-                    gt_kick_inv_.gtgrad[1][1] = _fij[1].gtgrad[1]*_inv_nest_sd;
-                    gt_kick_inv_.gtgrad[1][2] = _fij[1].gtgrad[2]*_inv_nest_sd;
+                //if (gt_kick_inv_sd > gt_kick_inv_.value) {
+                if (gt_kick_inv_.i == _i && gt_kick_inv_.j == _j) {
+                    Float factor = gt_kick_inv_.scale*_inv_nest_sd;
+                    gt_kick_inv_.value = gt_kick_inv_.scale*gt_kick_inv_sd;
+                    gt_kick_inv_.gtgrad[0][0] = fij[0].gtgrad[0]*factor;
+                    gt_kick_inv_.gtgrad[0][1] = fij[0].gtgrad[1]*factor;
+                    gt_kick_inv_.gtgrad[0][2] = fij[0].gtgrad[2]*factor;
+                    gt_kick_inv_.gtgrad[1][0] = fij[1].gtgrad[0]*factor;
+                    gt_kick_inv_.gtgrad[1][1] = fij[1].gtgrad[1]*factor;
+                    gt_kick_inv_.gtgrad[1][2] = fij[1].gtgrad[2]*factor;
+                }
+                Float rinv = abs(epotij)/(particles[_i].mass*particles[_j].mass);
+                if (rinv > gt_kick_inv_.max) {
+                    gt_kick_inv_.inew = _i;
+                    gt_kick_inv_.jnew = _j;
+                    gt_kick_inv_.max = rinv;
+                    if (gt_kick_inv_.i == -1 || gt_kick_inv_.initial) {
+                        gt_kick_inv_.initial = true;
+                        gt_kick_inv_.i = _i;
+                        gt_kick_inv_.j = _j;
+                        Float factor = gt_kick_inv_.scale*_inv_nest_sd;
+                        gt_kick_inv_.value = gt_kick_inv_.scale*gt_kick_inv_sd;
+                        gt_kick_inv_.gtgrad[0][0] = fij[0].gtgrad[0]*factor;
+                        gt_kick_inv_.gtgrad[0][1] = fij[0].gtgrad[1]*factor;
+                        gt_kick_inv_.gtgrad[0][2] = fij[0].gtgrad[2]*factor;
+                        gt_kick_inv_.gtgrad[1][0] = fij[1].gtgrad[0]*factor;
+                        gt_kick_inv_.gtgrad[1][1] = fij[1].gtgrad[1]*factor;
+                        gt_kick_inv_.gtgrad[1][2] = fij[1].gtgrad[2]*factor;
+                    }
                 }
 
 #elif AR_TIME_FUNCTION_MUL_POT
@@ -803,7 +845,7 @@ namespace AR {
             Float* pos_offset = NULL;
 #endif
 
-#if (defined AR_TIME_FUNCTION_MUL_POT) || (defined AR_TIME_FUNCTION_ADD_POT) 
+#if (defined AR_TIME_FUNCTION_MUL_POT) || (defined AR_TIME_FUNCTION_ADD_POT) || (defined AR_TIME_FUNCTION_MAX_POT)
             bool calc_gt_cross = false;
 #else
             bool calc_gt_cross = true;
@@ -851,15 +893,16 @@ namespace AR {
             epot_sd_ = 0.0;
             for (int i=0; i<force_.getSize(); i++) force_[i].clear();
 
-            gt_kick_inv_.clear();
+            gt_kick_inv_.reset();
 #ifdef USE_CM_FRAME
             ASSERT(!info.getBinaryTreeRoot().isOriginFrame());
 #endif
             calcAccPotAndGTKickInvTreeIter(1.0, info.getBinaryTreeRoot());
-#ifdef AR_TIME_FUNCTION_MUL_POT
-            //gt_kick_inv_.mul_pot_no_pow = gt_kick_inv_.value;
-            //gt_kick_inv_.value = pow(gt_kick_inv_.mul_pot_no_pow, 1.0/gt_kick_inv_.nbin);
-#endif
+//#ifdef AR_TIME_FUNCTION_MUL_POT
+//            // use power in gt_kick_inv_
+//            gt_kick_inv_.mul_pot_no_pow = gt_kick_inv_.value;
+//            gt_kick_inv_.value = pow(gt_kick_inv_.mul_pot_no_pow, 1.0/gt_kick_inv_.nbin);
+//#endif
 
             // pertuber force
             manager->interaction.calcAccPert(force_.getDataAddress(), particles.getDataAddress(), particles.getSize(), particles.cm, perturber, getTime());
@@ -943,10 +986,10 @@ namespace AR {
 #else
                     // use recored gtgrad in gt_kick_inv_max_info instead of force_[i].gtgrad (not calculated)
                     Float* gtgrad = NULL;
-                    if (i == gt_kick_inv_max_info_.i) 
-                        gtgrad = gt_kick_inv_max_info_.gtgrad[0];
-                    else if (i == gt_kick_inv_max_info_.j)
-                        gtgrad = gt_kick_inv_max_info_.gtgrad[1];
+                    if (i == gt_kick_inv_.i) 
+                        gtgrad = gt_kick_inv_.gtgrad[0];
+                    else if (i == gt_kick_inv_.j)
+                        gtgrad = gt_kick_inv_.gtgrad[1];
                     if (gtgrad != NULL)
 #endif
                         dgt_drift_inv += (vel_sd[0] * gtgrad[0] + 
@@ -983,6 +1026,7 @@ namespace AR {
             Float dgt_drift_inv = kickEtotAndGTDriftTreeIter(_dt, vel_cm, sd_factor, bin_root);
 #endif
 #ifdef AR_TIME_FUNCTION_MUL_POT
+            //dgt_drift_inv *= gt_kick_inv_.value/gt_kick_inv_.nbin;
             dgt_drift_inv *= gt_kick_inv_.value;
 #endif
             gt_drift_inv_ += dgt_drift_inv*_dt;
@@ -1839,6 +1883,21 @@ namespace AR {
 
             ASSERT(!particles.isModified());
             ASSERT(_ds>0);
+
+#ifdef AR_TIME_FUNCTION_MAX_POT
+            if (gt_kick_inv_.inew != gt_kick_inv_.i || gt_kick_inv_.jnew != gt_kick_inv_.jnew) {
+                // update i and j for calculate gt_kick_inv
+                gt_kick_inv_.i = gt_kick_inv_.inew;
+                gt_kick_inv_.j = gt_kick_inv_.jnew;
+
+                calcAccPotAndGTKickInv();
+
+                // initially gt_drift
+                gt_kick_inv_.scale = gt_drift_inv_/gt_kick_inv_.value;
+                //gt_kick_inv_ = gt_drift_inv_;
+                //gt_drift_inv_ = gt_kick_inv_.value;
+            }
+#endif
 
             // symplectic step coefficent group n_particleber
             const int nloop = manager->step.getCDPairSize();
