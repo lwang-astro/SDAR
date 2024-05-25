@@ -39,9 +39,10 @@ public:
       @param[out] _epot: total inner potential energy
       @param[in] _p1: particle 1
       @param[in] _p2: particle 2
+      @param[in] _pos_offset: position offset need to be added to calculate dr
       \return the time transformation factor (gt_kick_inv) for kick step
     */
-    inline Float calcInnerAccPotAndGTKickInvTwo(AR::Force& _f1, AR::Force& _f2, Float& _epot, const Particle& _p1, const Particle& _p2) {
+    inline Float calcInnerAccPotAndGTKickInvTwo(AR::Force& _f1, AR::Force& _f2, Float& _epot, const Particle& _p1, const Particle& _p2, const Float* _pos_offset) {
         // acceleration
         const Float mass1 = _p1.mass;
         const Float* pos1 = _p1.pos;
@@ -49,9 +50,16 @@ public:
         const Float mass2 = _p2.mass;
         const Float* pos2 = _p2.pos;
 
+#ifdef USE_CM_FRAME
+        Float dr[3] = {pos2[0] -pos1[0] + _pos_offset[0],
+                       pos2[1] -pos1[1] + _pos_offset[1],
+                       pos2[2] -pos1[2] + _pos_offset[2]};
+#else
         Float dr[3] = {pos2[0] -pos1[0],
                        pos2[1] -pos1[1],
                        pos2[2] -pos1[2]};
+#endif
+
         Float r2 = dr[0]*dr[0] + dr[1]*dr[1] + dr[2]*dr[2] + eps_sq;
         ASSERT(r2>0.0);
         Float inv_r = 1.0/sqrt(r2);
@@ -78,7 +86,11 @@ public:
 
 #ifdef AR_TTL 
         // trans formation function gradient
+#ifdef AR_TIME_FUNCTION_MUL_POT
+        Float gm1m2or3 = inv_r*inv_r; // gt_kick_inv will be multiplied latter, thus only need 1/r^2
+#else
         Float gm1m2or3 = gm1m2*inv_r3;
+#endif
         Float* gtgrad1 = _f1.gtgrad;
         Float* gtgrad2 = _f2.gtgrad;
 

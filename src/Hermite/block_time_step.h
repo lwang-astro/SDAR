@@ -163,8 +163,8 @@ namespace H4{
             // for first step, the maximum time step is OK
             if(_time==0.0) return dt_max_;
             else {
-                // the binary tree for current time position in block step 
-                unsigned long long int bitmap = to_double(_time/dt_min_);
+                // the binary tree for current time position in block step
+                unsigned long long int bitmap = double(_time/dt_min_);
                 //#ifdef __GNUC__ 
                 //        PS::S64 dts = __builtin_ctz(bitmap) ;
                 //        PS::U64 c = (1<<dts);

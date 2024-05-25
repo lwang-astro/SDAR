@@ -3182,7 +3182,6 @@ namespace AR {
           @param[in] _inv_nest_sd_up: upper inverse nested slowdown factor
           @param[in] _bin: current binary
          */
-        template <class Tptcl>
         void writeBackSlowDownParticlesIter(const Float* _pos_up,
                                             const Float* _vel_sd_up, 
                                             const Float& _inv_nest_sd_up, 
@@ -3197,15 +3196,15 @@ namespace AR {
                     Float* vel = bink->getVel();
 #ifdef USE_CM_FRAME
                     Float* pos_rel = bink->getPos();
-                    Float pos[3] = {pos_rel[0] + _pos_up[0],
-                                    pos_rel[1] + _pos_up[1],
-                                    pos_rel[2] + _pos_up[2]};
+                    const Float pos[3] = {pos_rel[0] + _pos_up[0],
+                                          pos_rel[1] + _pos_up[1],
+                                          pos_rel[2] + _pos_up[2]};
 
                     Float vel_sd[3] = {vel[0] * inv_nest_sd + _vel_sd_up[0], 
                                        vel[1] * inv_nest_sd + _vel_sd_up[1], 
                                        vel[2] * inv_nest_sd + _vel_sd_up[2]}; 
 #else
-                    Float* pos = _pos_up;
+                    const Float* pos = _pos_up;
                     Float vel_sd[3] = {(vel[0] - vel_cm[0]) * inv_nest_sd + _vel_sd_up[0], 
                                        (vel[1] - vel_cm[1]) * inv_nest_sd + _vel_sd_up[1], 
                                        (vel[2] - vel_cm[2]) * inv_nest_sd + _vel_sd_up[2]}; 
@@ -3246,8 +3245,8 @@ namespace AR {
         void writeBackSlowDownParticles(const Tptcl& _particle_cm) {
             //! iteration function using binarytree
             auto& bin_root=info.getBinaryTreeRoot();
-            Float* vel_cm = &(_particle_cm.vel[0]);
-            Float* pos_cm = &(_particle_cm.pos[0]);
+            const Float* vel_cm = &(_particle_cm.vel[0]);
+            const Float* pos_cm = &(_particle_cm.pos[0]);
             Float sd_factor=1.0;
             writeBackSlowDownParticlesIter(pos_cm, vel_cm, sd_factor, bin_root);
         }

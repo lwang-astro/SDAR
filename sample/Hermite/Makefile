@@ -1,5 +1,6 @@
 ## TARGET
-TARGET=hermite
+TARGET= hermite hermite.mpfrc 
+all: $(TARGET)
 
 INSTALL_PATH=~/bin
 
@@ -10,14 +11,15 @@ SOURCE=${shell ls ../../src/*/*.h} ${shell ls ./*.h}
 use_x86=yes
 #use_k_computer=yes
 #QD_PATH=/opt/qd-2.3.22
+MPFRC_PATH=../../../mpfrc++
 #GPERF_PATH = /opt/gperftools-2.6.1
 
 
 ## compiler-------------------------------------------#
 ifeq ($(use_x86),yes)
 CXX= g++
-CXXFLAGS += -O2 -Wall
-#CXXFLAGS += -g -fbounds-check -Wall -O0
+#CXXFLAGS += -O2 -Wall
+CXXFLAGS += -g -fbounds-check -Wall -O0
 endif
 
 ifeq ($(use_k_computer),yes)
@@ -67,11 +69,20 @@ CXXFLAGS += -D USE_QD ${shell ${QD_PATH}/bin/qd-config --cxxflags}
 CXXLIBS += ${shell ${QD_PATH}/bin/qd-config --libs}
 endif
 
+## mpfrc++-lib----------------------------------------#
+ifneq (x$(MPFRC_PATH),x)
+MPFRC_FLAGS += -D USE_MPFRC -I $(MPFRC_PATH)
+MPFRC_LIBS += -lmpfr -lgmp
+endif
+
 
 ## Target --------------------------------------------#
 
 hermite: hermite.cxx ${SOURCE}
 	$(CXX) $(CXXFLAGS) $< -o $@ $(CXXLIBS)
+
+hermite.mpfrc: hermite.cxx ${SOURCE}
+	$(CXX) $(CXXFLAGS) $(MPFRC_FLAGS) $< -o $@ $(CXXLIBS) $(MPFRC_LIBS)
 
 install: $(TARGET)
 	install -m 755 $(TARGET) $(INSTALL_PATH)

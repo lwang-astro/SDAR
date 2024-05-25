@@ -57,6 +57,9 @@ int main(int argc, char **argv){
     COMM::IOParams<double> slowdown_mass_ref (input_par_store, 0.0, "slowdowm mass reference","averaged mass"); // slowdown mass reference
 #endif
     COMM::IOParams<double> slowdown_timescale_max (input_par_store, 0.0, "maximum timescale for maximum slowdown factor","time-end"); // slowdown timescale
+#ifdef USE_MPFRC
+    COMM::IOParams<int>   mpfr_digits     (input_par_store, 30, "dights for MPFR precison");
+#endif
     COMM::IOParams<std::string> filename_par (input_par_store, "", "filename to load manager parameters","input name"); // par dumped filename
 
     int copt;
@@ -80,6 +83,9 @@ int main(int argc, char **argv){
         {"print-width",required_argument, 0, 14},
         {"print-precision",required_argument, 0, 15},
         {"ds-scale",required_argument, 0, 16},
+#ifdef USE_MPFRC
+        {"mpfr-dights", required_argument, 0, 17},
+#endif
         {"help",no_argument, 0, 'h'},
         {0,0,0,0}
     };
@@ -131,6 +137,10 @@ int main(int argc, char **argv){
         case 16:
             ds_scale.value = atof(optarg);
             break;
+#ifdef USE_MPFRC
+        case 17:
+            mpfr_digits.value = atoi(optarg);
+#endif        
         case 't':
             time_end.value = atof(optarg);
             break;
@@ -184,6 +194,9 @@ int main(int argc, char **argv){
                      <<"    -i [int]:    "<<interrupt_detection_option<<"\n"
                      <<"    -k [int]:    "<<sym_order<<"\n"
                      <<"          --load-par     [string]: "<<filename_par<<"\n"
+#ifdef USE_MPFRC
+                     <<"          --mpfr-digits     [int]  :  "<<mpfr_digits<<"\n"
+#endif
                      <<"          --n-step-max   [int]  :  "<<nstep_max<<"\n"
                      <<"    -o [int]:    "<<dt_out_power_index<<"\n"
                      <<"          --print-width     [int]: "<<print_width<<"\n"
@@ -217,6 +230,10 @@ int main(int argc, char **argv){
 
     // data file name
     char* filename = argv[argc-1];
+
+#ifdef USE_MPFRC
+    setMPFRPrec(mpfr_digits.value);
+#endif
 
     // manager
     HermiteManager<HermiteInteraction> manager;
