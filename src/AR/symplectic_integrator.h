@@ -1873,6 +1873,39 @@ namespace AR {
 #endif
         }
 
+#ifdef AR_SLOWDOWN_TREE
+        //! integration with KDKDK
+        void integrateMultiStepChin4th(const Float _ds, 
+                                       AR::BinaryTree<Tparticle>& _bin) {
+            ASSERT(checkParams());
+            ASSERT(!particles.isModified());
+            ASSERT(_ds>0);
+#ifdef USE_CM_FRAME
+            ASSERT(!_bin.isOriginFrame());
+#endif
+
+            // Kick 1/6
+            calcAccPot();
+            Float dt_kick = _ds/6.0*gt_kick_inv_.value;
+            
+            kickVelIter(_bin, dt_kick);
+            
+            // Drift 1/2
+            Float dt_drift = 0.5*_ds*gt_drift_inv_;
+            driftTimeAndPos(dt_drift);
+
+            // Kick 4/6 with Grad
+            calcAccPot();
+            calcGrad();
+            kickVelIter(_bin, 4.0*dt_kick);
+
+            // Drift 1/2
+            Float dt_drift = 0.5*_ds*gt_drift_inv_;
+            driftTimeAndPos(dt_drift);
+        }
+
+#endif
+
         //! integration for one step
         /*!
           @param[in] _ds: step size
