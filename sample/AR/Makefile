@@ -1,5 +1,4 @@
-TARGET= ar.logh ar.logh.sd.a ar.logh.sd.t ar.ttl ar.ttl.sd.a ar.ttl.sd.t ar.ttl.sd.t.mulpot ar.ttl.sd.t.mulpot.cm ar.ttl.sd.t.mulpot.cm.mpfrc ar.ttl.sd.t.maxpot ar.ttl.sd.t.addpot.cm ar.ttl.sd.t.cm
-
+TARGET= ar.logh ar.logh.sd.a ar.logh.sd.t ar.ttl ar.ttl.sd.a ar.ttl.sd.t ar.ttl.sd.t.mulpot ar.ttl.sd.t.mulpot.cm ar.ttl.sd.t.mulpot.cm.mpfrc ar.ttl.sd.t.maxpot.cm ar.ttl.sd.t.addpot.cm ar.ttl.sd.t.cm
 INSTALL_PATH=~/bin
 
 all: $(TARGET)
