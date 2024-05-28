@@ -1,4 +1,4 @@
-TARGET= ar.logh ar.logh.sd.a ar.logh.sd.t ar.ttl ar.ttl.sd.a ar.ttl.sd.t ar.ttl.sd.t.mulpot ar.ttl.sd.t.mulpot.cm ar.ttl.sd.t.mulpot.cm.mpfrc ar.ttl.sd.t.maxpot.cm ar.ttl.sd.t.addpot.cm ar.ttl.sd.t.cm
+TARGET= ar.logh ar.logh.sd.t ar.ttl ar.ttl.sd.t ar.ttl.sd.t.mulpot ar.ttl.sd.t.mulpot.cm ar.ttl.sd.t.mulpot.cm.mpfrc ar.ttl.sd.t.maxpot.cm ar.ttl.sd.t.addpot.cm ar.ttl.sd.t.cm
 INSTALL_PATH=~/bin
 
 all: $(TARGET)
@@ -72,9 +72,6 @@ endif
 ar.logh: ar.cxx  ${SOURCE}
 	$(CXX) $(CXXFLAGS) $< -o $@ $(CXXLIBS)
 
-ar.logh.sd.a: ar.cxx ${SOURCE}
-	$(CXX) $(CXXFLAGS) -D AR_SLOWDOWN_ARRAY -D AR_SLOWDOWN_TIMESCALE  $< -o $@ $(CXXLIBS)
-
 ar.logh.sd.t: ar.cxx ${SOURCE}
 	$(CXX) $(CXXFLAGS) -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE  $< -o $@ $(CXXLIBS)
 
@@ -83,9 +80,6 @@ ar.ttl: ar.cxx ${SOURCE}
 
 ar.ttl.m: ar.cxx ${SOURCE}
 	$(CXX) $(CXXFLAGS) -D AR_TTL -D AR_TTL_GT_MULTI $< -o $@ $(CXXLIBS)
-
-ar.ttl.sd.a: ar.cxx ${SOURCE}
-	$(CXX) $(CXXFLAGS) -D AR_TTL -D AR_SLOWDOWN_ARRAY -D AR_SLOWDOWN_TIMESCALE  $< -o $@ $(CXXLIBS)
 
 ar.ttl.sd.t: ar.cxx ${SOURCE}
 	$(CXX) $(CXXFLAGS) -D AR_TTL -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE  $< -o $@ $(CXXLIBS)
