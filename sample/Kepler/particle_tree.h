@@ -87,7 +87,7 @@ public:
         if(!is_member_tree[i]) {
             if(member[i]!=NULL) {
                 Tparticle* tmp=(Tparticle*)member[i];
-                assert(tmp->mass==a.mass+b.mass);
+                assert(abs(tmp->mass-a.mass-b.mass)<10*ROUND_OFF_ERROR_LIMIT);
                 member[i]=new ParticleTree<Tparticle>;
                 bool fg=((ParticleTree<Tparticle>*)member[i])->fill(pshift(a,*tmp),pshift(b,*tmp));
                 delete tmp;
