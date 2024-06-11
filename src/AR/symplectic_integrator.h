@@ -112,33 +112,12 @@ namespace AR {
 
         //! read class data with BINARY format and initial the array
         /*! @param[in] _fin: file IO for read
-          @param[in] _version: version for reading. 0: default; 1: missing ds_scale
          */
-        void readBinary(FILE *_fin, int _version=0) {
-            if (_version==0) {
-                size_t size = sizeof(*this) - sizeof(interaction) - sizeof(step);
-                size_t rcount = fread(this, size, 1, _fin);
-                if (rcount<1) {
-                    std::cerr<<"Error: TimeTransformedSymplecticManager parameter reading fails! requiring data number is 1, only obtain "<<rcount<<".\n";
-                    abort();
-                }
-            }
-            else if (_version==1) {
-                size_t rcount = fread(this, sizeof(Float), 3, _fin);
-                if (rcount<3) {
-                    std::cerr<<"Error: TimeTransformedSymplecticManager parameter data reading fails! requiring data number is 3, only obtain "<<rcount<<".\n";
-                    abort();
-                }
-                ds_scale=1.0;
-                size_t size = sizeof(*this) - sizeof(interaction) - sizeof(step) - 4*sizeof(Float);
-                rcount = fread(&slowdown_pert_ratio_ref, size, 1, _fin);
-                if (rcount<1) {
-                    std::cerr<<"Error: TimeTransformedSymplecticManager parameter data reading fails! requiring data number is 1, only obtain "<<rcount<<".\n";
-                    abort();
-                }
-            }
-            else {
-                std::cerr<<"Error: TimeTransformedSymplecticManager.readBinary unknown version "<<_version<<", should be 0 or 1."<<std::endl;
+        void readBinary(FILE *_fin) {
+            size_t size = sizeof(*this) - sizeof(interaction) - sizeof(step);
+            size_t rcount = fread(this, size, 1, _fin);
+            if (rcount<1) {
+                std::cerr<<"Error: TimeTransformedSymplecticManager parameter reading fails! requiring data number is 1, only obtain "<<rcount<<".\n";
                 abort();
             }
             interaction.readBinary(_fin);
