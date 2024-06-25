@@ -101,6 +101,7 @@ namespace COMM {
         */
         void printColumnTitle(std::ostream & _fout, const int _width=20) {
             _fout<<std::setw(_width)<<"N";
+            cm.printColumnTitle(_fout, _width);
             for (int i=0; i<TList::num_; i++) TList::data_[i].printColumnTitle(_fout, _width);
         }
 
@@ -111,6 +112,7 @@ namespace COMM {
         */
         void printColumn(std::ostream & _fout, const int _width=20){
             _fout<<std::setw(_width)<<TList::num_;
+            cm.printColumn(_fout, _width);
             for (int i=0; i<TList::num_; i++) TList::data_[i].printColumn(_fout, _width);
         }
 

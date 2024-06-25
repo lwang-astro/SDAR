@@ -3128,6 +3128,7 @@ namespace H4{
         */
         void printColumnTitle(std::ostream & _fout, const int _width, const int _n_sd_list[], const int _n_group, const int _n_sd_tot) {
             _fout<<std::setw(_width)<<"Time"
+                 <<std::setw(_width)<<"Time_offset"
                  <<std::setw(_width)<<"dE"
                  <<std::setw(_width)<<"Etot_ref"
                  <<std::setw(_width)<<"Ekin"
@@ -3170,7 +3171,8 @@ namespace H4{
           @param[in] _n_sd_tot: total slowdown numbers
         */
         void printColumn(std::ostream & _fout, const int _width, const int _n_sd_list[], const int _n_group, const int _n_sd_tot){
-            _fout<<std::setw(_width)<<time_;
+            _fout<<std::setw(_width)<<time_
+                 <<std::setw(_width)<<time_offset_;
             energy_.printColumn(_fout, _width);
             energy_sd_.printColumn(_fout, _width);
             _fout<<std::setw(_width)<<_n_sd_tot;
