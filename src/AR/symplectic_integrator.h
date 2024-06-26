@@ -3505,6 +3505,7 @@ namespace AR {
 #endif
 #ifdef USE_CM_FRAME
             _fout<<std::setw(_width)<<particles.getSize();
+            particles.cm.printColumn(_fout, _width);
             info.getBinaryTreeRoot().printMemberIter(_fout, _width);
 #else                
             particles.printColumn(_fout, _width);
