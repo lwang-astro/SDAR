@@ -1,3 +1,4 @@
+
 #pragma once
 
 #include <functional>
@@ -1195,46 +1196,6 @@ namespace AR {
 
 #endif // AR_SLOWDOWN_TREE
 
-        //! update binary cm iteratively
-        void updateBinaryCMIter(AR::BinaryTree<Tparticle>& _bin) {
-            _bin.pos[0]= _bin.pos[1] = _bin.pos[2] = 0.0;
-            _bin.vel[0]= _bin.vel[1] = _bin.vel[2] = 0.0;
-            Float mcm_member = 0.0;
-            for (int k=0; k<2; k++) {
-                if (_bin.isMemberTree(k)) {
-                    auto* bink = _bin.getMemberAsTree(k);
-                    updateBinaryCMIter(*bink);
-                    mcm_member  += bink->mass;
-                    _bin.pos[0] += bink->mass*bink->pos[0];
-                    _bin.pos[1] += bink->mass*bink->pos[1];
-                    _bin.pos[2] += bink->mass*bink->pos[2];
-                    _bin.vel[0] += bink->mass*bink->vel[0];
-                    _bin.vel[1] += bink->mass*bink->vel[1];
-                    _bin.vel[2] += bink->mass*bink->vel[2];
-                }
-                else {
-                    auto* pk = _bin.getMember(k);
-                    mcm_member  += pk->mass;
-                    _bin.pos[0] += pk->mass*pk->pos[0];
-                    _bin.pos[1] += pk->mass*pk->pos[1];
-                    _bin.pos[2] += pk->mass*pk->pos[2];
-                    _bin.vel[0] += pk->mass*pk->vel[0];
-                    _bin.vel[1] += pk->mass*pk->vel[1];
-                    _bin.vel[2] += pk->mass*pk->vel[2];
-                }
-            }
-            Float mcm_inv = 1.0/mcm_member;
-            _bin.mass = mcm_member;
-            _bin.m1 = _bin.getLeftMember()->mass;
-            _bin.m2 = _bin.getRightMember()->mass;
-            _bin.vel[0] *= mcm_inv;
-            _bin.vel[1] *= mcm_inv;
-            _bin.vel[2] *= mcm_inv;
-            _bin.pos[0] *= mcm_inv;
-            _bin.pos[1] *= mcm_inv;
-            _bin.pos[2] *= mcm_inv;
-        }
-
         //! set all binary c.m. mass to zero
         void setBinaryCMZeroIter(AR::BinaryTree<Tparticle>& _bin) {
             _bin.mass = 0.0;
@@ -1246,7 +1207,7 @@ namespace AR {
             }
         }
 
-        //! update binary semi, ecc and period iteratively after 0.25 period for unstable systems
+        //! update binary semi, ecc and period iteratively for unstable multiple systems
         bool updateBinarySemiEccPeriodIter(AR::BinaryTree<Tparticle>& _bin, const Float& _G, const Float _time, const bool _check=false) {
             bool check = _check;
             for (int k=0; k<2; k++) {
@@ -1916,7 +1877,7 @@ namespace AR {
             // backup data size
             const int bk_data_size = getBackupDataSize();
             
-            Float backup_data[bk_data_size]; // for backup chain data
+            Float backup_data[bk_data_size]; // for backup particle data
 #ifdef AR_DEBUG_DUMP
             Float backup_data_init[bk_data_size]; // for backup initial data
 #endif
@@ -1931,9 +1892,10 @@ namespace AR {
             Float ds_init   = info.ds;  //backup initial step
             int   ds_switch=0;   // 0 or 1
 
-            // reduce ds control, three level
+            // reduce ds control, the maximum level
             const int n_reduce_level_max=10;
 
+            // ds manager
             struct DsBackupManager{
                 Float ds_backup[n_reduce_level_max+1];
                 int n_step_wait_recover_ds[n_reduce_level_max+1];
@@ -2008,6 +1970,8 @@ namespace AR {
             // step count
             long long unsigned int step_count=0; // integration step 
             long long unsigned int step_count_tsyn=0; // time synchronization step
+
+            // interrupted binary recorder
             InterruptBinary<Tparticle> bin_interrupt;
             bin_interrupt.time_now=time_ + info.time_offset;
             bin_interrupt.time_end=_time_end + info.time_offset;
@@ -2016,14 +1980,15 @@ namespace AR {
             // particle data
             const int n_particle = particles.getSize();
 
-/* This must suppress since after findslowdowninner, slowdown inner is reset to 1.0, recalculate ekin_sdi give completely wrong value for energy correction for slowdown change later
+            /* This must suppress since after findslowdowninner, slowdown inner is reset to 1.0, recalculate ekin_sdi give completely wrong value for energy correction for slowdown change later
 #ifdef AR_DEBUG
             Float ekin_check = ekin_;
             calcEKin();
             ASSERT(abs(ekin_check-ekin_)<1e-10);
             ekin_ = ekin_check;
 #endif
-*/
+            */
+
             // warning print flag
             bool warning_print_once=true;
 
@@ -2036,7 +2001,6 @@ namespace AR {
             // update slowdown and correct slowdown energy and gt_inv
             updateSlowDownAndCorrectEnergy(true, true);
 #endif
-
 
             // reset binary stab_check_time
             for (int i=0; i<info.binarytree.getSize(); i++)
@@ -2065,20 +2029,12 @@ namespace AR {
                         ASSERT(bin_interrupt.checkParams());
                         if (bin_interrupt.status!=InterruptStatus::none) {
                             if (manager->interaction.interrupt_detection_option==2) {
-                                // cumulative step count 
-                                //profile.step_count = step_count;
-                                //profile.step_count_tsyn = step_count_tsyn;
-                                //profile.step_count_sum += step_count;
-                                //profile.step_count_tsyn_sum += step_count_tsyn;
-
-                                //return bin_interrupt;
 
                                 // return the first one of detection
                                 if (bin_interrupt_return.status == InterruptStatus::none) 
                                     bin_interrupt_return = bin_interrupt;
                             }
                             else {
-
                                 // check whether destroy appears (all masses becomes zero)
                                 if (bin_interrupt.status==InterruptStatus::destroy) {
                                     // all particles become zero masses
@@ -2136,17 +2092,10 @@ namespace AR {
                                 Float H_sd_bk = getHSlowDown();
 #endif
                                 
-                                // update binary tree mass
+                                // update binary tree, put unused zero-mass particles out of the tree
                                 info.generateBinaryTree(particles, G);
-                                //updateBinaryCMIter(bin_root);
-                                //updateBinarySemiEccPeriodIter(bin_root, G, time_, true);
                                 binary_update_flag = true;
-                                //bool stable_check=
-                                //if (stable_check) bin_root.stableCheckIter(bin_root, 10000*bin_root.period);
                                 
-                                // should do later, original mass still needed
-                                //particles.cm.mass += bin_interrupt.dm;
-
 #ifdef AR_TTL
                                 Float gt_kick_inv_bk = gt_kick_inv_.value;
                                 calcAccPotAndGTKickInv();
@@ -2327,7 +2276,9 @@ namespace AR {
                     ASSERT(bk_return_size == bk_data_size);
                     (void)bk_return_size;
 //ifdef AR_SLOWDOWN_TREE
-                    updateBinaryCMIter(info.getBinaryTreeRoot());
+#ifndef USE_CM_FRAME
+                    info.getBinaryTreeRoot().calcCenterOfMassIter();
+#endif
 //#endif
                 }
 
@@ -3262,10 +3213,12 @@ namespace AR {
 #ifdef AR_TTL
             bk_size += 2;
 #endif
-            bk_size += particles.getBackupDataSize();
+            bk_size += particles.getSize()*6;
+#ifdef USE_CM_FRAME
+            bk_size += info.binarytree.getSize()*6;
+#endif
             return bk_size;
         }
-
 
         //! Backup integration data 
         /*! Backup $time_, $etot_, $ekin_, $epot_, $gt_drift_, $gt_kick_inv_, #particles, $slowdown to one Float data array
@@ -3294,7 +3247,34 @@ namespace AR {
             _bk[bk_size++] = gt_kick_inv_.value;   //14 / 7
 #endif
 
-            bk_size += particles.backupParticlePosVel(&_bk[bk_size]); 
+            for (int i=0; i<particles.getSize(); i++) {
+                Float* pos = particles[i].getPos();
+                Float* vel = particles[i].getVel();
+                _bk[bk_size++] = pos[0];
+                _bk[bk_size++] = pos[1];
+                _bk[bk_size++] = pos[2];
+                _bk[bk_size++] = vel[0];
+                _bk[bk_size++] = vel[1];
+                _bk[bk_size++] = vel[2];
+            }
+
+#ifdef USE_CM_FRAME
+            std::function<void(AR::BinaryTree<Tparticle>&)> backupCMPosVelIter = [&](AR::BinaryTree<Tparticle>& _bin) {
+                _bk[bk_size++] = _bin.pos[0];
+                _bk[bk_size++] = _bin.pos[1];
+                _bk[bk_size++] = _bin.pos[2];
+                _bk[bk_size++] = _bin.vel[0];
+                _bk[bk_size++] = _bin.vel[1];
+                _bk[bk_size++] = _bin.vel[2];
+                for (int k=0; k<2; k++) {
+                    if (_bin.isMemberTree(k)) {
+                        auto* bink = _bin.getMemberAsTree(k);
+                        backupCMPosVelIter(*bink);
+                    } 
+                }
+            };
+            backupCMPosVelIter(info.getBinaryTreeRoot());
+#endif
 //#ifdef AR_SLOWDOWN_TREE
 //            bk_size += info.getBinaryTreeRoot().slowdown.backup(&_bk[bk_size]); // slowdownfactor
 //#endif
@@ -3328,7 +3308,37 @@ namespace AR {
             gt_drift_inv_  = _bk[bk_size++];
             gt_kick_inv_.value   = _bk[bk_size++];
 #endif
-            bk_size += particles.restoreParticlePosVel(&_bk[bk_size]);
+
+            //! restore member particle position and velocity
+            for (int i=0; i<particles.getSize(); i++) {
+                Float* pos = particles[i].getPos();
+                Float* vel = particles[i].getVel();
+                pos[0] = _bk[bk_size++];
+                pos[1] = _bk[bk_size++];
+                pos[2] = _bk[bk_size++];
+                vel[0] = _bk[bk_size++];
+                vel[1] = _bk[bk_size++];
+                vel[2] = _bk[bk_size++];
+            }
+
+#ifdef USE_CM_FRAME
+            std::function<void(AR::BinaryTree<Tparticle>&)> restoreCMPosVelIter = [&](AR::BinaryTree<Tparticle>& _bin) {
+                _bin.pos[0] = _bk[bk_size++];
+                _bin.pos[1] = _bk[bk_size++];
+                _bin.pos[2] = _bk[bk_size++];
+                _bin.vel[0] = _bk[bk_size++];
+                _bin.vel[1] = _bk[bk_size++];
+                _bin.vel[2] = _bk[bk_size++];
+                for (int k=0; k<2; k++) {
+                    if (_bin.isMemberTree(k)) {
+                        auto* bink = _bin.getMemberAsTree(k);
+                        restoreCMPosVelIter(*bink);
+                    } 
+                }
+            };
+            restoreCMPosVelIter(info.getBinaryTreeRoot());
+#endif      
+
 //#ifdef AR_SLOWDOWN_TREE
 //            bk_size += info.getBinaryTreeRoot().slowdown.restore(&_bk[bk_size]);
 //#endif

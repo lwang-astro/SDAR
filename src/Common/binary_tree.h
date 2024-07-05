@@ -7,7 +7,7 @@
 
 namespace COMM{
     const Float PI = 4.0*atan(1.0);
-
+    
     //! Binary parameter class
     class Binary{
     public:
@@ -496,9 +496,17 @@ namespace COMM{
         //}
     };
 
-//! Binary tree cell 
-/*! 
-*/
+    
+    //! binary tree member index tag
+    enum class BinaryTreeMemberIndexTag:int {
+        binarytree = -1, // member is binary tree root
+        allocated = -2,  // member is locally allocated particle
+        initial = -3     // member is in the initial state
+    };    
+
+    //! Binary tree class
+    /*! 
+     */
     template <class Tptcl, class Tbinary>
     class BinaryTree: public Tptcl, public Tbinary {
     private: 
@@ -569,33 +577,33 @@ namespace COMM{
     public:
 
         //! constructor
-        BinaryTree(): Tptcl(), Tbinary(),n_members(-1), member_index{-3,-3}, member{NULL,NULL},  origin_frame_flag(true), level(-1), branch(-1) {}
+        BinaryTree(): Tptcl(), Tbinary(),n_members(-1), member_index{static_cast<int>(BinaryTreeMemberIndexTag::initial), static_cast<int>(BinaryTreeMemberIndexTag::initial)}, member{NULL,NULL},  origin_frame_flag(true), level(-1), branch(-1) {}
 
         //! allocate memory for two members as particles
         /*! allocate memory as particle types for two members
-            set member index to -2
+            set member index to BinaryTreeMemberIndexTag:allocated (-2)
          */
         void allocateParticleMember() {
-            ASSERT(member_index[0]!=-2);
-            ASSERT(member_index[1]!=-2);
+            ASSERT(member_index[0] != static_cast<int>(BinaryTreeMemberIndexTag::allocated));
+            ASSERT(member_index[1] != static_cast<int>(BinaryTreeMemberIndexTag::allocated));
             member[0] = new Tptcl();
             member[1] = new Tptcl();
-            member_index[0] = -2;
-            member_index[1] = -2;
+            member_index[0] = static_cast<int>(BinaryTreeMemberIndexTag::allocated);
+            member_index[1] = static_cast<int>(BinaryTreeMemberIndexTag::allocated);
         }
 
         //! check whether memory is allocated
         bool isAllocatedMembers() {
-            return (member_index[0] == -2 || member_index[1] == -2);
+            return (member_index[0] == static_cast<int>(BinaryTreeMemberIndexTag::allocated) || member_index[1] == static_cast<int>(BinaryTreeMemberIndexTag::allocated));
         }
 
         //! clear memory allocation
         void clear() {
             for (int i=0; i<2; i++) {
-                if (member_index[i] == -2) { 
+                if (member_index[i] == static_cast<int>(BinaryTreeMemberIndexTag::allocated)) { 
                     delete member[i];
                     member[i] = NULL;
-                    member_index[i] = -3;
+                    member_index[i] = static_cast<int>(BinaryTreeMemberIndexTag::initial);
                 }
                 else {
                     if (!origin_frame_flag) {
@@ -733,12 +741,13 @@ namespace COMM{
             BinaryTreeLocal* bin_host[_n]; 
             for(auto &p : bin_host) p=NULL;
     
+            const int binary_tree_index = static_cast<int>(BinaryTreeMemberIndexTag::binarytree);
             // check binary from the closest pair to longest pair
             for(int i=0; i<_n-1; i++) {
                 // get the pair index k in _ptcl_list with sorted r2_list, i represent the sorted r2min order.
                 int k = r2_list[i].second;
                 Tptcl* p[2];
-                int pindex[2]={-1,-1};
+                int pindex[2]={binary_tree_index, binary_tree_index};
                 // if no tree root assign, set member 1 to particle and their host to current bins i
                 if(bin_host[k]==NULL) {
 #ifdef BINARY_DEBUG
@@ -822,6 +831,15 @@ namespace COMM{
             this->vel[2] /=this->mass;
         }
 
+        //! calculate center-of-mass from members iteratively
+        void calcCenterOfMassIter() {
+            ASSERT(isOriginFrame());
+            for (int k=0; k<2; k++) {
+                if (isMemberTree(k)) getMemberAsTree(k)->calcCenterOfMassIter();
+            }
+            calcCenterOfMass();
+        }
+
         //! shift member position and velocity to binary c.m. frame
         /*! For binary tree, the shift is done iteratively. Each two members shift to their host binary c.m. frame
          */
@@ -883,9 +901,9 @@ namespace COMM{
             ASSERT(member[1]!=NULL);
 #endif
             n_members = 0;
-            if (member_index[0]==-1) n_members += ((BinaryTreeLocal*)member[0])->getMemberN();
+            if (isMemberTree(0)) n_members += ((BinaryTreeLocal*)member[0])->getMemberN();
             else n_members++;
-            if (member_index[1]==-1) n_members += ((BinaryTreeLocal*)member[1])->getMemberN();
+            if (isMemberTree(1)) n_members += ((BinaryTreeLocal*)member[1])->getMemberN();
             else n_members++;
             return n_members;
         }
@@ -902,9 +920,9 @@ namespace COMM{
             ASSERT(member[1]!=NULL);
 #endif
             n_members = 0;
-            if (member_index[0]==-1) n_members += (BinaryTreeLocal*)member[0]->calcMemberNIter();
+            if (isMemberTree(0)) n_members += (BinaryTreeLocal*)member[0]->calcMemberNIter();
             else n_members++;
-            if (member_index[1]==-1) n_members += (BinaryTreeLocal*)member[1]->calcMemberNIter();
+            if (isMemberTree(1)) n_members += (BinaryTreeLocal*)member[1]->calcMemberNIter();
             else n_members++;
             return n_members;
         }
@@ -925,9 +943,9 @@ namespace COMM{
             ASSERT(member[0]!=NULL);
             ASSERT(member[1]!=NULL);
 #endif
-            if (member_index[0]==-1) ((BinaryTreeLocal*)member[0])->processLeafIter(_dat, _f);
+            if (isMemberTree(0)) ((BinaryTreeLocal*)member[0])->processLeafIter(_dat, _f);
             else _f(_dat, member[0]);
-            if (member_index[1]==-1) ((BinaryTreeLocal*)member[1])->processLeafIter(_dat, _f);
+            if (isMemberTree(1)) ((BinaryTreeLocal*)member[1])->processLeafIter(_dat, _f);
             else _f(_dat, member[1]);
         }
 
@@ -947,7 +965,7 @@ namespace COMM{
             ASSERT(member[1]!=NULL);
             T dat_new = _f(_dat, *this);
             for (int k=0; k<2; k++) 
-                if (member_index[k]==-1) dat_new = ((BinaryTreeLocal*)member[k])->processRootIter(dat_new, _f);
+                if (isMemberTree(k)) dat_new = ((BinaryTreeLocal*)member[k])->processRootIter(dat_new, _f);
             return dat_new;
         }
 
@@ -965,7 +983,7 @@ namespace COMM{
             ASSERT(member[1]!=NULL);
             Troot dat_new = _f_root(_dat_root, *this);
             for (int k=0; k<2; k++)  {
-                if (member_index[k]==-1) dat_new = ((BinaryTreeLocal*)member[k])->processRootLeafIter(dat_new, _f_root, _dat_leaf, _f_leaf);
+                if (isMemberTree(k)) dat_new = ((BinaryTreeLocal*)member[k])->processRootLeafIter(dat_new, _f_root, _dat_leaf, _f_leaf);
                 else _f_leaf(_dat_leaf, member[k]);
             }
             return dat_new;
@@ -989,7 +1007,7 @@ namespace COMM{
             ASSERT(member[1]!=NULL);
             Tr res[2] = {_res1, _res2};
             for (int k=0; k<2; k++) 
-                if (member_index[k]==-1) res[k] = ((BinaryTreeLocal*)member[k])->processTreeIter(_dat, _res1, _res2, _f);
+                if (isMemberTree(k)) res[k] = ((BinaryTreeLocal*)member[k])->processTreeIter(_dat, _res1, _res2, _f);
             return _f(_dat, res[0], res[1], *this);
         }
     
@@ -1004,7 +1022,7 @@ namespace COMM{
             int inow = _i; // array index to fill (backwards moving)
             _bin_out[_i] = *this;
             for (int k=0; k<2; k++) {
-                if (member_index[k]==-1) {
+                if (isMemberTree(k)) {
                     inow--;
                     ASSERT(inow>=0);
                     _bin_out[_i].member[k] = &_bin_out[inow];
@@ -1022,8 +1040,8 @@ namespace COMM{
           @param[in] _i2: particle 2 index (should be >=0 if it is not binary tree)
          */
         void setMembers(Tptcl* _p1, Tptcl* _p2, const int _i1, const int _i2) {
-            ASSERT(member_index[0]!=-2);
-            ASSERT(member_index[1]!=-2);
+            ASSERT(member_index[0] != static_cast<int>(BinaryTreeMemberIndexTag::allocated));
+            ASSERT(member_index[1] != static_cast<int>(BinaryTreeMemberIndexTag::allocated));
             member[0] = _p1;
             member[1] = _p2;
             member_index[0] = _i1;
@@ -1051,7 +1069,7 @@ namespace COMM{
 
         bool isMemberTree(const size_t i) const {
             ASSERT(i<2);
-            return (member_index[i]==-1);
+            return (member_index[i]==static_cast<int>(BinaryTreeMemberIndexTag::binarytree));
         }
 
         //! get left member
@@ -1081,10 +1099,10 @@ namespace COMM{
             clear();
             n_members = _bin.n_members;
             for (int k=0; k<2; k++) {
-                if (_bin.member_index[k] == -2) {
+                if (_bin.member_index[k] == static_cast<int>(BinaryTreeMemberIndexTag::allocated)) {
                     member[k] = new Tptcl();
                     *member[k] = *(_bin.member[k]);
-                    member_index[k] = -2;
+                    member_index[k] = static_cast<int>(BinaryTreeMemberIndexTag::allocated);
                 }
                 else {
                     member[k] = _bin.member[k];

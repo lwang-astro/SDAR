@@ -330,6 +330,10 @@ namespace AR {
 
         //! generate binary tree for the particle group
         /*! 
+          - Construct the binary tree based on particle positions and velocities\n
+          - If particle mass is 0.0, set to unused particles and put at the outermost orbits\n
+          - If USE_CM_FRAME is used, switch each coordinate frame of the binary members to their center-of-the-mass frame\n
+
           @param[in] _particles: particle group 
           @param[in] _G: gravitational constant
          */
@@ -343,6 +347,7 @@ namespace AR {
 #endif
 
             const int n_particle = _particles.getSize();
+            const int binary_tree_index = static_cast<int>(COMM::BinaryTreeMemberIndexTag::binarytree);
             ASSERT(n_particle>1);
             binarytree.resizeNoInitialize(n_particle-1);
             int particle_index_local[n_particle];
@@ -363,7 +368,7 @@ namespace AR {
                 binarytree[0].m1 = 0.0;
                 binarytree[0].m2 = 0.0;  
                 for (int i=2; i<n_particle; i++) {
-                    binarytree[i-1].setMembers((Tparticle*)&(binarytree[i-2]), &( _particles[i]), -1, i);
+                    binarytree[i-1].setMembers((Tparticle*)&(binarytree[i-2]), &( _particles[i]), binary_tree_index, i);
                     binarytree[i-1].mass = 0.0;
                     binarytree[i-1].m1 = 0.0;
                     binarytree[i-1].m2 = 0.0;
@@ -374,8 +379,8 @@ namespace AR {
                 int i2 = particle_index_unused[0];
                 binarytree[0].setMembers(&(_particles[i1]), &(_particles[i2]), i1 ,i2);
                 binarytree[0].m1 = _particles[i1].mass;
-                binarytree[0].m2 = _particles[i2].mass;
-                binarytree[0].mass = binarytree[0].m1 + binarytree[0].m2;
+                binarytree[0].m2 = 0.0;
+                binarytree[0].mass = binarytree[0].m1;
                 binarytree[0].pos[0] = _particles[i1].pos[0];
                 binarytree[0].pos[1] = _particles[i1].pos[1];
                 binarytree[0].pos[2] = _particles[i1].pos[2];
@@ -384,10 +389,10 @@ namespace AR {
                 binarytree[0].vel[2] = _particles[i1].vel[2];
                 for (int i=1; i<n_particle_unused; i++) {
                     int k = particle_index_unused[i];
-                    binarytree[i].setMembers((Tparticle*)&(binarytree[i-1]), &(_particles[k]), -1, k);
+                    binarytree[i].setMembers((Tparticle*)&(binarytree[i-1]), &(_particles[k]), binary_tree_index, k);
                     binarytree[i].m1 = binarytree[i-1].mass;
-                    binarytree[i].m2 = _particles[k].mass;
-                    binarytree[i].mass = binarytree[i].m1 + binarytree[i].m2;
+                    binarytree[i].m2 = 0.0;
+                    binarytree[i].mass = binarytree[i].m1;
                     binarytree[i].pos[0] = binarytree[i-1].pos[0];
                     binarytree[i].pos[1] = binarytree[i-1].pos[1];
                     binarytree[i].pos[2] = binarytree[i-1].pos[2];
@@ -401,10 +406,10 @@ namespace AR {
                     int ilast = n_particle_real-1+i;
                     ASSERT(ilast<n_particle-1);
                     int k = particle_index_unused[i];
-                    binarytree[ilast].setMembers((Tparticle*)&(binarytree[ilast-1]), &(_particles[k]), -1, k);
+                    binarytree[ilast].setMembers((Tparticle*)&(binarytree[ilast-1]), &(_particles[k]), binary_tree_index, k);
                     binarytree[ilast].m1 = binarytree[ilast-1].mass;
-                    binarytree[ilast].m2 = _particles[k].mass;
-                    binarytree[ilast].mass = binarytree[ilast].m1 + binarytree[ilast].m2;
+                    binarytree[ilast].m2 = 0.0;
+                    binarytree[ilast].mass = binarytree[ilast].m1;
                     binarytree[ilast].pos[0] = binarytree[ilast-1].pos[0];
                     binarytree[ilast].pos[1] = binarytree[ilast-1].pos[1];
                     binarytree[ilast].pos[2] = binarytree[ilast-1].pos[2];

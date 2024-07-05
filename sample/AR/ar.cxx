@@ -420,7 +420,9 @@ int main(int argc, char **argv){
                     break;
                 }
             }
+#ifndef USE_CM_FRAME
             sym_int.info.generateBinaryTree(sym_int.particles, manager.interaction.gravitational_constant);
+#endif
             sym_int.printColumn(std::cout, print_width.value, n_sd);
             std::cout<<std::endl;
         }

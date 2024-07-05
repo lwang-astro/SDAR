@@ -49,51 +49,6 @@ namespace COMM {
             clear();
         }
 
-        //! get backup data size 
-        /*! \return the data array size for backupParticlePosVel()
-         */
-        int getBackupDataSize() const {
-            return 6*TList::num_;
-        }
-
-        //! Backup member particle position and velocity
-        /*!
-          \return backup array size
-        */
-        int backupParticlePosVel(Float* _bk) {
-            for (int i=0; i<TList::num_; i++) {
-                const int k=6*i;
-                Float* pos = TList::data_[i].getPos();
-                Float* vel = TList::data_[i].getVel();
-                _bk[k  ] = pos[0];
-                _bk[k+1] = pos[1];
-                _bk[k+2] = pos[2];
-                _bk[k+3] = vel[0];
-                _bk[k+4] = vel[1];
-                _bk[k+5] = vel[2];
-            }
-            return 6*TList::num_;
-        }
-
-        //! restore member particle position and velocity
-        /*!
-          \return backup array size
-        */
-        int restoreParticlePosVel(Float* _bk) {
-            for (int i=0; i<TList::num_; i++) {
-                const int k=6*i;
-                Float* pos = TList::data_[i].getPos();
-                Float* vel = TList::data_[i].getVel();
-                pos[0] = _bk[k  ];
-                pos[1] = _bk[k+1];
-                pos[2] = _bk[k+2];
-                vel[0] = _bk[k+3];
-                vel[1] = _bk[k+4];
-                vel[2] = _bk[k+5];
-            }
-            return 6*TList::num_;
-        }
-
         //! print titles of class members using column style
         /*! print titles of class members in one line for column style
           @param[out] _fout: std::ostream output object
