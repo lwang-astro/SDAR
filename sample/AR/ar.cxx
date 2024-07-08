@@ -365,7 +365,7 @@ int main(int argc, char **argv){
     // integration loop
     const int n_particle = sym_int.particles.getSize();
     if (!synch_flag) {
-        float time_out = time_zero.value + dt_out.value;
+        Float time_out = time_zero.value + dt_out.value;
         Float time_table[manager.step.getCDPairSize()];
         sym_int.profile.step_count = 1;
         auto IntegrateOneStep = [&] (){

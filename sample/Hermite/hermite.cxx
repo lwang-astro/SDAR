@@ -363,7 +363,8 @@ int main(int argc, char **argv){
     std::cout<<std::endl;
     
     // dt_out
-    Float dt_output = pow(Float(0.5),Float(dt_out_power_index.value));
+    Float dt_out = pow(Float(0.5),Float(dt_out_power_index.value));
+    Float time_out = time_zero.value + dt_out;
 
     // integration loop
     while (h4_int.getTime()<time_end.value) {
@@ -401,7 +402,7 @@ int main(int argc, char **argv){
         h4_int.modifySingleParticles();
         h4_int.sortDtAndSelectActParticle();
 
-        if (fmod(h4_int.getTime(), dt_output)==0.0) {
+        if (h4_int.getTime()>=time_out) {
             h4_int.calcEnergySlowDown(false);
             
             h4_int.particles.calcCenterOfMass();
@@ -413,6 +414,8 @@ int main(int argc, char **argv){
             h4_int.printColumn(std::cout, print_width.value, n_group_sub_init, n_group_init, n_group_sub_tot_init);
             std::cout<<std::endl;
             h4_int.printStepHist();
+
+            time_out += dt_out;
         }
     }
 

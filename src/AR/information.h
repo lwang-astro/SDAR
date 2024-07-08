@@ -208,7 +208,7 @@ namespace AR {
           @param[in] _bin: binary tree to check
           @param[in] _int_order: symplectic integrator accurate order
           @param[in] _G: gravitational constant
-          @param[in] _ds_scale: global scaling for final ds returned from calcProdDsKeplerIter (default: 1.0)
+          @param[in] _ds_scale: global scaling for final ds (default: 1.0)
           
           \return ds: ds estimated based on all inner most kepler orbit of _bin
          */
@@ -242,8 +242,44 @@ namespace AR {
 
 #else        
 
+        //! calculate ds for a binary tree with multiple inner binaries/hyperbolics 
+        /*! calculate ds by select the minimum ds of binary/hyperbolic
+          @param[in] _bin: binary tree to check
+          @param[in] _int_order: symplectic integrator accurate order
+          @param[in] _G: gravitational constant
+          @param[in] _ds_scale: global scaling for final ds (default: 1.0), only multiplied once in the root level
+
+          \return ds: minium ds * _ds_scale
+         */
+        Float calcDsKeplerBinaryTree(BinaryTree<Tparticle>& _bin, const int _int_order, const Float& _G, const Float& _ds_scale = 1.0) {
+            Float ds_min = NUMERIC_FLOAT_MAX;
+            if (_bin.getMemberN()>2) { // if not inner most kepler orbit, go inside members
+                for (int k=0; k<2; k++) 
+                    if (_bin.isMemberTree(k)) {
+                        Float dsk = calcDsKeplerBinaryTree(*_bin.getMemberAsTree(k), _int_order, _G);
+                        if (dsk < ds_min) ds_min = dsk;
+                    }
+            }
+            else {
+                // zero mass cause ds=0
+                if (_bin.m1>0 && _bin.m2>0) { 
+                    // perturbation ratio
+                    Float pert_ratio = (_bin.slowdown.pert_out>0&&_bin.slowdown.pert_in>0)? _bin.slowdown.pert_in/_bin.slowdown.pert_out: 1.0;
+                    // scale step based on perturbation and sym method order
+                    Float scale_factor = std::min(Float(1.0),pow(1e-1*pert_ratio,1.0/Float(_int_order)));
+
+                    if (_bin.semi>0) ds = calcDsElliptic(_bin, _G)*scale_factor;
+                    else ds = calcDsHyperbolic(_bin, _G)*scale_factor;
+                    ASSERT(ds<NUMERIC_FLOAT_MAX && ds>0);
+                    if (ds < ds_min) ds_min = ds;
+                }
+            }
+            return _ds_scale*ds_min;
+        }
+
         //! iteration function to calculate average kepler ds for a binary tree
-        void calcDsMinKeplerIter(Float& _ds_over_ebin_min_bin, Float& _ds_min_bin, Float& _ds_min_hyp, Float& _etot_sd, const Float& _G, const Float& _nest_sd_up, BinaryTree<Tparticle>& _bin, const int _intergrator_order) {
+        /*
+        void calcDsOverEbinMinKeplerIter(Float& _ds_over_ebin_min_bin, Float& _ds_min_bin, Float& _ds_min_hyp, Float& _etot_sd, const Float& _G, const Float& _nest_sd_up, BinaryTree<Tparticle>& _bin, const int _intergrator_order) {
             Float nest_sd = _nest_sd_up * _bin.slowdown.getSlowDownFactor();
             // perturbation ratio
             Float pert_ratio = (_bin.slowdown.pert_out>0&&_bin.slowdown.pert_in>0)? _bin.slowdown.pert_in/_bin.slowdown.pert_out: 1.0;
@@ -251,15 +287,16 @@ namespace AR {
             Float scale_factor = std::min(Float(1.0),pow(1e-1*pert_ratio,1.0/Float(_intergrator_order)));
             for (int k=0; k<2; k++) {
                 if (_bin.isMemberTree(k)) {
-                    calcDsMinKeplerIter(_ds_over_ebin_min_bin, _ds_min_bin, _ds_min_hyp, _etot_sd, _G, nest_sd, *_bin.getMemberAsTree(k), _intergrator_order);
+                    calcDsOverEbinMinKeplerIter(_ds_over_ebin_min_bin, _ds_min_bin, _ds_min_hyp, _etot_sd, _G, nest_sd, *_bin.getMemberAsTree(k), _intergrator_order);
                 }
             }
             // zero mass cause ds=0
             if (_bin.m1>0&&_bin.m2>0) {
                 if (_bin.semi>0) {
                     Float dsi = calcDsElliptic(_bin, _G);
-                    // scale by /Ebin_sd
-                    Float ebin_sd = _G*(_bin.m1*_bin.m2)/(2*_bin.semi*nest_sd);
+
+                    // scale by slowdown energy
+                     Float ebin_sd = _G*(_bin.m1*_bin.m2)/(2*_bin.semi*nest_sd);
                     ASSERT(dsi>0&&ebin_sd>0);
                     Float ds_over_ebin = dsi*scale_factor/ebin_sd;
                     if (ds_over_ebin<_ds_over_ebin_min_bin) {
@@ -276,10 +313,12 @@ namespace AR {
                 }
             }
         }
+        */
 
         //! calculate average kepler ds iterately for a binary tree
         /*! use calcDsMinKeplerIter
          */
+        /*
         Float calcDsKeplerBinaryTree(BinaryTree<Tparticle>& _bin, const int _int_order, const Float& _G, const Float& _ds_scale) {
             Float ds_over_ebin_min=NUMERIC_FLOAT_MAX;
             Float ds_min_hyp=NUMERIC_FLOAT_MAX;
@@ -290,6 +329,7 @@ namespace AR {
             ASSERT(ds_min_hyp<NUMERIC_FLOAT_MAX||ds_min_bin<NUMERIC_FLOAT_MAX);
             return _ds_scale*std::min(ds_min_bin,ds_min_hyp);
         }
+        */
 
 #endif
 
