@@ -57,6 +57,9 @@ int main(int argc, char **argv){
 #ifdef USE_MPFRC
     COMM::IOParams<int>   mpfr_digits     (input_par_store, 30, "dights for MPFR precison");
 #endif
+#ifdef AR_HYBRID
+    COMM::IOParams<int>   hybrid_option  (input_par_store, -1, "use Hybrid methods: on, off, auto", "auto"); // determine whether hybrid method is used
+#endif
     COMM::IOParams<std::string> filename_par (input_par_store, "", "filename to load manager parameters","input name"); // par dumped filename
     bool load_flag=false;  // if true; load dumped data
     bool synch_flag=false; // if true, switch on time synchronization
@@ -92,6 +95,9 @@ int main(int argc, char **argv){
         {"ds-scale",required_argument, 0, 12},
 #ifdef USE_MPFRC
         {"mpfr-dights", required_argument, 0, 13},
+#endif
+#ifdef AR_HYBRID
+        {"hybrid-method", required_argument, 0, 14},
 #endif
         {"load-data",no_argument, 0, 'l'},
         {"help",no_argument, 0, 'h'},
@@ -146,6 +152,17 @@ int main(int argc, char **argv){
         case 13:
             mpfr_digits.value = atoi(optarg);
 #endif
+#ifdef AR_HYBRID
+        case 14:
+            if (!strcmp(optarg,"auto")) hybrid_option.value=-1;
+            else if (!strcmp(optarg,"on")) hybrid_option.value=1;
+            else if (!strcmp(optarg,"off")) hybrid_option.value=0;
+            else {
+                std::cerr<<"Error: fix step option unknown ("<<optarg<<"), should be on, off, auto\n";
+                abort();
+            }
+            break;
+#endif
         case 'G':
             gravitational_constant.value = atof(optarg);
             break;
@@ -199,8 +216,11 @@ int main(int argc, char **argv){
                      <<"          --ds-scale        [Float]:  "<<ds_scale<<"\n"
                      <<"    -e [Float]:  "<<energy_error<<"\n"
                      <<"          --energy-error    [Float]:  same as -e\n"
-                     <<"          --fix-step-option [char] :  "<<fix_step_option<<"\n"
+                     <<"          --fix-step-option [string]: "<<fix_step_option<<"\n"
                      <<"    -G [Float]:  "<<gravitational_constant<<"\n"
+#ifdef AR_HYBRID
+                     <<"          --hybrid-method   [string]: "<<hybrid_option<<"\n"
+#endif
                      <<"    -k [int]:    "<<sym_order<<"\n"
                      <<"    -i [string]: "<<interrupt_detection_option<<"\n"
                      <<"    -l :          load dumped data for restart (if used, the input file is dumped data)\n"
@@ -315,6 +335,10 @@ int main(int argc, char **argv){
     sym_int.info.reserveMem(sym_int.particles.getSize());
     sym_int.info.generateBinaryTree(sym_int.particles,manager.interaction.gravitational_constant);
 
+#ifdef AR_HYBRID
+    if (hybrid_option.value!=-1) sym_int.hybrid_switch = hybrid_option.value;
+#endif
+
     // r_break
     sym_int.info.r_break_crit = r_break.value;
 
@@ -369,8 +393,14 @@ int main(int argc, char **argv){
         Float time_table[manager.step.getCDPairSize()];
         sym_int.profile.step_count = 1;
         auto IntegrateOneStep = [&] (){
-#if (defined AR_SLOWDOWN_ARRAY) || (defined AR_SLOWDOWN_TREE)
+#ifdef AR_SLOWDOWN_TREE
             sym_int.updateSlowDownAndCorrectEnergy(true, false);
+#endif
+#ifdef AR_HYBRID
+            if (hybrid_option.value==-1) {
+                sym_int.info.generateBinaryTree(sym_int.particles,manager.interaction.gravitational_constant);
+                sym_int.switchHybridMethod();
+            }
 #endif
             if(n_particle==2) sym_int.integrateTwoOneStep(sym_int.info.ds, time_table);
             else sym_int.integrateOneStep(sym_int.info.ds, time_table);

@@ -1,4 +1,3 @@
-
 #pragma once
 
 #include <functional>
@@ -10,6 +9,10 @@
 #include "AR/profile.h"
 #include "AR/information.h"
 #include "AR/interrupt.h"
+
+#if (defined AR_TIME_FUNCTION_MUL_POT) || (defined AR_TIME_FUNCTION_ADD_POT) || (defined AR_TIME_FUNCTION_MAX_POT)
+#define AR_HYBRID
+#endif
 
 //! Algorithmic regularization (time transformed explicit symplectic integrator) namespace
 /*!
@@ -207,13 +210,18 @@ namespace AR {
             {}
 
             // reset 
-            void reset() {
+            /*! param[in] hybrid_switch, if >0, for MUL_POT mode, value is 1.0, else is 0.0
+             */
+            void reset(const int hybrid_switch = 0) {
 #ifdef AR_TIME_FUNCTION_MAX_POT
                 value = 0.0;
                 max = 0.0;
                 initial = false;
 #elif AR_TIME_FUNCTION_MUL_POT
-                value = 1.0;
+                if (hybrid_switch) 
+                    value = 1.0;
+                else
+                    value = 0.0;
                 nbin = 0;
 #else
                 value = 0.0;
@@ -243,6 +251,9 @@ namespace AR {
         COMM::List<Force> force_; ///< acceleration array 
 
     public:
+#ifdef AR_HYBRID
+        int hybrid_switch; ///> hybrid method switching, 1: on, 0: off
+#endif
         TimeTransformedSymplecticManager<Tmethod>* manager; ///< integration manager
         COMM::ParticleGroup<Tparticle,Tpcm> particles; ///< particle group manager
         Tpert    perturber; ///< perturber class 
@@ -259,7 +270,11 @@ namespace AR {
                                                gt_drift_inv_(0),
 #endif
                                                gt_kick_inv_(), 
-                                               force_(), manager(NULL), particles(), 
+                                               force_(), 
+#ifdef AR_HYBRID
+                                               hybrid_switch(0),
+#endif
+                                               manager(NULL), particles(), 
                                                perturber(), info(), profile() {}
 
         //! check whether parameters values are correct
@@ -308,6 +323,9 @@ namespace AR {
 #endif
             gt_kick_inv_.clear();
             force_.clear();
+#ifdef AR_HYBRID
+            hybrid_switch = 0;
+#endif
             particles.clear();
             perturber.clear();
             info.clear();
@@ -726,29 +744,13 @@ namespace AR {
 
             if (_calc_gt) { 
 #ifdef AR_TTL
+#ifdef AR_HYBRID
+                if (hybrid_switch) {
 #ifdef AR_TIME_FUNCTION_MAX_POT
-                // update maximum value of time transformation function gradient (gt_kick_inv) and save two paritcle indices and gtgrad values
-                // if gt_kick_inv_sd > saved value, update the information
-                //if (gt_kick_inv_sd > gt_kick_inv_.value) {
-                if (gt_kick_inv_.i == _i && gt_kick_inv_.j == _j) {
-                    Float factor = gt_kick_inv_.scale*_inv_nest_sd;
-                    gt_kick_inv_.value = gt_kick_inv_.scale*gt_kick_inv_sd;
-                    gt_kick_inv_.gtgrad[0][0] = fij[0].gtgrad[0]*factor;
-                    gt_kick_inv_.gtgrad[0][1] = fij[0].gtgrad[1]*factor;
-                    gt_kick_inv_.gtgrad[0][2] = fij[0].gtgrad[2]*factor;
-                    gt_kick_inv_.gtgrad[1][0] = fij[1].gtgrad[0]*factor;
-                    gt_kick_inv_.gtgrad[1][1] = fij[1].gtgrad[1]*factor;
-                    gt_kick_inv_.gtgrad[1][2] = fij[1].gtgrad[2]*factor;
-                }
-                Float rinv = abs(epotij)/(particles[_i].mass*particles[_j].mass);
-                if (rinv > gt_kick_inv_.max) {
-                    gt_kick_inv_.inew = _i;
-                    gt_kick_inv_.jnew = _j;
-                    gt_kick_inv_.max = rinv;
-                    if (gt_kick_inv_.i == -1 || gt_kick_inv_.initial) {
-                        gt_kick_inv_.initial = true;
-                        gt_kick_inv_.i = _i;
-                        gt_kick_inv_.j = _j;
+                    // update maximum value of time transformation function gradient (gt_kick_inv) and save two paritcle indices and gtgrad values
+                    // if gt_kick_inv_sd > saved value, update the information
+                    //if (gt_kick_inv_sd > gt_kick_inv_.value) {
+                    if (gt_kick_inv_.i == _i && gt_kick_inv_.j == _j) {
                         Float factor = gt_kick_inv_.scale*_inv_nest_sd;
                         gt_kick_inv_.value = gt_kick_inv_.scale*gt_kick_inv_sd;
                         gt_kick_inv_.gtgrad[0][0] = fij[0].gtgrad[0]*factor;
@@ -758,31 +760,56 @@ namespace AR {
                         gt_kick_inv_.gtgrad[1][1] = fij[1].gtgrad[1]*factor;
                         gt_kick_inv_.gtgrad[1][2] = fij[1].gtgrad[2]*factor;
                     }
-                }
+                    Float rinv = abs(epotij)/(particles[_i].mass*particles[_j].mass);
+                    if (rinv > gt_kick_inv_.max) {
+                        gt_kick_inv_.inew = _i;
+                        gt_kick_inv_.jnew = _j;
+                        gt_kick_inv_.max = rinv;
+                        if (gt_kick_inv_.i == -1 || gt_kick_inv_.initial) {
+                            gt_kick_inv_.initial = true;
+                            gt_kick_inv_.i = _i;
+                            gt_kick_inv_.j = _j;
+                            Float factor = gt_kick_inv_.scale*_inv_nest_sd;
+                            gt_kick_inv_.value = gt_kick_inv_.scale*gt_kick_inv_sd;
+                            gt_kick_inv_.gtgrad[0][0] = fij[0].gtgrad[0]*factor;
+                            gt_kick_inv_.gtgrad[0][1] = fij[0].gtgrad[1]*factor;
+                            gt_kick_inv_.gtgrad[0][2] = fij[0].gtgrad[2]*factor;
+                            gt_kick_inv_.gtgrad[1][0] = fij[1].gtgrad[0]*factor;
+                            gt_kick_inv_.gtgrad[1][1] = fij[1].gtgrad[1]*factor;
+                            gt_kick_inv_.gtgrad[1][2] = fij[1].gtgrad[2]*factor;
+                        }
+                    }
 
 #elif AR_TIME_FUNCTION_MUL_POT
-                // Here gtgrad excludes gt_kick_inv and slowdown factor, these factors will be multipled when gt_drift_inv is calculated.
-                force_[_i].gtgrad[0] = fij[0].gtgrad[0];
-                force_[_i].gtgrad[1] = fij[0].gtgrad[1];
-                force_[_i].gtgrad[2] = fij[0].gtgrad[2];
-                force_[_j].gtgrad[0] = fij[1].gtgrad[0];
-                force_[_j].gtgrad[1] = fij[1].gtgrad[1];
-                force_[_j].gtgrad[2] = fij[1].gtgrad[2];
+                    // Here gtgrad excludes gt_kick and slowdown factor, these factors will be multipled when gt_drift_inv is calculated.
+                    Float gt_kick = 1.0/gt_kick_inv;
+                    force_[_i].gtgrad[0] = fij[0].gtgrad[0]*gt_kick;
+                    force_[_i].gtgrad[1] = fij[0].gtgrad[1]*gt_kick;
+                    force_[_i].gtgrad[2] = fij[0].gtgrad[2]*gt_kick;
+                    force_[_j].gtgrad[0] = fij[1].gtgrad[0]*gt_kick;
+                    force_[_j].gtgrad[1] = fij[1].gtgrad[1]*gt_kick;
+                    force_[_j].gtgrad[2] = fij[1].gtgrad[2]*gt_kick;
 
-                // add binary count and multiply gt_kick_inv_sd
-                gt_kick_inv_.nbin++;
-                gt_kick_inv_.value *= gt_kick_inv_sd;
-#else
-                // scale gtgrad with slowdown
-                force_[_i].gtgrad[0] += fij[0].gtgrad[0]*_inv_nest_sd;
-                force_[_i].gtgrad[1] += fij[0].gtgrad[1]*_inv_nest_sd;
-                force_[_i].gtgrad[2] += fij[0].gtgrad[2]*_inv_nest_sd;
-                force_[_j].gtgrad[0] += fij[1].gtgrad[0]*_inv_nest_sd;
-                force_[_j].gtgrad[1] += fij[1].gtgrad[1]*_inv_nest_sd;
-                force_[_j].gtgrad[2] += fij[1].gtgrad[2]*_inv_nest_sd;
-
-                gt_kick_inv_.value += gt_kick_inv_sd;
+                    // add binary count and multiply gt_kick_inv_sd
+                    gt_kick_inv_.nbin++;
+                    gt_kick_inv_.value *= gt_kick_inv_sd;
 #endif
+                }
+                else {
+#endif // AR_HYBRID
+                    // scale gtgrad with slowdown
+                    force_[_i].gtgrad[0] += fij[0].gtgrad[0]*_inv_nest_sd;
+                    force_[_i].gtgrad[1] += fij[0].gtgrad[1]*_inv_nest_sd;
+                    force_[_i].gtgrad[2] += fij[0].gtgrad[2]*_inv_nest_sd;
+                    force_[_j].gtgrad[0] += fij[1].gtgrad[0]*_inv_nest_sd;
+                    force_[_j].gtgrad[1] += fij[1].gtgrad[1]*_inv_nest_sd;
+                    force_[_j].gtgrad[2] += fij[1].gtgrad[2]*_inv_nest_sd;
+
+                    gt_kick_inv_.value += gt_kick_inv_sd;
+#ifdef AR_HYBRID
+                }
+#endif
+
 #else // NO AR_TTL
                 gt_kick_inv_.value += gt_kick_inv_sd;
 #endif
@@ -863,10 +890,10 @@ namespace AR {
             Float* pos_offset = NULL;
 #endif
 
-#if (defined AR_TIME_FUNCTION_MUL_POT) || (defined AR_TIME_FUNCTION_ADD_POT) || (defined AR_TIME_FUNCTION_MAX_POT)
-            bool calc_gt_cross = false;
-#else
             bool calc_gt_cross = true;
+#ifdef AR_HYBRID
+            if (hybrid_switch) 
+                calc_gt_cross = false;
 #endif
 
             // check left 
@@ -911,16 +938,23 @@ namespace AR {
             epot_sd_ = 0.0;
             for (int i=0; i<force_.getSize(); i++) force_[i].clear();
 
+#ifdef AR_HYBRID
+            gt_kick_inv_.reset(hybrid_switch);
+#else
             gt_kick_inv_.reset();
+#endif
 #ifdef USE_CM_FRAME
             ASSERT(!info.getBinaryTreeRoot().isOriginFrame());
 #endif
             calcAccPotAndGTKickInvTreeIter(1.0, info.getBinaryTreeRoot());
-//#ifdef AR_TIME_FUNCTION_MUL_POT
-//            // use power in gt_kick_inv_
-//            gt_kick_inv_.mul_pot_no_pow = gt_kick_inv_.value;
-//            gt_kick_inv_.value = pow(gt_kick_inv_.mul_pot_no_pow, 1.0/gt_kick_inv_.nbin);
-//#endif
+
+#ifdef AR_TIME_FUNCTION_MUL_POT
+            if (hybrid_switch==2) {
+                // use power in gt_kick_inv_
+                gt_kick_inv_.mul_pot_no_pow = gt_kick_inv_.value;
+                gt_kick_inv_.value = pow(gt_kick_inv_.mul_pot_no_pow, 1.0/gt_kick_inv_.nbin);
+            }
+#endif
 
             // pertuber force
             manager->interaction.calcAccPert(force_.getDataAddress(), particles.getDataAddress(), particles.getSize(), particles.cm, perturber, getTime());
@@ -999,16 +1033,22 @@ namespace AR {
                                        vel_rel[1] * inv_nest_sd + _vel_sd_up[1], 
                                        vel_rel[2] * inv_nest_sd + _vel_sd_up[2]}; 
 
-#ifndef AR_TIME_FUNCTION_MAX_POT
+
                     Float* gtgrad = force_[i].gtgrad;
-#else
-                    // use recored gtgrad in gt_kick_inv_max_info instead of force_[i].gtgrad (not calculated)
-                    Float* gtgrad = NULL;
-                    if (i == gt_kick_inv_.i) 
-                        gtgrad = gt_kick_inv_.gtgrad[0];
-                    else if (i == gt_kick_inv_.j)
-                        gtgrad = gt_kick_inv_.gtgrad[1];
-                    if (gtgrad != NULL)
+#ifdef AR_TIME_FUNCTION_MAX_POT
+                    if (hybrid_switch) {
+                        // use recored gtgrad in gt_kick_inv_max_info instead of force_[i].gtgrad (not calculated)
+                        gtgrad = NULL;
+                        if (i == gt_kick_inv_.i) 
+                            gtgrad = gt_kick_inv_.gtgrad[0];
+                        else if (i == gt_kick_inv_.j)
+                            gtgrad = gt_kick_inv_.gtgrad[1];
+                        if (gtgrad != NULL)
+                            dgt_drift_inv += (vel_sd[0] * gtgrad[0] + 
+                                              vel_sd[1] * gtgrad[1] +
+                                              vel_sd[2] * gtgrad[2]);
+                    }
+                    else 
 #endif
                         dgt_drift_inv += (vel_sd[0] * gtgrad[0] + 
                                           vel_sd[1] * gtgrad[1] +
@@ -1044,8 +1084,10 @@ namespace AR {
             Float dgt_drift_inv = kickEtotAndGTDriftTreeIter(_dt, vel_cm, sd_factor, bin_root);
 #endif
 #ifdef AR_TIME_FUNCTION_MUL_POT
-            //dgt_drift_inv *= gt_kick_inv_.value/gt_kick_inv_.nbin;
-            dgt_drift_inv *= gt_kick_inv_.value;
+            if (hybrid_switch==1) 
+                dgt_drift_inv *= gt_kick_inv_.value;
+            else if (hybrid_switch==2)
+                dgt_drift_inv *= gt_kick_inv_.value/gt_kick_inv_.nbin;
 #endif
             gt_drift_inv_ += dgt_drift_inv*_dt;
         }
@@ -1331,6 +1373,52 @@ namespace AR {
         }
 #endif
 
+#ifdef AR_HYBRID
+        //! check whether hybrid method can be used
+        /*! If all inner most triples or quadruples have perturbation ratio < 1, use hybrid method, otherwise not
+          perturbation ratio is  m_3*(m_1+m_2)/(m_1*m_2) * (a_i(1+e_i)/(a_o(1-e_o)))^3
+         */
+        bool checkHybridMethodCriterionIter(AR::BinaryTree<Tparticle>& _bin) {
+            bool use_hybrid = true;
+            for (int k=0; k<2; k++) {
+                if (_bin.isMemberTree(k)) {
+                    auto* bink = _bin.getMemberAsTree(k);
+                    if (bink->getMemberN()>2) {
+                        // if bink is a multiple system, check subsystems iteratively
+                        use_hybrid = use_hybrid && checkHybridMethodCriterionIter(*bink);
+                    }
+                    else {
+                        if (bink->semi>0) {
+                            // check perturbation ratio, if too strong, return false
+                            Float r_ratio = bink->semi*(1+bink->ecc) / (_bin.semi*(1-_bin.ecc));
+                            
+                            Float pert_ratio = _bin.m1*_bin.m2/(bink->m1*bink->m2) * r_ratio*r_ratio*r_ratio;
+                            if (pert_ratio>1) use_hybrid = false;
+                        }
+                        else use_hybrid= false; // not used for hyperbolic orbit
+                    }
+                }
+            }
+            return use_hybrid;
+        }
+
+        // switch on/off hybrid method depending on perturbation criterion
+        void switchHybridMethod() {
+            int hybrid_switch_bk = hybrid_switch; 
+            auto& bin_root = info.getBinaryTreeRoot();
+            if (checkHybridMethodCriterionIter(bin_root)) hybrid_switch = 1;
+            else hybrid_switch = 0;
+
+            // if method switches, need to initialize gt_drift_inv_ 
+#ifdef AR_TTL            
+            if (hybrid_switch_bk != hybrid_switch) {
+                Float gt_kick_inv_bk = gt_kick_inv_.value;
+                calcAccPotAndGTKickInv();
+                gt_drift_inv_ += gt_kick_inv_.value - gt_kick_inv_bk;                           }
+#endif
+        }
+#endif
+
         //! initialization for integration
         /*! initialize the system. Acceleration, energy and time transformation factors are updated. If the center-of-mass is not yet calculated, the system will be shifted to center-of-mass frame.
           @param[in] _time: real physical time to initialize
@@ -1484,7 +1572,7 @@ namespace AR {
             ASSERT(_ds>0);
 
 #ifdef AR_TIME_FUNCTION_MAX_POT
-            if (gt_kick_inv_.inew != gt_kick_inv_.i || gt_kick_inv_.jnew != gt_kick_inv_.jnew) {
+            if (hybrid_switch && (gt_kick_inv_.inew != gt_kick_inv_.i || gt_kick_inv_.jnew != gt_kick_inv_.jnew)) {
                 // update i and j for calculate gt_kick_inv
                 gt_kick_inv_.i = gt_kick_inv_.inew;
                 gt_kick_inv_.j = gt_kick_inv_.jnew;
@@ -1565,7 +1653,7 @@ namespace AR {
             ASSERT(_ds>0);
 
 #ifdef AR_TIME_FUNCTION_MAX_POT
-            if (gt_kick_inv_.inew != gt_kick_inv_.i || gt_kick_inv_.jnew != gt_kick_inv_.jnew) {
+            if (hybrid_switch && (gt_kick_inv_.inew != gt_kick_inv_.i || gt_kick_inv_.jnew != gt_kick_inv_.jnew)) {
                 // update i and j for calculate gt_kick_inv
                 gt_kick_inv_.i = gt_kick_inv_.inew;
                 gt_kick_inv_.j = gt_kick_inv_.jnew;
@@ -1815,7 +1903,8 @@ namespace AR {
                                                                    vel2[1] * gtgrad2[1] +
                                                                    vel2[2] * gtgrad2[2]);
 #ifdef AR_TIME_FUNCTION_MUL_POT
-                dgt_drift_inv *= gt_kick_inv_.value;
+                if (hybrid_switch) 
+                    dgt_drift_inv *= gt_kick_inv_.value;
 #endif
                 gt_drift_inv_ += dgt_drift_inv;
 
@@ -3436,6 +3525,9 @@ namespace AR {
                  <<std::setw(_width)<<"dH_intr";
             perturber.printColumnTitle(_fout, _width);
             info.printColumnTitle(_fout, _width);
+#ifdef AR_HYBRID
+            _fout<<std::setw(_width)<<"hybrid";
+#endif
             profile.printColumnTitle(_fout, _width);
 #ifdef AR_SLOWDOWN_TREE
             _fout<<std::setw(_width)<<"dE_SD" 
@@ -3487,6 +3579,9 @@ namespace AR {
                  <<std::setw(_width)<<dH_change_interrupt_;
             perturber.printColumn(_fout, _width);
             info.printColumn(_fout, _width);
+#ifdef AR_HYBRID
+            _fout<<std::setw(_width)<<hybrid_switch;
+#endif
             profile.printColumn(_fout, _width);
 #ifdef AR_SLOWDOWN_TREE
             _fout<<std::setw(_width)<<getEnergyErrorSlowDown()
