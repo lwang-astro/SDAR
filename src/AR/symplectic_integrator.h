@@ -3153,7 +3153,7 @@ namespace AR {
         //! get Hamiltonian
         Float getH() const {
 #ifdef AR_TTL
-            //return (ekin_ - etot_ref_)/gt_drift_inv_ + epot_/gt_kick_inv_;
+            //return (ekin_ - etot_ref_)/gt_drift_inv_ + epot_/gt_kick_inv_.value;
             return (ekin_ + epot_ - etot_ref_)/gt_kick_inv_.value;
 #else
             return manager->interaction.calcH(ekin_ - etot_ref_, epot_);

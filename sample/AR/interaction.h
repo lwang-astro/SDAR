@@ -278,6 +278,7 @@ public:
     Float calcGTDriftInv(Float _ekin_minus_etot) {
         return _ekin_minus_etot;
     }
+#endif   
 
     //! (Necessary) calculate the time transformed Hamiltonian
     /*! calculate the time transformed Hamiltonian
@@ -287,7 +288,6 @@ public:
         if (_ekin_minus_etot==0.0&&_epot==0.0) return 0;
         else return log(_ekin_minus_etot) - log(-_epot);
     }
-#endif   
 
     //! (Necessary) modify the orbits and interrupt check 
     /*! check the inner left binary whether their separation is smaller than particle radius sum and become close, if true, set one component stauts to merger with cm mass and the other unused with zero mass. Return the binary tree address 
