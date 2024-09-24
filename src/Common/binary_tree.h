@@ -508,7 +508,7 @@ namespace COMM{
 
     public:
         int level;     ///> binary tree level, start from zero for root tree. Then each subtree increase level by one.
-        int branch;    ///> the branch in each level, count from the left member to right. 
+        long long int branch;    ///> the branch in each level, count from the left member to right. 
 
     private:
         static bool pairLess(const R2Index& a, const R2Index & b)  {
@@ -717,7 +717,7 @@ namespace COMM{
                 else {
                     p[1] = bin_host[k+1];
                     int ki = k+1;
-                    while(bin_host[ki]==p[1]&&ki>=0) bin_host[ki++] = &_bins[i];
+                    while(bin_host[ki]==p[1]&&ki<_n) bin_host[ki++] = &_bins[i];
                 }
 
                 // calculate binary parameter
