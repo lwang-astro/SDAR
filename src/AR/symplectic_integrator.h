@@ -410,19 +410,19 @@ namespace AR {
         */
         void calcTwoEKinIter(const Float& _inv_nest_sd_up, AR::BinaryTree<Tparticle>& _bin){
             Float inv_nest_sd = _inv_nest_sd_up/_bin.slowdown.getSlowDownFactor();
-            Float* vel_cm = _bin.getVel();
+            auto& vel_cm = _bin.vel;
             for (int k=0; k<2; k++) {
                 Float* vk;
                 Float  mk;
                 if (_bin.isMemberTree(k)) {
                     auto* bink = _bin.getMemberAsTree(k);
-                    vk = bink->getVel();
+                    vk = &(bink->vel[0]);
                     mk = bink->mass;
                     calcTwoEKinIter(inv_nest_sd, *bink);
                 }
                 else {
                     auto* pk = _bin.getMember(k);
-                    vk = pk->getVel();
+                    vk = &(pk->vel[0]);
                     mk = pk->mass;
                     ekin_ += mk * (vk[0]*vk[0]+vk[1]*vk[1]+vk[2]*vk[2]);
                 }
@@ -440,7 +440,7 @@ namespace AR {
             Float sd_factor=1.0;
             
             calcTwoEKinIter(sd_factor, bin_root);
-            Float* vcm = bin_root.getVel();
+            auto& vcm = bin_root.vel;
             // notice the cm velocity may not be zero after interruption, thus need to be added 
             ekin_sd_ += bin_root.mass*(vcm[0]*vcm[0] + vcm[1]*vcm[1] + vcm[2]*vcm[2]);
 
@@ -459,7 +459,7 @@ namespace AR {
             Force* force = force_.getDataAddress();
             for (int i=0; i<num; i++) {
                 // kick velocity
-                Float* vel = pdat[i].getVel();
+                auto& vel = pdat[i].vel;
                 Float* acc = force[i].acc_in;
                 Float* pert= force[i].acc_pert;
                 // half dv 
@@ -482,7 +482,7 @@ namespace AR {
             // current nested sd factor
             Float inv_nest_sd = _inv_nest_sd_up/_bin.slowdown.getSlowDownFactor();
 
-            Float* vel_cm = _bin.getVel();
+            auto& vel_cm = _bin.vel;
 
             auto driftPos=[&](Float* pos, Float* vel, Float* vel_sd) {
                 //scale velocity referring to binary c.m.
@@ -498,8 +498,8 @@ namespace AR {
             for (int k=0; k<2; k++) {
                 if (_bin.isMemberTree(k)) {
                     auto* pj = _bin.getMemberAsTree(k);
-                    Float* pos = pj->getPos();
-                    Float* vel = pj->getVel();
+                    Float* pos = &(pj->pos[0]);
+                    Float* vel = &(pj->vel[0]);
                     Float vel_sd[3];
                     driftPos(pos, vel, vel_sd);
                     driftPosTreeIter(_dt, vel_sd, inv_nest_sd, *pj);
@@ -520,8 +520,8 @@ namespace AR {
                 }
                 else {
                     auto* pj = _bin.getMember(k);
-                    Float* pos = pj->getPos();
-                    Float* vel = pj->getVel();
+                    Float* pos = &(pj->pos[0]);
+                    Float* vel = &(pj->vel[0]);
                     Float vel_sd[3];
                     driftPos(pos, vel, vel_sd);
                 }
@@ -739,12 +739,12 @@ namespace AR {
             Float dgt_drift_inv = 0.0;
             Float de = 0.0;
 
-            Float* vel_cm = _bin.getVel();
+            auto& vel_cm = _bin.vel;
 
             for (int k=0; k<2; k++) {
                 if (_bin.isMemberTree(k)) {
                     auto* bink = _bin.getMemberAsTree(k);
-                    Float* vel = bink->getVel();
+                    auto& vel = bink->vel;
                     Float vel_sd[3] = {(vel[0] - vel_cm[0]) * inv_nest_sd + _vel_sd_up[0], 
                                        (vel[1] - vel_cm[1]) * inv_nest_sd + _vel_sd_up[1], 
                                        (vel[2] - vel_cm[2]) * inv_nest_sd + _vel_sd_up[2]}; 
@@ -757,7 +757,7 @@ namespace AR {
                     
                     Float* gtgrad = force_[i].gtgrad;
                     Float* pert   = force_[i].acc_pert;
-                    Float* vel = particles[i].getVel();
+                    auto& vel = particles[i].vel;
                     Float vel_sd[3] = {(vel[0] - vel_cm[0]) * inv_nest_sd + _vel_sd_up[0], 
                                        (vel[1] - vel_cm[1]) * inv_nest_sd + _vel_sd_up[1], 
                                        (vel[2] - vel_cm[2]) * inv_nest_sd + _vel_sd_up[2]};
@@ -808,7 +808,7 @@ namespace AR {
             Force* force = force_.getDataAddress();
             for (int i=0;i<num;i++) {
                 Float  mass= pdat[i].mass;
-                Float* vel = pdat[i].getVel();
+                auto& vel = pdat[i].vel;
                 Float* pert= force[i].acc_pert;
                 de += mass * (vel[0] * pert[0] +
                               vel[1] * pert[1] +
@@ -900,12 +900,12 @@ namespace AR {
                 ASSERT(sdi!=NULL);
                 Float kappa = sdi->slowdown.getSlowDownFactor();
                 Float kappa_inv_m_one = (1.0/kappa - 1.0)*_sd_global_inv;
-                Float* velcm = sdi->getVel();
+                auto& velcm = sdi->vel;
                 for (int k=0; k<2; k++) {
                     int j = sdi->getMemberIndex(k);
                     ASSERT(j>=0&&j<particles.getSize());
-                    Float* pos = particles[j].getPos();
-                    Float* vel = particles[j].getVel();
+                    auto& pos = particles[j].pos;
+                    auto& vel = particles[j].vel;
 
                     // only scale velocity referring to binary c.m.
                     Float vrel[3] = { vel[0] - velcm[0], 
@@ -929,23 +929,23 @@ namespace AR {
                 ASSERT(i2>=0&&i2<particles.getSize());
 
                 Float    m1 = particles[i1].mass;
-                Float* pos1 = particles[i1].getPos();
-                Float* vel1 = particles[i1].getVel();
+                auto& pos1 = particles[i1].pos;
+                auto& vel1 = particles[i1].vel;
                 Float    m2 = particles[i2].mass;
-                Float* pos2 = particles[i2].getPos();
-                Float* vel2 = particles[i2].getVel();
+                auto& pos2 = particles[i2].pos;
+                auto& vel2 = particles[i2].vel;
                 Float   mcm = m1+m2;
 
                 // first obtain the binary c.m. velocity
                 Float mcminv = 1.0/mcm;
 
                 sdi->mass = mcm;
-                Float* pos = sdi->getPos();
+                auto& pos = sdi->pos;
                 pos[0] = (m1*pos1[0] + m2*pos2[0])*mcminv;
                 pos[1] = (m1*pos1[1] + m2*pos2[1])*mcminv;
                 pos[2] = (m1*pos1[2] + m2*pos2[2])*mcminv;
 
-                Float* vel = sdi->getVel();
+                auto& vel = sdi->vel;
                 vel[0] = (m1*vel1[0] + m2*vel2[0])*mcminv;
                 vel[1] = (m1*vel1[1] + m2*vel2[1])*mcminv;
                 vel[2] = (m1*vel1[2] + m2*vel2[2])*mcminv;
@@ -965,11 +965,11 @@ namespace AR {
                 ASSERT(sdi!=NULL);
                 Float kappa = sdi->slowdown.getSlowDownFactor();
                 Float kappa_inv_m_one = 1.0/kappa - 1.0;
-                Float* velcm = sdi->getVel();
+                auto& velcm = sdi->vel;
                 for (int k=0; k<2; k++) {
                     int j = sdi->getMemberIndex(k);
                     ASSERT(j>=0&&j<particles.getSize());
-                    Float* vel = particles[j].getVel();
+                    auto& vel = particles[j].vel;
 
                     // only scale velocity referring to binary c.m.
                     Float vrel[3] = { vel[0] - velcm[0], 
@@ -1025,7 +1025,7 @@ namespace AR {
             const int num = particles.getSize();
             Tparticle* pdat = particles.getDataAddress();
             for (int i=0; i<num; i++) {
-                const Float *vi=pdat[i].getVel();
+                const auto& vi=pdat[i].vel;
                 ekin_ += 0.5 * pdat[i].mass * (vi[0]*vi[0]+vi[1]*vi[1]+vi[2]*vi[2]);
             }
 #ifdef AR_SLOWDOWN_ARRAY
@@ -1043,7 +1043,7 @@ namespace AR {
             Force* force = force_.getDataAddress();
             for (int i=0; i<num; i++) {
                 // kick velocity
-                Float* vel = pdat[i].getVel();
+                auto& vel = pdat[i].vel;
                 Float* acc = force[i].acc_in;
                 Float* pert= force[i].acc_pert;
                 // half dv 
@@ -1073,8 +1073,8 @@ namespace AR {
             const Float dt_sd = _dt * kappa_inv;
 
             for (int i=0; i<num; i++) {
-                Float* pos = pdat[i].getPos();
-                Float* vel = pdat[i].getVel();
+                auto& pos = pdat[i].pos;
+                auto& vel = pdat[i].vel;
                 pos[0] += dt_sd * vel[0]; 
                 pos[1] += dt_sd * vel[1];
                 pos[2] += dt_sd * vel[2];
@@ -1084,8 +1084,8 @@ namespace AR {
             correctPosSlowDownInner(_dt, kappa_inv);
 #else
             for (int i=0; i<num; i++) {
-                Float* pos = pdat[i].getPos();
-                Float* vel = pdat[i].getVel();
+                auto& pos = pdat[i].pos;
+                auto& vel = pdat[i].vel;
                 pos[0] += _dt * vel[0];
                 pos[1] += _dt * vel[1];
                 pos[2] += _dt * vel[2];
@@ -1150,7 +1150,7 @@ namespace AR {
             Force* force = force_.getDataAddress();
             for (int i=0;i<num;i++) {
                 Float  mass= pdat[i].mass;
-                Float* vel = pdat[i].getVel();
+                auto& vel = pdat[i].vel;
                 Float* pert= force[i].acc_pert;
                 Float* gtgrad=force[i].gtgrad;
                 de += mass * (vel[0] * pert[0] +
@@ -1173,13 +1173,13 @@ namespace AR {
                 ASSERT(sdi!=NULL);
                 Float kappa = sdi->slowdown.getSlowDownFactor();
                 Float kappa_inv = 1.0/kappa;
-                Float* velcm = sdi->getVel();
+                auto& velcm = sdi->vel;
                 for (int k=0; k<2; k++) {
                     int j = sdi->getMemberIndex(k);
                     if (j>=0) {
                         ASSERT(j<particles.getSize());
                         Float* gtgrad=force_[j].gtgrad;
-                        Float* vel = particles[j].getVel();
+                        auto& vel = particles[j].vel;
                         Float vrel[3] = { vel[0] - velcm[0], 
                                           vel[1] - velcm[1], 
                                           vel[2] - velcm[2]}; 
@@ -1207,7 +1207,7 @@ namespace AR {
             Force* force = force_.getDataAddress();
             for (int i=0;i<num;i++) {
                 Float  mass= pdat[i].mass;
-                Float* vel = pdat[i].getVel();
+                auto& vel = pdat[i].vel;
                 Float* pert= force[i].acc_pert;
                 de += mass * (vel[0] * pert[0] +
                               vel[1] * pert[1] +
@@ -1713,12 +1713,12 @@ namespace AR {
 
             Tparticle* particle_data = particles.getDataAddress();
             Float mass1 = particle_data[0].mass;
-            Float* pos1 = particle_data[0].getPos();
-            Float* vel1 = particle_data[0].getVel();
+            auto& pos1 = particle_data[0].pos;
+            auto& vel1 = particle_data[0].vel;
 
             Float mass2 = particle_data[1].mass;
-            Float* pos2 = particle_data[1].getPos();
-            Float* vel2 = particle_data[1].getVel();
+            auto& pos2 = particle_data[1].pos;
+            auto& vel2 = particle_data[1].vel;
 
             Force* force_data = force_.getDataAddress();
             Float* acc1 = force_data[0].acc_in;
@@ -2814,8 +2814,8 @@ namespace AR {
             Float mcm=0.0, pos_cm[3]={0.0,0.0,0.0}, vel_cm[3]={0.0,0.0,0.0};
             auto* particle_data= particles.getDataAddress();
             for (int i=0; i<particles.getSize(); i++) {
-                const Float *ri = particle_data[i].pos;
-                const Float *vi = particle_data[i].getVel();
+                const auto& ri = particle_data[i].pos;
+                const auto& vi = particle_data[i].vel;
                 const Float mi  = particle_data[i].mass;
 
                 pos_cm[0] += ri[0] * mi;
@@ -2835,8 +2835,8 @@ namespace AR {
             vel_cm[2] /= mcm;
 
             for (int i=0; i<particles.getSize(); i++) {
-                Float *ri = particle_data[i].pos;
-                Float *vi = particle_data[i].getVel();
+                auto& ri = particle_data[i].pos;
+                auto& vi = particle_data[i].vel;
 
                 ri[0] -= pos_cm[0]; 
                 ri[1] -= pos_cm[1]; 
@@ -2879,11 +2879,11 @@ namespace AR {
                 ASSERT(sdi!=NULL);
                 Float kappa = sdi->slowdown.getSlowDownFactor();
                 Float kappa_inv_m_one = (1.0/kappa - 1.0)*kappa_inv;
-                Float* velcm = sdi->getVel();
+                auto& velcm = sdi->vel;
                 for (int k=0; k<2; k++) {
                     int j = sdi->getMemberIndex(k);
                     ASSERT(j>=0&&j<particles.getSize());
-                    Float* vel = particle_data[j].getVel();
+                    auto& vel = particle_data[j].vel;
 
                     // only scale velocity referring to binary c.m.
                     Float vrel[3] = { vel[0] - velcm[0], 
@@ -2909,11 +2909,11 @@ namespace AR {
         template <class Tptcl>
         void writeBackSlowDownParticlesIter(const Tptcl& _particle_cm, const Float* _vel_sd_up, const Float& _inv_nest_sd_up, AR::BinaryTree<Tparticle>& _bin) {
             Float inv_nest_sd = _inv_nest_sd_up/_bin.slowdown.getSlowDownFactor();
-            Float* vel_cm = _bin.getVel();
+            auto& vel_cm = _bin.vel;
             for (int k=0; k<2; k++) {
                 if (_bin.isMemberTree(k)) {
                     auto* bink = _bin.getMemberAsTree(k);
-                    Float* vel = bink->getVel();
+                    auto& vel = bink->vel;
                     Float vel_sd[3] = {(vel[0] - vel_cm[0]) * inv_nest_sd + _vel_sd_up[0], 
                                        (vel[1] - vel_cm[1]) * inv_nest_sd + _vel_sd_up[1], 
                                        (vel[2] - vel_cm[2]) * inv_nest_sd + _vel_sd_up[2]}; 
@@ -2923,7 +2923,7 @@ namespace AR {
                     int i = _bin.getMemberIndex(k);
                     auto& pk = particles[i];
                     auto* pk_adr = particles.getMemberOriginAddress(i);
-                    Float* vel = pk.getVel();
+                    auto& vel = pk.vel;
                     Float vel_sd[3] = {(vel[0] - vel_cm[0]) * inv_nest_sd + _vel_sd_up[0], 
                                        (vel[1] - vel_cm[1]) * inv_nest_sd + _vel_sd_up[1], 
                                        (vel[2] - vel_cm[2]) * inv_nest_sd + _vel_sd_up[2]};
