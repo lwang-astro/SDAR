@@ -1652,6 +1652,9 @@ namespace AR {
             ASSERT(!particles.isModified());
             ASSERT(_ds>0);
 
+            // profile
+            profile.prof_int.start();
+
 #ifdef AR_TIME_FUNCTION_MAX_POT
             if (hybrid_switch && (gt_kick_inv_.inew != gt_kick_inv_.i || gt_kick_inv_.jnew != gt_kick_inv_.jnew)) {
                 // update i and j for calculate gt_kick_inv
@@ -1718,6 +1721,9 @@ namespace AR {
                 // calculate kinetic energy
                 calcEKin();
             }
+
+            // profile
+            profile.prof_int.end();            
         }
 
 
@@ -1729,6 +1735,8 @@ namespace AR {
         */
         void integrateTwoOneStep(const Float _ds, Float _time_table[]) {
             ASSERT(checkParams());
+            // profile
+            profile.prof_int.start();
 
             ASSERT(!particles.isModified());
             ASSERT(_ds>0);
@@ -1941,6 +1949,8 @@ namespace AR {
             ekin_sd_ = ekin_*kappa_inv;
             epot_sd_ = epot_*kappa_inv;
 #endif
+            // profile
+            profile.prof_int.end();
         }
         
         // Integrate the system to a given time
@@ -1950,6 +1960,9 @@ namespace AR {
          */
         InterruptBinary<Tparticle> integrateToTime(const Float _time_end) {
             ASSERT(checkParams());
+
+            // profile            
+            profile.prof_tot.start();
 
             // real full time step
             const Float dt_full = _time_end - time_;
@@ -2376,8 +2389,14 @@ namespace AR {
 
                 // integrate one step
                 ASSERT(!ISINF(ds[ds_switch]));
+                // profile for time synchronization
+                if (time_end_flag) profile.prof_int_tsyn.start();
+
                 if(n_particle==2) integrateTwoOneStep(ds[ds_switch], time_table);
                 else integrateOneStep(ds[ds_switch], time_table);
+
+                if (time_end_flag) profile.prof_int_tsyn.end();
+
                 //info.generateBinaryTree(particles, G);
 
                 // real step size
@@ -2816,6 +2835,7 @@ namespace AR {
             profile.step_count_tsyn = step_count_tsyn;
             profile.step_count_sum += step_count;
             profile.step_count_tsyn_sum += step_count_tsyn;
+            profile.prof_tot.end();
 
             return bin_interrupt_return;
         }
