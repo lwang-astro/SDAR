@@ -1652,8 +1652,10 @@ namespace AR {
             ASSERT(!particles.isModified());
             ASSERT(_ds>0);
 
+#ifdef SDAR_TIME_MEASURE
             // profile
             profile.prof_int.start();
+#endif
 
 #ifdef AR_TIME_FUNCTION_MAX_POT
             if (hybrid_switch && (gt_kick_inv_.inew != gt_kick_inv_.i || gt_kick_inv_.jnew != gt_kick_inv_.jnew)) {
@@ -1722,8 +1724,10 @@ namespace AR {
                 calcEKin();
             }
 
+#ifdef SDAR_TIME_MEASURE
             // profile
             profile.prof_int.end();            
+#endif
         }
 
 
@@ -1735,8 +1739,10 @@ namespace AR {
         */
         void integrateTwoOneStep(const Float _ds, Float _time_table[]) {
             ASSERT(checkParams());
+#ifdef SDAR_TIME_MEASURE
             // profile
             profile.prof_int.start();
+#endif
 
             ASSERT(!particles.isModified());
             ASSERT(_ds>0);
@@ -1949,8 +1955,11 @@ namespace AR {
             ekin_sd_ = ekin_*kappa_inv;
             epot_sd_ = epot_*kappa_inv;
 #endif
+
+#ifdef SDAR_TIME_MEASURE
             // profile
             profile.prof_int.end();
+#endif
         }
         
         // Integrate the system to a given time
@@ -1961,8 +1970,10 @@ namespace AR {
         InterruptBinary<Tparticle> integrateToTime(const Float _time_end) {
             ASSERT(checkParams());
 
+#ifdef SDAR_TIME_MEASURE
             // profile            
             profile.prof_tot.start();
+#endif
 
             // real full time step
             const Float dt_full = _time_end - time_;
@@ -2389,13 +2400,17 @@ namespace AR {
 
                 // integrate one step
                 ASSERT(!ISINF(ds[ds_switch]));
+#ifdef SDAR_TIME_MEASURE
                 // profile for time synchronization
                 if (time_end_flag) profile.prof_int_tsyn.start();
+#endif
 
                 if(n_particle==2) integrateTwoOneStep(ds[ds_switch], time_table);
                 else integrateOneStep(ds[ds_switch], time_table);
 
+#ifdef SDAR_TIME_MEASURE
                 if (time_end_flag) profile.prof_int_tsyn.end();
+#endif
 
                 //info.generateBinaryTree(particles, G);
 
@@ -2835,7 +2850,9 @@ namespace AR {
             profile.step_count_tsyn = step_count_tsyn;
             profile.step_count_sum += step_count;
             profile.step_count_tsyn_sum += step_count_tsyn;
+#ifdef SDAR_TIME_MEASURE
             profile.prof_tot.end();
+#endif
 
             return bin_interrupt_return;
         }
@@ -3172,12 +3189,12 @@ namespace AR {
 
         //! get Hamiltonian
         Float getH() const {
-#ifdef AR_TTL
+//#ifdef AR_TTL
             //return (ekin_ - etot_ref_)/gt_drift_inv_ + epot_/gt_kick_inv_.value;
-            return (ekin_ + epot_ - etot_ref_)/gt_kick_inv_.value;
-#else
+            //return (ekin_ + epot_ - etot_ref_)/gt_kick_inv_.value;
+///#else
             return manager->interaction.calcH(ekin_ - etot_ref_, epot_);
-#endif
+//#endif
         }
 
         //! get Hamiltonian from backup data
@@ -3277,12 +3294,12 @@ namespace AR {
 
         //! get slowdown Hamiltonian
         Float getHSlowDown() const {
-#ifdef AR_TTL
+//#ifdef AR_TTL
             //return (ekin_sd_ - etot_sd_ref_)/gt_drift_inv_ + epot_sd_/gt_kick_inv_;
-            return (ekin_sd_ + epot_sd_ - etot_sd_ref_)/gt_kick_inv_.value;
-#else
+//            return (ekin_sd_ + epot_sd_ - etot_sd_ref_)/gt_kick_inv_.value;
+//#else
             return manager->interaction.calcH(ekin_sd_ - etot_sd_ref_, epot_sd_);
-#endif
+//#endif
         }
 
         //! get slowdown Hamiltonian from backup data

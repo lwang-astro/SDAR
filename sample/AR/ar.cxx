@@ -61,8 +61,11 @@ int main(int argc, char **argv){
     COMM::IOParams<int>   hybrid_option  (input_par_store, -1, "use Hybrid methods: on, off, auto", "auto"); // determine whether hybrid method is used
 #endif
     COMM::IOParams<std::string> filename_par (input_par_store, "", "filename to load manager parameters","input name"); // par dumped filename
+    COMM::IOParams<std::string> filename_out (input_par_store, "", "filename to output snapshots in BINARY format; if not given, print directly in standard output","input name"); // par dumped filename
     bool load_flag=false;  // if true; load dumped data
     bool synch_flag=false; // if true, switch on time synchronization
+
+    FILE* fsnap = NULL;
 
 #ifdef AR_TTL
     std::string bin_name("ar.ttl");
@@ -105,7 +108,7 @@ int main(int argc, char **argv){
     };
   
     int option_index;
-    while ((copt = getopt_long(argc, argv, "N:n:t:r:s:Sk:G:e:p:o:i:lh", long_options, &option_index)) != -1)
+    while ((copt = getopt_long(argc, argv, "N:n:t:r:s:Sk:G:e:p:o:f:i:lh", long_options, &option_index)) != -1)
         switch (copt) {
         case 0:
             time_zero.value = atof(optarg);
@@ -200,6 +203,13 @@ int main(int argc, char **argv){
             input_par_store.readAscii(fpar_in);
             fclose(fpar_in);
             break;
+        case 'f':
+            filename_out.value = optarg;
+            if( (fsnap = fopen(filename_out.value.c_str(),"r")) == NULL) {
+                fprintf(stderr,"Error: Cannot open file %s.\n", filename_out.value.c_str());
+                abort();
+            }
+            break;
         case 'o':
             dt_out.value = atof(optarg);
             break;
@@ -217,6 +227,7 @@ int main(int argc, char **argv){
                      <<"    -e [Float]:  "<<energy_error<<"\n"
                      <<"          --energy-error    [Float]:  same as -e\n"
                      <<"          --fix-step-option [string]: "<<fix_step_option<<"\n"
+                     <<"    -f [string]: "<<filename_out<<"\n"
                      <<"    -G [Float]:  "<<gravitational_constant<<"\n"
 #ifdef AR_HYBRID
                      <<"          --hybrid-method   [string]: "<<hybrid_option<<"\n"
@@ -402,16 +413,25 @@ int main(int argc, char **argv){
                 sym_int.switchHybridMethod();
             }
 #endif
+#ifdef SDAR_TIME_MEASURE
+            sym_int.profile.prof_tot.start();
+#endif
             if(n_particle==2) sym_int.integrateTwoOneStep(sym_int.info.ds, time_table);
             else sym_int.integrateOneStep(sym_int.info.ds, time_table);
+#ifdef SDAR_TIME_MEASURE
+            sym_int.profile.prof_tot.end();
+#endif
             if (sym_int.getTime()>=time_out) {
-                sym_int.printColumn(std::cout, print_width.value, n_sd);
-                std::cout<<std::endl;
+                if (fsnap != NULL) 
+                    sym_int.writeBinary(fsnap);
+                else {
+                    sym_int.printColumn(std::cout, print_width.value, n_sd);
+                    std::cout<<std::endl;
+                }
                 time_out += dt_out.value;
             }
             sym_int.profile.step_count_sum++;
         };
-
         if (nstep.value>0) for (int i=0; i<nstep.value; i++) IntegrateOneStep();
         else while (sym_int.getTime()<time_end.value) IntegrateOneStep();
     }
@@ -453,8 +473,12 @@ int main(int argc, char **argv){
 #ifndef USE_CM_FRAME
             sym_int.info.generateBinaryTree(sym_int.particles, manager.interaction.gravitational_constant);
 #endif
-            sym_int.printColumn(std::cout, print_width.value, n_sd);
-            std::cout<<std::endl;
+            if (fsnap != NULL) 
+                sym_int.writeBinary(fsnap);
+            else {
+                sym_int.printColumn(std::cout, print_width.value, n_sd);
+                std::cout<<std::endl;
+            }
         }
     }
 

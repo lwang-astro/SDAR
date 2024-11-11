@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Common/profile.h"
+
 namespace H4{
     class Profile{
     public:
@@ -10,6 +12,16 @@ namespace H4{
         UInt64 ar_step_count_tsyn; // number of integration steps of ar
         UInt64 break_group_count; // times of break groups
         UInt64 new_group_count; // times of new groups
+#ifdef SDAR_TIME_MEASURE        
+        COMM::TimeMeasure prof_tot; // time measure of total time
+        COMM::TimeMeasure prof_hermite_single; // time measure of hermite single
+        COMM::TimeMeasure prof_hermite_group; // time measure of hermite group
+        COMM::TimeMeasure prof_adjust; // time measure of adjust groups
+        COMM::TimeMeasure prof_init; // time measure of initialization
+        COMM::TimeMeasure prof_modify_single; // time measure of modify single
+        COMM::TimeMeasure prof_select_act; // time measure of select active particles
+        COMM::TimeMeasure prof_ar; // time measure of ar integration in groups
+#endif
 
         Profile() {clear();} 
     
@@ -18,6 +30,16 @@ namespace H4{
             ar_step_count = ar_step_count_tsyn = 0;
             break_group_count = 0;
             new_group_count = 0;
+#ifdef SDAR_TIME_MEASURE
+            prof_tot.time = 0.0;
+            prof_hermite_single.time = 0.0;
+            prof_hermite_group.time = 0.0;
+            prof_adjust.time = 0.0;
+            prof_init.time = 0.0;
+            prof_modify_single.time = 0.0;
+            prof_select_act.time = 0.0;
+            prof_ar.time = 0.0;
+#endif
         }
 
         //! print titles of class members using column style
@@ -32,6 +54,16 @@ namespace H4{
                  <<std::setw(_width)<<"AR_step_tsyn"
                  <<std::setw(_width)<<"break_group"
                  <<std::setw(_width)<<"new_group";
+#ifdef SDAR_TIME_MEASURE
+            _fout<<std::setw(_width)<<"prof_tot[s]"
+                 <<std::setw(_width)<<"prof_H4_single[s]"
+                 <<std::setw(_width)<<"prof_H4_group[s]"
+                 <<std::setw(_width)<<"prof_adjust[s]"
+                 <<std::setw(_width)<<"prof_init[s]"
+                 <<std::setw(_width)<<"prof_modify[s]"
+                 <<std::setw(_width)<<"prof_select[s]"
+                 <<std::setw(_width)<<"prof_AR[s]";
+#endif
         }
 
         //! print data of class members using column style
@@ -46,6 +78,16 @@ namespace H4{
                  <<std::setw(_width)<<ar_step_count_tsyn
                  <<std::setw(_width)<<break_group_count
                  <<std::setw(_width)<<new_group_count;
+#ifdef SDAR_TIME_MEASURE
+            _fout<<std::setw(_width)<<prof_tot.time
+                 <<std::setw(_width)<<prof_hermite_single.time
+                 <<std::setw(_width)<<prof_hermite_group.time
+                 <<std::setw(_width)<<prof_adjust.time
+                 <<std::setw(_width)<<prof_init.time
+                 <<std::setw(_width)<<prof_modify_single.time
+                 <<std::setw(_width)<<prof_select_act.time
+                 <<std::setw(_width)<<prof_ar.time;
+#endif
         }
 
     };

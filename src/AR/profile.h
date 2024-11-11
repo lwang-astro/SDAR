@@ -1,32 +1,8 @@
 #pragma once
 
-#include <sys/time.h>
+#include "Common/profile.h"
 
 namespace AR{
-    //! Profile class to measure the performance
-    struct TimeMeasure{
-        double time;
-
-        TimeMeasure(): time(0.0) {}        
-
-        // time measure function
-        static double get_wtime(){
-            struct timeval tv;
-            gettimeofday(&tv, NULL);
-            return tv.tv_sec + 1.e-6 * tv.tv_usec;
-        }
-
-        // time measure start
-        void start() {
-            time -= get_wtime();
-        }
-
-        // time measure end
-        void end() {
-            time += get_wtime();
-        }
-    };
-
     //! profiling class for AR integrator
     class Profile {
     public:
@@ -35,18 +11,26 @@ namespace AR{
         UInt64 step_count_tsyn_sum; // number of integration steps during time synchronization summation
         UInt64 step_count; // number of integration steps from last step 
         UInt64 step_count_tsyn; // number of integration steps during time synchronization from last step
-        TimeMeasure prof_tot; // total wallclock time
-        TimeMeasure prof_int; // only integration wallclock time
-        TimeMeasure prof_int_tsyn; // only integration wallclock time for time synchronization
+#ifdef SDAR_TIME_MEASURE
+        COMM::TimeMeasure prof_tot; // total wallclock time
+        COMM::TimeMeasure prof_int; // only integration wallclock time
+        COMM::TimeMeasure prof_int_tsyn; // only integration wallclock time for time synchronization
+#endif
 
         // constructor
-        Profile(): step_count_sum(0), step_count_tsyn_sum(0), step_count(0), step_count_tsyn(0), prof_tot(), prof_int(), prof_int_tsyn() {}
+        Profile(): step_count_sum(0), step_count_tsyn_sum(0), step_count(0), step_count_tsyn(0)
+#ifdef SDAR_TIME_MEASURE
+                  , prof_tot(), prof_int(), prof_int_tsyn() 
+#endif
+                  {}
 
         // clear function
         void clear() {
             step_count = step_count_tsyn = 0;
             step_count_sum = step_count_tsyn_sum = 0;
+#ifdef SDAR_TIME_MEASURE
             prof_int.time = prof_int_tsyn.time = prof_tot.time = 0.0; 
+#endif
         }
 
         //! print titles of class members using column style
@@ -58,10 +42,12 @@ namespace AR{
             _fout<<std::setw(_width)<<"Nstep(sum)"
                  <<std::setw(_width)<<"Nstep_tsyn(sum)"
                  <<std::setw(_width)<<"Nstep"
-                 <<std::setw(_width)<<"Nstep_tsyn"
-                 <<std::setw(_width)<<"Total(s)"
+                 <<std::setw(_width)<<"Nstep_tsyn";
+#ifdef SDAR_TIME_MEASURE
+            _fout<<std::setw(_width)<<"Total(s)"
                  <<std::setw(_width)<<"Int(s)"
                  <<std::setw(_width)<<"Int_tsyn(s)";
+#endif
         }
 
         //! print data of class members using column style
@@ -73,10 +59,12 @@ namespace AR{
             _fout<<std::setw(_width)<<step_count_sum
                  <<std::setw(_width)<<step_count_tsyn_sum
                  <<std::setw(_width)<<step_count
-                 <<std::setw(_width)<<step_count_tsyn
-                 <<std::setw(_width)<<prof_tot.time
+                 <<std::setw(_width)<<step_count_tsyn;
+#ifdef SDAR_TIME_MEASURE
+            _fout<<std::setw(_width)<<prof_tot.time
                  <<std::setw(_width)<<prof_int.time
                  <<std::setw(_width)<<prof_int_tsyn.time;
+#endif
         }
 
         //! write class data with BINARY format

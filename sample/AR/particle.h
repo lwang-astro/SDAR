@@ -16,16 +16,16 @@ enum class BinaryInterruptState:int {none = 0, form = 1, exchange = 2, collision
 */
 class Particle{
 public:
-    long long int id;
     Float mass;
     Float pos[3];
     Float vel[3];
     Float radius;
+    long long int id;
     Float dm;
     Float time_check; // time to check next interrupt
     long long int binary_state; // contain two parts, low bits (first BINARY_STATE_ID_SHIFT bits) is binary interrupt state and high bits are pair ID
 
-    Particle(): id(-1), mass(0.0), pos{0,0,0}, vel{0,0,0}, radius(0.0), dm(0.0), time_check(NUMERIC_FLOAT_MAX), binary_state(0) {}
+    Particle(): mass(0.0), pos{0,0,0}, vel{0,0,0}, radius(0.0), id(-1), dm(0.0), time_check(NUMERIC_FLOAT_MAX), binary_state(0) {}
 
     //! save pair id in binary_state with shift bit size of BINARY_STATE_ID_SHIFT
     void setBinaryPairID(const int _id) {

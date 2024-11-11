@@ -2109,6 +2109,10 @@ namespace H4{
            @param[in] _start_flag: indicate this is the first adjust of the groups in the integration
          */
         void adjustGroups(const bool _start_flag) {
+#ifdef SDAR_TIME_MEASURE
+            profile.prof_tot.start();
+            profile.prof_adjust.start();
+#endif
             ASSERT(checkParams());
             ASSERT(!particles.isModified());
             ASSERT(initial_system_flag_);
@@ -2142,6 +2146,10 @@ namespace H4{
 
             // initial integration (cannot do it here, in the case AR perturber need initialization first)
             // initialIntegration();
+#ifdef SDAR_TIME_MEASURE
+            profile.prof_adjust.end(); 
+            profile.prof_tot.end();
+#endif
         }
 
         //! Initial Hermite integrator
@@ -2151,6 +2159,10 @@ namespace H4{
           //@param[in] _start_flag: true: the starting step of integration.
         */
         void initialIntegration() {
+#ifdef SDAR_TIME_MEASURE
+            profile.prof_tot.start();
+            profile.prof_init.start();
+#endif
 
             ASSERT(!particles.isModified());
             ASSERT(initial_system_flag_);
@@ -2192,7 +2204,13 @@ namespace H4{
             ASSERT(n_act_single_<=index_dt_sorted_single_.getSize());
 #endif            
 
-            if (n_init_single_==0&&n_init_group_==0) return;
+            if (n_init_single_==0&&n_init_group_==0) {
+#ifdef SDAR_TIME_MEASURE
+                profile.prof_init.end();
+                profile.prof_tot.end();
+#endif
+                return;
+            }
 
             // single
             int* index_single = index_dt_sorted_single_.getDataAddress();
@@ -2311,6 +2329,11 @@ namespace H4{
 
             // reset n_init
             n_init_single_ = n_init_group_ = 0;
+
+#ifdef SDAR_TIME_MEASURE
+            profile.prof_init.end();
+            profile.prof_tot.end();
+#endif
         }
 
         //! Integrate groups
@@ -2320,6 +2343,11 @@ namespace H4{
            else ar_manager->interrupt_detection_option==2, record interrupted binary information
          */
         void integrateGroupsOneStep() {
+#ifdef SDAR_TIME_MEASURE
+            profile.prof_tot.start();
+            profile.prof_hermite_group.start();
+#endif
+
             ASSERT(checkParams());
             ASSERT(!particles.isModified());
             ASSERT(initial_system_flag_);
@@ -2356,8 +2384,14 @@ namespace H4{
                 // get ds estimation
                 groups[k].info.calcDsAndStepOption(ar_manager->step.getOrder(), ar_manager->interaction.gravitational_constant, ar_manager->ds_scale);
 
+#ifdef SDAR_TIME_MEASURE
+                profile.prof_ar.start();
+#endif
                 // group integration 
                 auto interrupt_binary = groups[k].integrateToTime(time_next);
+#ifdef SDAR_TIME_MEASURE
+                profile.prof_ar.end();
+#endif
 
                 // profile
                 profile.ar_step_count += groups[k].profile.step_count;
@@ -2526,10 +2560,18 @@ namespace H4{
             //interrupt_binary_.clear();
 
             //return interrupt_binary_;
+#ifdef SDAR_TIME_MEASURE
+            profile.prof_hermite_group.end();
+            profile.prof_tot.end();
+#endif
         }
 
         //! modify single particles due to external functions, update energy
         void modifySingleParticles() {
+#ifdef SDAR_TIME_MEASURE
+            profile.prof_tot.start();
+            profile.prof_modify_single.start();
+#endif
             int mod_index[n_act_single_];
             int n_mod=0;
             for (int i=0; i<n_act_single_; i++) {
@@ -2601,6 +2643,10 @@ namespace H4{
                 energy_sd_.de_cum += de_pot;
                 energy_sd_.de_modify_single += de_pot;
             }
+#ifdef SDAR_TIME_MEASURE
+            profile.prof_modify_single.end();
+            profile.prof_tot.end();
+#endif
         }
         
 
@@ -2608,13 +2654,17 @@ namespace H4{
         /*! Integrated to next time given by minimum step particle
         */
         void integrateSingleOneStepAct() {
+#ifdef SDAR_TIME_MEASURE
+            profile.prof_tot.start();
+            profile.prof_hermite_single.start();
+#endif            
+
             ASSERT(checkParams());
             ASSERT(!particles.isModified());
             ASSERT(initial_system_flag_);
             ASSERT(!modify_system_flag_);
             ASSERT(n_init_group_==0&&n_init_single_==0);
             //ASSERT(ar_manager->interrupt_detection_option!=2||(ar_manager->interrupt_detection_option==2&&interrupt_binary_.status==AR::InterruptStatus::none));
-            
             // get next time
             Float time_next = getNextTime();
 
@@ -2642,6 +2692,11 @@ namespace H4{
             // profile
             profile.hermite_single_step_count += n_act_single_;
             profile.hermite_group_step_count += n_act_group_;
+
+#ifdef SDAR_TIME_MEASURE
+            profile.prof_hermite_single.end();
+            profile.prof_tot.end();
+#endif            
         }
 
         //! Integration a list of particle to current time (ingore dt)
@@ -2698,6 +2753,10 @@ namespace H4{
         /*! Make sure time_next_ is updated already
          */
         void sortDtAndSelectActParticle() {
+#ifdef SDAR_TIME_MEASURE
+            profile.prof_tot.start();
+            profile.prof_select_act.start();
+#endif
             // sort single
             std::sort(index_dt_sorted_single_.getDataAddress(), index_dt_sorted_single_.getDataAddress()+n_act_single_, SortIndexDtSingle(time_next_.getDataAddress()));
             // sort group
@@ -2743,6 +2802,10 @@ namespace H4{
 
             ASSERT(!(n_act_single_==0&&n_act_group_==0));
 
+#ifdef SDAR_TIME_MEASURE
+            profile.prof_select_act.end();
+            profile.prof_tot.end();
+#endif
         }
 
         //! write back group members to particles

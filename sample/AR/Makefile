@@ -1,4 +1,4 @@
-TARGET= ar.logh ar.logh.sd.t ar.ttl ar.ttl.sd.t ar.ttl.sd.t.mulpot ar.ttl.sd.t.mulpot.cm ar.ttl.sd.t.mulpot.cm.mpfrc ar.ttl.sd.t.maxpot.cm ar.ttl.sd.t.addpot.cm ar.ttl.sd.t.cm
+TARGET= ar.logh ar.logh.mpfrc ar.ttl.mpfrc ar.logh.sd.t ar.ttl ar.ttl.sd.t ar.ttl.sd.t.mulpot ar.ttl.sd.t.mulpot.cm ar.ttl.sd.t.mulpot.cm.mpfrc ar.ttl.sd.t.mulpot.mpfrc ar.ttl.sd.t.maxpot.cm ar.ttl.sd.t.addpot.cm ar.ttl.sd.t.cm
 INSTALL_PATH=~/bin
 
 all: $(TARGET)
@@ -48,7 +48,7 @@ CXXFLAGS += -std=c++11
 #CXXFLAGS += -fopenmp -D USE_OMP
 
 ## profile---------------------------------------#
-CXXFLAGS += -D AR_PROFILE
+CXXFLAGS += -D SDAR_TIME_MEASURE
 
 ## gperf----------------------------------------------#
 ifneq (x$(GPERF_PATH),x)
@@ -72,11 +72,17 @@ endif
 ar.logh: ar.cxx  ${SOURCE}
 	$(CXX) $(CXXFLAGS) $< -o $@ $(CXXLIBS)
 
+ar.logh.mpfrc: ar.cxx  ${SOURCE}
+	$(CXX) $(CXXFLAGS) $(MPFRC_FLAGS) $< -o $@ $(CXXLIBS) $(MPFRC_LIBS)
+
 ar.logh.sd.t: ar.cxx ${SOURCE}
 	$(CXX) $(CXXFLAGS) -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE  $< -o $@ $(CXXLIBS)
 
 ar.ttl: ar.cxx ${SOURCE}
 	$(CXX) $(CXXFLAGS) -D AR_TTL $< -o $@ $(CXXLIBS)
+
+ar.ttl.mpfrc: ar.cxx ${SOURCE}
+	$(CXX) $(CXXFLAGS) $(MPFRC_FLAGS) -D AR_TTL $< -o $@ $(CXXLIBS) $(MPFRC_LIBS)
 
 ar.ttl.m: ar.cxx ${SOURCE}
 	$(CXX) $(CXXFLAGS) -D AR_TTL -D AR_TTL_GT_MULTI $< -o $@ $(CXXLIBS)
@@ -92,6 +98,9 @@ ar.ttl.sd.t.mulpot: ar.cxx ${SOURCE}
 
 ar.ttl.sd.t.mulpot.cm: ar.cxx ${SOURCE}
 	$(CXX) $(CXXFLAGS) -D AR_TTL -D USE_CM_FRAME -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE -D AR_TIME_FUNCTION_MUL_POT $< -o $@ $(CXXLIBS)
+
+ar.ttl.sd.t.mulpot.mpfrc: ar.cxx ${SOURCE}
+	$(CXX) $(CXXFLAGS) $(MPFRC_FLAGS) -D AR_TTL -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE -D AR_TIME_FUNCTION_MUL_POT $< -o $@ $(CXXLIBS) $(MPFRC_LIBS)
 
 ar.ttl.sd.t.mulpot.cm.mpfrc: ar.cxx ${SOURCE}
 	$(CXX) $(CXXFLAGS) $(MPFRC_FLAGS) -D AR_TTL -D USE_CM_FRAME -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE -D AR_TIME_FUNCTION_MUL_POT $< -o $@ $(CXXLIBS) $(MPFRC_LIBS)

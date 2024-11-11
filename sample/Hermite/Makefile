@@ -56,7 +56,7 @@ CXXFLAGS += -D AR_SLOWDOWN_TREE
 #CXXFLAGS += -fopenmp -D USE_OMP
 
 ## profile---------------------------------------#
-CXXFLAGS += -D AR_PROFILE
+CXXFLAGS += -D SDAR_TIME_MEASURE
 
 ## gperf----------------------------------------------#
 ifneq (x$(GPERF_PATH),x)
