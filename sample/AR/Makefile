@@ -1,7 +1,8 @@
-TARGET= ar.logh ar.logh.mpfrc ar.ttl.mpfrc ar.logh.sd.t ar.ttl ar.ttl.sd.t ar.ttl.sd.t.mulpot ar.ttl.sd.t.mulpot.cm ar.ttl.sd.t.mulpot.cm.mpfrc ar.ttl.sd.t.mulpot.mpfrc ar.ttl.sd.t.maxpot.cm ar.ttl.sd.t.addpot.cm ar.ttl.sd.t.cm
+TARGET= ar.logh ar.logh.sd.t ar.ttl ar.ttl.sd.t ar.ttl.sd.t.mulpot ar.ttl.sd.t.mulpot.cm ar.ttl.sd.t.maxpot.cm ar.ttl.sd.t.addpot.cm 
+TARGET_MPFRC= ar.ttl.sd.t.cm ar.logh.mpfrc ar.ttl.mpfrc ar.ttl.sd.t.mulpot.cm.mpfrc ar.ttl.sd.t.mulpot.mpfrc 
 INSTALL_PATH=~/bin
 
-all: $(TARGET)
+all: $(TARGET) 
 
 VPATH=../../src 
 
@@ -10,7 +11,7 @@ SOURCE=${shell ls ../../src/AR/*.h} ${shell ls ../../src/Common/*.h} ${shell ls 
 use_x86=yes
 #use_k_computer=yes
 #QD_PATH=../../../../
-MPFRC_PATH=../../../mpfrc++
+#MPFRC_PATH=../../../mpreal
 #GPERF_PATH = /opt/gperftools-2.6.1
 
 
@@ -62,10 +63,11 @@ CXXLIBS += ${shell ${QD_PATH}/bin/qd-config --libs}
 endif
 
 ## mpfrc++-lib----------------------------------------#
-ifneq (x$(MPFRC_PATH),x)
-MPFRC_FLAGS += -D USE_MPFRC -I $(MPFRC_PATH)
+#ifneq (x$(MPFRC_PATH),x)
+TARGET += ${TARGET_MPFRC}
+MPFRC_FLAGS += -D USE_MPFRC# -I $(MPFRC_PATH)
 MPFRC_LIBS += -lmpfr -lgmp
-endif
+#endif
 
 ## Target --------------------------------------------#
 
