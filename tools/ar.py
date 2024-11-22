@@ -70,6 +70,7 @@ class SDARData(DictNpArrayMix):
         epot (1D): potential energy
         gt_drift (1D): time tranformation for drift step
         H (1D): extened phase space Hamiltonian
+        H_approx (1D): approximated phase space Hamiltonian
         de_interrupt (1D): energy change due to interruption
         dH_interrupt (1D): H change due to interruption
         perturber (perturber_type): perturber data, depending on the keyword argument 'perturber_type'
@@ -123,7 +124,7 @@ class SDARData(DictNpArrayMix):
             kwargs['cm_type'] = SDARParticle
 
         keys=[['time', np.float64], ['de', np.float64], ["etot_ref",np.float64], ["ekin",np.float64],
-              ["epot",np.float64], ['gt_drift', np.float64], ['H', np.float64], 
+              ["epot",np.float64], ['gt_drift', np.float64], ['H', np.float64], ['H_approx', np.float64],
               ['de_interrupt', np.float64], ['dH_interrupt', np.float64]]
 
         if ('perturber_type' in kwargs.keys()):

@@ -3188,12 +3188,15 @@ namespace AR {
         }
 
         //! get Hamiltonian
-        Float getH() const {
+        Float getH(bool return_approx = false) const {
 //#ifdef AR_TTL
             //return (ekin_ - etot_ref_)/gt_drift_inv_ + epot_/gt_kick_inv_.value;
             //return (ekin_ + epot_ - etot_ref_)/gt_kick_inv_.value;
 ///#else
-            return manager->interaction.calcH(ekin_ - etot_ref_, epot_);
+            if (return_approx)
+                return (ekin_ + epot_ - etot_ref_)/epot_;
+            else
+                return manager->interaction.calcH(ekin_ - etot_ref_, epot_);
 //#endif
         }
 
@@ -3293,12 +3296,15 @@ namespace AR {
         }
 
         //! get slowdown Hamiltonian
-        Float getHSlowDown() const {
+        Float getHSlowDown(bool return_approx = false) const {
 //#ifdef AR_TTL
             //return (ekin_sd_ - etot_sd_ref_)/gt_drift_inv_ + epot_sd_/gt_kick_inv_;
 //            return (ekin_sd_ + epot_sd_ - etot_sd_ref_)/gt_kick_inv_.value;
 //#else
-            return manager->interaction.calcH(ekin_sd_ - etot_sd_ref_, epot_sd_);
+            if (return_approx)
+                return (ekin_sd_ + epot_sd_ - etot_sd_ref_)/epot_sd_;
+            else
+                return manager->interaction.calcH(ekin_sd_ - etot_sd_ref_, epot_sd_);
 //#endif
         }
 
@@ -3558,6 +3564,7 @@ namespace AR {
                  <<std::setw(_width)<<"Epot"
                  <<std::setw(_width)<<"Gt_drift"
                  <<std::setw(_width)<<"H"
+                 <<std::setw(_width)<<"H_approx"
                  <<std::setw(_width)<<"dE_intr"
                  <<std::setw(_width)<<"dH_intr";
             perturber.printColumnTitle(_fout, _width);
@@ -3604,6 +3611,7 @@ namespace AR {
                  <<std::setw(_width)<<1.0/manager->interaction.calcGTDriftInv(ekin_sd_-etot_sd_ref_)
 #endif
                  <<std::setw(_width)<<getHSlowDown()
+                 <<std::setw(_width)<<getHSlowDown(true)
 #else
 #ifdef AR_TTL
                  <<std::setw(_width)<<1.0/gt_drift_inv_
@@ -3611,6 +3619,7 @@ namespace AR {
                  <<std::setw(_width)<<1.0/manager->interaction.calcGTDriftInv(ekin_-etot_ref_)
 #endif
                  <<std::setw(_width)<<getH()
+                 <<std::setw(_width)<<getH(true)
 #endif
                  <<std::setw(_width)<<de_change_interrupt_
                  <<std::setw(_width)<<dH_change_interrupt_;
