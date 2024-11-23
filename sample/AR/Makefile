@@ -2,13 +2,12 @@ TARGET= ar.logh ar.logh.sd.t ar.ttl ar.ttl.sd.t ar.ttl.sd.t.mulpot ar.ttl.sd.t.m
 TARGET_MPFRC= ar.ttl.sd.t.cm ar.logh.mpfrc ar.ttl.mpfrc ar.ttl.sd.t.mulpot.cm.mpfrc ar.ttl.sd.t.mulpot.mpfrc 
 INSTALL_PATH=~/bin
 
-all: $(TARGET) 
-
 VPATH=../../src 
 
 SOURCE=${shell ls ../../src/AR/*.h} ${shell ls ../../src/Common/*.h} ${shell ls ./*.h}
 
 use_x86=yes
+use_mpfrc=yes
 #use_k_computer=yes
 #QD_PATH=../../../../
 #MPFRC_PATH=../../../mpreal
@@ -63,12 +62,14 @@ CXXLIBS += ${shell ${QD_PATH}/bin/qd-config --libs}
 endif
 
 ## mpfrc++-lib----------------------------------------#
-#ifneq (x$(MPFRC_PATH),x)
-TARGET += ${TARGET_MPFRC}
+ifeq ($(use_mpfrc),yes)
 MPFRC_FLAGS += -D USE_MPFRC# -I $(MPFRC_PATH)
 MPFRC_LIBS += -lmpfr -lgmp
-#endif
+TARGET += ${TARGET_MPFRC}
+endif
 
+
+all: $(TARGET) 
 ## Target --------------------------------------------#
 
 ar.logh: ar.cxx  ${SOURCE}
