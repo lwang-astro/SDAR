@@ -3564,7 +3564,9 @@ namespace AR {
                  <<std::setw(_width)<<"Epot"
                  <<std::setw(_width)<<"Gt_drift"
                  <<std::setw(_width)<<"H"
+#ifdef AR_PRINT_H_APPROX
                  <<std::setw(_width)<<"H_approx"
+#endif
                  <<std::setw(_width)<<"dE_intr"
                  <<std::setw(_width)<<"dH_intr";
             perturber.printColumnTitle(_fout, _width);
@@ -3611,7 +3613,9 @@ namespace AR {
                  <<std::setw(_width)<<1.0/manager->interaction.calcGTDriftInv(ekin_sd_-etot_sd_ref_)
 #endif
                  <<std::setw(_width)<<getHSlowDown()
+#ifdef AR_PRINT_H_APPROX
                  <<std::setw(_width)<<getHSlowDown(true)
+#endif
 #else
 #ifdef AR_TTL
                  <<std::setw(_width)<<1.0/gt_drift_inv_
@@ -3619,7 +3623,9 @@ namespace AR {
                  <<std::setw(_width)<<1.0/manager->interaction.calcGTDriftInv(ekin_-etot_ref_)
 #endif
                  <<std::setw(_width)<<getH()
+#ifdef AR_PRINT_H_APPROX
                  <<std::setw(_width)<<getH(true)
+#endif
 #endif
                  <<std::setw(_width)<<de_change_interrupt_
                  <<std::setw(_width)<<dH_change_interrupt_;
