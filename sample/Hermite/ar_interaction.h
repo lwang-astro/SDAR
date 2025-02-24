@@ -524,6 +524,7 @@ public:
     Float calcGTDriftInv(Float _ekin_minus_etot) {
         return _ekin_minus_etot;
     }
+#endif   
 
     //! (Necessary) calculate the time transformed Hamiltonian
     /*! calculate the time transformed Hamiltonian
@@ -532,7 +533,6 @@ public:
     Float calcH(Float _ekin_minus_etot, Float _epot) {
         return log(_ekin_minus_etot) - log(-_epot);
     }
-#endif   
 
     //! modify one particle function
     template <class Tparticle>

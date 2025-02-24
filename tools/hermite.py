@@ -101,6 +101,8 @@ class HermiteData(DictNpArrayMix):
                 Number of members of one group
             N_sd: int (0)
                 Number of slowdown pairs
+            time_measure: bool (False)
+                if True, add time measure keys in profile
         """
 
         if ('member_type' in kwargs.keys()):
