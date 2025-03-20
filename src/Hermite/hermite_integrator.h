@@ -2345,6 +2345,7 @@ namespace H4{
             int n_interrupt_change_dt=0;
 
             //for (int i=i_start; i<n_group_tot; i++) {
+            #pragma omp parallel for
             for (int i=0; i<n_group_tot; i++) {
                 const int k = index_dt_sorted_group_[i];
 
@@ -2367,6 +2368,8 @@ namespace H4{
                     // processing interruption case
                     if (ar_manager->interaction.interrupt_detection_option==1) {
 
+                        #pragma omp critical
+                        {
 #ifdef HERMITE_DEBUG
                         std::cerr<<"Interrupt ";
                         switch (interrupt_binary.status) {
@@ -2445,10 +2448,12 @@ namespace H4{
                         // update particle dm, velocity should not change to be consistent with frame
                         pcm.mass += dm;
                         //particles.cm.mass += dm;
-
+                        }
                     }
                     // record interrupt information
                     else if (ar_manager->interaction.interrupt_detection_option==2) { 
+                        #pragma omp critical
+                        {    
                         auto bin = interrupt_binary.getBinaryTreeAddress();
                         if (!bin->isMemberTree(0) && !bin->isMemberTree(1)){
                             // only recored binary interruption
@@ -2461,6 +2466,7 @@ namespace H4{
                         // ASSERT(time_next - interrupt_binary_.time_now + ar_manager->time_error_max >= 0.0);
                         //    return interrupt_binary_;
                         //
+                        }
                     }
                 }
 
