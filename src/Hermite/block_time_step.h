@@ -125,6 +125,16 @@ namespace H4{
         //! contructor
         BlockTimeStep4th(): TimeStep4th(), dt_max_(-1.0), dt_min_(-1.0) {}
 
+        //! check whether parameters values are correct
+        /*! \return true: all correct
+         */
+        bool checkParams() {
+            TimeStep4th::checkParams();    
+            ASSERT(dt_max_>0.0);
+            ASSERT(dt_min_>0.0);
+            return true;
+        }
+
         //! set dt limit (max and min)
         /*! 
           @param[in] _dt_max: maximum step size
