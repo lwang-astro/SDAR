@@ -965,6 +965,7 @@ namespace H4{
             auto* pred_ptr = pred_.getDataAddress();
             auto* force_ptr = force_.getDataAddress();
             auto* neighbor_ptr = neighbors.getDataAddress();
+            #pragma omp parallel for
             for (int k=0; k<_n_single; k++) {
                 const int i = _index_single[k];
                 auto& pi = pred_ptr[i];
@@ -976,6 +977,7 @@ namespace H4{
             // for group active particles
             auto* group_ptr = groups.getDataAddress();
             
+            #pragma omp parallel for
             for (int k=0; k<_n_group; k++) {
                 const int i = _index_group[k];
                 auto& groupi = group_ptr[i];
