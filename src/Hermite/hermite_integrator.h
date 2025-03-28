@@ -2342,13 +2342,19 @@ namespace H4{
 
             // integrate groups loop 
             const int n_group_tot = index_dt_sorted_group_.getSize();
+            //std::cout<<"n_group: "<<n_group_tot<<std::endl;
             //const int i_start = interrupt_group_dt_sorted_group_index_>=0 ? interrupt_group_dt_sorted_group_index_ : 0;
             int interrupt_index_dt_group_list[n_group_tot];
             int n_interrupt_change_dt=0;
 
+            // Array to store thread-specific times
+            //double thread_times[omp_get_max_threads()] = {0.0};
+
             //for (int i=i_start; i<n_group_tot; i++) {
             #pragma omp parallel for
             for (int i=0; i<n_group_tot; i++) {
+                //double start_time = omp_get_wtime(); // Start time for this thread
+
                 const int k = index_dt_sorted_group_[i];
 
 //#ifdef HERMITE_DEBUG            
@@ -2363,7 +2369,9 @@ namespace H4{
                 auto interrupt_binary = groups[k].integrateToTime(time_next);
 
                 // profile
+                #pragma omp atomic
                 profile.ar_step_count += groups[k].profile.step_count;
+                #pragma omp atomic
                 profile.ar_step_count_tsyn += groups[k].profile.step_count_tsyn;
 
                 if (interrupt_binary.status!=AR::InterruptStatus::none) {
@@ -2473,7 +2481,16 @@ namespace H4{
                 }
 
                 ASSERT(abs(groups[k].getTime()-time_next)<=ar_manager->time_error_max);
+
+                //double end_time = omp_get_wtime(); // End time for this thread
+                //int i_omp = omp_get_thread_num();
+                //thread_times[i_omp] += (end_time - start_time); // Accumulate time for this thread
             }
+
+            // Print thread-specific times
+            //for (int t = 0; t < omp_get_max_threads(); t++) {
+            //    std::cout << "Thread " << t << " CPU time: " << thread_times[t] << " seconds" << std::endl;
+            //}
 
             // update index_dt_sorted_group_ due to the change of dt
             if (n_interrupt_change_dt>0) {
