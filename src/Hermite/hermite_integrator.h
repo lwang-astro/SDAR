@@ -2492,6 +2492,9 @@ namespace H4{
             //    std::cout << "Thread " << t << " CPU time: " << thread_times[t] << " seconds" << std::endl;
             //}
 
+            // Make sure the index list is in increasing order, to make the following shift work correctly             
+            std::sort(interrupt_index_dt_group_list, interrupt_index_dt_group_list+n_interrupt_change_dt);
+
             // update index_dt_sorted_group_ due to the change of dt
             if (n_interrupt_change_dt>0) {
                 // shift position starts from the last interrupt index in sorted list (right to left)
