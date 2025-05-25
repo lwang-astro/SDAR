@@ -271,7 +271,6 @@ int main(int argc, char **argv){
     H4Int h4_int;
     h4_int.manager = &manager;
     h4_int.ar_manager = &ar_manager;
-    h4_int.step = manager.step;
 
     std::fstream fin;
     fin.open(filename,std::fstream::in);
@@ -288,6 +287,8 @@ int main(int argc, char **argv){
         
     Float m_ave = h4_int.particles.cm.mass/h4_int.particles.getSize();
     manager.step.calcAcc0OffsetSq(m_ave, r_search.value, grav_const.value);
+    h4_int.step = manager.step;
+
 #ifdef SLOWDOWN_MASSRATIO
     if (slowdown_mass_ref.value<=0.0) ar_manager.slowdown_mass_ref = m_ave;
     else ar_manager.slowdown_mass_ref = slowdown_mass_ref.value;
