@@ -32,6 +32,8 @@ namespace H4{
     public:
         //Float r_break_crit; ///> the distance criterion to break the groups
         //Float r_neighbor_crit; ///> the distance for neighbor search
+        Float reinitialize_step_dm_criterion; ///> criterion of mass change rate for reinitializing step size
+        Float reinitialize_step_de_criterion; ///> criterion of energy change rate for reinitializing step size
         Tmethod interaction; ///> class contain interaction function
         BlockTimeStep4th step; ///> time step calculator
 #ifdef ADJUST_GROUP_PRINT
@@ -40,7 +42,9 @@ namespace H4{
 #endif
 
 #ifdef ADJUST_GROUP_PRINT
-        HermiteManager(): interaction(), step(), adjust_group_write_flag(true), fgroup() {}
+        HermiteManager(): reinitialize_step_dm_criterion(0.0), reinitialize_step_de_criterion(0.0), interaction(), step(), adjust_group_write_flag(true), fgroup() {}
+#else
+        HermiteManager(): reinitialize_step_dm_criterion(0.0), reinitialize_step_de_criterion(0.0), interaction(), step() {}
 #endif
 
 
@@ -50,6 +54,8 @@ namespace H4{
         bool checkParams() {
             //ASSERT(r_break_crit>=0.0);
             //ASSERT(r_neighbor_crit>=0.0);
+            ASSERT(reinitialize_step_dm_criterion>=0.0);
+            ASSERT(reinitialize_step_de_criterion>=0.0);
             ASSERT(interaction.checkParams());
             ASSERT(step.checkParams());
 #ifdef ADJUST_GROUP_PRINT
@@ -62,6 +68,8 @@ namespace H4{
         void print(std::ostream & _fout) const{
             //_fout<<"r_break_crit    : "<<r_break_crit<<std::endl
             //<<"r_neighbor_crit : "<<r_neighbor_crit<<std::endl;
+            _fout<<"reinitialize_step_dm_criterion : "<<reinitialize_step_dm_criterion<<std::endl
+                 <<"reinitialize_step_de_criterion  : "<<reinitialize_step_de_criterion<<std::endl;
             interaction.print(_fout);
             step.print(_fout);
         }
@@ -73,6 +81,8 @@ namespace H4{
           @param[in] _width: print width (defaulted 20)
         */
         void printColumnTitle(std::ostream & _fout, const int _width=20) {
+            _fout<<std::setw(_width)<<"reinit_dm_crit"
+                 <<std::setw(_width)<<"reinit_de_crit";
             interaction.printColumnTitle(_fout, _width);
             step.printColumnTitle(_fout, _width);
         }
@@ -83,6 +93,8 @@ namespace H4{
           @param[in] _width: print width (defaulted 20)
         */
         void printColumn(std::ostream & _fout, const int _width=20){
+            _fout<<std::setw(_width)<<reinitialize_step_dm_criterion
+                 <<std::setw(_width)<<reinitialize_step_de_criterion;
             interaction.printColumn(_fout, _width);
             step.printColumn(_fout, _width);
         }
@@ -91,8 +103,8 @@ namespace H4{
         /*! @param[in] _fp: FILE type file for output
          */
         void writeBinary(FILE *_fp) const {
-            //size_t size = sizeof(*this) - sizeof(interaction) - sizeof(step);
-            //fwrite(this, size, 1, _fp);
+            size_t size = sizeof(*this) - sizeof(interaction) - sizeof(step);
+            fwrite(this, size, 1, _fp);
             interaction.writeBinary(_fp);
             step.writeBinary(_fp);
 #ifdef ADJUST_GROUP_PRINT
@@ -104,16 +116,16 @@ namespace H4{
         /*! @param[in] _fin: FILE type file for reading
          */
         void readBinary(FILE *_fin) {
-            //size_t size = sizeof(*this) - sizeof(interaction) - sizeof(step);
-            //size_t rcount = fread(this, size, 1, _fin);
-            //if (rcount<1) {
-            //    std::cerr<<"Error: Data reading fails! requiring data number is 1, only obtain "<<rcount<<".\n";
-            //    abort();
-            //}
+            size_t size = sizeof(*this) - sizeof(interaction) - sizeof(step);
+            size_t rcount = fread(this, size, 1, _fin);
+            if (rcount<1) {
+                std::cerr<<"Error: Data reading fails! requiring data number is 1, only obtain "<<rcount<<".\n";
+                abort();
+            }
             interaction.readBinary(_fin);
             step.readBinary(_fin);
 #ifdef ADJUST_GROUP_PRINT
-            size_t rcount = fread(&adjust_group_write_flag, sizeof(bool),1,_fin);
+            rcount = fread(&adjust_group_write_flag, sizeof(bool),1,_fin);
             if (rcount<1) {
                 std::cerr<<"Error: Data reading fails! requiring data number is 1, only obtain "<<rcount<<".\n";
                 abort();
@@ -2586,7 +2598,8 @@ namespace H4{
                              <<std::endl;
 #endif
                     // correct potential energy 
-                    Float de_pot = force_[k].pot*(pk.mass-mbk);
+                    Float dm = pk.mass - mbk;
+                    Float de_pot = force_[k].pot*dm;
                     energy_.de_cum += de_pot;
                     energy_.de_modify_single += de_pot;
                     energy_sd_.de_cum += de_pot;
@@ -2596,13 +2609,16 @@ namespace H4{
                     // first calc original kinetic energy;
                     Float de_kin = -0.5*mbk*(vbk[0]*vbk[0]+vbk[1]*vbk[1]+vbk[2]*vbk[2]);
                     // then new energy
-                    de_kin += 0.5*pk.mass*(v[0]*v[0]+v[1]*v[1]+v[2]*v[2]);
+                    Float ekin_new = 0.5*pk.mass*(v[0]*v[0]+v[1]*v[1]+v[2]*v[2]);
+                    de_kin += ekin_new;
                     energy_.de_cum += de_kin;
                     energy_.de_modify_single += de_kin;
                     energy_sd_.de_cum += de_kin;
                     energy_sd_.de_modify_single += de_kin;
-
-                    neighbors[k].initial_step_flag = true;
+                    
+                    // if change is not significant, no need to reinitialize step
+                    if (dm/pk.mass > manager->reinitialize_step_dm_criterion || de_kin/ekin_new > manager->reinitialize_step_de_criterion)
+                        neighbors[k].initial_step_flag = true;
 
                     // use predictor as template particle with mass of dm
                     mbk = pk.mass-mbk;
