@@ -2416,23 +2416,6 @@ namespace H4{
                         // particle cm is the old cm in original frame
                         auto& pcm = groups[k].particles.cm;
 
-                        if (interrupt_binary.status==AR::InterruptStatus::merge||interrupt_binary.status==AR::InterruptStatus::destroy)  {
-                            index_group_merger_.addMember(k);
-                        }
-                        else {
-                            // set initial step flag 
-                            groups[k].perturber.initial_step_flag=true;
-
-                            if (pcm.time + pcm.dt >time_next) {
-                                ASSERT(i>=n_act_group_);
-                                // set cm step to reach time_next
-                                pcm.dt = time_next - pcm.time;
-                                time_next_[k+index_offset_group_] = time_next;
-                                // recored index in index_dt_sort of the interrupt case for moving later
-                                interrupt_index_dt_group_list[n_interrupt_change_dt++] = i;
-                            }
-                        }
-                    
                         // correct cm potential energy 
                         //Float dm = correctMassChangePotEnergyBinaryIter(*interrupt_binary.adr);
                         // notice the bin_root represent new c.m. in rest frame
@@ -2470,6 +2453,25 @@ namespace H4{
                         // update particle dm, velocity should not change to be consistent with frame
                         pcm.mass += dm;
                         //particles.cm.mass += dm;
+
+                        if (interrupt_binary.status==AR::InterruptStatus::merge||interrupt_binary.status==AR::InterruptStatus::destroy)  {
+                            index_group_merger_.addMember(k);
+                        }
+                        else {
+                            // set initial step flag 
+                            if (abs(dm/pcm.mass) > manager->reinitialize_step_dm_criterion || abs(de_kin/energy_.ekin) > manager->reinitialize_step_de_criterion)
+                                groups[k].perturber.initial_step_flag=true;
+
+                            if (pcm.time + pcm.dt >time_next) {
+                                ASSERT(i>=n_act_group_);
+                                // set cm step to reach time_next
+                                pcm.dt = time_next - pcm.time;
+                                time_next_[k+index_offset_group_] = time_next;
+                                // recored index in index_dt_sort of the interrupt case for moving later
+                                interrupt_index_dt_group_list[n_interrupt_change_dt++] = i;
+                            }
+                        }
+
                         }
                     }
                     // record interrupt information
@@ -2617,7 +2619,7 @@ namespace H4{
                     energy_sd_.de_modify_single += de_kin;
                     
                     // if change is not significant, no need to reinitialize step
-                    if (dm/pk.mass > manager->reinitialize_step_dm_criterion || de_kin/ekin_new > manager->reinitialize_step_de_criterion)
+                    if (abs(dm/pk.mass) > manager->reinitialize_step_dm_criterion || abs(de_kin/ekin_new) > manager->reinitialize_step_de_criterion)
                         neighbors[k].initial_step_flag = true;
 
                     // use predictor as template particle with mass of dm
