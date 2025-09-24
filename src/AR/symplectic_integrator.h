@@ -304,7 +304,7 @@ namespace AR {
             binary_slowdown = _sym.binary_slowdown;
 #endif
             particles = _sym.particles;
-            info = _sym.binarytree;
+            info = _sym.info;
             profile = _sym.profile;
 
             return *this;
