@@ -8,6 +8,8 @@
 #include "Hermite/block_time_step.h"
 #include "Hermite/neighbor.h"
 #include "Hermite/profile.h"
+#include <iostream>
+#include <fstream>
 #include <map>
 
 namespace H4{
@@ -2175,7 +2177,7 @@ namespace H4{
             // check table size and index_dt_sorted size
 #ifdef HERMITE_DEBUG
             int particle_index_count[particles.getSize()];
-            int group_index_count[groups.getSize()];
+            int group_index_count[std::max(groups.getSize(),1)];
             for (int i=0; i<particles.getSize(); i++) particle_index_count[i]=0;
             for (int i=0; i<groups.getSize(); i++) group_index_count[i]=0;
             // single list
@@ -2572,6 +2574,7 @@ namespace H4{
 
         //! modify single particles due to external functions, update energy
         void modifySingleParticles() {
+            if (n_act_single_==0) return;
             int mod_index[n_act_single_];
             int n_mod=0;
             for (int i=0; i<n_act_single_; i++) {
@@ -2703,10 +2706,12 @@ namespace H4{
             ASSERT(!particles.isModified());
             ASSERT(initial_system_flag_);
 
+            if (_n_particle==0) return;
+
             // adjust dt
             int index_single_select[_n_particle];
             int n_single_select =0;
-            int index_group_select[groups.getSize()];
+            int index_group_select[std::max(groups.getSize(),1)];
             int n_group_select =0;
 
             auto* ptcl = particles.getDataAddress();
