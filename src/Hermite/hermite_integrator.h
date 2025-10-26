@@ -1594,9 +1594,10 @@ namespace H4{
           @param[in] _start_flag: indicate this is the first adjust of the groups in the integration
         */
         void checkBreak(int* _break_group_index_with_offset, int& _n_break, const bool _start_flag) {
-            const int n_group_tot = index_dt_sorted_group_.getSize();
-            if (n_group_tot==0) return;
+            const int n_group_act = index_dt_sorted_group_.getSize();
+            if (n_group_act==0) return;
 
+            const int n_group_tot = groups.getSize();
             bool merge_mask[n_group_tot];
             for (int k=0; k<n_group_tot; k++) merge_mask[k] = false;
 
@@ -1628,7 +1629,7 @@ namespace H4{
 
             // kappa_org criterion for break group kappa_org>kappa_org_crit
             const Float kappa_org_crit = 1e-2;
-            for (int i=0; i<n_group_tot; i++) {
+            for (int i=0; i<n_group_act; i++) {
                 const int k = index_dt_sorted_group_[i];
                 ASSERT(table_group_mask_[k]==false);
                 if (merge_mask[k]) continue;
