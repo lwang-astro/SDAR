@@ -322,9 +322,23 @@ namespace AR {
                     else p[i]->setBinaryPairID(pair_id);
                 }
             }
-            if (p[0]->id<p[1]->id) _bin.id = p[0]->id;
-            else _bin.id = p[1]->id;
+            if (p[0]->id<p[1]->id) _bin.id = -abs(p[0]->id);
+            else _bin.id = -abs(p[1]->id);
             return return_flag;
+        }
+
+        //! get binary id for a pair
+        /*! 
+          @param[in] _p: particle
+          \return binary id (negative value), 0 if not a binary pair
+        */
+        static int getBinaryID(const Tparticle& _p) {
+            auto pair_id = _p.getBinaryPairID();
+            if (pair_id==0) return 0;
+            else {
+                if (_p.id<pair_id) return -abs(_p.id);
+                else return -abs(pair_id);
+            }
         }
 
         //! clear function

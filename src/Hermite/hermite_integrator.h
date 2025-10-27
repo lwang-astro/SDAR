@@ -1440,6 +1440,8 @@ namespace H4{
                          <<" NB: "<<std::setw(4)<<groupi.perturber.neighbor_address.getSize()
                          <<std::endl;
 #endif
+                // set binary pair ID to 0
+                groupi.info.checkAndSetBinaryPairIDIter(groupi.info.getBinaryTreeRoot(), true);
 
 #ifdef ADJUST_GROUP_PRINT
                 if (manager->adjust_group_write_flag) {
@@ -2314,8 +2316,18 @@ namespace H4{
                 ASSERT(group_ptr[k].info.checkParams());
                 ASSERT(group_ptr[k].perturber.checkParams());
 
+                // check whether the binary is pre-existed and set binary pair id
+                bool pre_exist_flag = group_ptr[k].info.checkAndSetBinaryPairIDIter(bin_root, false);
+#ifdef ADJUST_GROUP_DEBUG
+                // check whether each member can get correct binary id
+                auto bid = group_ptr[k].info.getBinaryID(group_ptr[k].particles[0]);
+                ASSERT(bid<0);
+                for (int i=0; i<group_ptr[k].particles.getSize(); i++) 
+                    ASSERT(bid==group_ptr[k].info.getBinaryID(group_ptr[k].particles[i]));
+#endif
+
 #ifdef ADJUST_GROUP_PRINT
-                if (manager->adjust_group_write_flag) {
+                if (manager->adjust_group_write_flag && !pre_exist_flag) {
                     group_ptr[k].printGroupInfo(0, manager->fgroup, WRITE_WIDTH, &(particles.cm));
                 }
 #endif
@@ -2357,6 +2369,7 @@ namespace H4{
 
             // integrate groups loop 
             const int n_group_tot = index_dt_sorted_group_.getSize();
+            if (n_group_tot==0) return;
             //std::cout<<"n_group: "<<n_group_tot<<std::endl;
             //const int i_start = interrupt_group_dt_sorted_group_index_>=0 ? interrupt_group_dt_sorted_group_index_ : 0;
             int interrupt_index_dt_group_list[n_group_tot];

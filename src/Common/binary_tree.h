@@ -746,7 +746,7 @@ namespace COMM{
                 else {
                     p[0] = bin_host[k];
                     int ki = k;
-                    while(bin_host[ki]==p[0]&&ki>=0) bin_host[ki--] = &_bins[i];
+                    while(ki>=0 && bin_host[ki]==p[0]) bin_host[ki--] = &_bins[i];
                 }
 
                 // if no tree root assign, set member 2 to particle and their host to current bins i
@@ -763,7 +763,7 @@ namespace COMM{
                 else {
                     p[1] = bin_host[k+1];
                     int ki = k+1;
-                    while(bin_host[ki]==p[1]&&ki<_n) bin_host[ki++] = &_bins[i];
+                    while(ki<_n && bin_host[ki]==p[1]) bin_host[ki++] = &_bins[i];
                 }
 
                 // calculate binary parameter

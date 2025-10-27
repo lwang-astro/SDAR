@@ -3317,13 +3317,6 @@ namespace AR {
             auto& bin_root = info.getBinaryTreeRoot();
             //auto* p1 = bin_root.getLeftMember();
             //auto* p2 = bin_root.getRightMember();
-            
-            bool reset_flag = (_type==1 && bin_root.semi<0 && bin_root.ecca>0);
-
-            if (info.checkAndSetBinaryPairIDIter(bin_root, reset_flag)) {
-                if (_type==0) return; // if it is new but already existed binary, do not print
-                else if (!reset_flag) return; // in the end case, if the system is still bound, do not print 
-            }
 
             Float pos_cm[3], vel_cm[3];
             auto& pcm_loc = particles.cm;

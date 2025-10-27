@@ -251,6 +251,10 @@ namespace AR {
             sym_order_ = 0;
             sym_type_ = 0;
         }
+
+        ~SymplecticStep() {
+            clear();
+        }        
         
         //! Symplectic coefficients generation for input order
         /*!
