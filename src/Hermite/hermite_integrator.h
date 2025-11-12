@@ -2244,6 +2244,7 @@ namespace H4{
                 auto& pcm = group_ptr[k].particles.cm;
                 pcm.acc0[0] = pcm.acc0[1] = pcm.acc0[2] = 0.0;
                 pcm.acc1[0] = pcm.acc1[1] = pcm.acc1[2] = 0.0;
+                pcm.pot = 0.0;
                 pcm.time = time_;
                 pcm.dt   = 0.0;
                 ASSERT(k+index_offset_group_<pred_.getSize());

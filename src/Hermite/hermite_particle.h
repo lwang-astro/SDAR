@@ -46,9 +46,17 @@ namespace H4{
 #endif
         Float pot;
 
-        ParticleH4() : Tparticle(), dt(0.0), time(0.0), acc0{0.0,0.0,0.0}, acc1{0.0,0.0,0.0}, pot(0.0) {}
+        ParticleH4() : Tparticle(),
+            dt(FLOAT_NAN), time(FLOAT_NAN),
+            acc0{FLOAT_NAN, FLOAT_NAN, FLOAT_NAN},
+            acc1{FLOAT_NAN, FLOAT_NAN, FLOAT_NAN},
+            pot(FLOAT_NAN) {}
 
-        ParticleH4(const Tparticle & _p): Tparticle(_p), dt(0.0), time(0.0), acc0{0.0,0.0,0.0}, acc1{0.0,0.0,0.0}, pot(0.0) {}
+        ParticleH4(const Tparticle & _p): Tparticle(_p),  
+            dt(FLOAT_NAN),  time(FLOAT_NAN),  
+            acc0{FLOAT_NAN, FLOAT_NAN, FLOAT_NAN},
+            acc1{FLOAT_NAN, FLOAT_NAN, FLOAT_NAN},
+            pot(FLOAT_NAN) {}
 
         ParticleH4(const ParticleH4<Tparticle> & _p): 
                 Tparticle(_p), dt(_p.dt), time(_p.time), acc0{_p.acc0[0],_p.acc0[1],_p.acc0[2]}, acc1{_p.acc1[0],_p.acc1[1],_p.acc1[2]}, 
