@@ -46,40 +46,24 @@ namespace H4{
 #endif
         Float pot;
 
-        ParticleH4() {}
+        ParticleH4() : Tparticle(), dt(0.0), time(0.0), acc0{0.0,0.0,0.0}, acc1{0.0,0.0,0.0}, pot(0.0) {}
 
-        ParticleH4(const Tparticle & _p) {
-            *(Tparticle*)this = *(Tparticle*)&_p;
-        }
+        ParticleH4(const Tparticle & _p): Tparticle(_p), dt(0.0), time(0.0), acc0{0.0,0.0,0.0}, acc1{0.0,0.0,0.0}, pot(0.0) {}
 
-        ParticleH4(const ParticleH4<Tparticle> & _p) {
-            *(Tparticle*)this = *(Tparticle*)&_p;
-            dt = _p.dt;
-            time = _p.time;
-            acc0[0] = _p.acc0[0];
-            acc0[1] = _p.acc0[1];
-            acc0[2] = _p.acc0[2];
-            acc1[0] = _p.acc1[0];
-            acc1[1] = _p.acc1[1];
-            acc1[2] = _p.acc1[2];
+        ParticleH4(const ParticleH4<Tparticle> & _p): 
+                Tparticle(_p), dt(_p.dt), time(_p.time), acc0{_p.acc0[0],_p.acc0[1],_p.acc0[2]}, acc1{_p.acc1[0],_p.acc1[1],_p.acc1[2]}, 
 #ifdef HERMITE_DEBUG_ACC
-            acc2[0] = _p.acc2[0];
-            acc2[1] = _p.acc2[1];
-            acc2[2] = _p.acc2[2];
-            acc3[0] = _p.acc3[0];
-            acc3[1] = _p.acc3[1];
-            acc3[2] = _p.acc3[2];
+                acc2{_p.acc2[0],_p.acc2[1],_p.acc2[2]}, acc3{_p.acc3[0],_p.acc3[1],_p.acc3[2]},
 #endif
-            pot = _p.pot;
-        }
+                pot(_p.pot) {}
 
         ParticleH4& operator = (const Tparticle & _p) {
-            *(Tparticle*)this = *(Tparticle*)&_p;
+            Tparticle::operator=(_p);
             return *this;
         }
 
         ParticleH4& operator = (const ParticleH4<Tparticle> & _p) {
-            *(Tparticle*)this = *(Tparticle*)&_p;
+            Tparticle::operator=(_p);
             dt = _p.dt;
             time = _p.time;
             acc0[0] = _p.acc0[0];
