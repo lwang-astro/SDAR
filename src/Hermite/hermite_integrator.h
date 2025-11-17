@@ -36,6 +36,7 @@ namespace H4{
         //Float r_neighbor_crit; ///> the distance for neighbor search
         Float reinitialize_step_dm_criterion; ///> criterion of mass change rate for reinitializing step size
         Float reinitialize_step_de_criterion; ///> criterion of energy change rate for reinitializing step size
+        int n_neighbor_max; ///> maximum number of neighbors to be stored
         Tmethod interaction; ///> class contain interaction function
         BlockTimeStep4th step; ///> time step calculator
 #ifdef ADJUST_GROUP_PRINT
@@ -43,12 +44,11 @@ namespace H4{
         std::ofstream fgroup; ///> pointer to a file IO to output new/end group information
 #endif
 
+        HermiteManager(): reinitialize_step_dm_criterion(0.0), reinitialize_step_de_criterion(0.0), n_neighbor_max(300), interaction(), step()
 #ifdef ADJUST_GROUP_PRINT
-        HermiteManager(): reinitialize_step_dm_criterion(0.0), reinitialize_step_de_criterion(0.0), interaction(), step(), adjust_group_write_flag(true), fgroup() {}
-#else
-        HermiteManager(): reinitialize_step_dm_criterion(0.0), reinitialize_step_de_criterion(0.0), interaction(), step() {}
+                        , adjust_group_write_flag(true), fgroup() 
 #endif
-
+                        {}
 
         //! check whether parameters values are correct
         /*! \return true: all correct
@@ -58,6 +58,7 @@ namespace H4{
             //ASSERT(r_neighbor_crit>=0.0);
             ASSERT(reinitialize_step_dm_criterion>=0.0);
             ASSERT(reinitialize_step_de_criterion>=0.0);
+            ASSERT(n_neighbor_max>0);
             ASSERT(interaction.checkParams());
             ASSERT(step.checkParams());
 #ifdef ADJUST_GROUP_PRINT
@@ -378,11 +379,13 @@ namespace H4{
 
             // reserve for neighbor list
             neighbors.reserveMem(nmax);
+            /* Single objects do not need neighbor list            
             auto* nb_ptr = neighbors.getDataAddress();
             for (int i=0; i<nmax; i++) {
                 nb_ptr[i].neighbor_address.setMode(COMM::ListMode::local);
                 nb_ptr[i].neighbor_address.reserveMem(nmax_tot);
             }
+            */    
         }
 
     private:
@@ -777,7 +780,7 @@ namespace H4{
                 ASSERT(r2>0.0);
                 _nbi.checkAndAddNeighborGroup(r2, groupj, j+index_offset_group_);
             }
-            ASSERT(_nbi.n_neighbor_group + _nbi.n_neighbor_single == _nbi.neighbor_address.getSize());
+            // ASSERT(_nbi.n_neighbor_group + _nbi.n_neighbor_single == _nbi.neighbor_address.getSize());
 
 #ifdef HERMITE_PERT_FORCE
             // perturber
@@ -1274,9 +1277,8 @@ namespace H4{
                 group_new.particles.setMode(COMM::ListMode::copy);
                 group_new.particles.reserveMem(n_particle);
                 group_new.reserveIntegratorMem();
-                const int nmax_tot = particles.getSizeMax() + groups.getSizeMax();
-                group_new.perturber.neighbor_address.setMode(COMM::ListMode::local);
-                group_new.perturber.neighbor_address.reserveMem(nmax_tot);
+                const int nmax_tot = std::min(particles.getSizeMax() + groups.getSizeMax(), manager->n_neighbor_max);
+                group_new.perturber.reserveMemNeighborAddress(nmax_tot);
                 group_new.info.reserveMem(n_particle);
             
                 // Add members to AR 

@@ -104,7 +104,7 @@ namespace H4 {
         /*! 
           @param[in] _nmax: maximum number of neighbors
         */
-        void reserveMem(const int _nmax) {
+        void reserveMemNeighborAddress(const int _nmax) {
             neighbor_address.setMode(COMM::ListMode::local);
             neighbor_address.reserveMem(_nmax);
         }
@@ -127,7 +127,8 @@ namespace H4 {
             mass_min = NUMERIC_FLOAT_MAX;
             n_neighbor_group = 0;
             n_neighbor_single = 0;
-            neighbor_address.resizeNoInitialize(0);            
+            if (neighbor_address.getSizeMax()>0)
+                neighbor_address.resizeNoInitialize(0);            
         }
 
         //! clear function
@@ -144,14 +145,16 @@ namespace H4 {
             clearNoFreeMemNoResizeNeighborAdress();
             n_neighbor_group = 0;
             n_neighbor_single = 0;
-            neighbor_address.resizeNoInitialize(0);            
+            if (neighbor_address.getSizeMax()>0)
+                neighbor_address.resizeNoInitialize(0);            
         }
 
         //! check and add neighbor of single
         template <class Tp>
         void checkAndAddNeighborSingle(const Float _r2, Tp& _particle, const Neighbor<Tparticle>& _nbp, const int _index) {
             if (_r2<std::max(r_neighbor_crit_sq,_nbp.r_neighbor_crit_sq)) {
-                neighbor_address.addMember(NBAdr<Tparticle>(&_particle, _index));
+                if (neighbor_address.getSizeMax()>0) // only add neighbor address if initialized
+                    neighbor_address.addMember(NBAdr<Tparticle>(&_particle, _index));
                 n_neighbor_single++;
             }
             // mass weighted nearest neigbor
@@ -175,7 +178,8 @@ namespace H4 {
         void checkAndAddNeighborGroup(const Float _r2, Tgroup& _group, const int _index) {
             ASSERT(_r2>0.0);
             if (_r2<std::max(r_neighbor_crit_sq, _group.perturber.r_neighbor_crit_sq)) {
-                neighbor_address.addMember(NBAdr<Tparticle>(&_group.particles,_index));
+                if (neighbor_address.getSizeMax()>0) // only add neighbor address if initialized
+                    neighbor_address.addMember(NBAdr<Tparticle>(&_group.particles,_index));
                 n_neighbor_group++;
             }
             // mass weighted nearest neigbor
