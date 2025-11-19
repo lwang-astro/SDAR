@@ -39,15 +39,31 @@ namespace COMM{
                 box_center_[i] = 0.5 * (pos_max[i] + pos_min[i]);
             }
 
-            // determine n_div_ based on box_size_ and n_div_tot
-            Float box_volume = box_size_[0] * box_size_[1] * box_size[2];
-            Float cell_volume_mean = box_volume / static_cast<Float>(n_div_tot);
-            Float cell_size_mean = std::cbrt(cell_volume);
-
-            // ensure each dimension have similar box size per cell
+            // first check whether one dimension is too small
+            const double eps = 1e-12;
             for (int i=0; i<3; i++){
-                n_div_[i] = static_cast<int>(std::ceil(box_size_[i] / cell_size_mean));
-                if (n_div_[i] < 1) n_div_[i] = 1;
+                if (box_size_[i] < eps) box_size_[i] = eps;
+                box_center_[i] = 0.5 * box_size_[i] + pos_min[i];
+            }
+            
+            // determine n_div_ based on box_size_ and n_div_tot
+            Float box_volume = box_size_[0] * box_size_[1] * box_size_[2];
+            Float cell_volume_mean = box_volume / static_cast<Float>(n_div_tot);
+            Float cell_size_mean = std::cbrt(cell_volume_mean);
+
+            // set each dimension box size, in order of smallest size to largest size
+            // when n_div < 1, set to 1 and increase cell_size_mean accordingly
+            std::array<int, 3> order = {0, 1, 2};
+            std::sort(order.begin(), order.end(), [this](int a, int b) {
+                return box_size_[a] < box_size_[b];
+            });
+            for (int i=0; i<3; i++){
+                int dim = order[i];
+                n_div_[dim] = static_cast<int>(std::ceil(box_size_[dim] / cell_size_mean));
+                if (n_div_[dim] < 1) {
+                    cell_size_mean = box_size_[dim];
+                    n_div_[dim] = 1;
+                }
             }
 
             buildCells(particles);
