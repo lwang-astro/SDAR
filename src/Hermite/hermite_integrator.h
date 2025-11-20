@@ -2,6 +2,7 @@
 
 #include "Common/Float.h"
 #include "Common/list.h"
+#include "Common/particle_mesh.h"
 #include "AR/symplectic_integrator.h"
 #include "Hermite/ar_information.h"
 #include "Hermite/hermite_particle.h"
@@ -39,12 +40,17 @@ namespace H4{
         int n_neighbor_max; ///> maximum number of neighbors to be stored
         Tmethod interaction; ///> class contain interaction function
         BlockTimeStep4th step; ///> time step calculator
+        bool only_calc_neighbor_force_flag; ///> flag to indicate whether only calculate neighbor force
+        int mesh_n_particles_per_cell_min; ///> minimum number of particles per cell in particle mesh for neighbor search
+        int mesh_n_cells_min; ///> minimum number of cells in particle mesh for neighbor search
+        Float mesh_max_particle_large_r_search_fraction; ///> maximum fraction of particles with large r_search in particle mesh for neighbor search
 #ifdef ADJUST_GROUP_PRINT
         bool adjust_group_write_flag; ///> flag to indicate whether to output new/end group information
         std::ofstream fgroup; ///> pointer to a file IO to output new/end group information
 #endif
 
-        HermiteManager(): reinitialize_step_dm_criterion(0.0), reinitialize_step_de_criterion(0.0), n_neighbor_max(300), interaction(), step()
+        HermiteManager(): reinitialize_step_dm_criterion(0.0), reinitialize_step_de_criterion(0.0), n_neighbor_max(300), interaction(), step(), 
+                          only_calc_neighbor_force_flag(false), mesh_n_particles_per_cell_min(10), mesh_n_cells_min(16), mesh_max_particle_large_r_search_fraction(0.2)
 #ifdef ADJUST_GROUP_PRINT
                         , adjust_group_write_flag(true), fgroup() 
 #endif
@@ -61,6 +67,9 @@ namespace H4{
             ASSERT(n_neighbor_max>0);
             ASSERT(interaction.checkParams());
             ASSERT(step.checkParams());
+            ASSERT(mesh_n_particles_per_cell_min>0);
+            ASSERT(mesh_n_cells_min>0);
+            ASSERT(mesh_max_particle_large_r_search_fraction>=0.0&&mesh_max_particle_large_r_search_fraction<=1.0);
 #ifdef ADJUST_GROUP_PRINT
             ASSERT(!adjust_group_write_flag||(adjust_group_write_flag&&fgroup.is_open()));
 #endif
@@ -265,6 +274,7 @@ namespace H4{
         COMM::List<ARSym> groups; // integrator for sub-groups
         COMM::List<Neighbor<Tparticle>> neighbors; // neighbor information of particles
         Tpert perturber; // external perturber
+        COMM::ParticleMeshForSearchNeighbor mesh; // particle mesh for neighbor search
         Tinfo info; ///< information of the system
         Profile profile; // profile to measure the status
 
@@ -296,7 +306,7 @@ namespace H4{
                              index_group_resolve_(), index_group_cm_(), 
                              pred_(), force_(), time_next_(), 
                              index_group_mask_(), table_group_mask_(), table_single_mask_(), step(),
-                             manager(NULL), ar_manager(NULL), particles(), groups(), neighbors(), perturber(), info(), profile() {}
+                             manager(NULL), ar_manager(NULL), particles(), groups(), neighbors(), perturber(), mesh(), info(), profile() {}
 
         //! clear function
         void clear() {
@@ -982,12 +992,21 @@ namespace H4{
             auto* pred_ptr = pred_.getDataAddress();
             auto* force_ptr = force_.getDataAddress();
             auto* neighbor_ptr = neighbors.getDataAddress();
+            
+
             #pragma omp parallel for
             for (int k=0; k<_n_single; k++) {
                 const int i = _index_single[k];
                 auto& pi = pred_ptr[i];
                 auto& fi = force_ptr[i];
                 auto& nbi = neighbor_ptr[i];
+                // when only neighbor force calculation mode is on, use particle mesh to get neighbor list
+                if (manager->only_calc_neighbor_force_flag) {
+                    
+                }
+                mesh.searchNeighbor()
+            }
+
                 calcOneSingleAccJerkNB(fi, nbi, pi, pi.id);
             }
 
@@ -2343,6 +2362,22 @@ namespace H4{
 
             // reset n_init
             n_init_single_ = n_init_group_ = 0;
+        }
+
+        //! build mesh for neighbor search        
+        void buildMesh() {
+            if (manager->only_calc_neighbor_force_flag) {
+                bool use_mesh = mesh.findOptimizedDivision(particles, index_dt_sorted_single_, 
+                                                           groups, index_dt_sorted_group_, 
+                                                           manager->mesh_n_cells_min, 
+                                                           manager->mesh_n_particle_per_cell_min, 
+                                                           manager->mesh_max_particle_large_r_search_fraction); 
+                if (use_mesh) {
+                    mesh.buildCells();
+                    mesh.addParticlesAndGroups(particles, index_dt_sorted_single_, 
+                                               groups, index_dt_sorted_group_, index_offset_group_);
+                }
+            }
         }
 
         //! Integrate groups
