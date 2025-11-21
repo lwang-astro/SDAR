@@ -746,9 +746,41 @@ namespace H4{
             _fi.clear();
             _nbi.resetNeighbor();
 
-            // single list
-            const int* single_list = index_dt_sorted_single_.getDataAddress();
-            const int n_single = index_dt_sorted_single_.getSize();
+            int* single_list = nullptr, *group_resolve_list = nullptr, *group_cm_list = nullptr;
+            int n_single = 0, n_group_resolve = 0, n_group_cm = 0;
+            // when only neighbor force calculation mode is on, use particle mesh to get neighbor list
+            // note: mesh returns std::vector<size_t>; convert to a temporary vector<int> and point single_list to it
+            std::vector<int> neighbor_single_list, neighbor_group_list;
+            std::vector<int> neighbor_group_resolve_list, neighbor_group_cm_list;
+            if (manager->only_calc_neighbor_force_flag && mesh.isCellsBuilt()) {
+                mesh.searchNeighbor(_pi, neighbor_single_list, neighbor_group_list);
+                single_list = neighbor_single_list.data();
+                n_single = neighbor_single_list.size();
+                
+                for (size_t i=0; i<neighbor_group_list.size(); i++) {
+                    int group_i = neighbor_group_list[i] - index_offset_group_;
+                    if (groups[group_i].perturber.need_resolve_flag) 
+                        neighbor_group_resolve_list.push_back(group_i);
+                    else 
+                        neighbor_group_cm_list.push_back(group_i);
+                }
+                n_group_resolve = neighbor_group_resolve_list.size();
+                n_group_cm = neighbor_group_cm_list.size();
+                group_resolve_list = neighbor_group_resolve_list.data();
+                group_cm_list = neighbor_group_cm_list.data();
+            }
+            else {
+                // single list
+                single_list = index_dt_sorted_single_.getDataAddress();
+                n_single = index_dt_sorted_single_.getSize();
+
+                n_group_resolve = index_group_resolve_.getSize();
+                group_resolve_list = index_group_resolve_.getDataAddress();
+
+                n_group_cm = index_group_cm_.getSize();
+                group_cm_list = index_group_cm_.getDataAddress();
+            }
+
             auto* ptcl = pred_.getDataAddress();
             for (int i=0; i<n_single; i++) {
                 const int j = single_list[i];
@@ -764,9 +796,8 @@ namespace H4{
             auto* group_ptr = groups.getDataAddress();
 
             // resolved group list
-            const int n_group_resolve = index_group_resolve_.getSize();
             for (int i=0; i<n_group_resolve; i++) {
-                const int j =index_group_resolve_[i];
+                const int j =group_resolve_list[i];
                 auto& groupj = group_ptr[j];
                 if (_pid==groupj.particles.cm.id) continue;
                 if (groupj.particles.cm.mass==0) continue;
@@ -776,9 +807,8 @@ namespace H4{
             }
 
             // cm group list
-            const int n_group_cm = index_group_cm_.getSize();
             for (int i=0; i<n_group_cm; i++) {
-                const int j = index_group_cm_[i];
+                const int j = group_cm_list[i];
                 auto& groupj = group_ptr[j];
                 if (_pid==groupj.particles.cm.id) continue;
                 if (groupj.particles.cm.mass==0) continue;
@@ -1000,13 +1030,6 @@ namespace H4{
                 auto& pi = pred_ptr[i];
                 auto& fi = force_ptr[i];
                 auto& nbi = neighbor_ptr[i];
-                // when only neighbor force calculation mode is on, use particle mesh to get neighbor list
-                if (manager->only_calc_neighbor_force_flag) {
-                    
-                }
-                mesh.searchNeighbor()
-            }
-
                 calcOneSingleAccJerkNB(fi, nbi, pi, pi.id);
             }
 
