@@ -34,7 +34,7 @@ namespace COMM {
     // Default Accessor: assumes p.pos and p.r_search
     struct ParticleAccessor {
         template <class T>
-        static const Float* getPos(const T& p) { return p.pos; }
+        static const Float* getPos(const T& p) { return &p.pos[0]; }
         
         template <class T>
         static Float getRSearch(const T& p) { return p.r_search; }
@@ -43,24 +43,24 @@ namespace COMM {
     // Group Accessor: assumes g.cm.pos and g.cm.r_search
     struct GroupAccessor {
         template <class T>
-        static const Float* getPos(const T& g) { return g.cm.pos; }
+        static const Float* getPos(const T& g) { return &g.particles.cm.pos[0]; }
         
         template <class T>
-        static Float getRSearch(const T& g) { return g.cm.r_search; }
+        static Float getRSearch(const T& g) { return g.particles.cm.r_search; }
     };
 
     // Target Accessor: Auto-detects if T has 'cm' member for search targets
     template <typename T, typename = void>
     struct TargetAccessor {
-        static const Float* getPos(const T& p) { return p.pos; }
+        static const Float* getPos(const T& p) { return &p.pos[0]; }
         static Float getRSearch(const T& p) { return p.r_search; }
     };
 
     // Use COMM::void_t instead of std::void_t
     template <typename T>
-    struct TargetAccessor<T, COMM::void_t<decltype(T::cm)>> {
-        static const Float* getPos(const T& p) { return p.cm.pos; }
-        static Float getRSearch(const T& p) { return p.cm.r_search; }
+    struct TargetAccessor<T, COMM::void_t<decltype(T::particles)>> {
+        static const Float* getPos(const T& p) { return &p.particles.cm.pos[0]; }
+        static Float getRSearch(const T& p) { return p.particles.cm.r_search; }
     };
 
     // ---------------------------------------------------------
@@ -356,6 +356,17 @@ namespace COMM {
             search_recursive(root_, target, neighbor_list);
         }
 
+        //! Search neighbors and apply function
+        /*!
+          @param[in] target: target particle/group
+          @param[in] func: function to apply to each found neighbor index
+        */
+        template <class Ttarget, typename Func>
+        void searchApply(const Ttarget& target, Func&& func) {
+            if (root_ == -1) return;
+            search_recursive_apply(root_, target, std::forward<Func>(func));
+        }
+
         //! Insert a single particle into the tree
         /*!
           @param[in] index: index of the particle in the external container
@@ -620,6 +631,7 @@ namespace COMM {
     // ParticleKDTree (Manages both Particles and Groups)
     // ---------------------------------------------------------
     // CHANGED: Removed template <class Tptcl, class Tgroup = Tptcl>
+    //template <class ParticleAccessor = ParticleAccessor, class GroupAccessor = GroupAccessor>
     class ParticleKDTree {
     private:
         // Use ParticleAccessor for particles
@@ -720,6 +732,26 @@ namespace COMM {
         void searchNeighborGroups(const Ttarget& target, std::vector<int>& g_idx_list) {
             g_idx_list.clear();
             tree_group_.search(target, g_idx_list);
+        }
+
+        //! Search neighbors in particle tree and apply function
+        /*!
+            @param[in] target: target particle or group
+            @param[in] func: function to apply to each found neighbor index
+        */
+        template <class Ttarget, typename Func>
+        void searchNeighborParticlesApply(const Ttarget& target, Func&& func) {
+            tree_ptcl_.searchApply(target, std::forward<Func>(func));
+        }
+
+        //! Search neighbors in group tree and apply function
+        /*!
+            @param[in] target: target particle or group
+            @param[in] func: function to apply to each found neighbor index
+        */
+        template <class Ttarget, typename Func>
+        void searchNeighborGroupsApply(const Ttarget& target, Func&& func) {
+            tree_group_.searchApply(target, std::forward<Func>(func));
         }
 
         // --- Dynamic Update Methods ---

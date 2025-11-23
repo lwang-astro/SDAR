@@ -787,6 +787,7 @@ namespace H4{
                     Float r2 = manager->interaction.calcAccJerkPairSingleSingle(_fi, _pi, pj);
                     ASSERT(r2 > 0.0);
                     _nbi.checkAndAddNeighborSingle(r2, particles[j], neighbors[j], j);
+                    profile.hermite_single_interact_count++;
                 });
             }
 
@@ -811,6 +812,7 @@ namespace H4{
                         ASSERT(r2 > 0.0);
                         _nbi.checkAndAddNeighborGroup(r2, groupj, j + index_offset_group_);
                     }
+                    profile.hermite_group_interact_count++;
                 });
             }
 
@@ -830,6 +832,7 @@ namespace H4{
                     Float r2 = manager->interaction.calcAccJerkPairSingleSingle(_fi, _pi, pj);
                     ASSERT(r2>0.0);
                     _nbi.checkAndAddNeighborSingle(r2, particles[j], neighbors[j], j);
+                    profile.hermite_single_interact_count++;
                 }
 #ifdef HERMITE_ONLY_CALC_NEIGHBOR_FORCE
             }
@@ -847,6 +850,7 @@ namespace H4{
                     Float r2 = manager->interaction.calcAccJerkPairSingleGroupMember(_fi, _pi, groupj);
                     ASSERT(r2>0.0);
                     _nbi.checkAndAddNeighborGroup(r2, groupj, j+index_offset_group_);
+                    profile.hermite_group_interact_count++;
                 }
 
                 int* group_cm_list = index_group_cm_.getDataAddress();
@@ -860,6 +864,7 @@ namespace H4{
                     Float r2 = manager->interaction.calcAccJerkPairSingleGroupCM(_fi, _pi, groupj, pj);
                     ASSERT(r2>0.0);
                     _nbi.checkAndAddNeighborGroup(r2, groupj, j+index_offset_group_);
+                    profile.hermite_group_interact_count++;
                 }
 #ifdef HERMITE_ONLY_CALC_NEIGHBOR_FORCE                
             }

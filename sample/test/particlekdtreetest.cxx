@@ -24,7 +24,12 @@ public:
 
 class Group{
 public:
-    Particle cm;
+    COMM::ParticleGroup<Particle,Particle> particles;
+    
+    Group(): particles() {
+        particles.setMode(COMM::ListMode::local);
+        particles.reserveMem(1);
+    }
 };
 
 // Helper for brute force check
@@ -135,7 +140,7 @@ int main(int argc, char* argv[]) {
     groups.reserveMem(n_groups.value+100);
     for (int i = 0; i < n_groups.value; ++i) {
         Group g;
-        auto& gcm = g.cm;
+        auto& gcm = g.particles.cm;
         gcm.id = i + n_particles.value;
         gcm.pos[0] = static_cast<Float>(rand()) / RAND_MAX * r_cluster.value;
         gcm.pos[1] = static_cast<Float>(rand()) / RAND_MAX * r_cluster.value;
@@ -210,8 +215,8 @@ int main(int argc, char* argv[]) {
         for (int j = 0; j < group_indices.getSize(); ++j) {
             int idx = group_indices[j];
             const Group& g = groups[idx];
-            Float d2 = get_dist_sq(target.pos, g.cm.pos);
-            Float r_sum = std::max(target.r_search, g.cm.r_search);
+            Float d2 = get_dist_sq(target.pos, g.particles.cm.pos);
+            Float r_sum = std::max(target.r_search, g.particles.cm.r_search);
             if (d2 < r_sum * r_sum) {
                 bf_g_list.push_back(idx);
             }
@@ -248,8 +253,8 @@ int main(int argc, char* argv[]) {
             int idx = particle_indices[j];
             const Particle& p = particles[idx];
             
-            Float d2 = get_dist_sq(target.cm.pos, p.pos);
-            Float r_sum = std::max(target.cm.r_search, p.r_search);
+            Float d2 = get_dist_sq(target.particles.cm.pos, p.pos);
+            Float r_sum = std::max(target.particles.cm.r_search, p.r_search);
             if (d2 < r_sum * r_sum) {
                 bf_p_list.push_back(idx);
             }
@@ -261,8 +266,8 @@ int main(int argc, char* argv[]) {
             const Group& g = groups[idx];
             // CHANGED: Removed self-check continue
 
-            Float d2 = get_dist_sq(target.cm.pos, g.cm.pos);
-            Float r_sum = std::max(target.cm.r_search, g.cm.r_search);
+            Float d2 = get_dist_sq(target.particles.cm.pos, g.particles.cm.pos);
+            Float r_sum = std::max(target.particles.cm.r_search, g.particles.cm.r_search);
             if (d2 < r_sum * r_sum) {
                 bf_g_list.push_back(idx);
             }
@@ -275,7 +280,7 @@ int main(int argc, char* argv[]) {
         std::sort(bf_g_list.begin(), bf_g_list.end());
 
         if (nb_p_list != bf_p_list || nb_g_list != bf_g_list) {
-            std::cerr << "Error at Group target ID " << target.cm.id << "\n";
+            std::cerr << "Error at Group target ID " << target.particles.cm.id << "\n";
             abort();
         }
     }
@@ -330,13 +335,13 @@ int main(int argc, char* argv[]) {
                 int idx = group_indices[k];
                 Group& g = groups[idx];
                 
-                Float dr = g.cm.r_search * 0.2 * (static_cast<Float>(rand()) / RAND_MAX);
+                Float dr = g.particles.cm.r_search * 0.2 * (static_cast<Float>(rand()) / RAND_MAX);
                 Float theta = static_cast<Float>(rand()) / RAND_MAX * 2 * M_PI;
                 Float phi = static_cast<Float>(rand()) / RAND_MAX * M_PI;
                 
-                g.cm.pos[0] += dr * sin(phi) * cos(theta);
-                g.cm.pos[1] += dr * sin(phi) * sin(theta);
-                g.cm.pos[2] += dr * cos(phi);
+                g.particles.cm.pos[0] += dr * sin(phi) * cos(theta);
+                g.particles.cm.pos[1] += dr * sin(phi) * sin(theta);
+                g.particles.cm.pos[2] += dr * cos(phi);
 
                 // Update KDTree
                 kdtree.updateGroup(idx, g);
@@ -367,8 +372,8 @@ int main(int argc, char* argv[]) {
             for (int j = 0; j < group_indices.getSize(); ++j) {
                 int idx = group_indices[j];
                 const Group& g = groups[idx];
-                Float d2 = get_dist_sq(target.pos, g.cm.pos);
-                Float r_crit = std::max(target.r_search, g.cm.r_search);
+                Float d2 = get_dist_sq(target.pos, g.particles.cm.pos);
+                Float r_crit = std::max(target.r_search, g.particles.cm.r_search);
                 if (d2 < r_crit * r_crit) bf_g_list.push_back(idx);
             }
 
@@ -398,16 +403,16 @@ int main(int argc, char* argv[]) {
             for (int j = 0; j < particle_indices.getSize(); ++j) {
                 int idx = particle_indices[j];
                 const Particle& p = particles[idx];
-                Float d2 = get_dist_sq(target.cm.pos, p.pos);
-                Float r_crit = std::max(target.cm.r_search, p.r_search);
+                Float d2 = get_dist_sq(target.particles.cm.pos, p.pos);
+                Float r_crit = std::max(target.particles.cm.r_search, p.r_search);
                 if (d2 < r_crit * r_crit) bf_p_list.push_back(idx);
             }
             for (int j = 0; j < group_indices.getSize(); ++j) {
                 int idx = group_indices[j];
                 const Group& g = groups[idx];
                 // CHANGED: Removed self-check continue
-                Float d2 = get_dist_sq(target.cm.pos, g.cm.pos);
-                Float r_crit = std::max(target.cm.r_search, g.cm.r_search);
+                Float d2 = get_dist_sq(target.particles.cm.pos, g.particles.cm.pos);
+                Float r_crit = std::max(target.particles.cm.r_search, g.particles.cm.r_search);
                 if (d2 < r_crit * r_crit) bf_g_list.push_back(idx);
             }
 
@@ -417,7 +422,7 @@ int main(int argc, char* argv[]) {
             std::sort(bf_g_list.begin(), bf_g_list.end());
 
             if (nb_p_list != bf_p_list || nb_g_list != bf_g_list) {
-                std::cerr << "Update Error at Step " << step << ", Group Target ID " << target.cm.id << "\n";
+                std::cerr << "Update Error at Step " << step << ", Group Target ID " << target.particles.cm.id << "\n";
                 update_errors++;
                 abort();
             }
@@ -493,11 +498,11 @@ int main(int argc, char* argv[]) {
         // 4. Insert new groups
         for (int k = 0; k < 5; ++k) {
             Group g;
-            g.cm.id = 200000 + step * 100 + k;
-            g.cm.pos[0] = static_cast<Float>(rand()) / RAND_MAX * r_cluster.value;
-            g.cm.pos[1] = static_cast<Float>(rand()) / RAND_MAX * r_cluster.value;
-            g.cm.pos[2] = static_cast<Float>(rand()) / RAND_MAX * r_cluster.value;
-            g.cm.r_search = 2*(r_search_min.value + static_cast<Float>(rand()) / RAND_MAX * (r_search_max.value - r_search_min.value));
+            g.particles.cm.id = 200000 + step * 100 + k;
+            g.particles.cm.pos[0] = static_cast<Float>(rand()) / RAND_MAX * r_cluster.value;
+            g.particles.cm.pos[1] = static_cast<Float>(rand()) / RAND_MAX * r_cluster.value;
+            g.particles.cm.pos[2] = static_cast<Float>(rand()) / RAND_MAX * r_cluster.value;
+            g.particles.cm.r_search = 2*(r_search_min.value + static_cast<Float>(rand()) / RAND_MAX * (r_search_max.value - r_search_min.value));
             
             groups.addMember(g);
             int new_idx = groups.getSize() - 1;
@@ -528,8 +533,8 @@ int main(int argc, char* argv[]) {
             }
             for (int idx : active_g) {
                 const Group& g = groups[idx];
-                Float d2 = get_dist_sq(target.pos, g.cm.pos);
-                Float r_crit = std::max(target.r_search, g.cm.r_search);
+                Float d2 = get_dist_sq(target.pos, g.particles.cm.pos);
+                Float r_crit = std::max(target.r_search, g.particles.cm.r_search);
                 if (d2 < r_crit * r_crit) bf_g_list.push_back(idx);
             }
 
@@ -559,15 +564,15 @@ int main(int argc, char* argv[]) {
             
             for (int idx : active_p) {
                 const Particle& p = particles[idx];
-                Float d2 = get_dist_sq(target.cm.pos, p.pos);
-                Float r_crit = std::max(target.cm.r_search, p.r_search);
+                Float d2 = get_dist_sq(target.particles.cm.pos, p.pos);
+                Float r_crit = std::max(target.particles.cm.r_search, p.r_search);
                 if (d2 < r_crit * r_crit) bf_p_list.push_back(idx);
             }
             for (int idx : active_g) {
                 const Group& g = groups[idx];
                 // CHANGED: Removed self-check continue
-                Float d2 = get_dist_sq(target.cm.pos, g.cm.pos);
-                Float r_crit = std::max(target.cm.r_search, g.cm.r_search);
+                Float d2 = get_dist_sq(target.particles.cm.pos, g.particles.cm.pos);
+                Float r_crit = std::max(target.particles.cm.r_search, g.particles.cm.r_search);
                 if (d2 < r_crit * r_crit) bf_g_list.push_back(idx);
             }
 
@@ -577,7 +582,7 @@ int main(int argc, char* argv[]) {
             std::sort(bf_g_list.begin(), bf_g_list.end());
 
             if (nb_p_list != bf_p_list || nb_g_list != bf_g_list) {
-                std::cerr << "R/I Error at Step " << step << ", Group Target ID " << target.cm.id << "\n";
+                std::cerr << "R/I Error at Step " << step << ", Group Target ID " << target.particles.cm.id << "\n";
                 ri_errors++;
                 abort();
             }
