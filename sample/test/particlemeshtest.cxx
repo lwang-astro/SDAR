@@ -37,7 +37,7 @@ int main(int argc, char* argv[]) {
     COMM::IOParams<Float> r_search_min(input_par_store, 0.01, "minimum search radius");
     COMM::IOParams<Float> r_search_max(input_par_store, 0.1, "maximum search radius");
     COMM::IOParams<int> mesh_n_cells_min(input_par_store, 10, "minimum number of mesh cells");
-    COMM::IOParams<int> mesh_n_particles_per_cell_min(input_par_store, 10, "minimum number of particles per cell in mesh");
+    COMM::IOParams<int> mesh_n_particles_per_cell_min(input_par_store, 4, "minimum number of particles per cell in mesh");
     COMM::IOParams<Float> mesh_max_particles_large_r_search_fraction(input_par_store, 0.1, "maximum fraction of particles with large search radius in mesh");
     COMM::IOParams<std::string> filename_par (input_par_store, "", "filename to load manager parameters","input name"); // par dumped filename
 
@@ -76,6 +76,9 @@ int main(int argc, char* argv[]) {
                      <<"          --r-cluster(-r)   [Float]: "<<r_cluster<<"\n"
                      <<"          --r-search-min    [Float]: "<<r_search_min<<"\n"
                      <<"          --r-search-max    [Float]: "<<r_search_max<<"\n"
+                     <<"          --mesh-n-cells-min [int]: "<<mesh_n_cells_min<<"\n"
+                     <<"          --mesh-np-cell-min [int]: "<<mesh_n_particles_per_cell_min<<"\n"
+                     <<"          --mesh-max-rs-frac [Float]: "<<mesh_max_particles_large_r_search_fraction<<"\n"
                      <<"          --help(-h):                 help information\n";
             return 0;
         case 0:
@@ -106,6 +109,17 @@ int main(int argc, char* argv[]) {
         }
     }
 
+    // print initial parameters
+    std::cout<<"Initial parameters:\n"
+             <<"  number of particles: "<<n_particles<<"\n"
+             <<"  number of groups:    "<<n_groups<<"\n"
+             <<"  cluster radius:      "<<r_cluster<<"\n"
+             <<"  minimum search radius: "<<r_search_min<<"\n"
+             <<"  maximum search radius: "<<r_search_max<<"\n"
+             <<"  mesh minimum number of cells: "<<mesh_n_cells_min<<"\n"
+             <<"  mesh minimum particles per cell: "<<mesh_n_particles_per_cell_min<<"\n"
+             <<"  mesh maximum fraction of particles with large search radius: "<<mesh_max_particles_large_r_search_fraction<<"\n";
+    
     // Create a particle group
     COMM::ParticleGroup<Particle,Particle> particles;
     particles.setMode(COMM::ListMode::local);
@@ -150,12 +164,21 @@ int main(int argc, char* argv[]) {
             group_indices.addMember(i);
         }
     }
+
+    // print selected particle and group numbers
+    std::cout << "Selected " << particle_indices.getSize() << " particles." << std::endl;
+    std::cout << "Selected " << group_indices.getSize() << " groups." << std::endl;
+    std::cout << "Total selected: " 
+              << particle_indices.getSize() + group_indices.getSize() << std::endl;
     
     // Create a particle mesh
     COMM::ParticleMeshForSearchNeighbor mesh;
 
     // Set up the mesh with the particle group
-    bool use_mesh = mesh.findOptimizedDivision(&particles, &particle_indices, &groups, &group_indices);
+    bool use_mesh = mesh.findOptimizedDivision(&particles, &particle_indices, &groups, &group_indices, 
+                                               mesh_n_cells_min.value, 
+                                               mesh_n_particles_per_cell_min.value, 
+                                               mesh_max_particles_large_r_search_fraction.value);
     if (!use_mesh) {
         std::cout << "Mesh not used due to insufficient particles or large search radii." << std::endl;
         int n_div[3];
@@ -174,7 +197,7 @@ int main(int argc, char* argv[]) {
     mesh.addParticleAndGroups(&particles, &particle_indices, &groups, &group_indices, particles.getSize());
 
     // Perform the search neighbor operation
-    mesh.checkSearchNeighborForAllParticles(&particles, &particle_indices, &groups, &group_indices, particles.getSize());
+    mesh.checkSearchNeighborForAllParticles(&particles, &particle_indices, &groups, &group_indices);
 
     return 0;
 }

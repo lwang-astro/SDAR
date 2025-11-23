@@ -1,5 +1,5 @@
 ## TARGET
-TARGET=ptclgrouptest binarytest particlemeshtest
+TARGET=ptclgrouptest binarytest particlemeshtest particlekdtreetest
 
 VPATH=../../src 
 

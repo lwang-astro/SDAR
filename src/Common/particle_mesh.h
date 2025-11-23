@@ -24,6 +24,7 @@ namespace COMM{
         std::vector<std::array<int,3>> cell_indices_; // list of all cell indices
         std::vector<int> particle_indices_large_r_search_; // list of all particle indices with r_search larger than r_cell_max
         int particle_indices_large_r_search_group_offset_; // offset for groups with large r_search 
+        int index_group_offset_; // index offset for group particles
         bool is_box_set = false; // whether the box size and center have been set
         bool is_n_div_set = false; // whether the number of divisions have been set
         bool is_cells_initialized = false; // whether the cells_ structure has been initialized
@@ -135,6 +136,9 @@ namespace COMM{
             All particles with rsearch larger than the optimized r_search are stored in indices_large_r_search_ for later processing.
             These number should be small enough to not affect performance much.
             @param[in] particles: particle group to be inserted into the mesh
+            @param[in] particle_indices: optional particle index list to be considered for finding optimized division
+            @param[in] groups: optional group list to be considered for finding optimized division
+            @param[in] group_indices: optional group index list to be considered for finding optimized division
             @param[in] n_cells_min: minimum total cell numbers required (defaulted 2)
             @param[in] n_particles_per_cell_min: minimum average particle numbers per cell (defaulted 10)
             @param[in] max_particles_large_r_search_fraction: maximum fraction of particles allowed to have r_search larger than r_cell (defaulted 0.2)
@@ -145,15 +149,20 @@ namespace COMM{
                                    const COMM::List<int>* particle_indices = nullptr,
                                    const COMM::List<TGroup>* groups = nullptr,
                                    const COMM::List<int>* group_indices = nullptr,
-                                   const int n_cells_min=2, 
-                                   const int n_particles_per_cell_min=10,
+                                   const int n_cells_min=10, 
+                                   const int n_particles_per_cell_min=4,
                                    const Float max_particles_large_r_search_fraction=0.2) {
 
             int n_particles = particle_indices != nullptr ? particle_indices->getSize() : 0;
             int n_groups = group_indices != nullptr ? group_indices->getSize() : (groups != nullptr ? groups->getSize() : 0);
             int n_tot = n_particles + n_groups;
-            if (n_tot < n_particles_per_cell_min) {
+            if (n_tot < n_cells_min * n_particles_per_cell_min) {
                 // too less particles, set division to 1 in all dimensions
+#ifdef PARTICLE_MESH_DEBUG
+                std::cout << "ParticleMeshForSearchNeighbor: total selected particles (" << n_tot 
+                          << ") less than minimum required (" << n_cells_min * n_particles_per_cell_min 
+                          << "), mesh not used." << std::endl; 
+#endif                
                 return false;
             }
 
@@ -190,29 +199,46 @@ namespace COMM{
             // sort rsearch in descending order
             std::sort(rsearch_list.begin(), rsearch_list.end(), std::greater<Float>());
 
-            // find optimized r_search
-            int step_size = std::max(static_cast<int>(rsearch_list.size() / n_particles_per_cell_min), 1);
-            int n_steps = static_cast<int>(rsearch_list.size()*max_particles_large_r_search_fraction);
+            // first check the largest rsearch
+            int total_cells = setDivision(rsearch_list[0]);
+            int n_cells_mean = n_tot/n_particles_per_cell_min;
+            // cells should be less than n_tot
+            if (total_cells > n_tot) {
+                Float test_r_search = rsearch_list[0]*std::cbrt(Float(total_cells)/Float(n_tot));
+                total_cells = setDivision(test_r_search);
 #ifdef PARTICLE_MESH_DEBUG
-            std::cout << "ParticleMeshForSearchNeighbor: searching step size = " << step_size
-                      << ", n_steps = " << n_steps << std::endl; 
-#endif            
-            for (int i=0; i<n_steps; i+=step_size){
-                const Float test_r_search = rsearch_list[i];
-                const int total_cells = setDivision(test_r_search);
-#ifdef PARTICLE_MESH_DEBUG
-                std::cout << "ParticleMeshForSearchNeighbor: test r_search = " << test_r_search
+                std::cout << "ParticleMeshForSearchNeighbor: adjusted r_cell = " << test_r_search
                           << ", n_div = (" << n_div_[0] << ", " << n_div_[1] << ", " << n_div_[2] << ")"
-                          << ", total_cells = " << total_cells << std::endl; 
-#endif                
-                if ( ( (n_div_[0] > 1) || (n_div_[1] > 1) || (n_div_[2] > 1) ) 
-                     && (total_cells <= static_cast<int>(particles->getSize()/n_particles_per_cell_min)) 
-                     && (total_cells >= n_cells_min) ) {
-                        // found suitable division
-                        return true;
-                     }
+                          << ", total_cells = " << total_cells << std::endl;
+#endif
+                return true;
             }
-
+            else if (total_cells < n_cells_mean) {
+                // too less cells, find optimized r_search
+                const int n_steps = static_cast<int>(n_tot*max_particles_large_r_search_fraction);
+                for (int i=1; i<n_steps; ++i){
+                    const Float test_r_search = rsearch_list[i]; 
+                    const int total_cells = setDivision(test_r_search);
+                    if (total_cells >= n_cells_mean) {
+                        // found suitable division
+    #ifdef PARTICLE_MESH_DEBUG
+                        std::cout << "ParticleMeshForSearchNeighbor: test r_search = " << test_r_search
+                                << ", n_div = (" << n_div_[0] << ", " << n_div_[1] << ", " << n_div_[2] << ")"
+                                << ", total_cells = " << total_cells << std::endl; 
+    #endif                
+                        return true;
+                    }
+                }
+                if (total_cells < n_cells_min) {
+                // still too less cells, do not use mesh    
+#ifdef PARTICLE_MESH_DEBUG
+                    std::cout << "ParticleMeshForSearchNeighbor: total cells (" << total_cells 
+                              << ") less than minimum required (" << n_cells_min 
+                              << "), mesh not used." << std::endl;  
+#endif            
+                    return false;
+                }
+            }
             return false;
         }
 
@@ -259,6 +285,22 @@ namespace COMM{
             cell_indices_.clear();
             particle_indices_large_r_search_.clear();
             particle_indices_large_r_search_group_offset_ = 0;
+            index_group_offset_ = 0;
+            is_cells_built = false;
+        }
+
+        // clear function
+        void clear() {
+            n_div_[0] = n_div_[1] = n_div_[2] = 0;
+            box_size_[0] = box_size_[1] = box_size_[2] = 0.0;
+            box_center_[0] = box_center_[1] = box_center_[2] = 0.0;
+            r_cell_max = 0.0;
+            clearCells();
+            particle_indices_large_r_search_.clear();
+            particle_indices_large_r_search_group_offset_ = 0;
+            index_group_offset_ = 0;
+            is_box_set = false;
+            is_n_div_set = false;
             is_cells_built = false;
         }
 
@@ -389,7 +431,19 @@ namespace COMM{
                     }
                 }
             }
+#ifdef PARTICLE_MESH_DEBUG
+            // print indices_large_r_search_ info
+            std::cout << "ParticleMeshForSearchNeighbor: number of particles with r_search > r_cell (" 
+                      << r_cell_max << ") = " << particle_indices_large_r_search_.size() 
+                      << " out of total " << ( (particle_indices != nullptr ? particle_indices->getSize() : particles->getSize()) 
+                                              + (group_indices != nullptr ? group_indices->getSize() : (groups != nullptr ? groups->getSize() : 0)) )
+                      << ", fraction = " << static_cast<Float>(particle_indices_large_r_search_.size()) 
+                                         / static_cast<Float>( (particle_indices != nullptr ? particle_indices->getSize() : particles->getSize()) 
+                                                              + (group_indices != nullptr ? group_indices->getSize() : (groups != nullptr ? groups->getSize() : 0)) )
+                      << std::endl;
+#endif
 
+            index_group_offset_ = index_group_offset;
             is_cells_built = true;
         }
 
@@ -399,48 +453,53 @@ namespace COMM{
 
         /*! Insert particle into the mesh
             @param[in] particle: particle to be inserted
-            @param[in] particle_index: index of the particle to be inserted
+            @param[in] particle_index: index of the particle to be inserted, if it is group index, will be added with index_group_offset_
             @param[in] is_group: flag to indicate if the particle is a group particle
         */
         template <class Tparticle>
         void insertParticleInOrder(const Tparticle& particle, const int particle_index, const bool is_group){
+            int index = particle_index;
+            if (is_group) index += index_group_offset_;
+
             if (particle.getRSearch() > r_cell_max){
-                cell_indices_[particle_index] = {particle_indices_large_r_search_.size(), -1, -1};
-                auto it = std::lower_bound(particle_indices_large_r_search_.begin(), particle_indices_large_r_search_.end(), particle_index);
-                ASSERT(it == particle_indices_large_r_search_.end() || *it != particle_index); // index must not exist
-                particle_indices_large_r_search_.insert(it, particle_index);
+                cell_indices_[index] = {particle_indices_large_r_search_.size(), -1, -1};
+                auto it = std::lower_bound(particle_indices_large_r_search_.begin(), particle_indices_large_r_search_.end(), index);
+                ASSERT(it == particle_indices_large_r_search_.end() || *it != index); // index must not exist
+                particle_indices_large_r_search_.insert(it, index);
                 return;
             }
             std::array<int,3> cell_index;
             getCellIndex(particle.pos, cell_index);
             auto& cell = cells_[cell_index[0]][cell_index[1]][cell_index[2]];
             // insert particle index in order
-            auto it = std::lower_bound(cell.indices.begin(), cell.indices.end(), particle_index);
-            ASSERT(it == cell.indices.end() || *it != particle_index); // index must not exist
-            cell.indices.insert(it, particle_index);
+            auto it = std::lower_bound(cell.indices.begin(), cell.indices.end(), index);
+            ASSERT(it == cell.indices.end() || *it != index); // index must not exist
+            cell.indices.insert(it, index);
             if (!is_group) cell.group_offset ++;
             ASSERT((!is_group && int(it - cell.indices.begin()) < cell.group_offset) || (is_group && int(it - cell.indices.begin()) >= cell.group_offset));
-            if (cell_indices_.size() <= particle_index)
-                cell_indices_.resize(particle_index + 1);
-            cell_indices_[particle_index] = cell_index;
+            if (cell_indices_.size() <= index)
+                cell_indices_.resize(index + 1);
+            cell_indices_[index] = cell_index;
         }
 
         /*! Remove particle
-            @param[in] particle_index: index of the particle to be removed
+            @param[in] particle_index: index of the particle to be removed, if group index, will be added with index_group_offset_
             @param[in] is_group: flag to indicate if the particle is a group particle
         */
         void removeParticle(const int particle_index, const bool is_group){
-            const auto& cell_index = cell_indices_[particle_index];
+            int index = particle_index;
+            if (is_group) index += index_group_offset_; 
+            const auto& cell_index = cell_indices_[index];
             ASSERT(cell_index[0] != -1); // particle must exist
             if (cell_index[1] == -1) {
                 // particle was in large r_search list
-                auto it = std::lower_bound(particle_indices_large_r_search_.begin(), particle_indices_large_r_search_.end(), particle_index);
+                auto it = std::lower_bound(particle_indices_large_r_search_.begin(), particle_indices_large_r_search_.end(), index);
                 ASSERT(it != particle_indices_large_r_search_.end()); // index must exist
                 particle_indices_large_r_search_.erase(it);
                 return;
             }
             auto& cell = cells_[cell_index[0]][cell_index[1]][cell_index[2]].indices;
-            auto it = std::lower_bound(cell.begin(), cell.end(), particle_index);
+            auto it = std::lower_bound(cell.begin(), cell.end(), index);
             ASSERT(it != cell.end()); // index must exist
             if (!is_group) cells_[cell_index[0]][cell_index[1]][cell_index[2]].group_offset --;
             ASSERT((is_group && (static_cast<int>(it - cell.begin()) < cells_[cell_index[0]][cell_index[1]][cell_index[2]].group_offset)) || (!is_group && (static_cast<int>(it - cell.begin()) >= cells_[cell_index[0]][cell_index[1]][cell_index[2]].group_offset)));
@@ -449,11 +508,13 @@ namespace COMM{
 
         /*! Update particle position in the mesh, assume no r_search change
             @param[in] pos: new position array
-            @param[in] particle_index: index of the particle to be updated
+            @param[in] particle_index: index of the particle to be updated, if group index, will be added with index_group_offset_
             @param[in] is_group: flag to indicate if the particle is a group particle
         */
         void updateParticle(const Float* pos, const int particle_index, const bool is_group){
-            const auto& old_cell_index = cell_indices_[particle_index];
+            int index = particle_index;
+            if (is_group) index += index_group_offset_;
+            const auto& old_cell_index = cell_indices_[index];
             ASSERT(old_cell_index[0] != -1); // particle must exist
             if (old_cell_index[1] == -1) {
                 // particle was in large r_search list, do nothing
@@ -464,82 +525,59 @@ namespace COMM{
             if (old_cell_index != new_cell_index){
                 // remove from old cell
                 auto& old_cell = cells_[old_cell_index[0]][old_cell_index[1]][old_cell_index[2]].indices;
-                auto it = std::lower_bound(old_cell.begin(), old_cell.end(), particle_index);
+                auto it = std::lower_bound(old_cell.begin(), old_cell.end(), index);
                 ASSERT(it != old_cell.end()); // index must exist
                 old_cell.erase(it);
                 // insert into new cell
                 auto& cell = cells_[new_cell_index[0]][new_cell_index[1]][new_cell_index[2]].indices;
-                it = std::lower_bound(cell.begin(), cell.end(), particle_index);
-                ASSERT(it == cell.end() || *it != particle_index); // index must not exist
-                cell.insert(it, particle_index);
-                cell_indices_[particle_index] = new_cell_index;
+                it = std::lower_bound(cell.begin(), cell.end(), index);
+                ASSERT(it == cell.end() || *it != index); // index must not exist
+                cell.insert(it, index);
+                cell_indices_[index] = new_cell_index;
             }
         }
 
-        /*! Search for particles within a given position range
-            @param[in] pos: position array of target particle
-            @param[in] index: index of target particle
-            @param[in] is_group: flag to indicate if the target particle is a group particle
-            @param[in] pos_min: minimum position array
-            @param[in] pos_max: maximum position array
-            @param[out] result: vector to store found particle indices
-            @param[out] result_group: vector to store found group particle indices
-        */
-        void searchPosRange(const Float pos[3], const int index, const bool is_group, const Float pos_min[3], const Float pos_max[3], std::vector<int>& result, std::vector<int>& result_group) const {
-            result.clear();
-            result_group.clear();
-            std::array<int,3> cell_min, cell_max, cell;
-            getCellIndex(pos, cell);
-            getCellIndex(pos_min, cell_min);
-            getCellIndex(pos_max, cell_max);
-            for (int i=cell_min[0]; i<=cell_max[0]; i++){ 
-                for (int j=cell_min[1]; j<=cell_max[1]; j++){
-                    for (int k=cell_min[2]; k<=cell_max[2]; k++){
-                        const auto& cell_particles = cells_[i][j][k].indices;
-                        if (cell[0] == i && cell[1] == j && cell[2] == k){
-                            // exclude the particle itself, first find particle index in the cell
-                            auto it = std::lower_bound(cell_particles.begin(), cell_particles.end(), index);
-                            ASSERT(it != cell_particles.end() && *it == index); // index must exist
-                            if (is_group) {
-                                ASSERT(static_cast<int>(it - cell_particles.begin()) >= cells_[i][j][k].group_offset);
-                                result_group.insert(result_group.end(), cell_particles.begin() + cells_[i][j][k].group_offset, it);
-                                result_group.insert(result_group.end(), it + 1, cell_particles.end());
-                                result.insert(result.end(), cell_particles.begin(), cell_particles.begin() + cells_[i][j][k].group_offset);
-                            }
-                            else {
-                                ASSERT(static_cast<int>(it - cell_particles.begin()) < cells_[i][j][k].group_offset);
-                                result.insert(result.end(), cell_particles.begin(), it);
-                                result.insert(result.end(), it + 1, cell_particles.end());
-                                result_group.insert(result_group.end(), cell_particles.begin() + cells_[i][j][k].group_offset, cell_particles.end());
-                            }
-                        }
-                        else {
-                            result.insert(result.end(), cell_particles.begin(), cell_particles.begin() + cells_[i][j][k].group_offset);
-                            result_group.insert(result_group.end(), cell_particles.begin() + cells_[i][j][k].group_offset, cell_particles.end());
-                        }
-                    }
-                }
-            }
-        }
 
         /*! Search for particles within a given radius from a position
-            @param[in] particle: particle to search neighbors for
-            @param[in] index: index of the particle to search neighbors for
-            @param[in] is_group: flag to indicate if the target particle is a group particle
+            @param[in] particle: target particle
             @param[out] result: vector to store found particle indices
             @param[out] result_group: vector to store found group particle indices
         */
         template <class Tparticle>
-        void searchNeighbor(const Tparticle& particle, const int index, const bool is_group, std::vector<int>& result, std::vector<int>& result_group) const {
-            Float radius = particle.getRSearch();
-            const auto& pos = particle.pos;
-            Float pos_min[3], pos_max[3];
+        void searchNeighbor(const Tparticle& particle, std::vector<int>& result, std::vector<int>& result_group) const {
+            result.clear();
+            result_group.clear();
+
+            auto &pos = particle.pos;
+            std::array<int,3> cell, cell_min, cell_max;            
+            getCellIndex(pos, cell);             
+
+            Float &rsearch = particle.getRSearch();
+            // if particle has large r_search, determine search cell range accordingly, otherwise only search neighboring cells
+            int dn_cells = (rsearch <= r_cell_max) ? 1 : static_cast<int>(std::ceil(rsearch / r_cell_max));
             for (int i=0; i<3; i++){
-                pos_min[i] = pos[i] - radius;
-                pos_max[i] = pos[i] + radius;
+                cell_min[i] = std::max(cell[i]-dn_cells, 0);
+                cell_max[i] = std::min(cell[i]+dn_cells, n_div_[i]-1);
             }
-            searchPosRange(pos, index, is_group, pos_min, pos_max, result, result_group);
+
+            for (int i=cell_min[0]; i<=cell_max[0]; i++){
+                for (int j=cell_min[1]; j<=cell_max[1]; j++){
+                    for (int k=cell_min[2]; k<=cell_max[2]; k++){
+                        const auto& cell_particles = cells_[i][j][k].indices;
+                        result.insert(result.end(), cell_particles.begin(), cell_particles.begin() + cells_[i][j][k].group_offset);
+                        result_group.insert(result_group.end(), cell_particles.begin() + cells_[i][j][k].group_offset, cell_particles.end());
+                     }
+                }
+            }
+
+            // add particles in large r_search list
+            result.insert(result.end(), particle_indices_large_r_search_.begin(), particle_indices_large_r_search_.begin() + particle_indices_large_r_search_group_offset_);
+            result_group.insert(result_group.end(), particle_indices_large_r_search_.begin() + particle_indices_large_r_search_group_offset_, particle_indices_large_r_search_.end());
+
+            // correct group indices
+            for (size_t i=0; i<result_group.size(); i++) result_group[i] -= index_group_offset_;
         }
+
 
         //! get n division
         void getNDiv(int n_div[3]) const {
@@ -564,73 +602,125 @@ namespace COMM{
 
         //! for debug, check whether the search neighbor return correct results
         template <class Tparticle, class Tpcm, class TGroup>
-        bool checkSearchNeighborForOneParticle(const int particle_index,
-                                               const bool is_group,
-                                               const ParticleGroup<Tparticle, Tpcm>* particles, 
-                                               const COMM::List<int>* particle_indices = nullptr,
-                                               const COMM::List<TGroup>* groups = nullptr,
-                                               const COMM::List<int>* group_indices = nullptr) const {
+        Float checkSearchNeighborForOneParticle(const int particle_index,
+                                              const bool is_group,
+                                              const ParticleGroup<Tparticle, Tpcm>* particles, 
+                                              const COMM::List<int>* particle_indices = nullptr,
+                                              const COMM::List<TGroup>* groups = nullptr,
+                                              const COMM::List<int>* group_indices = nullptr) const {
 
             ASSERT(is_cells_built); 
             std::vector<int> result, result_group;
-            const auto& particle = (*particles)[particle_index];
-            searchNeighbor(particle, particle_index, is_group, result, result_group);
+            const Float *pos;
+            Float rsearch;
+            if (is_group) {
+                const auto& particle = (*groups)[particle_index].cm;
+                pos = particle.pos;
+                rsearch = particle.getRSearch();
+                searchNeighbor(particle, particle_index, is_group, result, result_group);
+            }
+            else {
+                const auto& particle = (*particles)[particle_index];
+                pos = particle.pos;
+                rsearch = particle.getRSearch();
+                searchNeighbor(particle, particle_index, is_group, result, result_group);
+            }
+
+            int n_found = result.size() + result_group.size();
+
             // Check if the found particles are correct
             std::vector<int> result_check, result_group_check;
 
             if (particle_indices != nullptr) {
                 for (int i=0; i<particle_indices->getSize(); i++){
                     const int idx = (*particle_indices)[i];
-                    if (idx == particle_index) continue;
+                    if (!is_group && idx == particle_index) continue;
                     const auto& p = (*particles)[idx];
                     Float dist_sq = 0.0;
                     for (int j=0; j<3; j++){
-                        Float diff = p.pos[j] - particle.pos[j];
+                        Float diff = p.pos[j] - pos[j];
                         dist_sq += diff * diff;
                     }
-                    if (std::sqrt(dist_sq) < std::max(particle.getRSearch(), p.getRSearch())){
+                    if (std::sqrt(dist_sq) < std::max(rsearch, p.getRSearch())){
                         result_check.push_back(idx);                    
                     }
                 }
             }
             else {
                 for (int i=0; i<particles->getSize(); i++){
-                    if (i == particle_index) continue;
+                    if (!is_group && i == particle_index) continue;
                     const auto& p = (*particles)[i];
                     Float dist_sq = 0.0;
                     for (int j=0; j<3; j++){
-                        Float diff = p.pos[j] - particle.pos[j];
+                        Float diff = p.pos[j] - pos[j];
                         dist_sq += diff * diff;
                     }
-                    if (std::sqrt(dist_sq) < std::max(particle.getRSearch(), p.getRSearch())){
+                    if (std::sqrt(dist_sq) < std::max(rsearch, p.getRSearch())){
                         result_check.push_back(i);                    
                     }
                 }
             }
             // compare result and result_check
-            std::sort(result.begin(), result.end());
             std::sort(result_check.begin(), result_check.end());
-            if (result.size() != result_check.size()) {
-                std::cerr<< "ParticleMeshForSearchNeighbor::checkSearchNeighbor(): size mismatch for particle index "<<particle_index<<": found "<<result.size()<<", expected "<<result_check.size()<<std::endl;
-                return false;
-            }
+            // first generate new result list with distance of two particles less than r_search
+            std::vector<int> result_filtered;
             for (size_t i = 0; i < result.size(); i++) {
-                if (result[i] != result_check[i]) {
-                    std::cerr<< "ParticleMeshForSearchNeighbor::checkSearchNeighbor(): index mismatch for particle index "<<particle_index<<" at position "<<i<<": found "<<result[i]<<", expected "<<result_check[i]<<std::endl;
-                    return false;
+                const int idx = result[i];
+                const auto& p = (*particles)[idx];
+                Float dist_sq = 0.0;
+                for (int j=0; j<3; j++){
+                    Float diff = p.pos[j] - pos[j];
+                    dist_sq += diff * diff;
+                }
+                if (std::sqrt(dist_sq) < std::max(rsearch, p.getRSearch())){
+                    result_filtered.push_back(idx);
+                }
+            }            
+            std::sort(result_filtered.begin(), result_filtered.end());
+            // check filtered result with result_check, first check size
+            if (result_filtered.size() != result_check.size()) {
+                std::cerr<< "ParticleMeshForSearchNeighbor::checkSearchNeighborForOneParticle(): size mismatch for particle index "<<particle_index
+                         << ", result size = "<<result_filtered.size()
+                         << ", result_check size = "<<result_check.size()<<std::endl;
+                abort();
+            }
+
+            // then check each index
+            for (size_t j = 0; j < result_check.size(); j++) {
+                if (result_filtered[j] != result_check[j]) {
+                    std::cerr<< "ParticleMeshForSearchNeighbor::checkSearchNeighborForOneParticle(): index mismatch for particle index "<<particle_index
+                             << ", result["<<j<<"] = "<<result_filtered[j]
+                             << ", result_check["<<j<<"] = "<<result_check[j]<<std::endl;
+                    abort();
+                }
+            }
+
+            // now check groups, first get group list with distance less than r_search
+            std::vector<int> result_group_filtered;
+            for (size_t i = 0; i < result_group.size(); i++) {
+                const int idx = result_group[i];
+                const auto& g = (*groups)[idx];
+                Float dist_sq = 0.0;
+                for (int j=0; j<3; j++){
+                    Float diff = g.cm.pos[j] - pos[j];
+                    dist_sq += diff * diff;
+                }
+                if (std::sqrt(dist_sq) < std::max(rsearch, g.cm.getRSearch())){
+                    result_group_filtered.push_back(idx);
                 }
             }
 
             if (group_indices != nullptr) {
                 for (int i=0; i<group_indices->getSize(); i++){
                     const int idx = (*group_indices)[i];
+                    if (is_group && idx == particle_index) continue;
                     const auto& g = (*groups)[idx];
                     Float dist_sq = 0.0;
                     for (int j=0; j<3; j++){
-                        Float diff = g.cm.pos[j] - particle.pos[j];
+                        Float diff = g.cm.pos[j] - pos[j];
                         dist_sq += diff * diff;
                     }
-                    if (std::sqrt(dist_sq) < std::max(particle.getRSearch(), g.cm.getRSearch())){
+                    if (std::sqrt(dist_sq) < std::max(rsearch, g.cm.getRSearch())){
                         result_group_check.push_back(idx);                    
                     }
                 }
@@ -638,43 +728,72 @@ namespace COMM{
             else {
                 for (int i=0; i<groups->getSize(); i++){
                     const auto& g = (*groups)[i];
+                    if (is_group && i == particle_index) continue;
                     Float dist_sq = 0.0;
                     for (int j=0; j<3; j++){
-                        Float diff = g.cm.pos[j] - particle.pos[j];
+                        Float diff = g.cm.pos[j] - pos[j];
                         dist_sq += diff * diff;
                     }
-                    if (std::sqrt(dist_sq) < std::max(particle.getRSearch(), g.cm.getRSearch())){
+                    if (std::sqrt(dist_sq) < std::max(rsearch, g.cm.getRSearch())){
                         result_group_check.push_back(i);                    
                     }
                 }
             }
 
-            return true;
+            // compare result_group_filtered and result_group_check
+            std::sort(result_group_check.begin(), result_group_check.end());
+            // first check size
+            if (result_group_filtered.size() != result_group_check.size()) {
+                std::cerr<< "ParticleMeshForSearchNeighbor::checkSearchNeighborForOneParticle(): size mismatch for group index "<<particle_index
+                         << ", result_group size = "<<result_group_filtered.size()
+                         << ", result_group_check size = "<<result_group_check.size()<<std::endl;
+                abort();
+            }
+            // then check each index
+            std::sort(result_group_filtered.begin(), result_group_filtered.end());
+            for (size_t j = 0; j < result_group_check.size(); j++) {
+                if (result_group_filtered[j] != result_group_check[j]) {
+                    std::cerr<< "ParticleMeshForSearchNeighbor::checkSearchNeighborForOneParticle(): index mismatch for group index "<<particle_index
+                             << ", result_group["<<j<<"] = "<<result_group_filtered[j]
+                             << ", result_group_check["<<j<<"] = "<<result_group_check[j]<<std::endl;
+                    abort();
+                }
+            }            
+
+            int n_filtered = result_filtered.size() + result_group_filtered.size();
+
+            return Float(n_filtered)/Float(n_found);
         }
 
         template <class Tparticle, class Tpcm, class TGroup>
         bool checkSearchNeighborForAllParticles(const ParticleGroup<Tparticle, Tpcm>* particles, 
                                                 const COMM::List<int>* particle_indices = nullptr,
                                                 const COMM::List<TGroup>* groups = nullptr,
-                                                const COMM::List<int>* group_indices = nullptr,
-                                                const int index_group_offset = 0) const {
+                                                const COMM::List<int>* group_indices = nullptr) const {
             ASSERT(is_cells_built); 
             int n_particles = particle_indices != nullptr ? particle_indices->getSize() : particles->getSize();
+            int n_groups = group_indices != nullptr ? group_indices->getSize() : (groups != nullptr ? groups->getSize() : 0);
+            Float ratio_match_mean = 0, ratio_match_max = 0, ratio_match_min = 1.0;
             for (int i=0; i<n_particles; i++){
                 const int idx = particle_indices != nullptr ? (*particle_indices)[i] : i;
-                if (!checkSearchNeighborForOneParticle(idx, false, particles, particle_indices, groups, group_indices)){
-                    std::cerr<< "ParticleMeshForSearchNeighbor::checkSearchNeighborForAllParticles(): check failed for particle index "<<idx<<std::endl;
-                    return false;
-                }
+                Float ratio_found = checkSearchNeighborForOneParticle(idx, false, particles, particle_indices, groups, group_indices);
+                if (ratio_found > ratio_match_max) ratio_match_max = ratio_found;
+                if (ratio_found < ratio_match_min) ratio_match_min = ratio_found;
+                ratio_match_mean += ratio_found;
             }
-            int n_groups = group_indices != nullptr ? group_indices->getSize() : (groups != nullptr ? groups->getSize() : 0);
             for (int i=0; i<n_groups; i++){
                 const int idx = group_indices != nullptr ? (*group_indices)[i] : i;
-                if (!checkSearchNeighborForOneParticle(idx + index_group_offset, true, particles, particle_indices, groups, group_indices)){
-                    std::cerr<< "ParticleMeshForSearchNeighbor::checkSearchNeighborForAllParticles(): check failed for group index "<<idx<<std::endl;
-                    return false;
-                }
+                Float ratio_found = checkSearchNeighborForOneParticle(idx, true, particles, particle_indices, groups, group_indices);
+                if (ratio_found > ratio_match_max) ratio_match_max = ratio_found;
+                if (ratio_found < ratio_match_min) ratio_match_min = ratio_found;
+                ratio_match_mean += ratio_found;
             }
+            ratio_match_mean /= (n_particles + n_groups);
+            std::cout << "ParticleMeshForSearchNeighbor::checkSearchNeighborForAllParticles(): "
+                      << " find neighbor match min = " << ratio_match_min
+                      << ", mean = " << ratio_match_mean
+                      << ", max = " << ratio_match_max << std::endl;
+
             return true;
         }
         

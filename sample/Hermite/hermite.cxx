@@ -309,9 +309,6 @@ int main(int argc, char **argv){
     h4_int.initialSystemSingle(time_zero.value);
     h4_int.readGroupConfigureAscii(fin);
 
-    // build mesh if only neighbor force is calculated mode is used
-    h4_int.buildMesh();
-    
     // initialization 
     h4_int.initialIntegration(); // get neighbors and min particles
     const int n_group_init = h4_int.getNGroup();
