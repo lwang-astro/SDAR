@@ -27,6 +27,9 @@ namespace COMM {
     template <class T>
     size_t get_container_size(const List<T>& c) { return c.getSize(); }
 
+    template <class T>
+    int get_container_size(const T* c) { return -1; } // For raw pointers, size must be provided separately
+
     // ---------------------------------------------------------
     // Accessors for Data Retrieval
     // ---------------------------------------------------------
@@ -292,11 +295,18 @@ namespace COMM {
         //! Build tree from all particles in container
         /*!
           @param[in] particles: container of particles
+          @param[in] n_particle: number of particles to include, if given, use it instead of container size;
         */
         template <class TContainer>
-        void build(const TContainer& particles) {
+        void build(const TContainer& particles, int n_particle=-1) {
             clear();
-            size_t n = get_container_size(particles);
+            size_t n ;
+            if (n_particle != -1) n = n_particle;
+            else {
+                int n_container = get_container_size(particles);
+                assert(n_container >= 0); // Ensure size is known
+                n = static_cast<size_t>(n_container);
+            }
             if (n == 0) return;
 
             // CHANGED: Reserve extra memory for potential inserts (1.25x + 16)
@@ -657,6 +667,16 @@ namespace COMM {
         void addParticles(const ParticleGroup<Tptcl, Tcm>& particles) {
             tree_ptcl_.build(particles);
         }
+
+        //! Add all particles from raw pointer array to the tree
+        /*!
+          @param[in] particles: pointer to array of particles
+          @param[in] n_particles: number of particles in the array
+        */        
+        template <class Tptcl>
+        void addParticles(const Tptcl* particles, const int n_particles = -1) {
+            tree_ptcl_.build(particles, n_particles);
+        }        
 
         //! Add a subset of particles from ParticleGroup to the tree
         /*!
