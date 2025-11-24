@@ -31,35 +31,18 @@ namespace COMM {
     int get_container_size(const T* c) { return -1; } // For raw pointers, size must be provided separately
 
     // ---------------------------------------------------------
-    // Accessors for Data Retrieval
+    // Unified Accessor using SFINAE
     // ---------------------------------------------------------
     
-    // Default Accessor: assumes p.pos and p.r_search
-    struct ParticleAccessor {
-        template <class T>
-        static const Float* getPos(const T& p) { return &p.pos[0]; }
-        
-        template <class T>
-        static Float getRSearch(const T& p) { return p.r_search; }
-    };
-
-    // Group Accessor: assumes g.cm.pos and g.cm.r_search
-    struct GroupAccessor {
-        template <class T>
-        static const Float* getPos(const T& g) { return &g.particles.cm.pos[0]; }
-        
-        template <class T>
-        static Float getRSearch(const T& g) { return g.particles.cm.r_search; }
-    };
-
-    // Target Accessor: Auto-detects if T has 'cm' member for search targets
+    // Primary template: Assumes T is a Particle (has .pos and .r_search)
     template <typename T, typename = void>
     struct TargetAccessor {
         static const Float* getPos(const T& p) { return &p.pos[0]; }
         static Float getRSearch(const T& p) { return p.r_search; }
     };
 
-    // Use COMM::void_t instead of std::void_t
+    // Specialization: Assumes T is a Group (has .particles.cm)
+    // Detects if T has a member named 'particles'
     template <typename T>
     struct TargetAccessor<T, COMM::void_t<decltype(T::particles)>> {
         static const Float* getPos(const T& p) { return &p.particles.cm.pos[0]; }
@@ -69,8 +52,8 @@ namespace COMM {
     // ---------------------------------------------------------
     // Core KD-Tree Implementation (Generic)
     // ---------------------------------------------------------
-    // CHANGED: Removed class T from template parameters
-    template <class Accessor = ParticleAccessor>
+    // CHANGED: Removed Accessor template parameter. 
+    // Now uses TargetAccessor<T> internally for all types.
     class KDTreeCore {
     public:
         struct Node {
@@ -92,18 +75,18 @@ namespace COMM {
             
             bool is_removed = false;
 
-            // Constructor uses Accessor to get data
-            // CHANGED: Made constructor a template to accept any particle type
+            // Constructor uses TargetAccessor to get data
             template <typename ParticleType>
             Node(int idx, const ParticleType& p, int ax, int p_idx = -1) 
                 : axis(ax), parent(p_idx), index(idx) { 
-                const Float* p_pos = Accessor::getPos(p);
+                // CHANGED: Use TargetAccessor
+                const Float* p_pos = TargetAccessor<ParticleType>::getPos(p);
                 for(int k=0; k<3; k++) {
                     pos[k] = p_pos[k];
                     min_box[k] = p_pos[k];
                     max_box[k] = p_pos[k];
                 }
-                r_search = Accessor::getRSearch(p);
+                r_search = TargetAccessor<ParticleType>::getRSearch(p);
                 max_r_subtree = r_search;
                 min_r_subtree = r_search;
             }
@@ -111,7 +94,7 @@ namespace COMM {
 
     private:
         std::vector<Node> nodes_;
-        std::vector<int> index_to_node_; // <--- NEW: Map particle index to node index
+        std::vector<int> index_to_node_; 
         int root_ = -1;
         int active_count_ = 0;
         int removed_count_ = 0;
@@ -154,10 +137,15 @@ namespace COMM {
             int axis = depth % 3;
             int mid = (start + end) / 2;
             
-            // Sort indices based on Accessor::getPos
+            // Sort indices based on TargetAccessor::getPos
+            // We need to deduce the value type of the container to use TargetAccessor
+            // For std::vector<T>, value_type is T. For ParticleGroup, operator[] returns reference to Tptcl.
+            // Using auto& p = particles[a] works.
             std::nth_element(indices.begin() + start, indices.begin() + mid, indices.begin() + end,
                 [&particles, axis](int a, int b) { 
-                    return Accessor::getPos(particles[a])[axis] < Accessor::getPos(particles[b])[axis]; 
+                    // CHANGED: Use TargetAccessor with decltype
+                    using PType = typename std::decay<decltype(particles[0])>::type;
+                    return TargetAccessor<PType>::getPos(particles[a])[axis] < TargetAccessor<PType>::getPos(particles[b])[axis]; 
                 });
 
             int idx = indices[mid];
@@ -169,8 +157,6 @@ namespace COMM {
             if (idx >= static_cast<int>(index_to_node_.size())) index_to_node_.resize(idx + 1, -1);
             index_to_node_[idx] = current_node_idx;
 
-            // CRITICAL FIX: Evaluate recursive calls BEFORE accessing nodes_[current_node_idx]
-            // to avoid reference invalidation if vector reallocates during recursion.
             int left_child = build_recursive(indices, particles, start, mid, depth + 1, current_node_idx);
             nodes_[current_node_idx].left = left_child;
 
@@ -215,8 +201,6 @@ namespace COMM {
 
             // 1. Pruning
             Float d2_box = dist_sq_point_to_box(t_pos, node.min_box, node.max_box);
-            
-            // Restore correct logic for max criterion with tolerance
             Float max_dist = std::max(t_r, node.max_r_subtree);
             
             // Use a safe tolerance
@@ -224,11 +208,9 @@ namespace COMM {
 
             // 2. Check Particle
             if (!node.is_removed) {
-                // CHANGED: Removed self-check logic
                 Float d2 = 0.0;
                 for(int k=0; k<3; k++) d2 += (t_pos[k] - node.pos[k])*(t_pos[k] - node.pos[k]);
                 
-                // CHANGED: Neighbor criterion is dist < max(r_target, r_neighbor)
                 Float r_crit = std::max(t_r, node.r_search);
                 if (d2 < r_crit * r_crit) {
                     neighbor_list.push_back(node.index);
@@ -236,7 +218,6 @@ namespace COMM {
             }
 
             // 3. Recurse
-            // CHANGED: Removed ignore_index argument
             search_recursive(node.left, target, neighbor_list);
             search_recursive(node.right, target, neighbor_list);
         }
@@ -274,11 +255,7 @@ namespace COMM {
         }
 
     public:
-        KDTreeCore() { 
-            // CHANGED: Removed reserve from constructor to save memory if unused
-            // nodes_.reserve(1024); 
-            // index_to_node_.reserve(1024); 
-        }
+        KDTreeCore() {}
 
         //! Clear the tree
         void clear() {
@@ -399,8 +376,9 @@ namespace COMM {
                 return;
             }
             
-            const Float* p_pos = Accessor::getPos(p);
-            Float p_r = Accessor::getRSearch(p);
+            // CHANGED: Use TargetAccessor
+            const Float* p_pos = TargetAccessor<ParticleType>::getPos(p);
+            Float p_r = TargetAccessor<ParticleType>::getRSearch(p);
 
             int curr = root_;
             while(true) {
@@ -480,7 +458,6 @@ namespace COMM {
             if (index < 0 || index >= static_cast<int>(index_to_node_.size())) return;
             int node_idx = index_to_node_[index];
             if (node_idx == -1) {
-                // Not in tree, just insert
                 insert(index, p);
                 return;
             }
@@ -498,8 +475,9 @@ namespace COMM {
                 return;
             }
 
-            const Float* new_pos = Accessor::getPos(p);
-            Float new_r = Accessor::getRSearch(p);
+            // CHANGED: Use TargetAccessor
+            const Float* new_pos = TargetAccessor<ParticleType>::getPos(p);
+            Float new_r = TargetAccessor<ParticleType>::getRSearch(p);
 
             // Check displacement
             Float d2 = 0.0;
@@ -581,8 +559,10 @@ namespace COMM {
 
             for (size_t i = 0; i < n; ++i) {
                 const auto& p = particles[i];
-                const Float* pos = Accessor::getPos(p);
-                Float r = Accessor::getRSearch(p);
+                // CHANGED: Use TargetAccessor with decltype
+                using PType = typename std::decay<decltype(p)>::type;
+                const Float* pos = TargetAccessor<PType>::getPos(p);
+                Float r = TargetAccessor<PType>::getRSearch(p);
 
                 for(int k=0; k<3; k++) {
                     if (pos[k] < min_box[k]) min_box[k] = pos[k];
@@ -617,8 +597,10 @@ namespace COMM {
             for (size_t k = 0; k < n; ++k) {
                 int idx = subset_indices[k];
                 const auto& p = particles[idx];
-                const Float* pos = Accessor::getPos(p);
-                Float r = Accessor::getRSearch(p);
+                // CHANGED: Use TargetAccessor with decltype
+                using PType = typename std::decay<decltype(p)>::type;
+                const Float* pos = TargetAccessor<PType>::getPos(p);
+                Float r = TargetAccessor<PType>::getRSearch(p);
 
                 for(int d=0; d<3; d++) {
                     if (pos[d] < min_box[d]) min_box[d] = pos[d];
@@ -640,14 +622,11 @@ namespace COMM {
     // ---------------------------------------------------------
     // ParticleKDTree (Manages both Particles and Groups)
     // ---------------------------------------------------------
-    // CHANGED: Removed template <class Tptcl, class Tgroup = Tptcl>
-    //template <class ParticleAccessor = ParticleAccessor, class GroupAccessor = GroupAccessor>
     class ParticleKDTree {
     private:
-        // Use ParticleAccessor for particles
-        KDTreeCore<ParticleAccessor> tree_ptcl_;
-        // Use GroupAccessor for groups
-        KDTreeCore<GroupAccessor> tree_group_;
+        // CHANGED: KDTreeCore is now generic, no template args needed
+        KDTreeCore tree_ptcl_;
+        KDTreeCore tree_group_;
 
     public:
         //! Clear both particle and group trees
@@ -833,28 +812,24 @@ namespace COMM {
         bool isGroupTreeBuilt() const { return tree_group_.isBuilt(); }
 
         //! Check if particle tree should be built
-        // CHANGED: Added template parameters
         template <class Tptcl, class Tcm>
         bool checkParticleBuildCondition(const ParticleGroup<Tptcl, Tcm>& particles, int n_limit = 64, Float r_ratio_limit = 0.3) {
             return tree_ptcl_.checkBuildCondition(particles, n_limit, r_ratio_limit);
         }
 
         //! Check if particle tree should be built (subset)
-        // CHANGED: Added template parameters
         template <class Tptcl, class Tcm>
         bool checkParticleBuildCondition(const ParticleGroup<Tptcl, Tcm>& particles, const COMM::List<int>& indices, int n_limit = 64, Float r_ratio_limit = 0.3) {
             return tree_ptcl_.checkBuildCondition(particles, indices, n_limit, r_ratio_limit);
         }
 
         //! Check if group tree should be built
-        // CHANGED: Added template parameter
         template <class Tgroup>
         bool checkGroupBuildCondition(const List<Tgroup>& groups, int n_limit = 64, Float r_ratio_limit = 0.3) {
             return tree_group_.checkBuildCondition(groups, n_limit, r_ratio_limit);
         }
 
         //! Check if group tree should be built (subset)
-        // CHANGED: Added template parameter
         template <class Tgroup>
         bool checkGroupBuildCondition(const List<Tgroup>& groups, const COMM::List<int>& indices, int n_limit = 64, Float r_ratio_limit = 0.3) {
             return tree_group_.checkBuildCondition(groups, indices, n_limit, r_ratio_limit);
