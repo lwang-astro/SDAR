@@ -269,65 +269,54 @@ namespace COMM {
             removed_count_ = 0;
         }
 
-        //! Build tree from all particles in container
+        //! Build tree from particles (all or subset)
         /*!
           @param[in] particles: container of particles
-          @param[in] n_particle: number of particles to include, if given, use it instead of container size;
+          @param[in] subset_indices: optional pointer to list of indices to include. If nullptr, use all/n_particle.
+          @param[in] n_particle: number of particles to include (only used if subset_indices is nullptr). If -1, use container size.
         */
         template <class TContainer>
-        void build(const TContainer& particles, int n_particle=-1) {
+        void build(const TContainer& particles, const List<int>* subset_indices = nullptr, int n_particle = -1) {
             clear();
-            size_t n ;
-            if (n_particle != -1) n = n_particle;
-            else {
-                int n_container = get_container_size(particles);
-                assert(n_container >= 0); // Ensure size is known
-                n = static_cast<size_t>(n_container);
-            }
-            if (n == 0) return;
-
-            // CHANGED: Reserve extra memory for potential inserts (1.25x + 16)
-            // This prevents immediate reallocation if particles are added shortly after build.
-            size_t reserve_cap = static_cast<size_t>(n * 1.25) + 16;
-            if (nodes_.capacity() < reserve_cap) nodes_.reserve(reserve_cap);
-
-            // Resize map to fit all potential indices
-            // Assuming indices are compact 0..N-1 for this bulk build
-            if (index_to_node_.size() < n) index_to_node_.resize(n, -1);
-
-            std::vector<int> indices(n);
-            std::iota(indices.begin(), indices.end(), 0);
-
-            active_count_ = n;
-            root_ = build_recursive(indices, particles, 0, n, 0, -1); // Pass -1 as parent
-        }
-
-        //! Build tree from a subset of particles
-        /*!
-          @param[in] particles: container of particles
-          @param[in] subset_indices: list of indices to include in the tree
-        */
-        template <class TContainer>
-        void build(const TContainer& particles, const List<int>& subset_indices) {
-            clear();
-            if (subset_indices.getSize() == 0) return;
-
-            // Find max index to resize map
+            
+            std::vector<int> indices;
             int max_idx = 0;
-            std::vector<int> indices(subset_indices.getSize());
-            for (int i = 0; i < subset_indices.getSize(); ++i) {
-                indices[i] = subset_indices[i];
-                if (indices[i] > max_idx) max_idx = indices[i];
+
+            if (subset_indices) {
+                // --- Subset Mode ---
+                size_t n = subset_indices->getSize();
+                if (n == 0) return;
+                
+                indices.resize(n);
+                // We need to find max_idx for resizing index_to_node_
+                for (size_t i = 0; i < n; ++i) {
+                    indices[i] = (*subset_indices)[i];
+                    if (indices[i] > max_idx) max_idx = indices[i];
+                }
+            } else {
+                // --- All / First N Mode ---
+                size_t n;
+                if (n_particle != -1) n = n_particle;
+                else {
+                    int n_container = get_container_size(particles);
+                    assert(n_container >= 0); // Ensure size is known
+                    n = static_cast<size_t>(n_container);
+                }
+                if (n == 0) return;
+
+                indices.resize(n);
+                std::iota(indices.begin(), indices.end(), 0);
+                max_idx = n > 0 ? static_cast<int>(n) - 1 : 0;
             }
 
-            // CHANGED: Reserve extra memory for potential inserts (1.25x + 16)
+            // Common logic: Reserve memory
             size_t reserve_cap = static_cast<size_t>(indices.size() * 1.25) + 16;
             if (nodes_.capacity() < reserve_cap) nodes_.reserve(reserve_cap);
 
+            // Common logic: Resize map
             if (static_cast<int>(index_to_node_.size()) <= max_idx) index_to_node_.resize(max_idx + 1, -1);
 
             active_count_ = indices.size();
-            // FIXED: Added -1 as the last argument for parent_idx
             root_ = build_recursive(indices, particles, 0, indices.size(), 0, -1);
         }
 
@@ -637,60 +626,29 @@ namespace COMM {
 
         // --- Build Methods ---
         
-        //! Add all particles from ParticleGroup to the tree
+        //! Add particles to the tree (generic)
         /*!
-          @param[in] particles: ParticleGroup container
+          @param[in] particles: container of particles (ParticleGroup, std::vector, or raw pointer)
+          @param[in] indices: optional pointer to list of indices to include. If nullptr, use all/n_particles.
+          @param[in] n_particles: number of particles (used if particles is raw pointer or to limit count).
         */
-        // CHANGED: Added template parameters
-        template <class Tptcl, class Tcm>
-        void addParticles(const ParticleGroup<Tptcl, Tcm>& particles) {
-            tree_ptcl_.build(particles);
+        template <class TContainer>
+        void addParticles(const TContainer& particles, const COMM::List<int>* indices = nullptr, int n_particles = -1) {
+            tree_ptcl_.build(particles, indices, n_particles);
         }
 
-        //! Add all particles from raw pointer array to the tree
+        //! Add groups to the tree (generic)
         /*!
-          @param[in] particles: pointer to array of particles
-          @param[in] n_particles: number of particles in the array
-        */        
-        template <class Tptcl>
-        void addParticles(const Tptcl* particles, const int n_particles = -1) {
-            tree_ptcl_.build(particles, n_particles);
-        }        
-
-        //! Add a subset of particles from ParticleGroup to the tree
-        /*!
-          @param[in] particles: ParticleGroup container
-          @param[in] indices: list of indices to add
+          @param[in] groups: container of groups (List, std::vector, or raw pointer)
+          @param[in] indices: optional pointer to list of indices to include. If nullptr, use all/n_groups.
+          @param[in] n_groups: number of groups (used if groups is raw pointer or to limit count).
         */
-        // CHANGED: Added template parameters
-        template <class Tptcl, class Tcm>
-        void addParticles(const ParticleGroup<Tptcl, Tcm>& particles, const COMM::List<int>& indices) {
-            tree_ptcl_.build(particles, indices);
+        template <class TContainer>
+        void addGroups(const TContainer& groups, const COMM::List<int>* indices = nullptr, int n_groups = -1) {
+            tree_group_.build(groups, indices, n_groups);
         }
 
-        //! Add all groups from List to the tree
-        /*!
-          @param[in] groups: List of groups
-        */
-        // CHANGED: Added template parameter
-        template <class Tgroup>
-        void addGroups(const List<Tgroup>& groups) {
-            tree_group_.build(groups);
-        }
-
-        //! Add a subset of groups from List to the tree
-        /*!
-          @param[in] groups: List of groups
-          @param[in] indices: list of indices to add
-        */
-        // CHANGED: Added template parameter
-        template <class Tgroup>
-        void addGroups(const List<Tgroup>& groups, const COMM::List<int>& indices) {
-            tree_group_.build(groups, indices);
-        }
-
-        // --- Search Methods ---
-        
+        // --- Search Methods ---        
         //! Search neighbors for a target in both particle and group trees
         /*!
           @param[in] target: target particle or group

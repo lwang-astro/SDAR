@@ -169,8 +169,9 @@ int main(int argc, char* argv[]) {
     COMM::ParticleKDTree kdtree;
     
     // Add particles and groups using the subset indices
-    kdtree.addParticles(particles, particle_indices);
-    kdtree.addGroups(groups, group_indices);
+    // CHANGED: Pass address of indices
+    kdtree.addParticles(particles, &particle_indices);
+    kdtree.addGroups(groups, &group_indices);
 
     std::cout << "KDTree built successfully." << std::endl;
 
