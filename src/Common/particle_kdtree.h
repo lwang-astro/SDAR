@@ -38,7 +38,7 @@ namespace COMM {
     template <typename T, typename = void>
     struct TargetAccessor {
         static const Float* getPos(const T& p) { return &p.pos[0]; }
-        static Float getRSearch(const T& p) { return p.r_search; }
+        static Float getRNeighbor(const T& p) { return p.getRNeighbor(); }
     };
 
     // Specialization: Assumes T is a Group (has .particles.cm)
@@ -46,7 +46,7 @@ namespace COMM {
     template <typename T>
     struct TargetAccessor<T, COMM::void_t<decltype(T::particles)>> {
         static const Float* getPos(const T& p) { return &p.particles.cm.pos[0]; }
-        static Float getRSearch(const T& p) { return p.particles.cm.r_search; }
+        static Float getRNeighbor(const T& p) { return p.particles.cm.getRNeighbor(); }
     };
 
     // ---------------------------------------------------------
@@ -86,7 +86,7 @@ namespace COMM {
                     min_box[k] = p_pos[k];
                     max_box[k] = p_pos[k];
                 }
-                r_search = TargetAccessor<ParticleType>::getRSearch(p);
+                r_search = TargetAccessor<ParticleType>::getRNeighbor(p);
                 max_r_subtree = r_search;
                 min_r_subtree = r_search;
             }
@@ -197,7 +197,7 @@ namespace COMM {
 
             // Use TargetAccessor to get target properties
             const Float* t_pos = TargetAccessor<Ttarget>::getPos(target);
-            Float t_r = TargetAccessor<Ttarget>::getRSearch(target);
+            Float t_r = TargetAccessor<Ttarget>::getRNeighbor(target);
 
             // 1. Pruning
             Float d2_box = dist_sq_point_to_box(t_pos, node.min_box, node.max_box);
@@ -229,7 +229,7 @@ namespace COMM {
             Node& node = nodes_[node_idx];
 
             const Float* t_pos = TargetAccessor<Ttarget>::getPos(target);
-            Float t_r = TargetAccessor<Ttarget>::getRSearch(target);
+            Float t_r = TargetAccessor<Ttarget>::getRNeighbor(target);
 
             // 1. Pruning
             Float d2_box = dist_sq_point_to_box(t_pos, node.min_box, node.max_box);
@@ -367,7 +367,7 @@ namespace COMM {
             
             // CHANGED: Use TargetAccessor
             const Float* p_pos = TargetAccessor<ParticleType>::getPos(p);
-            Float p_r = TargetAccessor<ParticleType>::getRSearch(p);
+            Float p_r = TargetAccessor<ParticleType>::getRNeighbor(p);
 
             int curr = root_;
             while(true) {
@@ -466,7 +466,7 @@ namespace COMM {
 
             // CHANGED: Use TargetAccessor
             const Float* new_pos = TargetAccessor<ParticleType>::getPos(p);
-            Float new_r = TargetAccessor<ParticleType>::getRSearch(p);
+            Float new_r = TargetAccessor<ParticleType>::getRNeighbor(p);
 
             // Check displacement
             Float d2 = 0.0;
@@ -551,7 +551,7 @@ namespace COMM {
                 // CHANGED: Use TargetAccessor with decltype
                 using PType = typename std::decay<decltype(p)>::type;
                 const Float* pos = TargetAccessor<PType>::getPos(p);
-                Float r = TargetAccessor<PType>::getRSearch(p);
+                Float r = TargetAccessor<PType>::getRNeighbor(p);
 
                 for(int k=0; k<3; k++) {
                     if (pos[k] < min_box[k]) min_box[k] = pos[k];
@@ -589,7 +589,7 @@ namespace COMM {
                 // CHANGED: Use TargetAccessor with decltype
                 using PType = typename std::decay<decltype(p)>::type;
                 const Float* pos = TargetAccessor<PType>::getPos(p);
-                Float r = TargetAccessor<PType>::getRSearch(p);
+                Float r = TargetAccessor<PType>::getRNeighbor(p);
 
                 for(int d=0; d<3; d++) {
                     if (pos[d] < min_box[d]) min_box[d] = pos[d];

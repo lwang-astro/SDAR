@@ -17,7 +17,7 @@ public:
     Float pos[3];
     Float r_search;
 
-    Float getRSearch() const {
+    Float getRNeighbor() const {
         return r_search;
     }
 };

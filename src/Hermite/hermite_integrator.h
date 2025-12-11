@@ -500,7 +500,7 @@ namespace H4{
             }
 
 #ifdef HERMITE_ONLY_CALC_NEIGHBOR_FORCE
-            if (index_dt_sorted_single_.getSize()+index_dt_sorted_group_.getSize() > manager->kdtree_n_particles_min) {
+            if (n_single + n_group > manager->kdtree_n_particles_min) {
                 kdtree.clear();
                 // gather particle and group pointers
                 kdtree.addParticles(pred_, &index_dt_sorted_single_);
@@ -1374,6 +1374,7 @@ namespace H4{
                 group_new.info.reserveMem(n_particle);
             
                 // Add members to AR 
+                Float r_neighbor_crit_max = 0.0;
                 for(int j=_n_group_offset[i]; j<_n_group_offset[i+1]; j++) {
                     const int p_index = _particle_index[j];
                     ASSERT(p_index<particles.getSize());
@@ -1381,11 +1382,12 @@ namespace H4{
                     group_new.info.particle_index.addMember(p_index);
                     group_new.info.r_break_crit = std::max(group_new.info.r_break_crit, particles[p_index].getRGroup());
                     Float r_neighbor_crit = particles[p_index].getRNeighbor();
-                    group_new.perturber.r_neighbor_crit_sq = std::max(group_new.perturber.r_neighbor_crit_sq, r_neighbor_crit*r_neighbor_crit);
+                    r_neighbor_crit_max = std::max(r_neighbor_crit_max, r_neighbor_crit);
                     // update single mask table 
                     ASSERT(table_single_mask_[p_index]==false);
                     table_single_mask_[p_index] = true;
                 }
+                group_new.perturber.r_neighbor_crit_sq = std::max(group_new.perturber.r_neighbor_crit_sq, r_neighbor_crit_max*r_neighbor_crit_max);
                 
                 // calculate the c.m.
                 group_new.particles.calcCenterOfMass();
@@ -1393,6 +1395,8 @@ namespace H4{
                 group_new.particles.cm.id = - (group_index[i]+1);
                 // shift to c.m. frame
                 group_new.particles.shiftToCenterOfMassFrame();
+
+                group_new.particles.cm.setRNeighbor(r_neighbor_crit_max);                
 
                 // get binarytree
                 group_new.info.generateBinaryTree(group_new.particles,ar_manager->interaction.gravitational_constant);
