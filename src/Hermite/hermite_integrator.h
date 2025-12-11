@@ -500,10 +500,12 @@ namespace H4{
             }
 
 #ifdef HERMITE_ONLY_CALC_NEIGHBOR_FORCE
-            kdtree.clear();
-            // gather particle and group pointers
-            kdtree.addParticles(pred_, &index_dt_sorted_single_);
-            kdtree.addGroups(&(pred[index_offset_group_]), &index_dt_sorted_group_);
+            if (index_dt_sorted_single_.getSize()+index_dt_sorted_group_.getSize() > manager->kdtree_n_particles_min) {
+                kdtree.clear();
+                // gather particle and group pointers
+                kdtree.addParticles(pred_, &index_dt_sorted_single_);
+                kdtree.addGroups(&(pred[index_offset_group_]), &index_dt_sorted_group_);
+            }
 #endif
         }
 
@@ -2348,10 +2350,13 @@ namespace H4{
             writeBackResolvedGroupAndCreateJParticleList(false);
 
 #ifdef HERMITE_ONLY_CALC_NEIGHBOR_FORCE
-            kdtree.clear();
-            // gather particle and group pointers
-            kdtree.addParticles(particles, &index_dt_sorted_single_);
-            kdtree.addGroups(groups, &index_dt_sorted_group_);
+            if (index_dt_sorted_single_.getSize()+index_dt_sorted_group_.getSize() > manager->kdtree_n_particles_min) {
+                // use kdtree to speed up neighbor search
+                kdtree.clear();
+                // gather particle and group pointers
+                kdtree.addParticles(particles, &index_dt_sorted_single_);
+                kdtree.addGroups(groups, &index_dt_sorted_group_);
+            }
 #endif            
             calcAccJerkNBList(index_single, n_init_single_, index_group, n_init_group_);
 
