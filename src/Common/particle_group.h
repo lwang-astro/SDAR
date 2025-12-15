@@ -161,11 +161,11 @@ namespace COMM {
         */
         void shiftToCenterOfMassFrame() {
             if (origin_frame_flag) {
-                const Float *rc = cm.getPos();
-                const Float *vc = cm.getVel();
+                const auto& rc = cm.pos;
+                const auto& vc = cm.vel;
                 for (int i=0;i<TList::num_;i++) {
-                    Float *ri = TList::data_[i].getPos();
-                    Float *vi = TList::data_[i].getVel();
+                    auto& ri = TList::data_[i].pos;
+                    auto& vi = TList::data_[i].vel;
                     ri[0] -= rc[0];
                     ri[1] -= rc[1];
                     ri[2] -= rc[2];
@@ -189,11 +189,11 @@ namespace COMM {
                 std::cerr<<"Warning: particles are already in original frame!\n";
             }
             else {
-                const Float *rc = cm.getPos();
-                const Float *vc = cm.getVel();
+                const auto& rc = cm.pos;
+                const auto& vc = cm.vel;
                 for (int i=0;i<TList::num_;i++) {
-                    Float *ri = TList::data_[i].getPos();
-                    Float *vi = TList::data_[i].getVel();
+                    auto& ri = TList::data_[i].pos;
+                    auto& vi = TList::data_[i].vel;
                     ri[0] += rc[0];
                     ri[1] += rc[1];
                     ri[2] += rc[2];
@@ -207,14 +207,14 @@ namespace COMM {
 
         //! calculate center-of-mass
         void calcCenterOfMass() {
-            Float *rc = cm.getPos();
-            Float *vc = cm.getVel();
+            auto& rc = cm.pos;
+            auto& vc = cm.vel;
             rc[0] = rc[1] = rc[2] = 0.0;
             vc[0] = vc[1] = vc[2] = 0.0;
             cm.mass = 0.0;
             for (int i=0;i<TList::num_;i++) {
-                const Float *ri = TList::data_[i].getPos();
-                const Float *vi = TList::data_[i].getVel();
+                const auto& ri = TList::data_[i].pos;
+                const auto& vi = TList::data_[i].vel;
                 const Float mi = TList::data_[i].mass;
                 rc[0] += ri[0] * mi;
                 rc[1] += ri[1] * mi;
@@ -237,6 +237,11 @@ namespace COMM {
         //! return true if the system is the in their origin frame
         bool isOriginFrame() const {
             return origin_frame_flag;
+        }
+
+        //! manually set origin_frame_flag
+        void setIsOriginFrameFlag(const bool flag) {
+            origin_frame_flag = flag;
         }
     };
 

@@ -2,12 +2,17 @@
 
 #include "Common/Float.h"
 #include "Common/list.h"
+#ifdef HERMITE_ONLY_CALC_NEIGHBOR_FORCE
+#include "Common/particle_kdtree.h"
+#endif
 #include "AR/symplectic_integrator.h"
 #include "Hermite/ar_information.h"
 #include "Hermite/hermite_particle.h"
 #include "Hermite/block_time_step.h"
 #include "Hermite/neighbor.h"
 #include "Hermite/profile.h"
+#include <iostream>
+#include <fstream>
 #include <map>
 
 namespace H4{
@@ -32,17 +37,28 @@ namespace H4{
     public:
         //Float r_break_crit; ///> the distance criterion to break the groups
         //Float r_neighbor_crit; ///> the distance for neighbor search
+        Float reinitialize_step_dm_criterion; ///> criterion of mass change rate for reinitializing step size
+        Float reinitialize_step_de_criterion; ///> criterion of energy change rate for reinitializing step size
+        int n_neighbor_max; ///> maximum number of neighbors to be stored
         Tmethod interaction; ///> class contain interaction function
         BlockTimeStep4th step; ///> time step calculator
+#ifdef HERMITE_ONLY_CALC_NEIGHBOR_FORCE
+        int kdtree_n_particles_min; ///> minimum number of particles to build KDTree for neighbor search
+        Float kdtree_r_ratio_limit; ///> maximum r_search / box_size ratio to build KDTree for neighbor search
+#endif
 #ifdef ADJUST_GROUP_PRINT
         bool adjust_group_write_flag; ///> flag to indicate whether to output new/end group information
         std::ofstream fgroup; ///> pointer to a file IO to output new/end group information
 #endif
 
+        HermiteManager(): reinitialize_step_dm_criterion(0.0), reinitialize_step_de_criterion(0.0), n_neighbor_max(300), interaction(), step()
+#ifdef HERMITE_ONLY_CALC_NEIGHBOR_FORCE
+                        , kdtree_n_particles_min(32), kdtree_r_ratio_limit(0.3)
+#endif                          
 #ifdef ADJUST_GROUP_PRINT
-        HermiteManager(): interaction(), step(), adjust_group_write_flag(true), fgroup() {}
+                        , adjust_group_write_flag(true), fgroup() 
 #endif
-
+                        {}
 
         //! check whether parameters values are correct
         /*! \return true: all correct
@@ -50,8 +66,15 @@ namespace H4{
         bool checkParams() {
             //ASSERT(r_break_crit>=0.0);
             //ASSERT(r_neighbor_crit>=0.0);
+            ASSERT(reinitialize_step_dm_criterion>=0.0);
+            ASSERT(reinitialize_step_de_criterion>=0.0);
+            ASSERT(n_neighbor_max>0);
             ASSERT(interaction.checkParams());
             ASSERT(step.checkParams());
+#ifdef HERMITE_ONLY_CALC_NEIGHBOR_FORCE
+            ASSERT(kdtree_n_particles_min>0);
+            ASSERT(kdtree_r_ratio_limit>=0.0&&kdtree_r_ratio_limit<=1.0);
+#endif
 #ifdef ADJUST_GROUP_PRINT
             ASSERT(!adjust_group_write_flag||(adjust_group_write_flag&&fgroup.is_open()));
 #endif
@@ -62,6 +85,8 @@ namespace H4{
         void print(std::ostream & _fout) const{
             //_fout<<"r_break_crit    : "<<r_break_crit<<std::endl
             //<<"r_neighbor_crit : "<<r_neighbor_crit<<std::endl;
+            _fout<<"reinitialize_step_dm_criterion : "<<reinitialize_step_dm_criterion<<std::endl
+                 <<"reinitialize_step_de_criterion  : "<<reinitialize_step_de_criterion<<std::endl;
             interaction.print(_fout);
             step.print(_fout);
         }
@@ -73,6 +98,8 @@ namespace H4{
           @param[in] _width: print width (defaulted 20)
         */
         void printColumnTitle(std::ostream & _fout, const int _width=20) {
+            _fout<<std::setw(_width)<<"reinit_dm_crit"
+                 <<std::setw(_width)<<"reinit_de_crit";
             interaction.printColumnTitle(_fout, _width);
             step.printColumnTitle(_fout, _width);
         }
@@ -83,6 +110,8 @@ namespace H4{
           @param[in] _width: print width (defaulted 20)
         */
         void printColumn(std::ostream & _fout, const int _width=20){
+            _fout<<std::setw(_width)<<reinitialize_step_dm_criterion
+                 <<std::setw(_width)<<reinitialize_step_de_criterion;
             interaction.printColumn(_fout, _width);
             step.printColumn(_fout, _width);
         }
@@ -91,8 +120,8 @@ namespace H4{
         /*! @param[in] _fp: FILE type file for output
          */
         void writeBinary(FILE *_fp) const {
-            //size_t size = sizeof(*this) - sizeof(interaction) - sizeof(step);
-            //fwrite(this, size, 1, _fp);
+            size_t size = sizeof(*this) - sizeof(interaction) - sizeof(step);
+            fwrite(this, size, 1, _fp);
             interaction.writeBinary(_fp);
             step.writeBinary(_fp);
 #ifdef ADJUST_GROUP_PRINT
@@ -104,16 +133,16 @@ namespace H4{
         /*! @param[in] _fin: FILE type file for reading
          */
         void readBinary(FILE *_fin) {
-            //size_t size = sizeof(*this) - sizeof(interaction) - sizeof(step);
-            //size_t rcount = fread(this, size, 1, _fin);
-            //if (rcount<1) {
-            //    std::cerr<<"Error: Data reading fails! requiring data number is 1, only obtain "<<rcount<<".\n";
-            //    abort();
-            //}
+            size_t size = sizeof(*this) - sizeof(interaction) - sizeof(step);
+            size_t rcount = fread(this, size, 1, _fin);
+            if (rcount<1) {
+                std::cerr<<"Error: Data reading fails! requiring data number is 1, only obtain "<<rcount<<".\n";
+                abort();
+            }
             interaction.readBinary(_fin);
             step.readBinary(_fin);
 #ifdef ADJUST_GROUP_PRINT
-            size_t rcount = fread(&adjust_group_write_flag, sizeof(bool),1,_fin);
+            rcount = fread(&adjust_group_write_flag, sizeof(bool),1,_fin);
             if (rcount<1) {
                 std::cerr<<"Error: Data reading fails! requiring data number is 1, only obtain "<<rcount<<".\n";
                 abort();
@@ -250,6 +279,9 @@ namespace H4{
         COMM::List<ARSym> groups; // integrator for sub-groups
         COMM::List<Neighbor<Tparticle>> neighbors; // neighbor information of particles
         Tpert perturber; // external perturber
+#ifdef HERMITE_ONLY_CALC_NEIGHBOR_FORCE
+        COMM::ParticleKDTree kdtree; // particle KDTree for neighbor search
+#endif
         Tinfo info; ///< information of the system
         Profile profile; // profile to measure the status
 
@@ -281,7 +313,11 @@ namespace H4{
                              index_group_resolve_(), index_group_cm_(), 
                              pred_(), force_(), time_next_(), 
                              index_group_mask_(), table_group_mask_(), table_single_mask_(), step(),
-                             manager(NULL), ar_manager(NULL), particles(), groups(), neighbors(), perturber(), info(), profile() {}
+                             manager(NULL), ar_manager(NULL), particles(), groups(), neighbors(), perturber(), 
+#ifdef HERMITE_ONLY_CALC_NEIGHBOR_FORCE
+                             kdtree(),
+#endif
+                             info(), profile() {}
 
         //! clear function
         void clear() {
@@ -315,6 +351,9 @@ namespace H4{
             time_next_.clear();
             neighbors.clear();
             perturber.clear();
+#ifdef HERMITE_ONLY_CALC_NEIGHBOR_FORCE
+            kdtree.clear();
+#endif            
             info.clear();
             profile.clear();
         }
@@ -364,11 +403,13 @@ namespace H4{
 
             // reserve for neighbor list
             neighbors.reserveMem(nmax);
+            /* Single objects do not need neighbor list            
             auto* nb_ptr = neighbors.getDataAddress();
             for (int i=0; i<nmax; i++) {
                 nb_ptr[i].neighbor_address.setMode(COMM::ListMode::local);
                 nb_ptr[i].neighbor_address.reserveMem(nmax_tot);
             }
+            */    
         }
 
     private:
@@ -457,6 +498,15 @@ namespace H4{
 
                 predcm.mass = pcm.mass;
             }
+
+#ifdef HERMITE_ONLY_CALC_NEIGHBOR_FORCE
+            if (n_single + n_group > manager->kdtree_n_particles_min) {
+                kdtree.clear();
+                // gather particle and group pointers
+                kdtree.addParticles(pred_, &index_dt_sorted_single_);
+                kdtree.addGroups(&(pred[index_offset_group_]), &index_dt_sorted_group_);
+            }
+#endif
         }
 
         //! correct particle and calculate step 
@@ -719,51 +769,108 @@ namespace H4{
             _fi.clear();
             _nbi.resetNeighbor();
 
-            // single list
-            const int* single_list = index_dt_sorted_single_.getDataAddress();
-            const int n_single = index_dt_sorted_single_.getSize();
+            // Pointers for direct access inside lambda
             auto* ptcl = pred_.getDataAddress();
-            for (int i=0; i<n_single; i++) {
-                const int j = single_list[i];
-                ASSERT(j<pred_.getSize());
-                const auto& pj = ptcl[j];
-                if (_pid==pj.id) continue;
-                if (pj.mass==0) continue;
-                Float r2 = manager->interaction.calcAccJerkPairSingleSingle(_fi, _pi, pj);
-                ASSERT(r2>0.0);
-                _nbi.checkAndAddNeighborSingle(r2, particles[j], neighbors[j], j);
-            }
-
             auto* group_ptr = groups.getDataAddress();
 
-            // resolved group list
-            const int n_group_resolve = index_group_resolve_.getSize();
-            for (int i=0; i<n_group_resolve; i++) {
-                const int j =index_group_resolve_[i];
-                auto& groupj = group_ptr[j];
-                if (_pid==groupj.particles.cm.id) continue;
-                if (groupj.particles.cm.mass==0) continue;
-                Float r2 = manager->interaction.calcAccJerkPairSingleGroupMember(_fi, _pi, groupj);
-                ASSERT(r2>0.0);
-                _nbi.checkAndAddNeighborGroup(r2, groupj, j+index_offset_group_);
+#ifdef HERMITE_ONLY_CALC_NEIGHBOR_FORCE
+            // Flag to determine if we need to fallback to list-based loop (for non-KDTree cases)
+            bool use_list_search_single = true, use_list_search_group = true;
+            // 1. Search Particles and Calculate Force Immediately
+            if (kdtree.isParticleTreeBuilt()) {
+                use_list_search_single = false;
+                kdtree.searchNeighborParticlesApply(_pi, [&](int j) {
+                    // Lambda for Particle Interaction
+                    // Note: KDTree might return self, so we check ID
+                    const auto& pj = ptcl[j];
+                    if (_pid == pj.id) return; 
+                    if (pj.mass == 0) return;
+
+                    Float r2 = manager->interaction.calcAccJerkPairSingleSingle(_fi, _pi, pj);
+                    ASSERT(r2 > 0.0);
+                    _nbi.checkAndAddNeighborSingle(r2, particles[j], neighbors[j], j);
+                    profile.hermite_single_interact_count++;
+                });
             }
 
-            // cm group list
-            const int n_group_cm = index_group_cm_.getSize();
-            for (int i=0; i<n_group_cm; i++) {
-                const int j = index_group_cm_[i];
-                auto& groupj = group_ptr[j];
-                if (_pid==groupj.particles.cm.id) continue;
-                if (groupj.particles.cm.mass==0) continue;
-                // used predicted particle instead of original cm
-                const auto& pj = ptcl[j+index_offset_group_];
-                ASSERT(j+index_offset_group_<pred_.getSize());
-                ASSERT(_pi.id!=pj.id);
-                Float r2 = manager->interaction.calcAccJerkPairSingleGroupCM(_fi, _pi, groupj, pj);
-                ASSERT(r2>0.0);
-                _nbi.checkAndAddNeighborGroup(r2, groupj, j+index_offset_group_);
+            // 2. Search Groups and Calculate Force Immediately
+            if (kdtree.isGroupTreeBuilt()) {
+                use_list_search_group = false;
+                kdtree.searchNeighborGroupsApply(_pi, [&](int j) {
+                    // Lambda for Group Interaction
+                    auto& groupj = group_ptr[j];
+                    if (_pid == groupj.particles.cm.id) return;
+                    if (groupj.particles.cm.mass == 0) return;
+
+                    if (groupj.perturber.need_resolve_flag) {
+                        // Resolved Group Logic
+                        Float r2 = manager->interaction.calcAccJerkPairSingleGroupMember(_fi, _pi, groupj);
+                        ASSERT(r2 > 0.0);
+                        _nbi.checkAndAddNeighborGroup(r2, groupj, j + index_offset_group_);
+                    } else {
+                        // CM Group Logic
+                        const auto& pj = ptcl[j + index_offset_group_];
+                        Float r2 = manager->interaction.calcAccJerkPairSingleGroupCM(_fi, _pi, groupj, pj);
+                        ASSERT(r2 > 0.0);
+                        _nbi.checkAndAddNeighborGroup(r2, groupj, j + index_offset_group_);
+                    }
+                    profile.hermite_group_interact_count++;
+                });
             }
-            ASSERT(_nbi.n_neighbor_group + _nbi.n_neighbor_single == _nbi.neighbor_address.getSize());
+
+            if (use_list_search_single) {
+#endif
+                // ... existing list-based logic (Brute Force) ...
+                int* single_list = index_dt_sorted_single_.getDataAddress();
+                int n_single = index_dt_sorted_single_.getSize();
+                // ... (rest of the original loop code)
+                
+                for (int i=0; i<n_single; i++) {
+                    const int j = single_list[i];
+                    // ...
+                    const auto& pj = ptcl[j];
+                    if (_pid==pj.id) continue;
+                    if (pj.mass==0) continue;
+                    Float r2 = manager->interaction.calcAccJerkPairSingleSingle(_fi, _pi, pj);
+                    ASSERT(r2>0.0);
+                    _nbi.checkAndAddNeighborSingle(r2, particles[j], neighbors[j], j);
+                    profile.hermite_single_interact_count++;
+                }
+#ifdef HERMITE_ONLY_CALC_NEIGHBOR_FORCE
+            }
+            if (use_list_search_group) {
+#endif
+                
+                // ... (Group loops) ...
+                int* group_resolve_list = index_group_resolve_.getDataAddress();
+                int n_group_resolve = index_group_resolve_.getSize();
+                for (int i=0; i<n_group_resolve; i++) {
+                    const int j =group_resolve_list[i];
+                    auto& groupj = group_ptr[j];
+                    if (_pid==groupj.particles.cm.id) continue;
+                    if (groupj.particles.cm.mass==0) continue;
+                    Float r2 = manager->interaction.calcAccJerkPairSingleGroupMember(_fi, _pi, groupj);
+                    ASSERT(r2>0.0);
+                    _nbi.checkAndAddNeighborGroup(r2, groupj, j+index_offset_group_);
+                    profile.hermite_group_interact_count++;
+                }
+
+                int* group_cm_list = index_group_cm_.getDataAddress();
+                int n_group_cm = index_group_cm_.getSize();
+                for (int i=0; i<n_group_cm; i++) {
+                    const int j = group_cm_list[i];
+                    auto& groupj = group_ptr[j];
+                    if (_pid==groupj.particles.cm.id) continue;
+                    if (groupj.particles.cm.mass==0) continue;
+                    const auto& pj = ptcl[j+index_offset_group_];
+                    Float r2 = manager->interaction.calcAccJerkPairSingleGroupCM(_fi, _pi, groupj, pj);
+                    ASSERT(r2>0.0);
+                    _nbi.checkAndAddNeighborGroup(r2, groupj, j+index_offset_group_);
+                    profile.hermite_group_interact_count++;
+                }
+#ifdef HERMITE_ONLY_CALC_NEIGHBOR_FORCE                
+            }
+#endif
 
 #ifdef HERMITE_PERT_FORCE
             // perturber
@@ -965,6 +1072,9 @@ namespace H4{
             auto* pred_ptr = pred_.getDataAddress();
             auto* force_ptr = force_.getDataAddress();
             auto* neighbor_ptr = neighbors.getDataAddress();
+            
+
+            #pragma omp parallel for
             for (int k=0; k<_n_single; k++) {
                 const int i = _index_single[k];
                 auto& pi = pred_ptr[i];
@@ -976,6 +1086,7 @@ namespace H4{
             // for group active particles
             auto* group_ptr = groups.getDataAddress();
             
+            #pragma omp parallel for
             for (int k=0; k<_n_group; k++) {
                 const int i = _index_group[k];
                 auto& groupi = group_ptr[i];
@@ -1258,12 +1369,12 @@ namespace H4{
                 group_new.particles.setMode(COMM::ListMode::copy);
                 group_new.particles.reserveMem(n_particle);
                 group_new.reserveIntegratorMem();
-                const int nmax_tot = particles.getSizeMax() + groups.getSizeMax();
-                group_new.perturber.neighbor_address.setMode(COMM::ListMode::local);
-                group_new.perturber.neighbor_address.reserveMem(nmax_tot);
+                const int nmax_tot = std::min(particles.getSizeMax() + groups.getSizeMax(), manager->n_neighbor_max);
+                group_new.perturber.reserveMemNeighborAddress(nmax_tot);
                 group_new.info.reserveMem(n_particle);
             
                 // Add members to AR 
+                Float r_neighbor_crit_max = 0.0;
                 for(int j=_n_group_offset[i]; j<_n_group_offset[i+1]; j++) {
                     const int p_index = _particle_index[j];
                     ASSERT(p_index<particles.getSize());
@@ -1271,11 +1382,12 @@ namespace H4{
                     group_new.info.particle_index.addMember(p_index);
                     group_new.info.r_break_crit = std::max(group_new.info.r_break_crit, particles[p_index].getRGroup());
                     Float r_neighbor_crit = particles[p_index].getRNeighbor();
-                    group_new.perturber.r_neighbor_crit_sq = std::max(group_new.perturber.r_neighbor_crit_sq, r_neighbor_crit*r_neighbor_crit);
+                    r_neighbor_crit_max = std::max(r_neighbor_crit_max, r_neighbor_crit);
                     // update single mask table 
                     ASSERT(table_single_mask_[p_index]==false);
                     table_single_mask_[p_index] = true;
                 }
+                group_new.perturber.r_neighbor_crit_sq = std::max(group_new.perturber.r_neighbor_crit_sq, r_neighbor_crit_max*r_neighbor_crit_max);
                 
                 // calculate the c.m.
                 group_new.particles.calcCenterOfMass();
@@ -1283,6 +1395,8 @@ namespace H4{
                 group_new.particles.cm.id = - (group_index[i]+1);
                 // shift to c.m. frame
                 group_new.particles.shiftToCenterOfMassFrame();
+
+                group_new.particles.cm.setRNeighbor(r_neighbor_crit_max);                
 
                 // get binarytree
                 group_new.info.generateBinaryTree(group_new.particles,ar_manager->interaction.gravitational_constant);
@@ -1424,6 +1538,8 @@ namespace H4{
                          <<" NB: "<<std::setw(4)<<groupi.perturber.neighbor_address.getSize()
                          <<std::endl;
 #endif
+                // set binary pair ID to 0
+                groupi.info.checkAndSetBinaryPairIDIter(groupi.info.getBinaryTreeRoot(), true);
 
 #ifdef ADJUST_GROUP_PRINT
                 if (manager->adjust_group_write_flag) {
@@ -1578,9 +1694,10 @@ namespace H4{
           @param[in] _start_flag: indicate this is the first adjust of the groups in the integration
         */
         void checkBreak(int* _break_group_index_with_offset, int& _n_break, const bool _start_flag) {
-            const int n_group_tot = index_dt_sorted_group_.getSize();
-            if (n_group_tot==0) return;
+            const int n_group_act = index_dt_sorted_group_.getSize();
+            if (n_group_act==0) return;
 
+            const int n_group_tot = groups.getSize();
             bool merge_mask[n_group_tot];
             for (int k=0; k<n_group_tot; k++) merge_mask[k] = false;
 
@@ -1612,7 +1729,7 @@ namespace H4{
 
             // kappa_org criterion for break group kappa_org>kappa_org_crit
             const Float kappa_org_crit = 1e-2;
-            for (int i=0; i<n_group_tot; i++) {
+            for (int i=0; i<n_group_act; i++) {
                 const int k = index_dt_sorted_group_[i];
                 ASSERT(table_group_mask_[k]==false);
                 if (merge_mask[k]) continue;
@@ -1740,7 +1857,7 @@ namespace H4{
                         if (kappa_org<kappa_org_crit && !_start_flag) {
                             // in binary case, only break when apo is larger than distance criterion
                             Float apo = bin_root.semi * (1.0 + bin_root.ecc);
-                            if (apo>groupk.info.r_break_crit||bin_root.semi<0.0) {
+                            if (apo>groupk.info.r_break_crit||bin_root.semi<0) {
 #ifdef ADJUST_GROUP_DEBUG
                                 std::cerr<<"Break group: strong perturbed, time: "<<time_<<" i_group: "<<k<<" N_member: "<<n_member;
                                 std::cerr<<" index: ";
@@ -1874,7 +1991,7 @@ namespace H4{
                 const int i = index_dt_sorted_single_[k];
                 const int j = neighbors[i].r_min_index;
                 ASSERT(j<n_particle+n_group);
-                if(j<0) continue; 
+                if (j<0) continue; 
 
                 const Float dr2 = neighbors[i].r_min_sq;
                 ASSERT(dr2>0.0);
@@ -1982,7 +2099,6 @@ namespace H4{
                     }
                 }
             }
-
             // group case
             for (int k=0; k<n_act_group_; k++) {
                 const int ig = index_dt_sorted_group_[k];
@@ -2058,7 +2174,6 @@ namespace H4{
                         sd.initialSlowDownReference(ar_manager->slowdown_pert_ratio_ref, ar_manager->slowdown_timescale_max);
 #endif
                         sd.pert_in = ar_manager->interaction.calcPertFromMR(sqrt(dr2), pi.mass, pj->mass);
-                        // fcm may not properly represent the perturbation force (perturber mass is unknown)
                         sd.pert_out = ar_manager->interaction.calcPertFromForce(fcm, mcm, mcm);
 
                         sd.calcSlowDownFactor();
@@ -2173,7 +2288,7 @@ namespace H4{
             // check table size and index_dt_sorted size
 #ifdef HERMITE_DEBUG
             int particle_index_count[particles.getSize()];
-            int group_index_count[groups.getSize()];
+            int group_index_count[std::max(groups.getSize(),1)];
             for (int i=0; i<particles.getSize(); i++) particle_index_count[i]=0;
             for (int i=0; i<groups.getSize(); i++) group_index_count[i]=0;
             // single list
@@ -2243,6 +2358,7 @@ namespace H4{
                 auto& pcm = group_ptr[k].particles.cm;
                 pcm.acc0[0] = pcm.acc0[1] = pcm.acc0[2] = 0.0;
                 pcm.acc1[0] = pcm.acc1[1] = pcm.acc1[2] = 0.0;
+                pcm.pot = 0.0;
                 pcm.time = time_;
                 pcm.dt   = 0.0;
                 ASSERT(k+index_offset_group_<pred_.getSize());
@@ -2255,6 +2371,15 @@ namespace H4{
             // checkGroupResolve(n_init_group_);
             writeBackResolvedGroupAndCreateJParticleList(false);
 
+#ifdef HERMITE_ONLY_CALC_NEIGHBOR_FORCE
+            if (index_dt_sorted_single_.getSize()+index_dt_sorted_group_.getSize() > manager->kdtree_n_particles_min) {
+                // use kdtree to speed up neighbor search
+                kdtree.clear();
+                // gather particle and group pointers
+                kdtree.addParticles(particles, &index_dt_sorted_single_);
+                kdtree.addGroups(groups, &index_dt_sorted_group_);
+            }
+#endif            
             calcAccJerkNBList(index_single, n_init_single_, index_group, n_init_group_);
 
             // store predicted force
@@ -2315,8 +2440,18 @@ namespace H4{
                 ASSERT(group_ptr[k].info.checkParams());
                 ASSERT(group_ptr[k].perturber.checkParams());
 
+                // check whether the binary is pre-existed and set binary pair id
+                bool pre_exist_flag = group_ptr[k].info.checkAndSetBinaryPairIDIter(bin_root, false);
+#ifdef ADJUST_GROUP_DEBUG
+                // check whether each member can get correct binary id
+                auto bid = group_ptr[k].info.getBinaryID(group_ptr[k].particles[0]);
+                ASSERT(bid<0);
+                for (int i=0; i<group_ptr[k].particles.getSize(); i++) 
+                    ASSERT(bid==group_ptr[k].info.getBinaryID(group_ptr[k].particles[i]));
+#endif
+
 #ifdef ADJUST_GROUP_PRINT
-                if (manager->adjust_group_write_flag) {
+                if (manager->adjust_group_write_flag && !pre_exist_flag) {
                     group_ptr[k].printGroupInfo(0, manager->fgroup, WRITE_WIDTH, &(particles.cm));
                 }
 #endif
@@ -2335,6 +2470,7 @@ namespace H4{
             profile.prof_tot.end();
 #endif
         }
+
 
         //! Integrate groups
         /*! Integrate all groups to time
@@ -2368,12 +2504,20 @@ namespace H4{
 
             // integrate groups loop 
             const int n_group_tot = index_dt_sorted_group_.getSize();
+            if (n_group_tot==0) return;
+            //std::cout<<"n_group: "<<n_group_tot<<std::endl;
             //const int i_start = interrupt_group_dt_sorted_group_index_>=0 ? interrupt_group_dt_sorted_group_index_ : 0;
             int interrupt_index_dt_group_list[n_group_tot];
             int n_interrupt_change_dt=0;
 
+            // Array to store thread-specific times
+            //double thread_times[omp_get_max_threads()] = {0.0};
+
             //for (int i=i_start; i<n_group_tot; i++) {
+            #pragma omp parallel for
             for (int i=0; i<n_group_tot; i++) {
+                //double start_time = omp_get_wtime(); // Start time for this thread
+
                 const int k = index_dt_sorted_group_[i];
 
 //#ifdef HERMITE_DEBUG            
@@ -2394,13 +2538,17 @@ namespace H4{
 #endif
 
                 // profile
+                #pragma omp atomic
                 profile.ar_step_count += groups[k].profile.step_count;
+                #pragma omp atomic
                 profile.ar_step_count_tsyn += groups[k].profile.step_count_tsyn;
 
                 if (interrupt_binary.status!=AR::InterruptStatus::none) {
                     // processing interruption case
                     if (ar_manager->interaction.interrupt_detection_option==1) {
 
+                        #pragma omp critical
+                        {
 #ifdef HERMITE_DEBUG
                         std::cerr<<"Interrupt ";
                         switch (interrupt_binary.status) {
@@ -2425,23 +2573,6 @@ namespace H4{
                         // particle cm is the old cm in original frame
                         auto& pcm = groups[k].particles.cm;
 
-                        if (interrupt_binary.status==AR::InterruptStatus::merge||interrupt_binary.status==AR::InterruptStatus::destroy)  {
-                            index_group_merger_.addMember(k);
-                        }
-                        else {
-                            // set initial step flag 
-                            groups[k].perturber.initial_step_flag=true;
-
-                            if (pcm.time + pcm.dt >time_next) {
-                                ASSERT(i>=n_act_group_);
-                                // set cm step to reach time_next
-                                pcm.dt = time_next - pcm.time;
-                                time_next_[k+index_offset_group_] = time_next;
-                                // recored index in index_dt_sort of the interrupt case for moving later
-                                interrupt_index_dt_group_list[n_interrupt_change_dt++] = i;
-                            }
-                        }
-                    
                         // correct cm potential energy 
                         //Float dm = correctMassChangePotEnergyBinaryIter(*interrupt_binary.adr);
                         // notice the bin_root represent new c.m. in rest frame
@@ -2480,9 +2611,30 @@ namespace H4{
                         pcm.mass += dm;
                         //particles.cm.mass += dm;
 
+                        if (interrupt_binary.status==AR::InterruptStatus::merge||interrupt_binary.status==AR::InterruptStatus::destroy)  {
+                            index_group_merger_.addMember(k);
+                        }
+                        else {
+                            // set initial step flag 
+                            if (abs(dm/pcm.mass) > manager->reinitialize_step_dm_criterion || abs(de_kin/energy_.ekin) > manager->reinitialize_step_de_criterion)
+                                groups[k].perturber.initial_step_flag=true;
+
+                            if (pcm.time + pcm.dt >time_next) {
+                                ASSERT(i>=n_act_group_);
+                                // set cm step to reach time_next
+                                pcm.dt = time_next - pcm.time;
+                                time_next_[k+index_offset_group_] = time_next;
+                                // recored index in index_dt_sort of the interrupt case for moving later
+                                interrupt_index_dt_group_list[n_interrupt_change_dt++] = i;
+                            }
+                        }
+
+                        }
                     }
                     // record interrupt information
                     else if (ar_manager->interaction.interrupt_detection_option==2) { 
+                        #pragma omp critical
+                        {    
                         auto bin = interrupt_binary.getBinaryTreeAddress();
                         if (!bin->isMemberTree(0) && !bin->isMemberTree(1)){
                             // only recored binary interruption
@@ -2495,11 +2647,24 @@ namespace H4{
                         // ASSERT(time_next - interrupt_binary_.time_now + ar_manager->time_error_max >= 0.0);
                         //    return interrupt_binary_;
                         //
+                        }
                     }
                 }
 
                 ASSERT(abs(groups[k].getTime()-time_next)<=ar_manager->time_error_max);
+
+                //double end_time = omp_get_wtime(); // End time for this thread
+                //int i_omp = omp_get_thread_num();
+                //thread_times[i_omp] += (end_time - start_time); // Accumulate time for this thread
             }
+
+            // Print thread-specific times
+            //for (int t = 0; t < omp_get_max_threads(); t++) {
+            //    std::cout << "Thread " << t << " CPU time: " << thread_times[t] << " seconds" << std::endl;
+            //}
+
+            // Make sure the index list is in increasing order, to make the following shift work correctly             
+            std::sort(interrupt_index_dt_group_list, interrupt_index_dt_group_list+n_interrupt_change_dt);
 
             // update index_dt_sorted_group_ due to the change of dt
             if (n_interrupt_change_dt>0) {
@@ -2568,6 +2733,7 @@ namespace H4{
 
         //! modify single particles due to external functions, update energy
         void modifySingleParticles() {
+            if (n_act_single_==0) return;
 #ifdef SDAR_TIME_MEASURE
             profile.prof_tot.start();
             profile.prof_modify_single.start();
@@ -2600,7 +2766,8 @@ namespace H4{
                              <<std::endl;
 #endif
                     // correct potential energy 
-                    Float de_pot = force_[k].pot*(pk.mass-mbk);
+                    Float dm = pk.mass - mbk;
+                    Float de_pot = force_[k].pot*dm;
                     energy_.de_cum += de_pot;
                     energy_.de_modify_single += de_pot;
                     energy_sd_.de_cum += de_pot;
@@ -2610,13 +2777,16 @@ namespace H4{
                     // first calc original kinetic energy;
                     Float de_kin = -0.5*mbk*(vbk[0]*vbk[0]+vbk[1]*vbk[1]+vbk[2]*vbk[2]);
                     // then new energy
-                    de_kin += 0.5*pk.mass*(v[0]*v[0]+v[1]*v[1]+v[2]*v[2]);
+                    Float ekin_new = 0.5*pk.mass*(v[0]*v[0]+v[1]*v[1]+v[2]*v[2]);
+                    de_kin += ekin_new;
                     energy_.de_cum += de_kin;
                     energy_.de_modify_single += de_kin;
                     energy_sd_.de_cum += de_kin;
                     energy_sd_.de_modify_single += de_kin;
-
-                    neighbors[k].initial_step_flag = true;
+                    
+                    // if change is not significant, no need to reinitialize step
+                    if (abs(dm/pk.mass) > manager->reinitialize_step_dm_criterion || abs(de_kin/ekin_new) > manager->reinitialize_step_de_criterion)
+                        neighbors[k].initial_step_flag = true;
 
                     // use predictor as template particle with mass of dm
                     mbk = pk.mass-mbk;
@@ -2699,7 +2869,7 @@ namespace H4{
 #endif            
         }
 
-        //! Integration a list of particle to current time (ingore dt)
+        //! Integrate a list of particle to current time (ingore dt)
         /*! Integrate a list of particle to current time.
           @param[in] _time_next: time to integrate (without offset)
           @param[in] _particle_index: particle index to integrate
@@ -2712,10 +2882,12 @@ namespace H4{
             ASSERT(!particles.isModified());
             ASSERT(initial_system_flag_);
 
+            if (_n_particle==0) return;
+
             // adjust dt
             int index_single_select[_n_particle];
             int n_single_select =0;
-            int index_group_select[groups.getSize()];
+            int index_group_select[std::max(groups.getSize(),1)];
             int n_group_select =0;
 
             auto* ptcl = particles.getDataAddress();

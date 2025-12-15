@@ -1,5 +1,5 @@
 ## TARGET
-TARGET=ptclgrouptest binarytest
+TARGET=ptclgrouptest binarytest particlemeshtest particlekdtreetest
 
 VPATH=../../src 
 
@@ -15,6 +15,8 @@ CXX= g++
 #CXXFLAGS += -O2 -Wall
 CXXFLAGS += -g -fbounds-check -Wall -O0
 endif
+
+CXXFLAGS += -D PARTICLE_MESH_DEBUG
 
 ifeq ($(use_k_computer),yes)
 CXX = time mpiFCCpx

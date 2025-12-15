@@ -365,7 +365,7 @@ namespace AR {
             force_  = _sym.force_;
             manager = _sym.manager;
             particles = _sym.particles;
-            info = _sym.binarytree;
+            info = _sym.info;
             profile = _sym.profile;
 
             return *this;
@@ -477,13 +477,13 @@ namespace AR {
                 Float  mk;
                 if (_bin.isMemberTree(k)) {
                     auto* bink = _bin.getMemberAsTree(k);
-                    vk = bink->getVel();
+                    vk = &(bink->vel[0]);
                     mk = bink->mass;
                     calcTwoEKinIter(inv_nest_sd, *bink);
                 }
                 else {
                     auto* pk = _bin.getMember(k);
-                    vk = pk->getVel();
+                    vk = &(pk->vel[0]);
                     mk = pk->mass;
                 }
 #ifdef USE_CM_FRAME
@@ -508,7 +508,7 @@ namespace AR {
             ASSERT(!bin_root.isOriginFrame());
 #endif
             calcTwoEKinIter(sd_factor, bin_root);
-            Float* vcm = bin_root.getVel();
+            auto& vcm = bin_root.vel;
             // notice the cm velocity may not be zero after interruption, thus need to be added 
             ekin_sd_ += bin_root.mass*(vcm[0]*vcm[0] + vcm[1]*vcm[1] + vcm[2]*vcm[2]);
 
@@ -1104,7 +1104,7 @@ namespace AR {
             Force* force = force_.getDataAddress();
             for (int i=0;i<num;i++) {
                 Float  mass= pdat[i].mass;
-                Float* vel = pdat[i].getVel();
+                auto& vel = pdat[i].vel;
                 Float* pert= force[i].acc_pert;
                 de += mass * (vel[0] * pert[0] +
                               vel[1] * pert[1] +
@@ -1123,7 +1123,7 @@ namespace AR {
             const int num = particles.getSize();
             Tparticle* pdat = particles.getDataAddress();
             for (int i=0; i<num; i++) {
-                const Float *vi=pdat[i].getVel();
+                const auto& vi=pdat[i].vel;
                 ekin_ += 0.5 * pdat[i].mass * (vi[0]*vi[0]+vi[1]*vi[1]+vi[2]*vi[2]);
             }
         }
@@ -1138,7 +1138,7 @@ namespace AR {
             Force* force = force_.getDataAddress();
             for (int i=0; i<num; i++) {
                 // kick velocity
-                Float* vel = pdat[i].getVel();
+                auto& vel = pdat[i].vel;
                 Float* acc = force[i].acc_in;
                 Float* pert= force[i].acc_pert;
                 // half dv 
@@ -1160,8 +1160,8 @@ namespace AR {
             const int num = particles.getSize();
             Tparticle* pdat = particles.getDataAddress();
             for (int i=0; i<num; i++) {
-                Float* pos = pdat[i].getPos();
-                Float* vel = pdat[i].getVel();
+                auto& pos = pdat[i].pos;
+                auto& vel = pdat[i].vel;
                 pos[0] += _dt * vel[0];
                 pos[1] += _dt * vel[1];
                 pos[2] += _dt * vel[2];
@@ -1200,7 +1200,7 @@ namespace AR {
             Force* force = force_.getDataAddress();
             for (int i=0;i<num;i++) {
                 Float  mass= pdat[i].mass;
-                Float* vel = pdat[i].getVel();
+                auto& vel = pdat[i].vel;
                 Float* pert= force[i].acc_pert;
                 Float* gtgrad=force[i].gtgrad;
                 de += mass * (vel[0] * pert[0] +
@@ -1226,7 +1226,7 @@ namespace AR {
             Force* force = force_.getDataAddress();
             for (int i=0;i<num;i++) {
                 Float  mass= pdat[i].mass;
-                Float* vel = pdat[i].getVel();
+                auto& vel = pdat[i].vel;
                 Float* pert= force[i].acc_pert;
                 de += mass * (vel[0] * pert[0] +
                               vel[1] * pert[1] +
@@ -1765,12 +1765,12 @@ namespace AR {
 
             Tparticle* particle_data = particles.getDataAddress();
             Float mass1 = particle_data[0].mass;
-            Float* pos1 = particle_data[0].getPos();
-            Float* vel1 = particle_data[0].getVel();
+            auto& pos1 = particle_data[0].pos;
+            auto& vel1 = particle_data[0].vel;
 
             Float mass2 = particle_data[1].mass;
-            Float* pos2 = particle_data[1].getPos();
-            Float* vel2 = particle_data[1].getVel();
+            auto& pos2 = particle_data[1].pos;
+            auto& vel2 = particle_data[1].vel;
 
             Force* force_data = force_.getDataAddress();
             Float* acc1 = force_data[0].acc_in;
@@ -2866,8 +2866,8 @@ namespace AR {
             Float mcm=0.0, pos_cm[3]={0.0,0.0,0.0}, vel_cm[3]={0.0,0.0,0.0};
             auto* particle_data= particles.getDataAddress();
             for (int i=0; i<particles.getSize(); i++) {
-                const Float *ri = particle_data[i].pos;
-                const Float *vi = particle_data[i].getVel();
+                const auto& ri = particle_data[i].pos;
+                const auto& vi = particle_data[i].vel;
                 const Float mi  = particle_data[i].mass;
 
                 pos_cm[0] += ri[0] * mi;
@@ -2887,8 +2887,8 @@ namespace AR {
             vel_cm[2] /= mcm;
 
             for (int i=0; i<particles.getSize(); i++) {
-                Float *ri = particle_data[i].pos;
-                Float *vi = particle_data[i].getVel();
+                auto& ri = particle_data[i].pos;
+                auto& vi = particle_data[i].vel;
 
                 ri[0] -= pos_cm[0]; 
                 ri[1] -= pos_cm[1]; 
@@ -3500,13 +3500,6 @@ namespace AR {
             auto& bin_root = info.getBinaryTreeRoot();
             //auto* p1 = bin_root.getLeftMember();
             //auto* p2 = bin_root.getRightMember();
-            
-            bool reset_flag = (_type==1 && bin_root.semi<0 && bin_root.ecca>0);
-
-            if (info.checkAndSetBinaryPairIDIter(bin_root, reset_flag)) {
-                if (_type==0) return; // if it is new but already existed binary, do not print
-                else if (!reset_flag) return; // in the end case, if the system is still bound, do not print 
-            }
 
             Float pos_cm[3], vel_cm[3];
             auto& pcm_loc = particles.cm;

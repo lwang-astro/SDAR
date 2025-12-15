@@ -118,13 +118,13 @@ namespace COMM {
             mode_ = _list.mode_;
             switch(mode_) {
             case ListMode::copy:
-                reserveMem(_list.nmax_, mode_); 
+                reserveMem(_list.nmax_); 
                 num_ = _list.num_; 
                 for(int i=0; i<num_; i++) data_[i] = _list.data_[i];
                 for(int i=0; i<num_; i++)  adr_[i] = _list.adr_[i];
                 break;
             case ListMode::local:
-                reserveMem(_list.nmax_, mode_);
+                reserveMem(_list.nmax_);
                 num_ = _list.num_; 
                 for(int i=0; i<num_; i++) data_[i] = _list.data_[i];
                 break;

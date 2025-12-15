@@ -244,7 +244,7 @@ int main(int argc, char **argv){
     manager.step.eta_4th = eta_4th.value;
     manager.step.eta_2nd = eta_2nd.value;
     Float dt_max = pow(Float(0.5), Float(dt_max_power_index.value));
-    manager.step.setDtRange(dt_max, dt_min_power_index.value);
+    manager.step.setDtRange(dt_max, dt_min_power_index.value - dt_max_power_index.value);
     manager.interaction.eps_sq = eps_sq.value;
     manager.interaction.gravitational_constant = grav_const.value;
     ar_manager.interaction.eps_sq = eps_sq.value;
@@ -288,7 +288,6 @@ int main(int argc, char **argv){
     H4Int h4_int;
     h4_int.manager = &manager;
     h4_int.ar_manager = &ar_manager;
-    h4_int.step = manager.step;
 
     std::fstream fin;
     fin.open(filename,std::fstream::in);
@@ -305,6 +304,8 @@ int main(int argc, char **argv){
         
     Float m_ave = h4_int.particles.cm.mass/h4_int.particles.getSize();
     manager.step.calcAcc0OffsetSq(m_ave, r_search.value, grav_const.value);
+    h4_int.step = manager.step;
+
 #ifdef SLOWDOWN_MASSRATIO
     if (slowdown_mass_ref.value<=0.0) ar_manager.slowdown_mass_ref = m_ave;
     else ar_manager.slowdown_mass_ref = slowdown_mass_ref.value;
@@ -325,7 +326,6 @@ int main(int argc, char **argv){
     h4_int.initialSystemSingle(time_zero.value);
     h4_int.readGroupConfigureAscii(fin);
 
-    // no initial when both parameters and data are load
     // initialization 
     h4_int.initialIntegration(); // get neighbors and min particles
     const int n_group_init = h4_int.getNGroup();

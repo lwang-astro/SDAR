@@ -2,7 +2,7 @@
 TARGET= hermite hermite.mpfrc 
 all: $(TARGET)
 
-INSTALL_PATH=~/bin
+INSTALL_PATH=$(HOME)/bin
 
 VPATH=../../src 
 
@@ -12,7 +12,7 @@ use_x86=yes
 #use_k_computer=yes
 #QD_PATH=/opt/qd-2.3.22
 MPFRC_PATH=../../../mpfrc++
-#GPERF_PATH = /opt/gperftools-2.6.1
+GPERF_PATH = $(HOME)
 
 
 ## compiler-------------------------------------------#

@@ -8,6 +8,8 @@ namespace H4{
         typedef long long unsigned int UInt64;
         UInt64 hermite_single_step_count; // number of integration steps of hermite single
         UInt64 hermite_group_step_count; // number of integration steps of hermite groups
+        UInt64 hermite_single_interact_count; // number of interactions of hermite single
+        UInt64 hermite_group_interact_count; // number of interactions of hermite groups
         UInt64 ar_step_count; // number of integration steps of ar
         UInt64 ar_step_count_tsyn; // number of integration steps of ar
         UInt64 break_group_count; // times of break groups
@@ -27,6 +29,7 @@ namespace H4{
     
         void clear() {
             hermite_single_step_count = hermite_group_step_count = 0;
+            hermite_single_interact_count = hermite_group_interact_count = 0;
             ar_step_count = ar_step_count_tsyn = 0;
             break_group_count = 0;
             new_group_count = 0;
@@ -50,6 +53,8 @@ namespace H4{
         void printColumnTitle(std::ostream & _fout, const int _width=20) {
             _fout<<std::setw(_width)<<"H4_step_single"
                  <<std::setw(_width)<<"H4_step_group"
+                 <<std::setw(_width)<<"H4_force_single"
+                 <<std::setw(_width)<<"H4_force_group"
                  <<std::setw(_width)<<"AR_step"
                  <<std::setw(_width)<<"AR_step_tsyn"
                  <<std::setw(_width)<<"break_group"
@@ -74,6 +79,8 @@ namespace H4{
         void printColumn(std::ostream & _fout, const int _width=20){
             _fout<<std::setw(_width)<<hermite_single_step_count
                  <<std::setw(_width)<<hermite_group_step_count
+                 <<std::setw(_width)<<hermite_single_interact_count
+                 <<std::setw(_width)<<hermite_group_interact_count
                  <<std::setw(_width)<<ar_step_count
                  <<std::setw(_width)<<ar_step_count_tsyn
                  <<std::setw(_width)<<break_group_count
