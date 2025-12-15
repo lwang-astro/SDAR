@@ -294,9 +294,9 @@ class DictNpArrayMix:
         for key, item in self.__dict__.items():
             if (key=='host'): continue
             if (type(item) == np.ndarray):
-                new_dat.__dict__[key] = np.repeat(self.__dict__[key], repeats)
+                new_dat.__dict__[key] = np.repeat(self.__dict__[key], repeats, axis=0)
             elif (issubclass(type(item), DictNpArrayMix)):
-                new_dat.__dict__[key] = np.repeat(self.__dict__[key], repeats)
+                new_dat.__dict__[key] = self.__dict__[key].repeat(repeats)
                 new_dat.__dict__[key].setHost(new_dat)
                 if (size_checker == None): size_checker = new_dat.size
                 elif (size_checker != new_dat.size):
@@ -546,7 +546,7 @@ class DictNpArrayMix:
         return column_info
 
 
-    def printTable(self, column_format, print_title=True):
+    def printTable(self, column_format, print_title=True, print_format='text'):
         """
         print Table with defined column list and formats
 
@@ -554,6 +554,7 @@ class DictNpArrayMix:
         column_format: a list of column label (class member name), format and column title, enclosed by tuple, for sub-member, use . to access
                        For exmaple: [(key1,'%s', title1), (key2,'%12.7f', title2), (key3.subkey1,'%d', title3), (key3.subkey2,'%e',title4)]
         print_title: print title of keys (default: True)
+        print_format: print format: text, latex, csv (default: text)
         """
         import re
 
@@ -574,16 +575,34 @@ class DictNpArrayMix:
                     dat_key = dat_key[ikey]
             title.append(name)
             if '.' in fmt:
-                fmt_title += re.sub('.[0-9]*[a-zA-Z]','s',fmt)
+                fmt_title += re.sub('\\.[0-9]*[a-zA-Z]','s',fmt)
             else:
                 fmt_title += re.sub('[a-zA-Z]','s',fmt)
             table.append(dat_key)
             fmt_list += fmt
+            if (print_format=='latex'):
+                fmt_title += ' &'
+                fmt_list += ' &'
+            elif (print_format=='csv'):
+                fmt_title += ','
+                fmt_list += ','
+        if (print_format=='latex'):
+            fmt_list = fmt_list[:-1] + '\\\\'
+            fmt_title = fmt_title[:-1] + '\\\\'
+        elif (print_format=='csv'):
+            fmt_list = fmt_list[:-1]
+            fmt_title = fmt_title[:-1]
         table=np.transpose(np.array(table))
+        if (print_format=='latex'):
+            print('\\\\hline')
         if (print_title):
             print(fmt_title % tuple(title))
+            if (print_format=='latex'):
+                print('\\\\hline')
         for line in table:
             print(fmt_list % tuple(line))
+        if (print_format=='latex'):
+            print('\\\\hline')
 
     def append(self, *_dat):
         """ Map the numpy.append function to each member
