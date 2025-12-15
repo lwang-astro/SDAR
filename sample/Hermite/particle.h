@@ -69,6 +69,11 @@ public:
         return r_neighbor_crit;
     }
 
+    //! set neighbor distance criterion
+    void setRNeighbor(const Float _r_neighbor) {
+        r_neighbor_crit = _r_neighbor;
+    }
+
     //! Get Group distance criterion 
     Float getRGroup() {
         return r_break_crit;

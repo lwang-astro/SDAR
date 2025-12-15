@@ -40,6 +40,7 @@ int main(int argc, char **argv){
     COMM::IOParams<int> dt_min_power_index (input_par_store, 40, "power index to calculate mimimum hermite time step: dt_max*0.5^n"); // power index to calculate minimum physical time step
     COMM::IOParams<int> dt_max_power_index (input_par_store, 2, "power index of 0.5 for maximum hermite time step"); // maximum physical time step
     COMM::IOParams<int> dt_out_power_index (input_par_store, 2, "power index of 0.5 for output time interval"); // output time interval
+    COMM::IOParams<int> n_neighbor_max (input_par_store, -1, "maximum number of neighbors for group","same as N"); // maximum number of neighbors for AR perturbation
     COMM::IOParams<double> ds_scale     (input_par_store, 1.0,  "step size scaling factor for Ar integration");    // step size scaling factor
     COMM::IOParams<int>   interrupt_detection_option(input_par_store, 0, "modify orbits and check interruption: 0: turn off; 1: modify the binary orbits based on detection criterion; 2. only record the binary information when interruption criterion is triggered");  // modify orbit or check interruption using modifyAndInterruptIter function
     COMM::IOParams<double> energy_error (input_par_store, 1e-10,"relative energy error limit for AR"); // phase error requirement
@@ -71,6 +72,7 @@ int main(int argc, char **argv){
         {"time-error",required_argument, 0, 4},
         {"dt-max-power",required_argument, 0, 5},
         {"dt-min-power",required_argument, 0, 6},
+        {"n-neighbor-max",required_argument, 0, 3},
         {"n-step-max",required_argument, 0, 7},
         {"eta-4th",required_argument, 0, 8},
         {"eta-2nd",required_argument, 0, 9},
@@ -95,6 +97,9 @@ int main(int argc, char **argv){
         switch (copt) {
         case 0:
             time_zero.value = atof(optarg);
+            break;
+        case 3:
+            n_neighbor_max.value = atoi(optarg);
             break;
         case 4:
             time_error.value = atof(optarg);
@@ -195,9 +200,10 @@ int main(int argc, char **argv){
                      <<"    -k [int]:    "<<sym_order<<"\n"
                      <<"          --load-par     [string]: "<<filename_par<<"\n"
 #ifdef USE_MPFRC
-                     <<"          --mpfr-digits     [int]  :  "<<mpfr_digits<<"\n"
+                     <<"          --mpfr-digits     [int]: "<<mpfr_digits<<"\n"
 #endif
-                     <<"          --n-step-max   [int]  :  "<<nstep_max<<"\n"
+                     <<"          --n-step-max      [int]: "<<nstep_max<<"\n"
+                     <<"          --n-neighbor-max  [int]: "<<n_neighbor_max<<"\n"
                      <<"    -o [int]:    "<<dt_out_power_index<<"\n"
                      <<"          --print-width     [int]: "<<print_width<<"\n"
                      <<"          --print-precision [int]: "<<print_precision<<"\n"
@@ -301,6 +307,9 @@ int main(int argc, char **argv){
     h4_int.particles.calcCenterOfMass();
     h4_int.particles.shiftToCenterOfMassFrame();
     h4_int.particles.calcCenterOfMass();
+
+    if (n_neighbor_max.value <=0) manager.n_neighbor_max = h4_int.particles.getSize();
+    else manager.n_neighbor_max = n_neighbor_max.value;
         
     Float m_ave = h4_int.particles.cm.mass/h4_int.particles.getSize();
     manager.step.calcAcc0OffsetSq(m_ave, r_search.value, grav_const.value);

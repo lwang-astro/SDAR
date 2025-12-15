@@ -7,7 +7,8 @@
 #include <qd/qd_inline.h>
 typedef qd_real Float;
 const Float ROUND_OFF_ERROR_LIMIT=1e-60;
-const Float NUMERIC_FLOAT_MAX = std::numeric_limits<double>::max();;
+const Float NUMERIC_FLOAT_MAX = std::numeric_limits<double>::max();
+const Float FLOAT_NAN = std::numeric_limits<double>::quiet_NaN();
 const int WRITE_WIDTH=68;
 const int WRITE_PRECISION=60;
 
@@ -17,6 +18,7 @@ const int WRITE_PRECISION=60;
 typedef dd_real Float;
 const Float ROUND_OFF_ERROR_LIMIT=1e-30;
 const Float NUMERIC_FLOAT_MAX = std::numeric_limits<double>::max();
+const Float FLOAT_NAN = std::numeric_limits<double>::quiet_NaN();
 const int WRITE_WIDTH=38;
 const int WRITE_PRECISION=30;
 
@@ -27,6 +29,7 @@ typedef mpreal Float;
 #define to_int(x)     int(x)
 static Float ROUND_OFF_ERROR_LIMIT = std::numeric_limits<mpreal>::epsilon();
 static Float NUMERIC_FLOAT_MAX = std::numeric_limits<mpreal>::max();
+static Float FLOAT_NAN = std::numeric_limits<mpreal>::quiet_NaN();
 static int WRITE_WIDTH = 38;
 static int WRITE_PRECISION = 30;
 
@@ -35,6 +38,7 @@ void setMPFRPrec(const int digits) {
     mpreal::set_default_prec(mpfr::digits2bits(digits));
     ROUND_OFF_ERROR_LIMIT = std::numeric_limits<mpreal>::epsilon();
     NUMERIC_FLOAT_MAX = std::numeric_limits<mpreal>::max();
+    FLOAT_NAN = std::numeric_limits<mpreal>::quiet_NaN();
     WRITE_WIDTH = digits + 8;
     WRITE_PRECISION = digits;
     std::cerr<<"Set MPFR precision to "<<digits<<" digits."<<std::endl;

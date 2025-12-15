@@ -154,11 +154,10 @@ namespace H4 {
         void checkAndAddNeighborSingle(const Float _r2, Tp& _particle, const Neighbor<Tparticle>& _nbp, const int _index) {
             if (_r2<std::max(r_neighbor_crit_sq,_nbp.r_neighbor_crit_sq)) {
                 if (neighbor_address.getSizeMax()>0) {// only add neighbor address if initialized
-                    if (neighbor_address.getSizeMax()>neighbor_address.getSize()) {
+                    if (neighbor_address.getSizeMax() <= neighbor_address.getSize()) {
                         std::cerr<<"Error: neighbor address list full. max size="<<neighbor_address.getSizeMax()
                                  <<", current size="<<neighbor_address.getSize()
-                                 <<", trying to increase the maximum number of group neighbors from input options"<<_index
-                                 <<"\n";
+                                 <<", trying to increase the maximum number of group neighbors from input options\n";
                         abort();
                     }
                     neighbor_address.addMember(NBAdr<Tparticle>(&_particle, _index));
