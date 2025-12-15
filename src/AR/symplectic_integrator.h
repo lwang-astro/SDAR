@@ -470,7 +470,7 @@ namespace AR {
         void calcTwoEKinIter(const Float& _inv_nest_sd_up, AR::BinaryTree<Tparticle>& _bin){
             Float inv_nest_sd = _inv_nest_sd_up/_bin.slowdown.getSlowDownFactor();
 #ifndef USE_CM_FRAME
-            Float* vel_cm = _bin.getVel();
+            auto& vel_cm = _bin.vel;
 #endif
             for (int k=0; k<2; k++) {
                 Float* vk;
@@ -487,7 +487,7 @@ namespace AR {
                     mk = pk->mass;
                 }
 #ifdef USE_CM_FRAME
-                Float* vrel = vk;
+                auto& vrel = vk;
 #else
                 Float vrel[3] = {vk[0] - vel_cm[0],
                                  vk[1] - vel_cm[1],
@@ -539,7 +539,7 @@ namespace AR {
                     int pki = _bin.getMemberIndex(k);
                     Float* acc = force_[pki].acc_in;
                     Float* pert = force_[pki].acc_pert;
-                    Float* vel = pk->getVel();
+                    auto& vel = pk->vel;
                     vel[0] += _dt * (acc[0] + pert[0]);
                     vel[1] += _dt * (acc[1] + pert[1]);
                     vel[2] += _dt * (acc[2] + pert[2]);
@@ -613,7 +613,7 @@ namespace AR {
                 pos[2] += _dt * vel[2] * inv_nest_sd;
             };
 #else
-            Float* vel_cm = _bin.getVel();
+            auto& vel_cm = _bin.vel;
             auto driftPos=[&](Float* pos, Float* vel, Float* vel_sd) {
                 //scale velocity referring to binary c.m.
                 vel_sd[0] = (vel[0] - vel_cm[0]) * inv_nest_sd + _vel_sd_up[0];
@@ -635,7 +635,7 @@ namespace AR {
                 if (_bin.isMemberTree(k)) {
                     auto* pj = _bin.getMemberAsTree(k);
 #ifdef USE_CM_FRAME
-                    driftPos(pj->getPos(), pj->getVel());
+                    driftPos(&(pj->pos[0]), &(pj->vel[0]));
                     driftPosTreeIter(_dt, inv_nest_sd, *pj);
 
 #ifdef AR_DEBUG
@@ -645,14 +645,14 @@ namespace AR {
 #endif
 #else
                     Float vel_sd[3];
-                    driftPos(pj->getPos(), pj->getVel(), vel_sd);
+                    driftPos(&(pj->pos[0]), &(pj->vel[0]), vel_sd);
                     driftPosTreeIter(_dt, vel_sd, inv_nest_sd, *pj);
 #endif
                 }
                 else {
                     auto* pj = _bin.getMember(k);
 #ifdef USE_CM_FRAME
-                    driftPos(pj->getPos(), pj->getVel());
+                    driftPos(&(pj->pos[0]), &(pj->vel[0]));
 
 #ifdef AR_DEBUG
                     dpb[0] += pj->mass*pj->pos[0];
@@ -661,7 +661,7 @@ namespace AR {
 #endif
 #else
                     Float vel_sd[3];
-                    driftPos(pj->getPos(), pj->getVel(), vel_sd);
+                    driftPos(&(pj->pos[0]), &(pj->vel[0]), vel_sd);
 #endif
                 }
 
@@ -983,19 +983,19 @@ namespace AR {
             Float de = 0.0;
 
 #ifndef USE_CM_FRAME
-            Float* vel_cm = _bin.getVel();
+            auto& vel_cm = _bin.vel;
 #endif
             for (int k=0; k<2; k++) {
                 if (_bin.isMemberTree(k)) {
                     auto* bink = _bin.getMemberAsTree(k);
                     // get no sd velocity in original frame
 #ifdef USE_CM_FRAME
-                    Float* vel_rel = bink->getVel();
+                    auto& vel_rel = bink->vel;
                     Float vel[3] = {vel_rel[0] + _vel_up[0], 
                                     vel_rel[1] + _vel_up[1], 
                                     vel_rel[2] + _vel_up[2]};
 #else
-                    Float* vel = bink->getVel();
+                    auto& vel = bink->vel;
                     Float vel_rel[3] = {vel[0] - vel_cm[0], 
                                         vel[1] - vel_cm[1], 
                                         vel[2] - vel_cm[2]}; 
@@ -1019,12 +1019,12 @@ namespace AR {
                     ASSERT(&particles[i]==_bin.getMember(k));
                     
 #ifdef USE_CM_FRAME
-                    Float* vel_rel = particles[i].getVel();
+                    auto& vel_rel = particles[i].vel;
                     Float vel[3] = {vel_rel[0] + _vel_up[0], 
                                     vel_rel[1] + _vel_up[1], 
                                     vel_rel[2] + _vel_up[2]};
 #else
-                    Float* vel = particles[i].getVel();
+                    auto& vel = particles[i].vel;
                     Float vel_rel[3] = {vel[0] - vel_cm[0], 
                                         vel[1] - vel_cm[1], 
                                         vel[2] - vel_cm[2]}; 
@@ -2914,14 +2914,14 @@ namespace AR {
                                             AR::BinaryTree<Tparticle>& _bin) {
             Float inv_nest_sd = _inv_nest_sd_up/_bin.slowdown.getSlowDownFactor();
 #ifndef USE_CM_FRAME
-            Float* vel_cm = _bin.getVel();
+            auto& vel_cm = _bin.vel;
 #endif
             for (int k=0; k<2; k++) {
                 if (_bin.isMemberTree(k)) {
                     auto* bink = _bin.getMemberAsTree(k);
-                    Float* vel = bink->getVel();
+                    auto& vel = bink->vel;
 #ifdef USE_CM_FRAME
-                    Float* pos_rel = bink->getPos();
+                    auto& pos_rel = bink.pos;
                     const Float pos[3] = {pos_rel[0] + _pos_up[0],
                                           pos_rel[1] + _pos_up[1],
                                           pos_rel[2] + _pos_up[2]};
@@ -2941,7 +2941,7 @@ namespace AR {
                     int i = _bin.getMemberIndex(k);
                     auto& pk = particles[i];
                     auto* pk_adr = particles.getMemberOriginAddress(i);
-                    Float* vel = pk.getVel();
+                    auto& vel = pk.vel;
                     pk_adr->mass = pk.mass;
 #ifdef USE_CM_FRAME
                     Float vel_sd[3] = {vel[0] * inv_nest_sd + _vel_sd_up[0], 
@@ -2995,8 +2995,8 @@ namespace AR {
                 if (_bin.isMemberTree(k)) {
                     auto* bink = _bin.getMemberAsTree(k);
                     
-                    Float* vel_rel = bink->getVel();
-                    Float* pos_rel = bink->getPos();
+                    auto& vel_rel = bink->vel;
+                    auto& pos_rel = bink->pos;
                     Float pos[3] = {pos_rel[0] + _pos_up[0],
                                     pos_rel[1] + _pos_up[1],
                                     pos_rel[2] + _pos_up[2]};
@@ -3380,8 +3380,8 @@ namespace AR {
 #endif
 
             for (int i=0; i<particles.getSize(); i++) {
-                Float* pos = particles[i].getPos();
-                Float* vel = particles[i].getVel();
+                auto& pos = particles[i].pos;
+                auto& vel = particles[i].vel;
                 _bk[bk_size++] = pos[0];
                 _bk[bk_size++] = pos[1];
                 _bk[bk_size++] = pos[2];
@@ -3443,8 +3443,8 @@ namespace AR {
 
             //! restore member particle position and velocity
             for (int i=0; i<particles.getSize(); i++) {
-                Float* pos = particles[i].getPos();
-                Float* vel = particles[i].getVel();
+                auto& pos = particles[i].pos;
+                auto& vel = particles[i].vel;
                 pos[0] = _bk[bk_size++];
                 pos[1] = _bk[bk_size++];
                 pos[2] = _bk[bk_size++];

@@ -467,6 +467,8 @@ namespace AR {
 
         //! check binary tree member pair id, if consisent, return ture. otherwise set the member pair id
         /*! 
+          Note that if it is a quadruple system (B-B), and both binaries pre-exist with correct pair ids, the
+          return flag will be true even it is a newly formed quadruple system.
           @param[in] _bin: binary tree to check
           @param[in] _reset_flag: if true, reset pair id to zero
         */

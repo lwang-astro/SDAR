@@ -500,7 +500,7 @@ namespace H4{
             }
 
 #ifdef HERMITE_ONLY_CALC_NEIGHBOR_FORCE
-            if (n_single + n_group > manager->kdtree_n_particles_min) {
+            if (kdtree.isParticleTreeBuilt() || kdtree.isGroupTreeBuilt() || (n_single + n_group > manager->kdtree_n_particles_min)) {
                 kdtree.clear();
                 // gather particle and group pointers
                 kdtree.addParticles(pred_, &index_dt_sorted_single_);
@@ -2372,7 +2372,8 @@ namespace H4{
             writeBackResolvedGroupAndCreateJParticleList(false);
 
 #ifdef HERMITE_ONLY_CALC_NEIGHBOR_FORCE
-            if (index_dt_sorted_single_.getSize()+index_dt_sorted_group_.getSize() > manager->kdtree_n_particles_min) {
+            if (kdtree.isParticleTreeBuilt() || kdtree.isGroupTreeBuilt() || 
+                (index_dt_sorted_single_.getSize()+index_dt_sorted_group_.getSize() > manager->kdtree_n_particles_min)) {
                 // use kdtree to speed up neighbor search
                 kdtree.clear();
                 // gather particle and group pointers
@@ -2442,16 +2443,17 @@ namespace H4{
 
                 // check whether the binary is pre-existed and set binary pair id
                 bool pre_exist_flag = group_ptr[k].info.checkAndSetBinaryPairIDIter(bin_root, false);
-#ifdef ADJUST_GROUP_DEBUG
-                // check whether each member can get correct binary id
-                auto bid = group_ptr[k].info.getBinaryID(group_ptr[k].particles[0]);
-                ASSERT(bid<0);
-                for (int i=0; i<group_ptr[k].particles.getSize(); i++) 
-                    ASSERT(bid==group_ptr[k].info.getBinaryID(group_ptr[k].particles[i]));
-#endif
+//#ifdef ADJUST_GROUP_DEBUG
+                // check whether each member can get correct binary id (not correct for quadruple systems)
+                //auto bid = group_ptr[k].info.getBinaryID(group_ptr[k].particles[0]);
+                //ASSERT(bid<0);
+                //for (int i=0; i<group_ptr[k].particles.getSize(); i++) 
+                //    ASSERT(bid==group_ptr[k].info.getBinaryID(group_ptr[k].particles[i]));
+//#endif
 
 #ifdef ADJUST_GROUP_PRINT
-                if (manager->adjust_group_write_flag && !pre_exist_flag) {
+                // if not pre-exist, or more than 2 particles, print group info
+                if (manager->adjust_group_write_flag && (!pre_exist_flag || group_ptr[k].particles.getSize()>2)) {
                     group_ptr[k].printGroupInfo(0, manager->fgroup, WRITE_WIDTH, &(particles.cm));
                 }
 #endif
