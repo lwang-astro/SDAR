@@ -1,4 +1,5 @@
-TARGET= ar.logh ar.logh.sd.t ar.ttl ar.ttl.sd.t ar.ttl.sd.t.mulpot ar.ttl.sd.t.mulpot.cm ar.ttl.sd.t.maxpot.cm ar.ttl.sd.t.addpot.cm 
+#TARGET= ar.logh ar.logh.sd.t ar.ttl ar.ttl.sd.t ar.ttl.sd.t.mulpot ar.ttl.sd.t.mulpot.cm ar.ttl.sd.t.maxpot.cm ar.ttl.sd.t.addpot.cm ar.logh.sd.t.kdk.pert ar.ttl.sd.t.kdk.pert
+TARGET= ar.logh ar.ttl ar.logh.sd.t.kdk.pert ar.ttl.sd.t.kdk.pert
 TARGET_MPFRC= ar.ttl.sd.t.cm ar.logh.mpfrc ar.ttl.mpfrc ar.ttl.sd.t.mulpot.cm.mpfrc ar.ttl.sd.t.mulpot.mpfrc 
 INSTALL_PATH=~/bin
 
@@ -7,7 +8,7 @@ VPATH=../../src
 SOURCE=${shell ls ../../src/AR/*.h} ${shell ls ../../src/Common/*.h} ${shell ls ./*.h}
 
 use_x86=yes
-use_mpfrc=yes
+#use_mpfrc=yes
 #use_k_computer=yes
 #QD_PATH=../../../../
 #MPFRC_PATH=../../../mpreal
@@ -17,8 +18,8 @@ use_mpfrc=yes
 ## compiler-------------------------------------------#
 ifeq ($(use_x86),yes)
 CXX= g++
-CXXFLAGS += -O2 -Wall
-#CXXFLAGS += -g -fbounds-check -Wall -O0 -D AR_DEBUG
+#CXXFLAGS += -O2 -Wall
+CXXFLAGS += -g -fbounds-check -Wall -O0 -D AR_DEBUG
 endif
 
 ifeq ($(use_k_computer),yes)
@@ -81,6 +82,9 @@ ar.logh.mpfrc: ar.cxx  ${SOURCE}
 ar.logh.sd.t: ar.cxx ${SOURCE}
 	$(CXX) $(CXXFLAGS) -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE  $< -o $@ $(CXXLIBS)
 
+ar.logh.sd.t.kdk.pert: ar.cxx ${SOURCE}
+	$(CXX) $(CXXFLAGS) -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE -D AR_KDK_PERT $< -o $@ $(CXXLIBS)
+
 ar.ttl: ar.cxx ${SOURCE}
 	$(CXX) $(CXXFLAGS) -D AR_TTL $< -o $@ $(CXXLIBS)
 
@@ -92,6 +96,9 @@ ar.ttl.m: ar.cxx ${SOURCE}
 
 ar.ttl.sd.t: ar.cxx ${SOURCE}
 	$(CXX) $(CXXFLAGS) -D AR_TTL -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE  $< -o $@ $(CXXLIBS)
+
+ar.ttl.sd.t.kdk.pert: ar.cxx ${SOURCE}
+	$(CXX) $(CXXFLAGS) -D AR_TTL -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE -D AR_KDK_PERT $< -o $@ $(CXXLIBS)
 
 ar.ttl.sd.t.cm: ar.cxx ${SOURCE}
 	$(CXX) $(CXXFLAGS) -D AR_TTL -D USE_CM_FRAME -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE  $< -o $@ $(CXXLIBS)

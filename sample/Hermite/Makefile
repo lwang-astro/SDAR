@@ -1,5 +1,5 @@
 ## TARGET
-TARGET= hermite hermite.mpfrc 
+TARGET= hermite hermite.mpfrc hermite.kdk.pert
 all: $(TARGET)
 
 INSTALL_PATH=$(HOME)/bin
@@ -18,8 +18,8 @@ GPERF_PATH = $(HOME)
 ## compiler-------------------------------------------#
 ifeq ($(use_x86),yes)
 CXX= g++
-#CXXFLAGS += -O2 -Wall
-CXXFLAGS += -g -fbounds-check -Wall -O0
+CXXFLAGS += -O2 -Wall
+#CXXFLAGS += -g -fbounds-check -Wall -O0
 endif
 
 ifeq ($(use_k_computer),yes)
@@ -60,7 +60,7 @@ CXXFLAGS += -D SDAR_TIME_MEASURE
 
 ## gperf----------------------------------------------#
 ifneq (x$(GPERF_PATH),x)
-CXXLIBS += -L$(GPERF_PATH)/lib -lprofiler -ltcmalloc
+CXXLIBS += -D GPERF_PROFILE -L$(GPERF_PATH)/lib -ltcmalloc_and_profiler
 endif
 
 ## qd-lib---------------------------------------------#
@@ -83,6 +83,9 @@ hermite: hermite.cxx ${SOURCE}
 
 hermite.mpfrc: hermite.cxx ${SOURCE}
 	$(CXX) $(CXXFLAGS) $(MPFRC_FLAGS) $< -o $@ $(CXXLIBS) $(MPFRC_LIBS)
+
+hermite.kdk.pert: hermite.cxx ${SOURCE}
+	$(CXX) $(CXXFLAGS) -D AR_KDK_PERT $< -o $@ $(CXXLIBS)
 
 install: $(TARGET)
 	install -m 755 $(TARGET) $(INSTALL_PATH)

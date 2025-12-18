@@ -10,8 +10,8 @@ namespace AR {
      */
     class SymplecticStep {
     private:
-        // cd pair type
-        typedef std::array<Float,2> CDPair;
+        // cdk pair type (c0, d0, D0, c1, d1, D1, ...) where c_{i+1} = D_i + D_{i+1}, D_i is the end step of current step
+        typedef std::array<Float,3> CDPair;
         //! Structure to store cumsum of c_k and the index of step k
         struct CumSumCkIndex{
             Float cck;  ///> cumsum of c_k
@@ -104,17 +104,20 @@ namespace AR {
                 }
 
                 _cd_pair[0][0] = coff_array[0];
+                _cd_pair[0][1] = coff_array[1];
+                _cd_pair[0][2] = coff_array[2];
                 _sorted_cumsum_ck_index[0].cck = coff_array[0];
                 _sorted_cumsum_ck_index[0].index = 0;
-                for (int i=0; i<n_group-1; i++) {
-                    _cd_pair[i  ][1] = coff_array[3*i+1];
-                    _cd_pair[i+1][0] = coff_array[3*i+2]+coff_array[3*i+3];
-                    _sorted_cumsum_ck_index[i+1].cck = _sorted_cumsum_ck_index[i].cck + _cd_pair[i+1][0];
-                    _sorted_cumsum_ck_index[i+1].index = i+1;
+                for (int i=1; i<n_group; i++) {
+                    _cd_pair[i][0] = coff_array[3*i-1]+coff_array[3*i];
+                    _cd_pair[i][1] = coff_array[3*i+1];
+                    _cd_pair[i][2] = coff_array[3*i+2];
+                    _sorted_cumsum_ck_index[i].cck = _sorted_cumsum_ck_index[i-1].cck + _cd_pair[i][0];
+                    _sorted_cumsum_ck_index[i].index = i;
                 }
-                _cd_pair[k-2][1] = coff_array[n_size-2];
                 _cd_pair[k-1][0] = coff_array[n_size-1];
                 _cd_pair[k-1][1] = Float(0.0);
+                _cd_pair[k-1][2] = coff_array[n_size-1];
                 _sorted_cumsum_ck_index[k-1].cck = _sorted_cumsum_ck_index[k-2].cck + _cd_pair[k-1][0];
                 _sorted_cumsum_ck_index[k-1].index = k-1;
 
@@ -129,20 +132,28 @@ namespace AR {
                 // Solution A
                 _cd_pair[0][0] =  0.3922568052387800;
                 _cd_pair[0][1] =  0.7845136104775600;
+                _cd_pair[0][2] =  0.3922568052387800;
                 _cd_pair[1][0] =  0.5100434119184585;
                 _cd_pair[1][1] =  0.2355732133593570;
+                _cd_pair[1][2] =  0.1177866066796785;
                 _cd_pair[2][0] = -0.4710533854097566;
                 _cd_pair[2][1] = -1.1776799841788701;
+                _cd_pair[2][2] = -0.5888399920894350;
                 _cd_pair[3][0] =  0.0687531682525181;
                 _cd_pair[3][1] =  1.3151863206839063;
+                _cd_pair[3][2] =  0.6575931603419531;
                 _cd_pair[4][0] =  0.0687531682525181;
                 _cd_pair[4][1] = -1.1776799841788701;
+                _cd_pair[4][2] = -0.5888399920894350;
                 _cd_pair[5][0] = -0.4710533854097566;
                 _cd_pair[5][1] =  0.2355732133593570;
+                _cd_pair[5][2] =  0.1177866066796785;
                 _cd_pair[6][0] =  0.5100434119184585;
                 _cd_pair[6][1] =  0.7845136104775600;
+                _cd_pair[6][2] =  0.3922568052387800;
                 _cd_pair[7][0] =  0.3922568052387800;
                 _cd_pair[7][1] =  0.0000000000000000;
+                _cd_pair[7][2] =  0.3922568052387800;                                   
                 _sorted_cumsum_ck_index[0].cck =   0.0976997828427615;
                 _sorted_cumsum_ck_index[0].index = 5;
                 _sorted_cumsum_ck_index[1].cck =   0.3922568052387800;
@@ -168,36 +179,52 @@ namespace AR {
                 //Solution B 
                 _cd_pair[0][0] =  0.4574221231148700;
                 _cd_pair[0][1] =  0.9148442462297400;
+                _cd_pair[0][2] =  0.4574221231148700;
                 _cd_pair[1][0] =  0.5842687913979845;
                 _cd_pair[1][1] =  0.2536933365662290;
+                _cd_pair[1][2] =  0.1268466682831145;
                 _cd_pair[2][0] = -0.5955794501471254;
                 _cd_pair[2][1] = -1.4448522368604799;
+                _cd_pair[2][2] = -0.7224261184302400;
                 _cd_pair[3][0] = -0.8015464361143615;
                 _cd_pair[3][1] = -0.1582406353682430;
+                _cd_pair[3][2] = -0.0791203176841215;
                 _cd_pair[4][0] =  0.8899492511272584;
                 _cd_pair[4][1] =  1.9381391376227599;
+                _cd_pair[4][2] =  0.9690695688113800;
                 _cd_pair[5][0] = -0.0112355476763650;
                 _cd_pair[5][1] = -1.9606102329754900;
+                _cd_pair[5][2] = -0.9803051164877450;
                 _cd_pair[6][0] = -0.9289051917917525;
                 _cd_pair[6][1] =  0.1027998493919850;
+                _cd_pair[6][2] =  0.0513999246959925;
                 _cd_pair[7][0] =  0.9056264600894914;
                 _cd_pair[7][1] =  1.7084530707869978;
+                _cd_pair[7][2] =  0.8542265353934989;
                 _cd_pair[8][0] =  0.9056264600894914;
                 _cd_pair[8][1] =  0.1027998493919850;
+                _cd_pair[8][2] =  0.0513999246959925;
                 _cd_pair[9][0] = -0.9289051917917525;
                 _cd_pair[9][1] = -1.9606102329754900;
+                _cd_pair[9][2] = -0.9803051164877450;
                 _cd_pair[10][0] = -0.0112355476763650;
                 _cd_pair[10][1] =  1.9381391376227599;
+                _cd_pair[10][2] =  0.9690695688113800;
                 _cd_pair[11][0] =  0.8899492511272584;
                 _cd_pair[11][1] = -0.1582406353682430;
+                _cd_pair[11][2] = -0.0791203176841215;
                 _cd_pair[12][0] = -0.8015464361143615;
                 _cd_pair[12][1] = -1.4448522368604799;
+                _cd_pair[12][2] = -0.7224261184302400;
                 _cd_pair[13][0] = -0.5955794501471254;
                 _cd_pair[13][1] =  0.2536933365662290;
+                _cd_pair[13][2] =  0.1268466682831145;
                 _cd_pair[14][0] =  0.5842687913979845;
                 _cd_pair[14][1] =  0.9148442462297400;
+                _cd_pair[14][2] =  0.4574221231148700;
                 _cd_pair[15][0] =  0.4574221231148700;
                 _cd_pair[15][1] =  0.0000000000000000;
+                _cd_pair[15][2] =  0.4574221231148700;
                 _sorted_cumsum_ck_index[0].cck =  -0.4056264600894914;
                 _sorted_cumsum_ck_index[0].index = 6;
                 _sorted_cumsum_ck_index[1].cck =  -0.3554349717486324;
@@ -298,6 +325,13 @@ namespace AR {
             ASSERT(_k<cd_pair_array_size_);
             return cd_pair_[_k][1];
         }
+
+        //! get coefficient D_k (first/end half part of current step)
+        Float getHalfK(const int _k) const {
+            ASSERT(_k<cd_pair_array_size_);
+            return cd_pair_[_k][2];
+        }
+
 
         //! get cd_pair array size
         int getCDPairSize() const {

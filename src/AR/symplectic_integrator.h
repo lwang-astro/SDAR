@@ -1558,7 +1558,7 @@ namespace AR {
           @param[in] _ds: step size
           @param[out] _time_table: for high order symplectic integration, store the substep integrated (real) time, used for estimate the step for time synchronization, size should be consistent with step.getCDPairSize().
         */
-        void integrateOneStepAR(const Float _ds, #ifndef USE_CM_FRAME
+        void integrateOneStepAR(const Float _ds, 
 #ifndef USE_CM_FRAME
                                 const Float* _vel_up,
                                 const Float* _vel_sd_up, 
@@ -1790,6 +1790,215 @@ namespace AR {
                      <<ekin_<<" "<<epot_<<" "<<etot_ref_<<std::endl;
 #endif
 
+#ifdef AR_KDK_PERT
+            // inverse time transformation factor for drift
+#ifdef AR_TTL
+            Float gt_inv = gt_drift_inv_;
+#else 
+#ifdef AR_SLOWDOWN_TREE
+            Float gt_inv = manager->interaction.calcGTDriftInv(ekin_sd_-etot_sd_ref_); // pt = -etot_sd
+#else
+            Float gt_inv = manager->interaction.calcGTDriftInv(ekin_-etot_ref_); // pt = -etot
+#endif
+#endif
+            // add first perturbation kick
+            Float ds = manager->step.getHalfK(0)*_ds;
+            Float dt = ds/gt_inv;
+#ifdef AR_SLOWDOWN_TREE
+            dt /= kappa_inv;
+#endif
+
+            // pertuber force kick
+            // manager->interaction.calcAccPert(force_data, particle_data, n_particle, particles.cm, perturber, time_);
+            vel1[0] += dt * pert1[0];
+            vel1[1] += dt * pert1[1];
+            vel1[2] += dt * pert1[2];
+            vel2[0] += dt * pert2[0];
+            vel2[1] += dt * pert2[1];
+            vel2[2] += dt * pert2[2];
+
+            // kick total energy and time transformation factor for drift
+            etot_ref_ += dt * (mass1* (vel1[0] * pert1[0] + 
+                                       vel1[1] * pert1[1] + 
+                                       vel1[2] * pert1[2]) +
+                               mass2* (vel2[0] * pert2[0] + 
+                                       vel2[1] * pert2[1] + 
+                                       vel2[2] * pert2[2]));
+
+            // DKD loop
+            for (int i=0; i<nloop-1; i++) {
+                // first drift
+                ds = manager->step.getHalfK(i)*_ds;
+
+                // drift
+                dt = ds/gt_inv;
+                ASSERT(!ISNAN(dt));
+                
+                // drift time 
+                time_ += dt;
+
+                // update real time
+                _time_table[i] = time_;
+
+#ifdef AR_SLOWDOWN_TREE
+                dt *= kappa_inv;
+#endif
+                // drift position
+                pos1[0] += dt * vel1[0];
+                pos1[1] += dt * vel1[1];
+                pos1[2] += dt * vel1[2];
+
+                pos2[0] += dt * vel2[0];
+                pos2[1] += dt * vel2[1];
+                pos2[2] += dt * vel2[2];
+
+                // step for kick
+                ds = manager->step.getDK(i)*_ds;
+
+                gt_inv = manager->interaction.calcInnerAccPotAndGTKickInvTwo(force_data[0], force_data[1], epot_, particle_data[0], particle_data[1], pos_offset);
+
+                ASSERT(!ISNAN(epot_));
+
+                // kick half step for velocity
+                Float dvel1[3], dvel2[3];
+
+                dt = 0.5*ds/gt_inv;
+
+                dvel1[0] = dt * acc1[0];
+                dvel1[1] = dt * acc1[1];
+                dvel1[2] = dt * acc1[2];
+
+                dvel2[0] = dt * acc2[0];
+                dvel2[1] = dt * acc2[1];
+                dvel2[2] = dt * acc2[2];
+
+                vel1[0] += dvel1[0];
+                vel1[1] += dvel1[1];
+                vel1[2] += dvel1[2];
+
+                vel2[0] += dvel2[0];
+                vel2[1] += dvel2[1];
+                vel2[2] += dvel2[2];
+
+#ifdef AR_TTL   
+
+#ifdef AR_SLOWDOWN_TREE
+                // back up gt_kick_inv
+                gt_kick_inv_.value = gt_inv*kappa_inv;
+                // integrate gt_drift_inv
+                Float dgt_drift_inv = 2.0*dt*kappa_inv* (vel1[0] * gtgrad1[0] +
+                                                         vel1[1] * gtgrad1[1] +
+                                                         vel1[2] * gtgrad1[2] +
+                                                         vel2[0] * gtgrad2[0] +
+                                                         vel2[1] * gtgrad2[1] +
+                                                         vel2[2] * gtgrad2[2]);
+#ifdef AR_TIME_FUNCTION_MUL_POT
+                if (hybrid_switch) 
+                    dgt_drift_inv *= gt_kick_inv_.value;
+#endif
+                gt_drift_inv_ += dgt_drift_inv;
+
+#else // NO Slowdown
+                // back up gt_kick_inv
+                gt_kick_inv_.value = gt_inv;
+                // integrate gt_drift_inv
+                gt_drift_inv_ +=  2.0*dt* (vel1[0] * gtgrad1[0] +
+                                           vel1[1] * gtgrad1[1] +
+                                           vel1[2] * gtgrad1[2] +
+                                           vel2[0] * gtgrad2[0] +
+                                           vel2[1] * gtgrad2[1] +
+                                           vel2[2] * gtgrad2[2]);
+#endif // END SLOWDOWN
+
+#endif // AR_TTL
+
+                // kick half step for velocity
+                vel1[0] += dvel1[0];
+                vel1[1] += dvel1[1];
+                vel1[2] += dvel1[2];
+                
+                vel2[0] += dvel2[0];
+                vel2[1] += dvel2[1];
+                vel2[2] += dvel2[2];
+                                                                                                                
+                // calculate kinetic energy
+                ekin_ = 0.5 * (mass1 * (vel1[0]*vel1[0]+vel1[1]*vel1[1]+vel1[2]*vel1[2]) +
+                               mass2 * (vel2[0]*vel2[0]+vel2[1]*vel2[1]+vel2[2]*vel2[2]));
+
+#ifdef AR_SLOWDOWN_TREE
+                // make consistent slowdown inner energy 
+                ekin_sd_ = ekin_*kappa_inv;
+#endif
+
+                // second drift
+                ds = manager->step.getHalfK(i)*_ds;
+                // inverse time transformation factor for drift
+#ifdef AR_TTL
+                gt_inv = gt_drift_inv_;
+#else 
+#ifdef AR_SLOWDOWN_TREE
+                gt_inv = manager->interaction.calcGTDriftInv(ekin_sd_-etot_sd_ref_); // pt = -etot_sd
+#else
+                gt_inv = manager->interaction.calcGTDriftInv(ekin_-etot_ref_); // pt = -etot
+#endif
+#endif
+                // drift
+                dt = ds/gt_inv;
+                ASSERT(!ISNAN(dt));
+                
+                // drift time 
+                time_ += dt;
+
+                // update real time
+                _time_table[i+1] = time_;
+#ifdef AR_SLOWDOWN_TREE
+                Float dt_sd = dt*kappa_inv;
+#endif
+                // drift position
+                pos1[0] += dt_sd * vel1[0];
+                pos1[1] += dt_sd * vel1[1];
+                pos1[2] += dt_sd * vel1[2];
+
+                pos2[0] += dt_sd * vel2[0];
+                pos2[1] += dt_sd * vel2[1];
+                pos2[2] += dt_sd * vel2[2];
+
+                // pertuber force
+                manager->interaction.calcAccPert(force_data, particle_data, n_particle, particles.cm, perturber, _time_table[i]);
+                
+                ds = manager->step.getCK(i+1)*_ds;
+                dt = ds/gt_inv;
+
+                // kick velocity due to perturbartion
+                vel1[0] += dt * pert1[0];
+                vel1[1] += dt * pert1[1];
+                vel1[2] += dt * pert1[2];
+                vel2[0] += dt * pert2[0];
+                vel2[1] += dt * pert2[1];
+                vel2[2] += dt * pert2[2];
+
+                // kick total energy and time transformation factor for drift
+                etot_ref_ += dt * (mass1* (vel1[0] * pert1[0] + 
+                                          vel1[1] * pert1[1] + 
+                                          vel1[2] * pert1[2]) +
+                                   mass2* (vel2[0] * pert2[0] + 
+                                          vel2[1] * pert2[1] + 
+                                          vel2[2] * pert2[2]));
+#ifdef AR_SLOWDOWN_TREE
+                etot_sd_ref_ = etot_ref_*kappa_inv;
+#endif
+            }
+            
+            // update potential and inverse time transformation factor for kick
+            gt_inv = manager->interaction.calcInnerAccPotAndGTKickInvTwo(force_data[0], force_data[1], epot_, particle_data[0], particle_data[1], pos_offset);
+#ifdef AR_SLOWDOWN_TREE
+            gt_kick_inv_.value = gt_inv*kappa_inv;
+            epot_sd_ = epot_*kappa_inv;
+#else
+            gt_kick_inv_.value = gt_inv;
+#endif            
+
+#else
             for (int i=0; i<nloop; i++) {
                 // step for drift
                 Float ds = manager->step.getCK(i)*_ds;
@@ -1947,14 +2156,14 @@ namespace AR {
                 ekin_ = 0.5 * (mass1 * (vel1[0]*vel1[0]+vel1[1]*vel1[1]+vel1[2]*vel1[2]) +
                                mass2 * (vel2[0]*vel2[0]+vel2[1]*vel2[1]+vel2[2]*vel2[2]));
 
-            }
-
 #ifdef AR_SLOWDOWN_TREE
-            // make consistent slowdown inner energy 
-            etot_sd_ref_ = etot_ref_*kappa_inv;
-            ekin_sd_ = ekin_*kappa_inv;
-            epot_sd_ = epot_*kappa_inv;
+                // make consistent slowdown inner energy 
+                etot_sd_ref_ = etot_ref_*kappa_inv;
+                ekin_sd_ = ekin_*kappa_inv;
+                epot_sd_ = epot_*kappa_inv;
 #endif
+            }
+#endif // END AR_KDK_PERT
 
 #ifdef SDAR_TIME_MEASURE
             // profile
@@ -2118,6 +2327,10 @@ namespace AR {
             // reset binary stab_check_time
             for (int i=0; i<info.binarytree.getSize(); i++)
                 info.binarytree[i].stab_check_time = time_;
+
+#ifdef AR_KDK_PERT
+            manager->interaction.calcAccPert(force_.getDataAddress(), particles.getDataAddress(), n_particle, particles.cm, perturber, time_);            
+#endif
 
             // integration loop
             while(true) {
@@ -3349,6 +3562,9 @@ namespace AR {
 #ifdef USE_CM_FRAME
             bk_size += info.binarytree.getSize()*6;
 #endif
+#ifdef AR_KDK_PERT
+            bk_size += force_.getSize()*3;
+#endif
             return bk_size;
         }
 
@@ -3406,6 +3622,14 @@ namespace AR {
                 }
             };
             backupCMPosVelIter(info.getBinaryTreeRoot());
+#endif
+
+#ifdef AR_KDK_PERT
+            for (int i=0; i<force_.getSize(); i++) {
+                _bk[bk_size++] = force_[i].acc_pert[0];
+                _bk[bk_size++] = force_[i].acc_pert[1];
+                _bk[bk_size++] = force_[i].acc_pert[2];
+            }
 #endif
 //#ifdef AR_SLOWDOWN_TREE
 //            bk_size += info.getBinaryTreeRoot().slowdown.backup(&_bk[bk_size]); // slowdownfactor
@@ -3471,6 +3695,13 @@ namespace AR {
             restoreCMPosVelIter(info.getBinaryTreeRoot());
 #endif      
 
+#ifdef AR_KDK_PERT
+            for (int i=0; i<force_.getSize(); i++) {
+                force_[i].acc_pert[0] = _bk[bk_size++];
+                force_[i].acc_pert[1] = _bk[bk_size++];
+                force_[i].acc_pert[2] = _bk[bk_size++];
+            }
+#endif
 //#ifdef AR_SLOWDOWN_TREE
 //            bk_size += info.getBinaryTreeRoot().slowdown.restore(&_bk[bk_size]);
 //#endif

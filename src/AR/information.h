@@ -90,6 +90,7 @@ namespace AR {
     class Information{
     public:
         Float ds;  ///> initial step size for integration
+        Float ds_pert_ratio_coff; ///> coefficient to scale ds based on perturbation ratio
         Float time_offset; ///> offset of time to obtain real physical time (real time = TimeTransformedSymplecticIntegrator:time_ + info.time_offset)
         Float r_break_crit;    // group break radius criterion
         FixStepOption fix_step_option; ///> fix step option for integration
@@ -99,7 +100,7 @@ namespace AR {
 #endif
 
         //! initializer, set ds to zero, fix_step_option to none
-        Information(): ds(0.0), time_offset(0.0), r_break_crit(-1.0), fix_step_option(AR::FixStepOption::none), binarytree() {
+        Information(): ds(0.0), ds_pert_ratio_coff(0.1), time_offset(0.0), r_break_crit(-1.0), fix_step_option(AR::FixStepOption::none), binarytree() {
 #ifdef AR_DEBUG_DUMP
             dump_flag = false;
 #endif
@@ -109,6 +110,7 @@ namespace AR {
         /*! \return true: all correct
          */
         bool checkParams() {
+            ASSERT(ds_pert_ratio_coff>=0.0);
             ASSERT(r_break_crit>=0.0);
             ASSERT(binarytree.getSize()>0);
             return true;
@@ -228,7 +230,7 @@ namespace AR {
                     // perturbation ratio
                     Float pert_ratio = (_bin.slowdown.pert_out>0&&_bin.slowdown.pert_in>0)? _bin.slowdown.pert_in/_bin.slowdown.pert_out: 1.0;
                     // scale step based on perturbation and sym method order
-                    Float scale_factor = std::min(Float(1.0),pow(1e-1*pert_ratio,1.0/Float(_int_order)));
+                    Float scale_factor = std::min(Float(1.0),pow(ds_pert_ratio_coff*pert_ratio,1.0/Float(_int_order)));
 
                     if (_bin.semi>0) ds = calcDsElliptic(_bin, _G)*scale_factor;
                     else ds = calcDsHyperbolic(_bin, _G);
@@ -266,7 +268,7 @@ namespace AR {
                     // perturbation ratio
                     Float pert_ratio = (_bin.slowdown.pert_out>0&&_bin.slowdown.pert_in>0)? _bin.slowdown.pert_in/_bin.slowdown.pert_out: 1.0;
                     // scale step based on perturbation and sym method order
-                    Float scale_factor = std::min(Float(1.0),pow(1e-1*pert_ratio,1.0/Float(_int_order)));
+                    Float scale_factor = std::min(Float(1.0),pow(ds_pert_ratio_coff*pert_ratio,1.0/Float(_int_order)));
 
                     if (_bin.semi>0) ds = calcDsElliptic(_bin, _G)*scale_factor;
                     else ds = calcDsHyperbolic(_bin, _G)*scale_factor;
