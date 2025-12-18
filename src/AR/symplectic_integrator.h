@@ -1818,12 +1818,20 @@ namespace AR {
             vel2[2] += dt * pert2[2];
 
             // kick total energy and time transformation factor for drift
-            etot_ref_ += dt * (mass1* (vel1[0] * pert1[0] + 
+            /*etot_ref_ += dt * (mass1* (vel1[0] * pert1[0] + 
                                        vel1[1] * pert1[1] + 
                                        vel1[2] * pert1[2]) +
                                mass2* (vel2[0] * pert2[0] + 
                                        vel2[1] * pert2[1] + 
                                        vel2[2] * pert2[2]));
+                                       */
+            Float ekin_new = 0.5 * (mass1 * (vel1[0]*vel1[0]+vel1[1]*vel1[1]+vel1[2]*vel1[2]) +
+                                    mass2 * (vel2[0]*vel2[0]+vel2[1]*vel2[1]+vel2[2]*vel2[2]));
+            etot_ref_ += ekin_new - ekin_;
+            ekin_ = ekin_new;
+#ifdef AR_SLOWDOWN_TREE
+            etot_sd_ref_ = etot_ref_ * kappa_inv;
+#endif
 
             // DKD loop
             for (int i=0; i<nloop-1; i++) {
@@ -1964,7 +1972,7 @@ namespace AR {
                 pos2[2] += dt_sd * vel2[2];
 
                 // pertuber force
-                manager->interaction.calcAccPert(force_data, particle_data, n_particle, particles.cm, perturber, _time_table[i]);
+                manager->interaction.calcAccPert(force_data, particle_data, n_particle, particles.cm, perturber, time_);
                 
                 ds = manager->step.getCK(i+1)*_ds;
                 dt = ds/gt_inv;
@@ -1978,16 +1986,19 @@ namespace AR {
                 vel2[2] += dt * pert2[2];
 
                 // update kinetic energy
-                ekin_ = 0.5 * (mass1 * (vel1[0]*vel1[0]+vel1[1]*vel1[1]+vel1[2]*vel1[2]) +
-                               mass2 * (vel2[0]*vel2[0]+vel2[1]*vel2[1]+vel2[2]*vel2[2]));                
+                ekin_new = 0.5 * (mass1 * (vel1[0]*vel1[0]+vel1[1]*vel1[1]+vel1[2]*vel1[2]) +
+                                  mass2 * (vel2[0]*vel2[0]+vel2[1]*vel2[1]+vel2[2]*vel2[2]));                
                 
                 // kick total energy and time transformation factor for drift
-                etot_ref_ += dt * (mass1* (vel1[0] * pert1[0] + 
+                /*etot_ref_ += dt * (mass1* (vel1[0] * pert1[0] + 
                                           vel1[1] * pert1[1] + 
                                           vel1[2] * pert1[2]) +
                                    mass2* (vel2[0] * pert2[0] + 
                                           vel2[1] * pert2[1] + 
                                           vel2[2] * pert2[2]));
+                                          */
+                etot_ref_ += ekin_new - ekin_;
+                ekin_ = ekin_new;
 #ifdef AR_SLOWDOWN_TREE
                 ekin_sd_ = ekin_*kappa_inv;
                 etot_sd_ref_ = etot_ref_*kappa_inv;
@@ -1997,13 +2008,13 @@ namespace AR {
             // update potential and inverse time transformation factor for kick
             gt_inv = manager->interaction.calcInnerAccPotAndGTKickInvTwo(force_data[0], force_data[1], epot_, particle_data[0], particle_data[1], pos_offset);
 #ifdef AR_SLOWDOWN_TREE
-            gt_kick_inv_.value = gt_inv*kappa_inv;
             epot_sd_ = epot_*kappa_inv;
+            gt_kick_inv_.value = gt_inv*kappa_inv;
 #else
             gt_kick_inv_.value = gt_inv;
 #endif            
 
-#else
+#else // NO AR_KDK_PERT
             for (int i=0; i<nloop; i++) {
                 // step for drift
                 Float ds = manager->step.getCK(i)*_ds;
@@ -2123,6 +2134,8 @@ namespace AR {
                 gt_kick_inv_.value = gt_inv;
 
 #ifdef AR_SLOWDOWN_TREE
+                etot_sd_ref_ = etot_ref_*kappa_inv;
+
                 // integrate gt_drift_inv
                 Float dgt_drift_inv = 2.0*dt*kappa_inv*kappa_inv* (vel1[0] * gtgrad1[0] +
                                                                    vel1[1] * gtgrad1[1] +
@@ -2163,12 +2176,14 @@ namespace AR {
 
 #ifdef AR_SLOWDOWN_TREE
                 // make consistent slowdown inner energy 
-                etot_sd_ref_ = etot_ref_*kappa_inv;
                 ekin_sd_ = ekin_*kappa_inv;
-                epot_sd_ = epot_*kappa_inv;
 #endif
             }
-#endif // END AR_KDK_PERT
+#ifdef AR_SLOWDOWN_TREE
+            epot_sd_ = epot_*kappa_inv;
+#endif            
+
+#endif // END AR_KDK_PERT`  
 
 #ifdef SDAR_TIME_MEASURE
             // profile
