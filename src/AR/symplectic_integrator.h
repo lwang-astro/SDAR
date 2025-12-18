@@ -1977,6 +1977,10 @@ namespace AR {
                 vel2[1] += dt * pert2[1];
                 vel2[2] += dt * pert2[2];
 
+                // update kinetic energy
+                ekin_ = 0.5 * (mass1 * (vel1[0]*vel1[0]+vel1[1]*vel1[1]+vel1[2]*vel1[2]) +
+                               mass2 * (vel2[0]*vel2[0]+vel2[1]*vel2[1]+vel2[2]*vel2[2]));                
+                
                 // kick total energy and time transformation factor for drift
                 etot_ref_ += dt * (mass1* (vel1[0] * pert1[0] + 
                                           vel1[1] * pert1[1] + 
@@ -1985,6 +1989,7 @@ namespace AR {
                                           vel2[1] * pert2[1] + 
                                           vel2[2] * pert2[2]));
 #ifdef AR_SLOWDOWN_TREE
+                ekin_sd_ = ekin_*kappa_inv;
                 etot_sd_ref_ = etot_ref_*kappa_inv;
 #endif
             }
