@@ -403,6 +403,9 @@ namespace AR {
                     if (pk->mass>0.0) manager->interaction.calcSlowDownPertOne(_pert_out, _t_min_sq, _bini, *pk);
                 }
             }
+
+            // calculate external peturbation on inner binary
+            manager->interaction.calcSlowDownPertExt(_pert_out, _bini);
         }
 
         //! calculate slowdown factor for inner binary based on other particles and slowdown of system c.m.
@@ -1287,7 +1290,7 @@ namespace AR {
             sd_root.pert_in = manager->interaction.calcPertFromBinary(bin_root);
             sd_root.pert_out = 0.0;
             Float t_min_sq= NUMERIC_FLOAT_MAX;
-            manager->interaction.calcSlowDownPert(sd_root.pert_out, t_min_sq, getTime(), particles.cm, perturber);
+            manager->interaction.calcSlowDownPert(sd_root.pert_out, t_min_sq, getTime(), bin_root, particles.cm, perturber);
             sd_root.timescale = std::min(sd_root.getTimescaleMax(), sqrt(t_min_sq));
 
             //Float period_amplify_max = NUMERIC_FLOAT_MAX;
