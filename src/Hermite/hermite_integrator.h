@@ -1146,7 +1146,7 @@ namespace H4{
             for (int i=0; i<_n_single; i++){
                 const int k = _index_single[i];
                 ASSERT(k<time_next_.getSize());
-                time_next_[k] = particles[k].time + particles[k].dt;
+                time_next_[k] = step.correctTimeRoundOff(particles[k].time + particles[k].dt);
             }
 
             // for group
@@ -1155,7 +1155,7 @@ namespace H4{
                 const int kf = k + index_offset_group_;
                 ASSERT(kf<time_next_.getSize());
                 auto& pcm = groups[k].particles.cm;
-                time_next_[kf] = pcm.time + pcm.dt;
+                time_next_[kf] = step.correctTimeRoundOff(pcm.time + pcm.dt);
             }
         }
             
@@ -2803,7 +2803,7 @@ namespace H4{
                     mod_index[n_mod++] = k;
 
                     //update time next
-                    time_next_[k] = pk.time + pk.dt;
+                    time_next_[k] = step.correctTimeRoundOff(pk.time + pk.dt);
                 }
             }
 

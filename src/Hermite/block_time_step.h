@@ -162,6 +162,12 @@ namespace H4{
             return dt_min_;
         }
 
+        //! correct round-off error
+        inline Float correctTimeRoundOff(const Float _time) const {
+            const Float n = std::llround(_time/dt_min_);
+            return n*dt_min_;
+        }
+
         //! calculate the maximum time step limit for next block step based on the input (current) time
         /*! 
           Basic algorithm: the integer of time/dt_min is the binary tree for block step, counting from the minimum digital, the last zero indicate the maximum block step level allown for next step
