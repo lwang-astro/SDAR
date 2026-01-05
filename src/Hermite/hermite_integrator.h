@@ -1849,8 +1849,9 @@ namespace H4{
                         // fcm may not properly represent the perturbation force (perturber mass is unknown)
                         sd.pert_in = ar_manager->interaction.calcPertFromBinary(bin_root);
                         Float* acc_cm = groupk.particles.cm.acc0;
-                        Float fcm[3] = {acc_cm[0]*bin_root.mass, acc_cm[1]*bin_root.mass, acc_cm[2]*bin_root.mass };
-                        sd.pert_out= ar_manager->interaction.calcPertFromForce(fcm, bin_root.mass, bin_root.mass);
+                        Float& pot_cm = groupk.particles.cm.pot;
+                        //Float fcm[3] = {acc_cm[0]*bin_root.mass, acc_cm[1]*bin_root.mass, acc_cm[2]*bin_root.mass };
+                        sd.pert_out= ar_manager->interaction.calcPertFromForcePot(acc_cm, pot_cm);
                         sd.calcSlowDownFactor();
                         Float kappa_org = sd.getSlowDownFactorOrigin();
 
@@ -2052,17 +2053,19 @@ namespace H4{
                         Float fcm[3] = {pi.mass*pi.acc0[0] + pj->mass*pj->acc0[0], 
                                         pi.mass*pi.acc0[1] + pj->mass*pj->acc0[1], 
                                         pi.mass*pi.acc0[2] + pj->mass*pj->acc0[2]};
+                        Float dr = sqrt(dr2);
+                        Float potcm = pi.mass*pi.pot + pj->mass*pj->pot + ar_manager->interaction.gravitational_constant*pi.mass*pj->mass/dr;
 
                         AR::SlowDown sd;
-                        Float mcm = pi.mass + pj->mass;
 #ifdef AR_SLOWDOWN_MASSRATIO
+                        Float mcm = pi.mass + pj->mass;
                         const Float mass_ratio = ar_manager->slowdown_mass_ref/mcm;
                         sd.initialSlowDownReference(mass_ratio*ar_manager->slowdown_pert_ratio_ref, ar_manager->slowdown_timescale_max);
 #else
                         sd.initialSlowDownReference(ar_manager->slowdown_pert_ratio_ref, ar_manager->slowdown_timescale_max);
 #endif
-                        sd.pert_in = ar_manager->interaction.calcPertFromMR(sqrt(dr2), pi.mass, pj->mass);
-                        sd.pert_out = ar_manager->interaction.calcPertFromForce(fcm, mcm, mcm);
+                        sd.pert_in = ar_manager->interaction.calcPertFromMR(dr, pi.mass, pj->mass);
+                        sd.pert_out = ar_manager->interaction.calcPertFromForcePot(fcm, potcm);
 
                         sd.calcSlowDownFactor();
                         Float kappa_org = sd.getSlowDownFactorOrigin();
@@ -2164,17 +2167,19 @@ namespace H4{
                         Float fcm[3] = {pi.mass*pi.acc0[0] + pj->mass*pj->acc0[0], 
                                         pi.mass*pi.acc0[1] + pj->mass*pj->acc0[1], 
                                         pi.mass*pi.acc0[2] + pj->mass*pj->acc0[2]};
+                        Float dr = sqrt(dr2);
+                        Float potcm = pi.mass*pi.pot + pj->mass*pj->pot + ar_manager->interaction.gravitational_constant*pi.mass*pj->mass/dr;
 
                         AR::SlowDown sd;
-                        Float mcm = pi.mass + pj->mass;
 #ifdef AR_SLOWDOWN_MASSRATIO
+                        Float mcm = pi.mass + pj->mass;
                         const Float mass_ratio = ar_manager->slowdown_mass_ref/mcm;
                         sd.initialSlowDownReference(mass_ratio*ar_manager->slowdown_pert_ratio_ref, ar_manager->slowdown_timescale_max);
 #else
                         sd.initialSlowDownReference(ar_manager->slowdown_pert_ratio_ref, ar_manager->slowdown_timescale_max);
 #endif
-                        sd.pert_in = ar_manager->interaction.calcPertFromMR(sqrt(dr2), pi.mass, pj->mass);
-                        sd.pert_out = ar_manager->interaction.calcPertFromForce(fcm, mcm, mcm);
+                        sd.pert_in = ar_manager->interaction.calcPertFromMR(dr, pi.mass, pj->mass);
+                        sd.pert_out = ar_manager->interaction.calcPertFromForcePot(fcm, potcm);
 
                         sd.calcSlowDownFactor();
                         Float kappa_org = sd.getSlowDownFactorOrigin();
