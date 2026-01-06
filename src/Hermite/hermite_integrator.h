@@ -2906,7 +2906,7 @@ namespace H4{
                 const int k = _particle_index[i];
                 if (k<index_offset_group_) {
                     if (table_single_mask_[k]) continue;
-                    if (ptcl[k].time>=_time_next) continue;
+                    if (step.correctTimeRoundOff(ptcl[k].time)>=_time_next) continue;
                     ptcl[k].dt = _time_next - ptcl[k].time;
                     index_single_select[n_single_select++] = k;
                 }
@@ -2914,7 +2914,7 @@ namespace H4{
                     const int kg = k - index_offset_group_;
                     if (table_group_mask_[kg]) continue;
                     auto& pcm = group_ptr[kg].particles.cm;
-                    if (pcm.time>=_time_next) continue;
+                    if (step.correctTimeRoundOff(pcm.time)>=_time_next) continue;
                     pcm.dt = _time_next - pcm.time;
                     index_group_select[n_group_select++] = kg;
                 }
