@@ -2340,6 +2340,7 @@ namespace H4{
                 int k = index_single[i];
                 ptcl[k].acc0[0] = ptcl[k].acc0[1] = ptcl[k].acc0[2] = 0.0;
                 ptcl[k].acc1[0] = ptcl[k].acc1[1] = ptcl[k].acc1[2] = 0.0;
+                ptcl[k].pot    = 0.0;
                 ptcl[k].time = time_;
                 ptcl[k].dt   = 0.0;
                 pred_[k] = ptcl[k];
@@ -2397,6 +2398,7 @@ namespace H4{
                 ptcl[k].acc1[0] = force_[k].acc1[0];
                 ptcl[k].acc1[1] = force_[k].acc1[1];
                 ptcl[k].acc1[2] = force_[k].acc1[2];
+                ptcl[k].pot    = force_[k].pot;
             }
 
             for(int i=0; i<n_init_group_; i++){
@@ -2410,6 +2412,7 @@ namespace H4{
                 pcm.acc1[0] = fcm.acc1[0];
                 pcm.acc1[1] = fcm.acc1[1];
                 pcm.acc1[2] = fcm.acc1[2];
+                pcm.pot    = fcm.pot;
 
                 // initial group integration
                 group_ptr[k].initialIntegration(time_);
