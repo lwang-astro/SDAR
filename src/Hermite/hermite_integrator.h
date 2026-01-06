@@ -1847,7 +1847,8 @@ namespace H4{
                         // check strong perturbed binary case 
                         // calculate slowdown in a consistent way like in checknewgroup to avoid switching
                         // fcm may not properly represent the perturbation force (perturber mass is unknown)
-                        sd.pert_in = ar_manager->interaction.calcPertFromBinary(bin_root);
+                        //sd.pert_in = ar_manager->interaction.calcPertFromBinary(bin_root);
+                        sd.pert_in = ar_manager->interaction.calcPertFromMR(bin_root.r, bin_root.m1, bin_root.m2);  // to be consistent with find new group
                         Float* acc_cm = groupk.particles.cm.acc0;
                         Float& pot_cm = groupk.particles.cm.pot;
                         //Float fcm[3] = {acc_cm[0]*bin_root.mass, acc_cm[1]*bin_root.mass, acc_cm[2]*bin_root.mass };
