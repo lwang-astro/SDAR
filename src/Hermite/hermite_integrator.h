@@ -2624,6 +2624,8 @@ namespace H4{
 
                         if (interrupt_binary.status==AR::InterruptStatus::merge||interrupt_binary.status==AR::InterruptStatus::destroy)  {
                             index_group_merger_.addMember(k);
+                            #pragma omp atomic
+                            profile.merge_group_count++;
                         }
                         else {
                             // set initial step flag 

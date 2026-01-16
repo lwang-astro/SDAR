@@ -14,6 +14,7 @@ namespace H4{
         UInt64 ar_step_count_tsyn; // number of integration steps of ar
         UInt64 break_group_count; // times of break groups
         UInt64 new_group_count; // times of new groups
+        UInt64 merge_group_count; // times of merged groups
 #ifdef SDAR_TIME_MEASURE        
         COMM::TimeMeasure prof_tot; // time measure of total time
         COMM::TimeMeasure prof_hermite_single; // time measure of hermite single
@@ -33,6 +34,7 @@ namespace H4{
             ar_step_count = ar_step_count_tsyn = 0;
             break_group_count = 0;
             new_group_count = 0;
+            merge_group_count = 0;
 #ifdef SDAR_TIME_MEASURE
             prof_tot.time = 0.0;
             prof_hermite_single.time = 0.0;
@@ -58,7 +60,8 @@ namespace H4{
                  <<std::setw(_width)<<"AR_step"
                  <<std::setw(_width)<<"AR_step_tsyn"
                  <<std::setw(_width)<<"break_group"
-                 <<std::setw(_width)<<"new_group";
+                 <<std::setw(_width)<<"new_group"
+                 <<std::setw(_width)<<"merge_group";
 #ifdef SDAR_TIME_MEASURE
             _fout<<std::setw(_width)<<"prof_tot[s]"
                  <<std::setw(_width)<<"prof_H4_single[s]"
@@ -84,7 +87,8 @@ namespace H4{
                  <<std::setw(_width)<<ar_step_count
                  <<std::setw(_width)<<ar_step_count_tsyn
                  <<std::setw(_width)<<break_group_count
-                 <<std::setw(_width)<<new_group_count;
+                 <<std::setw(_width)<<new_group_count
+                 <<std::setw(_width)<<merge_group_count;
 #ifdef SDAR_TIME_MEASURE
             _fout<<std::setw(_width)<<prof_tot.time
                  <<std::setw(_width)<<prof_hermite_single.time

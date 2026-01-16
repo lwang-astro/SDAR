@@ -60,6 +60,7 @@ class HermiteProfile(DictNpArrayMix):
         ar_step_tsyn (1D): ar time synchronize steps
         break_group (1D): number of break groups
         new_group (1D): number of new groups
+        merge_group (1D): number of merged groups
         if (time_measure):
             prof_total (1D): total time for integration
             prot_h4_single (1D): total time for hermite single particle integration
@@ -74,7 +75,7 @@ class HermiteProfile(DictNpArrayMix):
         """ DictNpArrayMix type initialzation, see help(DictNpArrayMix.__init__)
         """
         keys=[["h4_step_single", np.int64], ["h4_step_group", np.int64], ["H4_int_single", np.int64], ["H4_int_group", np.int64],
-              ["ar_step", np.int64], ["ar_step_tsyn", np.int64], ["break_group", np.int64], ["new_group", np.int64]]
+              ["ar_step", np.int64], ["ar_step_tsyn", np.int64], ["break_group", np.int64], ["new_group", np.int64], ["merge_group", np.int64]]
         if ('time_measure' in kwargs.keys()):
             if (kwargs['time_measure']):
                 keys = keys + [["prof_total", np.float64], ["prof_h4_single", np.float64], ["prof_h4_group", np.float64], ["prof_adjust", np.float64], ["prof_init", np.float64], ["prof_modify_single", np.float64], ["prof_select_act", np.float64], ["prof_ar", np.float64]]
