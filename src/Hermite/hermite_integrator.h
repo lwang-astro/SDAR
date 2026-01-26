@@ -1109,7 +1109,7 @@ namespace H4{
             auto& pcm = groups[k].particles.cm;
             // reduce step size to get one more step
             pcm.dt *= 0.5;
-            time_next_[k+index_offset_group_] = pcm.time + pcm.dt;
+            time_next_[k+index_offset_group_] = step.correctTimeRoundOff(pcm.time + pcm.dt);
             if (_index>0) {
                 int kp = index_dt_sorted_group_[i-1];
                 while (time_next_[k+index_offset_group_]<time_next_[kp+index_offset_group_]) {
@@ -2632,7 +2632,7 @@ namespace H4{
                             if (abs(dm/pcm.mass) > manager->reinitialize_step_dm_criterion || abs(de_kin/energy_.ekin) > manager->reinitialize_step_de_criterion)
                                 groups[k].perturber.initial_step_flag=true;
 
-                            if (pcm.time + pcm.dt >time_next) {
+                            if (step.correctTimeRoundOff(pcm.time + pcm.dt) >time_next) {
                                 ASSERT(i>=n_act_group_);
                                 // set cm step to reach time_next
                                 pcm.dt = time_next - pcm.time;
@@ -2664,7 +2664,11 @@ namespace H4{
                     }
                 }
 
-                ASSERT(abs(groups[k].getTime()-time_next)<=ar_manager->time_error_max);
+                const Float time_now = groups[k].getTime();
+                const Float time_diff = abs(time_now - time_next);
+                const Float time_tol = std::max(ar_manager->time_error_max,
+                                                std::numeric_limits<Float>::epsilon() * (abs(time_next) + abs(time_now) + Float(1.0)));
+                ASSERT(time_diff <= time_tol);
 
                 //double end_time = omp_get_wtime(); // End time for this thread
                 //int i_omp = omp_get_thread_num();
