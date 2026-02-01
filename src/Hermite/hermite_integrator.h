@@ -2663,12 +2663,13 @@ namespace H4{
                         }
                     }
                 }
-
+#ifdef HERMITE_DEBUG
                 const Float time_now = groups[k].getTime();
                 const Float time_diff = abs(time_now - time_next);
                 const Float time_tol = std::max(ar_manager->time_error_max,
                                                 std::numeric_limits<Float>::epsilon() * (abs(time_next) + abs(time_now) + Float(1.0)));
                 ASSERT(time_diff <= time_tol);
+#endif
 
                 //double end_time = omp_get_wtime(); // End time for this thread
                 //int i_omp = omp_get_thread_num();
