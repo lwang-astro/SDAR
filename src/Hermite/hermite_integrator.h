@@ -3464,29 +3464,32 @@ namespace H4{
             particles.printColumn(_fout, _width);
         }        
 
-        //! print step histogram
-        void printStepHist(){
-            std::map<Float, int> stephist;
-            for(int i=0; i<index_dt_sorted_single_.getSize(); i++) {
+        //! count steps histogram
+        void countStepHist(){
+            for(int i=0; i<n_act_single_; i++) {
                 int k = index_dt_sorted_single_[i];
                 Float dt = particles[k].dt;
-                std::map<Float, int>::iterator p = stephist.find(dt);
-                if (p==stephist.end()) stephist[dt] = 1;
-                else stephist[dt]++;
+                auto p = profile.stephist.find(dt);
+                if (p==profile.stephist.end()) profile.stephist[dt] = 1;
+                else profile.stephist[dt]++;
             }
-            for(int i=0; i<index_dt_sorted_group_.getSize(); i++) {
+            for(int i=0; i<n_act_group_; i++) {
                 int k = index_dt_sorted_group_[i];
                 Float dt=groups[k].particles.cm.dt;
-                std::map<Float, int>::iterator p = stephist.find(dt);
-                if (p==stephist.end()) stephist[dt] = 1;
-                else stephist[dt]++;
+                auto p = profile.stephist.find(dt);
+                if (p==profile.stephist.end()) profile.stephist[dt] = 1;
+                else profile.stephist[dt]++;
             }
+        }
+
+        //! print step histogram
+        void printStepHist(){
             std::cerr<<"Step hist: time = "<<time_<<"\n";
-            for(auto i=stephist.begin(); i!=stephist.end(); i++) {
+            for(auto i=profile.stephist.begin(); i!=profile.stephist.end(); i++) {
                 std::cerr<<std::setw(24)<<i->first;
             }
             std::cerr<<std::endl;
-            for(auto i=stephist.begin(); i!=stephist.end(); i++) {
+            for(auto i=profile.stephist.begin(); i!=profile.stephist.end(); i++) {
                 std::cerr<<std::setw(24)<<i->second;
             }
             std::cerr<<std::endl;

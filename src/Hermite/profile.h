@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Common/profile.h"
+#include <map>
 
 namespace H4{
     class Profile{
@@ -25,6 +26,7 @@ namespace H4{
         COMM::TimeMeasure prof_select_act; // time measure of select active particles
         COMM::TimeMeasure prof_ar; // time measure of ar integration in groups
 #endif
+        std::map<Float, int> stephist;
 
         Profile() {clear();} 
     
@@ -45,6 +47,7 @@ namespace H4{
             prof_select_act.time = 0.0;
             prof_ar.time = 0.0;
 #endif
+            stephist.clear();
         }
 
         //! print titles of class members using column style
