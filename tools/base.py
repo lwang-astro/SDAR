@@ -546,19 +546,50 @@ class DictNpArrayMix:
         return column_info
 
 
-    def printTable(self, column_format, print_title=True, print_format='text'):
+    def generateTable(self, column_format=None, print_title=True, print_format='text', width=9, precision=2):
         """
-        print Table with defined column list and formats
+        generate a string of table with defined column list and formats for printing
 
         Parameters
-        column_format: a list of column label (class member name), format and column title, enclosed by tuple, for sub-member, use . to access
-                       For exmaple: [(key1,'%s', title1), (key2,'%12.7f', title2), (key3.subkey1,'%d', title3), (key3.subkey2,'%e',title4)]
-        print_title: print title of keys (default: True)
-        print_format: print format: text, latex, csv (default: text)
+        column_format: list of tuple | None (None)
+            a list of column label (class member name), format and column title, enclosed by tuple, for sub-member, use . to access
+            For exmaple: [(key1,'%s', title1), (key2,'%12.7f', title2), (key3.subkey1,'%d', title3), (key3.subkey2,'%e',title4)] 
+            if None, print all members using same width and precision
+        print_title: bool (True)
+            print title of keys
+        print_format: string (text)
+            text, latex, csv for different output format
+        width: int (9)
+            default width for each column if column_format is not provide, if key is longer than width, use key length +1 as width
+        precision: int (2)
+            default precision for each column if column_format is not provided
         """
         import re
 
         if self.size==0: return
+        if column_format==None:
+            column_format=[]
+            dt = self.collectDtype()
+            for key, par in dt:
+                print_width = max(len(key)+1, width)
+                if type(par) == tuple:
+                    if (type(par[0]) == type) & (type(par[1]) == int):
+                        for i in range(par[1]):
+                            column_format.append( (key+'['+str(i)+']',f'%{max(len(key)+4,width)}.{precision}g', key+'['+str(i)+']') )
+                    else:
+                        column_format.append( (key,f'%{print_width}.{precision}g', key) )
+                else:
+                    if par==np.float64:
+                        column_format.append( (key,f'%{print_width}.{precision}g', key) )
+                    elif par==np.int32:
+                        column_format.append( (key,f'%{print_width}d', key) )
+                    elif par==np.int64:
+                        column_format.append( (key,f'%{print_width}d', key) )
+                    elif par==np.str_:
+                        column_format.append( (key,f'%{print_width}s', key) )
+                    else:
+                        column_format.append( (key,f'%{print_width}s', key) )
+
         title=[]
         table=[]
         fmt_list=''
@@ -593,16 +624,38 @@ class DictNpArrayMix:
             fmt_list = fmt_list[:-1]
             fmt_title = fmt_title[:-1]
         table=np.transpose(np.array(table))
+        tab_string = ''
         if (print_format=='latex'):
-            print('\\\\hline')
+            tab_string = '\\\\hline'
         if (print_title):
-            print(fmt_title % tuple(title))
+            tab_string += (fmt_title % tuple(title)) + '\n'
             if (print_format=='latex'):
-                print('\\\\hline')
+                tab_string += '\\\\hline'
         for line in table:
-            print(fmt_list % tuple(line))
+            tab_string += fmt_list % tuple(line) + '\n'
         if (print_format=='latex'):
-            print('\\\\hline')
+            tab_string += '\\\\hline'
+        return tab_string
+    
+    def printTable(self, column_format=None, print_title=True, print_format='text', width=9, precision=2):
+        """ print a table with defined column list and formats
+
+        Parameters
+        column_format: list of tuple | None (None)
+            a list of column label (class member name), format and column title, enclosed by tuple, for sub-member, use . to access
+            For exmaple: [(key1,'%s', title1), (key2,'%12.7f', title2), (key3.subkey1,'%d', title3), (key3.subkey2,'%e',title4)] 
+            if None, print all members using same width and precision
+        print_title: bool (True)
+            print title of keys
+        print_format: string (text)
+            text, latex, csv for different output format
+        width: int (9)
+            default width for each column if column_format is not provide, if key is longer than width, use key length +1 as width
+        precision: int (2)
+            default precision for each column if column_format is not provided
+        """
+        tab_string = self.generateTable(column_format, print_title, print_format, width, precision)
+        print(tab_string)
 
     def append(self, *_dat):
         """ Map the numpy.append function to each member
@@ -626,6 +679,9 @@ class DictNpArrayMix:
                 self.__dict__[key].append(*tuple(map(lambda x:x.__dict__[key], _dat)))
         self.size += np.sum(tuple(map(lambda x:x.size, _dat)))
                 
+    def __repr__(self):
+        return self.generateTable()
+    
     def savetxt(self, fname, **kwargs):
         """ Save class member data to a file
         Use the getherDataToArray and then numpy.savetxt
