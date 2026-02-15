@@ -1400,6 +1400,10 @@ namespace H4{
 
                 // get binarytree
                 group_new.info.generateBinaryTree(group_new.particles,ar_manager->interaction.gravitational_constant);
+                auto& bin = group_new.info.getBinaryTreeRoot();
+                group_new.info.vcm_record[0] = bin.vel[0];
+                group_new.info.vcm_record[1] = bin.vel[1];
+                group_new.info.vcm_record[2] = bin.vel[2];
 
 #ifdef ADJUST_GROUP_DEBUG
                 std::cerr<<"Add new group, index: "<<group_index[i]<<" Member_index: ";
@@ -1407,7 +1411,6 @@ namespace H4{
                     std::cerr<<group_new.info.particle_index[k]<<" ";
                 std::cerr<<"r_break_crit: "<<group_new.info.r_break_crit;
                 std::cerr<<std::endl;
-                COMM::Binary& bin = group_new.info.getBinaryTreeRoot();
                 bin.printColumnTitle(std::cerr);
                 std::cerr<<std::endl;
                 bin.printColumn(std::cerr);
