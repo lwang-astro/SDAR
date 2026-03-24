@@ -13,7 +13,9 @@
 #include "Hermite/profile.h"
 #include <iostream>
 #include <fstream>
-#include <map>
+#include <iomanip>
+#include <cstdio>
+#include <string>
 
 namespace H4{
 
@@ -47,8 +49,7 @@ namespace H4{
         Float kdtree_r_ratio_limit; ///> maximum r_search / box_size ratio to build KDTree for neighbor search
 #endif
 #ifdef ADJUST_GROUP_PRINT
-        bool adjust_group_write_flag; ///> flag to indicate whether to output new/end group information
-        std::ofstream fgroup; ///> pointer to a file IO to output new/end group information
+        AR::GroupInfoOutput group_info_output; ///> new/end group information output control and file pool
 #endif
 
         HermiteManager(): reinitialize_step_dm_criterion(0.0), reinitialize_step_de_criterion(0.0), n_neighbor_max(300), interaction(), step()
@@ -56,7 +57,7 @@ namespace H4{
                         , kdtree_n_particles_min(32), kdtree_r_ratio_limit(0.3)
 #endif                          
 #ifdef ADJUST_GROUP_PRINT
-                        , adjust_group_write_flag(true), fgroup() 
+                        , group_info_output()
 #endif
                         {}
 
@@ -76,7 +77,7 @@ namespace H4{
             ASSERT(kdtree_r_ratio_limit>=0.0&&kdtree_r_ratio_limit<=1.0);
 #endif
 #ifdef ADJUST_GROUP_PRINT
-            ASSERT(!adjust_group_write_flag||(adjust_group_write_flag&&fgroup.is_open()));
+            ASSERT(group_info_output.checkParams());
 #endif
             return true;
         }
@@ -120,12 +121,20 @@ namespace H4{
         /*! @param[in] _fp: FILE type file for output
          */
         void writeBinary(FILE *_fp) const {
-            size_t size = sizeof(*this) - sizeof(interaction) - sizeof(step);
-            fwrite(this, size, 1, _fp);
+            fwrite(&reinitialize_step_dm_criterion, sizeof(reinitialize_step_dm_criterion), 1, _fp);
+            fwrite(&reinitialize_step_de_criterion, sizeof(reinitialize_step_de_criterion), 1, _fp);
+            fwrite(&n_neighbor_max, sizeof(n_neighbor_max), 1, _fp);
+#ifdef HERMITE_ONLY_CALC_NEIGHBOR_FORCE
+            fwrite(&kdtree_n_particles_min, sizeof(kdtree_n_particles_min), 1, _fp);
+            fwrite(&kdtree_r_ratio_limit, sizeof(kdtree_r_ratio_limit), 1, _fp);
+#endif
             interaction.writeBinary(_fp);
             step.writeBinary(_fp);
 #ifdef ADJUST_GROUP_PRINT
-            fwrite(&adjust_group_write_flag, sizeof(bool),1,_fp);
+            const bool write_flag = group_info_output.isWriteEnabled();
+            const bool binary_flag = group_info_output.isBinary();
+            fwrite(&write_flag, sizeof(bool),1,_fp);
+            fwrite(&binary_flag, sizeof(bool),1,_fp);
 #endif
         }
 
@@ -133,20 +142,51 @@ namespace H4{
         /*! @param[in] _fin: FILE type file for reading
          */
         void readBinary(FILE *_fin) {
-            size_t size = sizeof(*this) - sizeof(interaction) - sizeof(step);
-            size_t rcount = fread(this, size, 1, _fin);
+            size_t rcount = fread(&reinitialize_step_dm_criterion, sizeof(reinitialize_step_dm_criterion), 1, _fin);
             if (rcount<1) {
                 std::cerr<<"Error: Data reading fails! requiring data number is 1, only obtain "<<rcount<<".\n";
                 abort();
             }
+            rcount = fread(&reinitialize_step_de_criterion, sizeof(reinitialize_step_de_criterion), 1, _fin);
+            if (rcount<1) {
+                std::cerr<<"Error: Data reading fails! requiring data number is 1, only obtain "<<rcount<<".\n";
+                abort();
+            }
+            rcount = fread(&n_neighbor_max, sizeof(n_neighbor_max), 1, _fin);
+            if (rcount<1) {
+                std::cerr<<"Error: Data reading fails! requiring data number is 1, only obtain "<<rcount<<".\n";
+                abort();
+            }
+#ifdef HERMITE_ONLY_CALC_NEIGHBOR_FORCE
+            rcount = fread(&kdtree_n_particles_min, sizeof(kdtree_n_particles_min), 1, _fin);
+            if (rcount<1) {
+                std::cerr<<"Error: Data reading fails! requiring data number is 1, only obtain "<<rcount<<".\n";
+                abort();
+            }
+            rcount = fread(&kdtree_r_ratio_limit, sizeof(kdtree_r_ratio_limit), 1, _fin);
+            if (rcount<1) {
+                std::cerr<<"Error: Data reading fails! requiring data number is 1, only obtain "<<rcount<<".\n";
+                abort();
+            }
+#endif
             interaction.readBinary(_fin);
             step.readBinary(_fin);
 #ifdef ADJUST_GROUP_PRINT
-            rcount = fread(&adjust_group_write_flag, sizeof(bool),1,_fin);
+            bool write_flag;
+            bool binary_flag;
+            rcount = fread(&write_flag, sizeof(bool),1,_fin);
             if (rcount<1) {
                 std::cerr<<"Error: Data reading fails! requiring data number is 1, only obtain "<<rcount<<".\n";
                 abort();
             }
+            rcount = fread(&binary_flag, sizeof(bool),1,_fin);
+            if (rcount<1) {
+                std::cerr<<"Error: Data reading fails! requiring data number is 1, only obtain "<<rcount<<".\n";
+                abort();
+            }
+            group_info_output.close();
+            group_info_output.setWriteEnabled(write_flag);
+            group_info_output.setBinaryFlag(binary_flag);
 #endif
         }
 
@@ -1545,8 +1585,8 @@ namespace H4{
                 groupi.info.checkAndSetBinaryPairIDIter(groupi.info.getBinaryTreeRoot(), true);
 
 #ifdef ADJUST_GROUP_PRINT
-                if (manager->adjust_group_write_flag) {
-                    groupi.printGroupInfo(1, manager->fgroup, WRITE_WIDTH, &(particles.cm));
+                if (manager->group_info_output.isWriteEnabled()) {
+                    groupi.printGroupInfo(1, manager->group_info_output, WRITE_WIDTH, &(particles.cm));
                 }
 #endif
 
@@ -2465,8 +2505,8 @@ namespace H4{
 
 #ifdef ADJUST_GROUP_PRINT
                 // if not pre-exist, or more than 2 particles, print group info
-                if (manager->adjust_group_write_flag && (!pre_exist_flag || group_ptr[k].particles.getSize()>2)) {
-                    group_ptr[k].printGroupInfo(0, manager->fgroup, WRITE_WIDTH, &(particles.cm));
+                if (manager->group_info_output.isWriteEnabled() && (!pre_exist_flag || group_ptr[k].particles.getSize()>2)) {
+                    group_ptr[k].printGroupInfo(0, manager->group_info_output, WRITE_WIDTH, &(particles.cm));
                 }
 #endif
 

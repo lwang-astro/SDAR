@@ -1,6 +1,10 @@
 #pragma once
 
 #include <functional>
+#include <fstream>
+#include <map>
+#include <string>
+#include <iomanip>
 #include "Common/list.h"
 #include "Common/particle_group.h"
 #include "AR/symplectic_step.h"
@@ -19,6 +23,95 @@
   All major AR classes and related acceleration functions (typedef) are defined
 */
 namespace AR {
+
+    //! Group information output helper for adjust-group logging
+    class GroupInfoOutput {
+    private:
+        bool write_flag_;
+        bool binary_flag_;
+        bool append_flag_;
+        int precision_;
+        std::string filename_base_;
+        std::map<int, std::fstream> file_map_;
+
+    public:
+        GroupInfoOutput(): write_flag_(true), binary_flag_(false), append_flag_(true), precision_(16), filename_base_(), file_map_() {}
+
+        ~GroupInfoOutput() {
+            close();
+        }
+
+        //! Configure output file naming and modes
+        void setup(const std::string& _filename_base,
+                   const bool _append,
+                   const bool _binary,
+                   const int _precision=16) {
+            close();
+            filename_base_ = _filename_base;
+            append_flag_ = _append;
+            binary_flag_ = _binary;
+            precision_ = _precision;
+        }
+
+        //! Close all opened files
+        void close() {
+            for (auto& it: file_map_) {
+                if (it.second.is_open()) it.second.close();
+            }
+            file_map_.clear();
+        }
+
+        //! Enable/disable writing
+        void setWriteEnabled(const bool _flag) {
+            write_flag_ = _flag;
+        }
+
+        //! Whether writing is enabled
+        bool isWriteEnabled() const {
+            return write_flag_;
+        }
+
+        //! Set binary mode flag (for deserialization path)
+        void setBinaryFlag(const bool _flag) {
+            binary_flag_ = _flag;
+        }
+
+        //! Whether binary output is enabled
+        bool isBinary() const {
+            return binary_flag_;
+        }
+
+        //! ASCII floating-point precision
+        int getAsciiPrecision() const {
+            return precision_;
+        }
+
+        //! Check runtime parameters
+        bool checkParams() const {
+            ASSERT(!write_flag_ || !filename_base_.empty());
+            return true;
+        }
+
+        //! Get output stream for a given member number
+        std::fstream& getStream(const int _n_member) {
+            ASSERT(!filename_base_.empty());
+            auto it = file_map_.find(_n_member);
+            if (it==file_map_.end()) {
+                std::string fname = filename_base_ + ".n" + std::to_string(_n_member);
+                std::ios::openmode mode = std::ios::out;
+                if (append_flag_) mode = mode | std::ios::app;
+                if (binary_flag_) mode = mode | std::ios::binary;
+                std::fstream fout;
+                fout.open(fname.c_str(), mode);
+                ASSERT(fout.is_open());
+                auto res = file_map_.emplace(_n_member, std::move(fout));
+                ASSERT(res.second);
+                it = res.first;
+            }
+            ASSERT(it->second.is_open());
+            return it->second;
+        }
+    };
 
     //! print features
     void printFeatures(std::ostream & fout) {
@@ -3743,17 +3836,18 @@ namespace AR {
 #endif
 
         //! print group information 
-        /*! Message, Number of members, time, binary tree printing interation
-          @param[in] _type: 0: new group (if pair id is same, no printing); 1: end group (always print and reset pair id)
-          @param[in] _fout: FILE IO
-          @param[in] _width: print width
-          @param[in] _pcm: center of mass particle to calculate origin position and velocity, if NULL, assume cm pos and vel are zero
+        /*! Message, Number of members, time, binary tree printing iteration
+            @param[in] _type: 0: new group (if pair id is same, no printing); 1: end group (always print and reset pair id)
+            @param[in,out] _group_out: group-output manager
+            @param[in] _width: print width (ascii mode only)
+            @param[in] _pcm: center of mass particle to calculate origin position and velocity, if NULL, assume cm pos and vel are zero
         */
         template<class Tptcl>
-        void printGroupInfo(const int _type, std::ostream& _fout, const int _width, const Tptcl* _pcm=NULL) {
+        void printGroupInfo(const int _type, GroupInfoOutput& _group_out, const int _width, const Tptcl* _pcm=NULL) {
             auto& bin_root = info.getBinaryTreeRoot();
             //auto* p1 = bin_root.getLeftMember();
             //auto* p2 = bin_root.getRightMember();
+            const int n_member = bin_root.getMemberN();
 
             Float pos_cm[3], vel_cm[3];
             auto& pcm_loc = particles.cm;
@@ -3775,17 +3869,31 @@ namespace AR {
             }
 #pragma omp critical
             {
-                _fout<<std::setw(_width)<<_type
-                     <<std::setw(_width)<<bin_root.getMemberN()
-                     <<std::setw(_width)<<time_ + info.time_offset;
-                _fout<<std::setw(_width)<<pos_cm[0]
-                     <<std::setw(_width)<<pos_cm[1]
-                     <<std::setw(_width)<<pos_cm[2]
-                     <<std::setw(_width)<<vel_cm[0]
-                     <<std::setw(_width)<<vel_cm[1]
-                     <<std::setw(_width)<<vel_cm[2];
-                bin_root.printBinaryTreeIter(_fout, _width);
-                _fout<<std::endl;
+                auto& fout = _group_out.getStream(n_member);
+                if (_group_out.isBinary()) {
+                    const Float time_group = time_ + info.time_offset;
+                    fout.write(reinterpret_cast<const char*>(&_type), sizeof(_type));
+                    fout.write(reinterpret_cast<const char*>(&n_member), sizeof(n_member));
+                    fout.write(reinterpret_cast<const char*>(&time_group), sizeof(time_group));
+                    fout.write(reinterpret_cast<const char*>(pos_cm), sizeof(Float)*3);
+                    fout.write(reinterpret_cast<const char*>(vel_cm), sizeof(Float)*3);
+                    bin_root.writeBinaryTreeIter(fout);
+                }
+                else {
+                    const int precision = _group_out.getAsciiPrecision();
+                    fout<<std::setprecision(precision);
+                    fout<<std::setw(_width)<<_type
+                        <<std::setw(_width)<<n_member
+                        <<std::setw(_width)<<time_ + info.time_offset;
+                    fout<<std::setw(_width)<<pos_cm[0]
+                        <<std::setw(_width)<<pos_cm[1]
+                        <<std::setw(_width)<<pos_cm[2]
+                        <<std::setw(_width)<<vel_cm[0]
+                        <<std::setw(_width)<<vel_cm[1]
+                        <<std::setw(_width)<<vel_cm[2];
+                    bin_root.printBinaryTreeIter(fout, _width);
+                    fout<<std::endl;
+                }
             }
             //if (_type==0) { // register pair id to avoid repeating printing
             //    p1->setBinaryPairID(p2->id);
