@@ -128,7 +128,7 @@ namespace AR{
         //! write class data with BINARY format
         /*! @param[in] _fout: file IO for write
          */
-        void writeBinary(FILE *_fout) {
+        void writeBinary(FILE *_fout) const {
             fwrite(&kappa_, sizeof(kappa_), 1, _fout);
             fwrite(&kappa_org_, sizeof(kappa_org_), 1, _fout);
             fwrite(&kappa_max_, sizeof(kappa_max_), 1, _fout);
