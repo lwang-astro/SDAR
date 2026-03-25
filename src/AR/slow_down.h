@@ -129,18 +129,33 @@ namespace AR{
         /*! @param[in] _fout: file IO for write
          */
         void writeBinary(FILE *_fout) {
-            fwrite(this, sizeof(*this),1,_fout);
+            fwrite(&kappa_, sizeof(kappa_), 1, _fout);
+            fwrite(&kappa_org_, sizeof(kappa_org_), 1, _fout);
+            fwrite(&kappa_max_, sizeof(kappa_max_), 1, _fout);
         }
 
         void writeBinary(std::ostream& _fout) const {
-            _fout.write(reinterpret_cast<const char*>(this), sizeof(*this));
+            _fout.write(reinterpret_cast<const char*>(&kappa_), sizeof(kappa_));
+            _fout.write(reinterpret_cast<const char*>(&kappa_org_), sizeof(kappa_org_));
+            _fout.write(reinterpret_cast<const char*>(&kappa_max_), sizeof(kappa_max_));
         }
 
         //! read class data with BINARY format
         /*! @param[in] _fin: file IO for read
          */
         void readBinary(FILE *_fin) {
-            size_t rcount = fread(this, sizeof(*this), 1, _fin);
+            clear();
+            size_t rcount = fread(&kappa_, sizeof(kappa_), 1, _fin);
+            if (rcount<1) {
+                std::cerr<<"Error: Data reading fails! requiring data number is 1, only obtain "<<rcount<<".\n";
+                abort();
+            }
+            rcount = fread(&kappa_org_, sizeof(kappa_org_), 1, _fin);
+            if (rcount<1) {
+                std::cerr<<"Error: Data reading fails! requiring data number is 1, only obtain "<<rcount<<".\n";
+                abort();
+            }
+            rcount = fread(&kappa_max_, sizeof(kappa_max_), 1, _fin);
             if (rcount<1) {
                 std::cerr<<"Error: Data reading fails! requiring data number is 1, only obtain "<<rcount<<".\n";
                 abort();
@@ -148,7 +163,18 @@ namespace AR{
         }
 
         void readBinary(std::istream& _fin) {
-            _fin.read(reinterpret_cast<char*>(this), sizeof(*this));
+            clear();
+            _fin.read(reinterpret_cast<char*>(&kappa_), sizeof(kappa_));
+            if (!_fin) {
+                std::cerr<<"Error: Data reading fails! requiring data number is 1.\n";
+                abort();
+            }
+            _fin.read(reinterpret_cast<char*>(&kappa_org_), sizeof(kappa_org_));
+            if (!_fin) {
+                std::cerr<<"Error: Data reading fails! requiring data number is 1.\n";
+                abort();
+            }
+            _fin.read(reinterpret_cast<char*>(&kappa_max_), sizeof(kappa_max_));
             if (!_fin) {
                 std::cerr<<"Error: Data reading fails! requiring data number is 1.\n";
                 abort();
