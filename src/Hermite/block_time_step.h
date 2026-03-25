@@ -104,6 +104,10 @@ namespace H4{
             fwrite(this, sizeof(*this),1,_fp);
         }
 
+        void writeBinary(std::ostream& _fout) const {
+            _fout.write(reinterpret_cast<const char*>(this), sizeof(*this));
+        }
+
         //! read class data to file with binary format
         /*! @param[in] _fin: FILE type file for reading
          */
@@ -111,6 +115,14 @@ namespace H4{
             size_t rcount = fread(this, sizeof(*this),1,_fin);
             if (rcount<1) {
                 std::cerr<<"Error: Data reading fails! requiring data number is 1, only obtain "<<rcount<<".\n";
+                abort();
+            }
+        }
+
+        void readBinary(std::istream& _fin) {
+            _fin.read(reinterpret_cast<char*>(this), sizeof(*this));
+            if (!_fin) {
+                std::cerr<<"Error: Data reading fails! requiring data number is 1.\n";
                 abort();
             }
         }
@@ -292,6 +304,10 @@ namespace H4{
             fwrite(this, sizeof(*this),1,_fp);
         }
 
+        void writeBinary(std::ostream& _fout) const {
+            _fout.write(reinterpret_cast<const char*>(this), sizeof(*this));
+        }
+
         //! read class data to file with binary format
         /*! @param[in] _fin: FILE type file for reading
          */
@@ -299,6 +315,14 @@ namespace H4{
             size_t rcount = fread(this, sizeof(*this),1,_fin);
             if (rcount<1) {
                 std::cerr<<"Error: Data reading fails! requiring data number is 1, only obtain "<<rcount<<".\n";
+                abort();
+            }
+        }
+
+        void readBinary(std::istream& _fin) {
+            _fin.read(reinterpret_cast<char*>(this), sizeof(*this));
+            if (!_fin) {
+                std::cerr<<"Error: Data reading fails! requiring data number is 1.\n";
                 abort();
             }
         }

@@ -376,6 +376,10 @@ namespace AR {
             fwrite(this, sizeof(*this),1,_fout);
         }
 
+        void writeBinary(std::ostream& _fout) const {
+            _fout.write(reinterpret_cast<const char*>(this), sizeof(*this));
+        }
+
         //! read class data with BINARY format and initial the array
         /*! @param[in] _fin: file IO for read
          */
@@ -390,6 +394,21 @@ namespace AR {
             ASSERT(sym_order_>=0);
             cd_pair_array_size_ = 0;            
         
+            int sym_n = (sym_type_==2)?-sym_order_:sym_order_;
+            if (sym_order_>0) initialSymplecticCofficients(sym_n);
+        }
+
+        void readBinary(std::istream& _fin) {
+            _fin.read(reinterpret_cast<char*>(this), sizeof(*this));
+            if (!_fin) {
+                std::cerr<<"Error: Data reading fails! requiring data number is 1.\n";
+                abort();
+            }
+
+            ASSERT(sym_type_==1||sym_type_==2);
+            ASSERT(sym_order_>=0);
+            cd_pair_array_size_ = 0;
+
             int sym_n = (sym_type_==2)?-sym_order_:sym_order_;
             if (sym_order_>0) initialSymplecticCofficients(sym_n);
         }

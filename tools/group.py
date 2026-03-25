@@ -70,27 +70,29 @@ class GroupInfo(DictNpArrayMix):
         Parameters
         ----------
         keyword arguments:
-            member_particle_type: type (HardParticle)
+            member_particle_type: type (HermiteParticle)
                 Type of component particle, do not change this!
-            interrupt_mode: string (none)
-               PeTar interrupt mode (set in configure): base, bse, mobse, none
-               This option indicates whether columns of stellar evolution exist
-            external_mode: string (none)
-               PeTar external mode (set in configure): galpy, agama, none 
-               This option indicates whether the column of externa potential exist
-            use_mpfrc: bool (False)
-               If true, add three columns of pos_high indicating the high-precision parts of position
             float_type: type (np.float64)
                 floating point data type
             N: int (2)
                 Number of members of one group
         """
-        keys=[['type',np.int64],['n',np.int64],['time',np.float64],['pos',(np.float64,3)],['vel',(np.float64,3)]]
+        keys=[['type',np.int32],['n',np.int32],['time',np.float64],['pos',(np.float64,3)],['vel',(np.float64,3)]]
         DictNpArrayMix.__init__(self, keys, _dat, _offset, _append, **kwargs)
 
         n=2
         if 'N' in kwargs.keys(): n = kwargs['N']
-        elif (_dat!=None) & (self.size>0): n = self.N[0]
+        elif (_dat!=None) & (self.size>0):
+            n = int(self.n[0])
+
+        if self.size > 0:
+            n_unique = np.unique(self.n.astype(int))
+            if n_unique.size > 1:
+                raise ValueError(
+                    'GroupInfo contains mixed member counts %s. '
+                    'Please read one N-member file at a time (e.g. *.group.[rank].nN).'
+                    % n_unique.tolist()
+                )
 
         keys_bin = [['bin'+str(i),BinaryTreeSDAR] for i in range(n-1)]
         DictNpArrayMix.__init__(self, keys_bin, _dat, _offset+self.ncols, True, **kwargs)

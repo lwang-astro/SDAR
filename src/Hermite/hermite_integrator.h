@@ -138,6 +138,24 @@ namespace H4{
 #endif
         }
 
+        void writeBinary(std::ostream& _fout) const {
+            _fout.write(reinterpret_cast<const char*>(&reinitialize_step_dm_criterion), sizeof(reinitialize_step_dm_criterion));
+            _fout.write(reinterpret_cast<const char*>(&reinitialize_step_de_criterion), sizeof(reinitialize_step_de_criterion));
+            _fout.write(reinterpret_cast<const char*>(&n_neighbor_max), sizeof(n_neighbor_max));
+    #ifdef HERMITE_ONLY_CALC_NEIGHBOR_FORCE
+            _fout.write(reinterpret_cast<const char*>(&kdtree_n_particles_min), sizeof(kdtree_n_particles_min));
+            _fout.write(reinterpret_cast<const char*>(&kdtree_r_ratio_limit), sizeof(kdtree_r_ratio_limit));
+    #endif
+            interaction.writeBinary(_fout);
+            step.writeBinary(_fout);
+    #ifdef ADJUST_GROUP_PRINT
+            const bool write_flag = group_info_output.isWriteEnabled();
+            const bool binary_flag = group_info_output.isBinary();
+            _fout.write(reinterpret_cast<const char*>(&write_flag), sizeof(bool));
+            _fout.write(reinterpret_cast<const char*>(&binary_flag), sizeof(bool));
+    #endif
+        }
+
         //! read class data to file with binary format
         /*! @param[in] _fin: FILE type file for reading
          */
@@ -182,6 +200,55 @@ namespace H4{
             rcount = fread(&binary_flag, sizeof(bool),1,_fin);
             if (rcount<1) {
                 std::cerr<<"Error: Data reading fails! requiring data number is 1, only obtain "<<rcount<<".\n";
+                abort();
+            }
+            group_info_output.close();
+            group_info_output.setWriteEnabled(write_flag);
+            group_info_output.setBinaryFlag(binary_flag);
+#endif
+        }
+
+        void readBinary(std::istream& _fin) {
+            _fin.read(reinterpret_cast<char*>(&reinitialize_step_dm_criterion), sizeof(reinitialize_step_dm_criterion));
+            if (!_fin) {
+                std::cerr<<"Error: Data reading fails! requiring data number is 1.\n";
+                abort();
+            }
+            _fin.read(reinterpret_cast<char*>(&reinitialize_step_de_criterion), sizeof(reinitialize_step_de_criterion));
+            if (!_fin) {
+                std::cerr<<"Error: Data reading fails! requiring data number is 1.\n";
+                abort();
+            }
+            _fin.read(reinterpret_cast<char*>(&n_neighbor_max), sizeof(n_neighbor_max));
+            if (!_fin) {
+                std::cerr<<"Error: Data reading fails! requiring data number is 1.\n";
+                abort();
+            }
+#ifdef HERMITE_ONLY_CALC_NEIGHBOR_FORCE
+            _fin.read(reinterpret_cast<char*>(&kdtree_n_particles_min), sizeof(kdtree_n_particles_min));
+            if (!_fin) {
+                std::cerr<<"Error: Data reading fails! requiring data number is 1.\n";
+                abort();
+            }
+            _fin.read(reinterpret_cast<char*>(&kdtree_r_ratio_limit), sizeof(kdtree_r_ratio_limit));
+            if (!_fin) {
+                std::cerr<<"Error: Data reading fails! requiring data number is 1.\n";
+                abort();
+            }
+#endif
+            interaction.readBinary(_fin);
+            step.readBinary(_fin);
+#ifdef ADJUST_GROUP_PRINT
+            bool write_flag;
+            bool binary_flag;
+            _fin.read(reinterpret_cast<char*>(&write_flag), sizeof(bool));
+            if (!_fin) {
+                std::cerr<<"Error: Data reading fails! requiring data number is 1.\n";
+                abort();
+            }
+            _fin.read(reinterpret_cast<char*>(&binary_flag), sizeof(bool));
+            if (!_fin) {
+                std::cerr<<"Error: Data reading fails! requiring data number is 1.\n";
                 abort();
             }
             group_info_output.close();

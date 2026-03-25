@@ -204,6 +204,13 @@ namespace AR {
             step.writeBinary(_fout);
         }
 
+        void writeBinary(std::ostream& _fout) const {
+            size_t size = sizeof(*this) - sizeof(interaction) - sizeof(step);
+            _fout.write(reinterpret_cast<const char*>(this), size);
+            interaction.writeBinary(_fout);
+            step.writeBinary(_fout);
+        }
+
         //! read class data with BINARY format and initial the array
         /*! @param[in] _fin: file IO for read
          */
@@ -212,6 +219,17 @@ namespace AR {
             size_t rcount = fread(this, size, 1, _fin);
             if (rcount<1) {
                 std::cerr<<"Error: TimeTransformedSymplecticManager parameter reading fails! requiring data number is 1, only obtain "<<rcount<<".\n";
+                abort();
+            }
+            interaction.readBinary(_fin);
+            step.readBinary(_fin);
+        }
+
+        void readBinary(std::istream& _fin) {
+            size_t size = sizeof(*this) - sizeof(interaction) - sizeof(step);
+            _fin.read(reinterpret_cast<char*>(this), size);
+            if (!_fin) {
+                std::cerr<<"Error: TimeTransformedSymplecticManager parameter reading fails! requiring data number is 1.\n";
                 abort();
             }
             interaction.readBinary(_fin);
@@ -4051,6 +4069,30 @@ namespace AR {
             profile.writeBinary(_fout);
         }
 
+        void writeBinary(std::ostream& _fout) {
+            _fout.write(reinterpret_cast<const char*>(&time_), sizeof(Float));
+            _fout.write(reinterpret_cast<const char*>(&etot_ref_), sizeof(Float));
+            _fout.write(reinterpret_cast<const char*>(&ekin_), sizeof(Float));
+            _fout.write(reinterpret_cast<const char*>(&epot_), sizeof(Float));
+#ifdef AR_TTL
+            _fout.write(reinterpret_cast<const char*>(&gt_drift_inv_), sizeof(Float));
+#endif
+            int size = force_.getSize();
+            _fout.write(reinterpret_cast<const char*>(&size), sizeof(int));
+            for (int i=0; i<size; i++) force_[i].writeBinary(_fout);
+
+#ifdef USE_CM_FRAME
+            int n_particle = particles.getSize();
+            _fout.write(reinterpret_cast<const char*>(&n_particle), sizeof(int));
+            info.getBinaryTreeRoot().writeMemberBinaryIter(_fout);
+#else
+            particles.writeBinary(_fout);
+#endif
+            perturber.writeBinary(_fout);
+            info.writeBinary(_fout);
+            profile.writeBinary(_fout);
+        }
+
         //! read class data with BINARY format and initial the array
         /*! @param[in] _fin: file IO for read
          */
@@ -4087,6 +4129,46 @@ namespace AR {
                 for (int i=0; i<size; i++) force_[i].readBinary(_fin);
             }
             
+            particles.setMode(COMM::ListMode::local);
+            particles.readBinary(_fin);
+            perturber.readBinary(_fin);
+            info.readBinary(_fin);
+            profile.readBinary(_fin);
+        }
+
+        void readBinary(std::istream& _fin) {
+            _fin.read(reinterpret_cast<char*>(&time_), sizeof(Float));
+            _fin.read(reinterpret_cast<char*>(&etot_ref_), sizeof(Float));
+            _fin.read(reinterpret_cast<char*>(&ekin_), sizeof(Float));
+            _fin.read(reinterpret_cast<char*>(&epot_), sizeof(Float));
+            if (!_fin) {
+                std::cerr<<"Error: Data reading fails! requiring data number is 4.\n";
+                abort();
+            }
+#ifdef AR_TTL
+            _fin.read(reinterpret_cast<char*>(&gt_drift_inv_), sizeof(Float));
+            if (!_fin) {
+                std::cerr<<"Error: Data reading fails! requiring data number is 1.\n";
+                abort();
+            }
+#endif
+            int size;
+            _fin.read(reinterpret_cast<char*>(&size), sizeof(int));
+            if (!_fin) {
+                std::cerr<<"Error: Data reading fails! requiring data number is 1.\n";
+                abort();
+            }
+            if(size<0) {
+                std::cerr<<"Error: array size <0 "<<size<<"<=0!\n";
+                abort();
+            }
+            if (size>0) {
+                force_.setMode(COMM::ListMode::local);
+                force_.reserveMem(size);
+                force_.resizeNoInitialize(size);
+                for (int i=0; i<size; i++) force_[i].readBinary(_fin);
+            }
+
             particles.setMode(COMM::ListMode::local);
             particles.readBinary(_fin);
             perturber.readBinary(_fin);

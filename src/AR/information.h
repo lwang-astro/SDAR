@@ -18,6 +18,10 @@ namespace AR {
             fwrite(this, sizeof(*this),1,_fp);
         }
 
+        void writeBinary(std::ostream& _fout) const {
+            _fout.write(reinterpret_cast<const char*>(this), sizeof(*this));
+        }
+
         //! read class data to file with binary format
         /*! @param[in] _fin FILE type file for reading
          */
@@ -25,6 +29,14 @@ namespace AR {
             size_t rcount = fread(this, sizeof(*this),1,_fin);
             if (rcount<1) {
                 std::cerr<<"Error: Data reading fails! requiring data number is 1, only obtain "<<rcount<<".\n";
+                abort();
+            }
+        }
+
+        void readBinary(std::istream& _fin) {
+            _fin.read(reinterpret_cast<char*>(this), sizeof(*this));
+            if (!_fin) {
+                std::cerr<<"Error: Data reading fails! requiring data number is 1.\n";
                 abort();
             }
         }
@@ -554,6 +566,13 @@ namespace AR {
             fwrite(&fix_step_option, sizeof(FixStepOption),1,_fout);
         }
 
+        void writeBinary(std::ostream& _fout) const {
+            _fout.write(reinterpret_cast<const char*>(&ds), sizeof(int));
+            _fout.write(reinterpret_cast<const char*>(&time_offset), sizeof(Float));
+            _fout.write(reinterpret_cast<const char*>(&r_break_crit), sizeof(Float));
+            _fout.write(reinterpret_cast<const char*>(&fix_step_option), sizeof(FixStepOption));
+        }
+
         //! read class data to file with binary format
         /*! @param[in] _fin: FILE type file for reading
          */
@@ -579,6 +598,29 @@ namespace AR {
                 abort();
             }
         }    
+
+        void readBinary(std::istream& _fin) {
+            _fin.read(reinterpret_cast<char*>(&ds), sizeof(int));
+            if (!_fin) {
+                std::cerr<<"Error: Data reading fails! requiring data number is 1.\n";
+                abort();
+            }
+            _fin.read(reinterpret_cast<char*>(&time_offset), sizeof(Float));
+            if (!_fin) {
+                std::cerr<<"Error: Data reading fails! requiring data number is 1.\n";
+                abort();
+            }
+            _fin.read(reinterpret_cast<char*>(&r_break_crit), sizeof(Float));
+            if (!_fin) {
+                std::cerr<<"Error: Data reading fails! requiring data number is 1.\n";
+                abort();
+            }
+            _fin.read(reinterpret_cast<char*>(&fix_step_option), sizeof(FixStepOption));
+            if (!_fin) {
+                std::cerr<<"Error: Data reading fails! requiring data number is 1.\n";
+                abort();
+            }
+        }
     };
 
 }

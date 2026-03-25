@@ -83,6 +83,14 @@ namespace COMM {
             cm.writeBinary(_fout);
         }
 
+        void writeBinary(std::ostream& _fout) {
+            int num = TList::num_;
+            _fout.write(reinterpret_cast<const char*>(&num), sizeof(int));
+            for (int i=0; i<TList::num_; i++) TList::data_[i].writeBinary(_fout);
+            _fout.write(reinterpret_cast<const char*>(&origin_frame_flag), sizeof(bool));
+            cm.writeBinary(_fout);
+        }
+
         ////! write particle data to files (notice original address is lost)
         ///*! write particle data into file with ASCII format. Number of particles is written first, then the data of particles 
         //  @param [in] _fout: FILE IO for writing
@@ -125,6 +133,31 @@ namespace COMM {
             TList::num_ = n_new;
             rn = fread(&origin_frame_flag, sizeof(bool), 1, _fin);
             if(rn<1) {
+                std::cerr<<"Error: cannot read origin_frame_flag!\n";
+                abort();
+            }
+            cm.readBinary(_fin);
+        }
+
+        void readBinary(std::istream& _fin) {
+            ASSERT(TList::mode_==ListMode::local);
+            ASSERT(TList::num_==0);
+            ASSERT(TList::nmax_==0);
+            int n_new;
+            _fin.read(reinterpret_cast<char*>(&n_new), sizeof(int));
+            if (!_fin) {
+                std::cerr<<"Error: cannot read particle number!\n";
+                abort();
+            }
+            if(n_new<=0) {
+                std::cerr<<"Error: reading particle number "<<n_new<<"<=0!\n";
+                abort();
+            }
+            TList::reserveMem(n_new);
+            for (int i=0; i<n_new; i++) TList::data_[i].readBinary(_fin);
+            TList::num_ = n_new;
+            _fin.read(reinterpret_cast<char*>(&origin_frame_flag), sizeof(bool));
+            if (!_fin) {
                 std::cerr<<"Error: cannot read origin_frame_flag!\n";
                 abort();
             }

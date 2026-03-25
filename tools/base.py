@@ -796,7 +796,42 @@ class DictNpArrayMix:
         kwargs: dict
             keyword arguments for numpy.fromfile, notice dtype is already defined, do not provide that
         """
-        dt = self.collectDtype()
+        dt = np.dtype(self.collectDtype())
+
+        # For binary mode (default), validate whether the file byte length aligns with one record size.
+        # This catches truncated/corrupted files before numpy silently returns a smaller array.
+        sep = kwargs.get('sep', '')
+        if sep == '':
+            offset = int(kwargs.get('offset', 0))
+            if (offset < 0):
+                raise ValueError('offset must be >= 0, given %d' % offset)
+
+            count = int(kwargs.get('count', -1))
+            if (count < -1):
+                raise ValueError('count must be >= -1, given %d' % count)
+
+            file_size = None
+            if isinstance(fname, (str, bytes)):
+                import os
+                file_size = os.path.getsize(fname)
+            elif hasattr(fname, 'fileno'):
+                import os
+                file_size = os.fstat(fname.fileno()).st_size
+
+            if file_size is not None:
+                if (offset > file_size):
+                    raise ValueError('offset (%d) is larger than file size (%d)' % (offset, file_size))
+
+                data_nbytes = file_size - offset
+                itemsize = dt.itemsize
+                remaining = data_nbytes % itemsize
+                if (remaining != 0):
+                    warnings.warn('Binary file size (%d bytes after offset) is not aligned with dtype itemsize (%d bytes), remaining (%d bytes). File may be truncated or dtype definition mismatches data format.' % (data_nbytes, itemsize, remaining))
+
+                n_item_avail = data_nbytes // itemsize
+                if (count >= 0) and (count > n_item_avail):
+                    raise ValueError('Requested count (%d) exceeds available records (%d) after applying offset.' % (count, n_item_avail))
+
         dat_int = np.fromfile(fname, dtype=dt, **kwargs)
         self.readArrayWithName(dat_int, '', **kwargs)
 

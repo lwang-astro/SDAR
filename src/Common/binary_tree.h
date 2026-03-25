@@ -437,6 +437,10 @@ namespace COMM{
             fwrite(this, sizeof(*this),1,_fp);
         }
 
+        void writeBinary(std::ostream& _fout) const {
+            _fout.write(reinterpret_cast<const char*>(this), sizeof(*this));
+        }
+
         //! read class data to file with binary format
         /*! @param[in] _fin: FILE type file for reading
          */
@@ -444,6 +448,14 @@ namespace COMM{
             size_t rcount = fread(this, sizeof(*this),1,_fin);
             if (rcount<1) {
                 std::cerr<<"Error: Data reading fails! requiring data number is 1, only obtain "<<rcount<<".\n";
+                abort();
+            }
+        }
+
+        void readBinary(std::istream& _fin) {
+            _fin.read(reinterpret_cast<char*>(this), sizeof(*this));
+            if (!_fin) {
+                std::cerr<<"Error: Data reading fails! requiring data number is 1.\n";
                 abort();
             }
         }
@@ -1240,6 +1252,45 @@ namespace COMM{
             }
         }
 
+        void writeMemberBinaryIter(std::ostream& _fout, const Float* _pos_up=NULL, const Float* _vel_up=NULL) const {
+            if (isOriginFrame()) {
+                for (int k=0; k<2; k++)
+                    if (isMemberTree(k)) getMemberAsTree(k)->writeMemberBinaryIter(_fout);
+                    else member[k]->writeBinary(_fout);
+            }
+            else {
+                for (int k=0; k<2; k++)
+                    if (isMemberTree(k)) {
+                        auto* bink = getMemberAsTree(k);
+                        if (_pos_up) {
+                            ASSERT(_vel_up);
+                            Float pos[3] = {bink->pos[0] + _pos_up[0],
+                                            bink->pos[1] + _pos_up[1],
+                                            bink->pos[2] + _pos_up[2]};
+                            Float vel[3] = {bink->vel[0] + _vel_up[0],
+                                            bink->vel[1] + _vel_up[1],
+                                            bink->vel[2] + _vel_up[2]};
+                            bink->writeMemberBinaryIter(_fout, pos, vel);
+                        }
+                        else bink->writeMemberBinaryIter(_fout, &(bink->pos[0]), &(bink->vel[0]));
+                    }
+                    else {
+                        if (_pos_up) {
+                            ASSERT(_vel_up);
+                            Tptcl pk = *member[k];
+                            pk.pos[0] += _pos_up[0];
+                            pk.pos[1] += _pos_up[1];
+                            pk.pos[2] += _pos_up[2];
+                            pk.vel[0] += _vel_up[0];
+                            pk.vel[1] += _vel_up[1];
+                            pk.vel[2] += _vel_up[2];
+                            pk.writeBinary(_fout);
+                        }
+                        else member[k]->writeBinary(_fout);
+                    }
+            }
+        }
+
         //! write binary-tree information in BINARY format iteratively
         /*! Binary node data are written in the same pre-order sequence as printBinaryTreeIter.
           @param[in] _fp: FILE type file for output
@@ -1257,11 +1308,8 @@ namespace COMM{
           @param[in,out] _fout: stream output in binary mode
          */
         void writeBinaryTreeIter(std::ostream& _fout) const {
-            const Tbinary* bin_ptr = static_cast<const Tbinary*>(this);
-            _fout.write(reinterpret_cast<const char*>(bin_ptr), sizeof(Tbinary));
-            for (int k=0; k<2; k++) {
-                _fout.write(reinterpret_cast<const char*>(member[k]), sizeof(Tptcl));
-            }
+            Tbinary::writeBinary(_fout);
+            for (int k=0; k<2; k++) member[k]->writeBinary(_fout);
             for (int k=0; k<2; k++) {
                 if (isMemberTree(k)) getMemberAsTree(k)->writeBinaryTreeIter(_fout);
             }
