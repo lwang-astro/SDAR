@@ -69,7 +69,7 @@ namespace H4 {
           @param[out] _fout: std::ostream output object
           @param[in] _width: print width (defaulted 20)
         */
-        void printColumnTitle(std::ostream & _fout, const int _width=20) {
+        void printColumnTitleAscii(std::ostream & _fout, const int _width=20) {
             _fout<<std::setw(_width)<<"r_min_index"
                  <<std::setw(_width)<<"mass_min_index"
                  <<std::setw(_width)<<"r_min_sq"
@@ -87,7 +87,7 @@ namespace H4 {
           @param[out] _fout: std::ostream output object
           @param[in] _width: print width (defaulted 20)
         */
-        void printColumn(std::ostream & _fout, const int _width=20){
+        void printColumnAscii(std::ostream & _fout, const int _width=20){
             _fout<<std::setw(_width)<<r_min_index
                  <<std::setw(_width)<<mass_min_index
                  <<std::setw(_width)<<r_min_sq

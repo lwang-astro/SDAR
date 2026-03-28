@@ -42,9 +42,9 @@ namespace AR {
           @param[out] _fout: std::ostream output object
           @param[in] _width: print width (defaulted 20)
         */
-        static void printColumnTitle(std::ostream & _fout, const int _width=20) {
-            Binary::printColumnTitle(_fout, _width);
-            SlowDown::printColumnTitle(_fout,_width);
+        static void printColumnTitleAscii(std::ostream & _fout, const int _width=20) {
+            Binary::printColumnTitleAscii(_fout, _width);
+            SlowDown::printColumnTitleAscii(_fout,_width);
         }
 
         //! print data of class members using column style
@@ -52,9 +52,9 @@ namespace AR {
           @param[out] _fout: std::ostream output object
           @param[in] _width: print width (defaulted 20)
         */
-        void printColumn(std::ostream & _fout, const int _width=20){
-            Binary::printColumn(_fout, _width);
-            slowdown.printColumn(_fout,_width);
+        void printColumnAscii(std::ostream & _fout, const int _width=20){
+            Binary::printColumnAscii(_fout, _width);
+            slowdown.printColumnAscii(_fout,_width);
         }
 
         //! write class data to file with ASCII format
@@ -535,7 +535,7 @@ namespace AR {
           @param[out] _fout: std::ostream output object
           @param[in] _width: print width (defaulted 20)
         */
-        void printColumnTitle(std::ostream & _fout, const int _width=20) {
+        void printColumnTitleAscii(std::ostream & _fout, const int _width=20) {
             _fout<<std::setw(_width)<<"ds";
             _fout<<std::setw(_width)<<"Time_offset";
             _fout<<std::setw(_width)<<"r_break_crit";
@@ -546,7 +546,7 @@ namespace AR {
           @param[out] _fout: std::ostream output object
           @param[in] _width: print width (defaulted 20)
         */
-        void printColumn(std::ostream & _fout, const int _width=20){
+        void printColumnAscii(std::ostream & _fout, const int _width=20){
             _fout<<std::setw(_width)<<ds;
             _fout<<std::setw(_width)<<time_offset;
             _fout<<std::setw(_width)<<r_break_crit;

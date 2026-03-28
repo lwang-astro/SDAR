@@ -228,7 +228,7 @@ namespace AR{
           @param[out] _fout: std::ostream output object
           @param[in] _width: print width (defaulted 20)
         */
-        static void printColumnTitle(std::ostream & _fout, const int _width=20) {
+        static void printColumnTitleAscii(std::ostream & _fout, const int _width=20) {
             _fout<<std::setw(_width)<<"SD_factor"
                  <<std::setw(_width)<<"SD_factor_org"
                  <<std::setw(_width)<<"SD_factor_max";
@@ -239,7 +239,7 @@ namespace AR{
           @param[out] _fout: std::ostream output object
           @param[in] _width: print width (defaulted 20)
         */
-        void printColumn(std::ostream & _fout, const int _width=20){
+        void printColumnAscii(std::ostream & _fout, const int _width=20){
             _fout<<std::setw(_width)<<kappa_
                  <<std::setw(_width)<<kappa_org_
                  <<std::setw(_width)<<kappa_max_;

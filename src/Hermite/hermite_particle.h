@@ -111,8 +111,8 @@ namespace H4{
           @param[out] _fout: std::ostream output object
           @param[in] _width: print width (defaulted 20)
         */
-        void printColumnTitle(std::ostream & _fout, const int _width=20) {
-            Tparticle::printColumnTitle(_fout, _width);
+        void printColumnTitleAscii(std::ostream & _fout, const int _width=20) {
+            Tparticle::printColumnTitleAscii(_fout, _width);
             _fout<<std::setw(_width)<<"dt"
                  <<std::setw(_width)<<"time"
                  <<std::setw(_width)<<"acc0.x"
@@ -137,8 +137,8 @@ namespace H4{
           @param[out] _fout: std::ostream output object
           @param[in] _width: print width (defaulted 20)
         */
-        void printColumn(std::ostream & _fout, const int _width=20){
-            Tparticle::printColumn(_fout, _width);
+        void printColumnAscii(std::ostream & _fout, const int _width=20){
+            Tparticle::printColumnAscii(_fout, _width);
             _fout<<std::setw(_width)<<dt
                  <<std::setw(_width)<<time
                  <<std::setw(_width)<<acc0[0]
@@ -199,7 +199,7 @@ namespace H4{
           @param[out] _fout: std::ostream output object
           @param[in] _width: print width (defaulted 20)
         */
-        void printColumnTitle(std::ostream & _fout, const int _width=20) {
+        void printColumnTitleAscii(std::ostream & _fout, const int _width=20) {
             _fout<<std::setw(_width)<<"acc0.x"
                  <<std::setw(_width)<<"acc0.y"
                  <<std::setw(_width)<<"acc0.z"
@@ -214,7 +214,7 @@ namespace H4{
           @param[out] _fout: std::ostream output object
           @param[in] _width: print width (defaulted 20)
         */
-        void printColumn(std::ostream & _fout, const int _width=20) {
+        void printColumnAscii(std::ostream & _fout, const int _width=20) {
             _fout<<std::setw(_width)<<acc0[0]
                  <<std::setw(_width)<<acc0[1]
                  <<std::setw(_width)<<acc0[2]

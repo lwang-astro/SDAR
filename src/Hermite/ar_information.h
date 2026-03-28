@@ -54,8 +54,8 @@ namespace H4{
           @param[out] _fout: std::ostream output object
           @param[in] _width: print width (defaulted 20)
         */
-        void printColumnTitle(std::ostream & _fout, const int _width=20) {
-            ARInfoBase::printColumnTitle(_fout, _width);
+        void printColumnTitleAscii(std::ostream & _fout, const int _width=20) {
+            ARInfoBase::printColumnTitleAscii(_fout, _width);
             _fout<<std::setw(_width)<<"dt_limit";
         }
 
@@ -64,8 +64,8 @@ namespace H4{
           @param[out] _fout: std::ostream output object
           @param[in] _width: print width (defaulted 20)
         */
-        void printColumn(std::ostream & _fout, const int _width=20){
-            ARInfoBase::printColumn(_fout, _width);
+        void printColumnAscii(std::ostream & _fout, const int _width=20){
+            ARInfoBase::printColumnAscii(_fout, _width);
             _fout<<std::setw(_width)<<dt_limit;
         }
 

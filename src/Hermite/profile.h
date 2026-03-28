@@ -55,7 +55,7 @@ namespace H4{
           @param[out] _fout: std::ostream output object
           @param[in] _width: print width (defaulted 20)
         */
-        void printColumnTitle(std::ostream & _fout, const int _width=20) {
+        void printColumnTitleAscii(std::ostream & _fout, const int _width=20) {
             _fout<<std::setw(_width)<<"H4_step_single"
                  <<std::setw(_width)<<"H4_step_group"
                  <<std::setw(_width)<<"H4_force_single"
@@ -82,7 +82,7 @@ namespace H4{
           @param[out] _fout: std::ostream output object
           @param[in] _width: print width (defaulted 20)
         */
-        void printColumn(std::ostream & _fout, const int _width=20){
+        void printColumnAscii(std::ostream & _fout, const int _width=20){
             _fout<<std::setw(_width)<<hermite_single_step_count
                  <<std::setw(_width)<<hermite_group_step_count
                  <<std::setw(_width)<<hermite_single_interact_count

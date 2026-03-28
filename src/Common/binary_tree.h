@@ -388,7 +388,7 @@ namespace COMM{
           @param[out] _fout: std::ostream output object
           @param[in] _width: print width (defaulted 20)
         */
-        static void printColumnTitle(std::ostream & _fout, const int _width=20) {
+        static void printColumnTitleAscii(std::ostream & _fout, const int _width=20) {
             _fout<<std::setw(_width)<<"semi"
                  <<std::setw(_width)<<"ecc"
                  <<std::setw(_width)<<"incline"
@@ -411,7 +411,7 @@ namespace COMM{
           @param[out] _fout: std::ostream output object
           @param[in] _width: print width (defaulted 20)
         */
-        void printColumn(std::ostream & _fout, const int _width=20){
+        void printColumnAscii(std::ostream & _fout, const int _width=20){
             _fout<<std::setw(_width)<<semi
                  <<std::setw(_width)<<ecc
                  <<std::setw(_width)<<incline
@@ -1132,9 +1132,9 @@ namespace COMM{
           @param[out] _fout: std::ostream output object
           @param[in] _width: print width (defaulted 20)
         */
-        static void printColumnTitle(std::ostream & _fout, const int _width=20) {
-            Tptcl::printColumnTitle(_fout, _width);
-            Tbinary::printColumnTitle(_fout, _width);
+        static void printColumnTitleAscii(std::ostream & _fout, const int _width=20) {
+            Tptcl::printColumnTitleAscii(_fout, _width);
+            Tbinary::printColumnTitleAscii(_fout, _width);
         }
 
         //! print data of class members using column style
@@ -1142,9 +1142,9 @@ namespace COMM{
           @param[out] _fout: std::ostream output object
           @param[in] _width: print width (defaulted 20)
         */
-        void printColumn(std::ostream & _fout, const int _width=20){
-            Tptcl::printColumn(_fout, _width);
-            Tbinary::printColumn(_fout, _width);
+        void printColumnAscii(std::ostream & _fout, const int _width=20){
+            Tptcl::printColumnAscii(_fout, _width);
+            Tbinary::printColumnAscii(_fout, _width);
         }
 
         //! write class data to file with ASCII format
@@ -1173,7 +1173,7 @@ namespace COMM{
             if (isOriginFrame()) {
                 for (int k=0; k<2; k++) 
                     if (isMemberTree(k)) getMemberAsTree(k)->printMemberIter(_fout, _width);
-                    else member[k]->printColumn(_fout, _width);
+                    else member[k]->printColumnAscii(_fout, _width);
             }
             else {
                 for (int k=0; k<2; k++) 
@@ -1201,9 +1201,9 @@ namespace COMM{
                             pk.vel[0] += _vel_up[0];
                             pk.vel[1] += _vel_up[1];
                             pk.vel[2] += _vel_up[2];
-                            pk.printColumn(_fout, _width);
+                            pk.printColumnAscii(_fout, _width);
                         }
-                        else member[k]->printColumn(_fout, _width);
+                        else member[k]->printColumnAscii(_fout, _width);
                     }
             }
         }
@@ -1317,15 +1317,15 @@ namespace COMM{
 
         //! print binary and member information
         void printBinaryTreeIter(std::ostream & _fout, const int _width=20){
-            Tbinary::printColumn(_fout, _width);
-            for (int k=0; k<2; k++) member[k]->printColumn(_fout,_width);
+            Tbinary::printColumnAscii(_fout, _width);
+            for (int k=0; k<2; k++) member[k]->printColumnAscii(_fout,_width);
             for (int k=0; k<2; k++) 
                 if (isMemberTree(k)) getMemberAsTree(k)->printBinaryTreeIter(_fout, _width);
         }
 
         //! print binary function
         void printBinaryIter(std::ostream & _fout, const int _width=20){
-            printColumn(_fout, _width);
+            printColumnAscii(_fout, _width);
             for (int k=0; k<2; k++) {
                 if (isMemberTree(k)) getMemberAsTree(k)->printBinaryIter(_fout, _width);
             }

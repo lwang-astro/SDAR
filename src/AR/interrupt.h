@@ -97,14 +97,14 @@ namespace AR {
           @param[in] _width: print width (defaulted: 20)
           @param[in] print_member_flag: if true, print two members (defaulted: false)
         */
-        static void printColumnTitle(std::ostream & _fout, const int _width=20, const bool print_member_flag=false) {
+        static void printColumnTitleAscii(std::ostream & _fout, const int _width=20, const bool print_member_flag=false) {
             _fout<<std::setw(_width)<<"time_now"
                  <<std::setw(_width)<<"time_end"
                  <<std::setw(_width)<<"status";
-            AR::BinaryTree<Tparticle>::printColumnTitle(_fout, _width);
+            AR::BinaryTree<Tparticle>::printColumnTitleAscii(_fout, _width);
             if (print_member_flag) {
-                Tparticle::printColumnTitle(_fout, _width);
-                Tparticle::printColumnTitle(_fout, _width);
+                Tparticle::printColumnTitleAscii(_fout, _width);
+                Tparticle::printColumnTitleAscii(_fout, _width);
             }
         }
 
@@ -114,14 +114,14 @@ namespace AR {
           @param[in] _width: print width (defaulted 20)
           @param[in] print_member_flag: if true, print two members (defaulted: false)
         */
-        void printColumn(std::ostream & _fout, const int _width=20, const bool print_member_flag=false) {
+        void printColumnAscii(std::ostream & _fout, const int _width=20, const bool print_member_flag=false) {
             _fout<<std::setw(_width)<<time_now
                  <<std::setw(_width)<<time_end
                  <<std::setw(_width)<<int(status);
-            adr->printColumn(_fout, _width);
+            adr->printColumnAscii(_fout, _width);
             if (print_member_flag) {
                 for (int j=0; j<2; j++) 
-                    adr->getMember(j)->printColumn(_fout, _width);
+                    adr->getMember(j)->printColumnAscii(_fout, _width);
             }
         }
 

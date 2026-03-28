@@ -98,11 +98,11 @@ namespace H4{
           @param[out] _fout: std::ostream output object
           @param[in] _width: print width (defaulted 20)
         */
-        void printColumnTitle(std::ostream & _fout, const int _width=20) {
+        void printColumnTitleAscii(std::ostream & _fout, const int _width=20) {
             _fout<<std::setw(_width)<<"reinit_dm_crit"
                  <<std::setw(_width)<<"reinit_de_crit";
-            interaction.printColumnTitle(_fout, _width);
-            step.printColumnTitle(_fout, _width);
+            interaction.printColumnTitleAscii(_fout, _width);
+            step.printColumnTitleAscii(_fout, _width);
         }
 
         //! print data of class members using column style
@@ -110,11 +110,11 @@ namespace H4{
           @param[out] _fout: std::ostream output object
           @param[in] _width: print width (defaulted 20)
         */
-        void printColumn(std::ostream & _fout, const int _width=20){
+        void printColumnAscii(std::ostream & _fout, const int _width=20){
             _fout<<std::setw(_width)<<reinitialize_step_dm_criterion
                  <<std::setw(_width)<<reinitialize_step_de_criterion;
-            interaction.printColumn(_fout, _width);
-            step.printColumn(_fout, _width);
+            interaction.printColumnAscii(_fout, _width);
+            step.printColumnAscii(_fout, _width);
         }
 
         //! write class data to file with binary format
@@ -293,7 +293,7 @@ namespace H4{
           @param[out] _fout: std::ostream output object
           @param[in] _width: print width (defaulted 20)
         */
-        void printColumnTitle(std::ostream & _fout, const int _width=20) {
+        void printColumnTitleAscii(std::ostream & _fout, const int _width=20) {
             _fout<<std::setw(_width)<<"dE"
                  <<std::setw(_width)<<"Etot_ref"
                  <<std::setw(_width)<<"Ekin"
@@ -309,7 +309,7 @@ namespace H4{
           @param[out] _fout: std::ostream output object
           @param[in] _width: print width (defaulted 20)
         */
-        void printColumn(std::ostream & _fout, const int _width=20){
+        void printColumnAscii(std::ostream & _fout, const int _width=20){
             _fout<<std::setw(_width)<<getEnergyError()
                  <<std::setw(_width)<<etot_ref
                  <<std::setw(_width)<<ekin
@@ -1518,9 +1518,9 @@ namespace H4{
                     std::cerr<<group_new.info.particle_index[k]<<" ";
                 std::cerr<<"r_break_crit: "<<group_new.info.r_break_crit;
                 std::cerr<<std::endl;
-                bin.printColumnTitle(std::cerr);
+                bin.printColumnTitleAscii(std::cerr);
                 std::cerr<<std::endl;
-                bin.printColumn(std::cerr);
+                bin.printColumnAscii(std::cerr);
                 std::cerr<<std::endl;
 #endif
 
@@ -2686,9 +2686,9 @@ namespace H4{
                             break;
                         }
                         std::cerr<<std::endl;
-                        interrupt_binary.printColumnTitle(std::cerr);
+                        interrupt_binary.printColumnTitleAscii(std::cerr);
                         std::cerr<<std::endl;
-                        interrupt_binary.printColumn(std::cerr);
+                        interrupt_binary.printColumnAscii(std::cerr);
                         std::cerr<<std::endl;
 #endif
                         // particle cm is the old cm in original frame
@@ -3489,7 +3489,7 @@ namespace H4{
           @param[in] _n_group: total AR group number
           @param[in] _n_sd_tot: total slowdown numbers
         */
-        void printColumnTitle(std::ostream & _fout, const int _width, const int _n_sd_list[], const int _n_group, const int _n_sd_tot) {
+        void printColumnTitleAscii(std::ostream & _fout, const int _width, const int _n_sd_list[], const int _n_group, const int _n_sd_tot) {
             _fout<<std::setw(_width)<<"Time"
                  <<std::setw(_width)<<"Time_offset"
                  <<std::setw(_width)<<"dE"
@@ -3515,14 +3515,14 @@ namespace H4{
             for (int i=0; i<_n_group; i++) {
                 n_sd_count += _n_sd_list[i];
                 for (int j=0; j<_n_sd_list[i]; j++) 
-                    sd_empty.printColumnTitle(_fout, _width);
+                    sd_empty.printColumnTitleAscii(_fout, _width);
             }
             ASSERT(_n_sd_tot == n_sd_count);
 #endif
-            perturber.printColumnTitle(_fout, _width);
-            info.printColumnTitle(_fout, _width);
-            profile.printColumnTitle(_fout, _width);
-            particles.printColumnTitle(_fout, _width);
+            perturber.printColumnTitleAscii(_fout, _width);
+            info.printColumnTitleAscii(_fout, _width);
+            profile.printColumnTitleAscii(_fout, _width);
+            particles.printColumnTitleAscii(_fout, _width);
         }    
 
         //! print data of class members using column style
@@ -3533,11 +3533,11 @@ namespace H4{
           @param[in] _n_group: total AR group number
           @param[in] _n_sd_tot: total slowdown numbers
         */
-        void printColumn(std::ostream & _fout, const int _width, const int _n_sd_list[], const int _n_group, const int _n_sd_tot){
+        void printColumnAscii(std::ostream & _fout, const int _width, const int _n_sd_list[], const int _n_group, const int _n_sd_tot){
             _fout<<std::setw(_width)<<time_
                  <<std::setw(_width)<<time_offset_;
-            energy_.printColumn(_fout, _width);
-            energy_sd_.printColumn(_fout, _width);
+            energy_.printColumnAscii(_fout, _width);
+            energy_sd_.printColumnAscii(_fout, _width);
             _fout<<std::setw(_width)<<_n_sd_tot;
             AR::SlowDown sd_empty;
             int n_group_now = groups.getSize();
@@ -3550,28 +3550,28 @@ namespace H4{
 #ifdef AR_SLOWDOWN_ARRAY
                     int n_sd_in = gi.binary_slowdown.getSize();
                     for (int j=0; j<_n_sd_list[i]; j++) {
-                        if (j<n_sd_in) gi.binary_slowdown[j]->slowdown.printColumn(_fout, _width);
-                        else sd_empty.printColumn(_fout, _width);
+                        if (j<n_sd_in) gi.binary_slowdown[j]->slowdown.printColumnAscii(_fout, _width);
+                        else sd_empty.printColumnAscii(_fout, _width);
                     }
 #else
                     int n_sd_in = gi.info.binarytree.getSize();
                     for (int j=0; j<_n_sd_list[i]; j++) {
-                        if (j<n_sd_in) gi.info.binarytree[j].slowdown.printColumn(_fout, _width);
-                        else sd_empty.printColumn(_fout, _width);
+                        if (j<n_sd_in) gi.info.binarytree[j].slowdown.printColumnAscii(_fout, _width);
+                        else sd_empty.printColumnAscii(_fout, _width);
                     }
 #endif
                 }
                 else {
-                    for (int j=0; j<_n_sd_list[i]; j++) sd_empty.printColumn(_fout, _width);
-                    sd_empty.printColumn(_fout, _width);
+                    for (int j=0; j<_n_sd_list[i]; j++) sd_empty.printColumnAscii(_fout, _width);
+                    sd_empty.printColumnAscii(_fout, _width);
                 }
             }
             ASSERT(_n_sd_tot == n_sd_count);
 #endif
-            perturber.printColumn(_fout, _width);
-            info.printColumn(_fout, _width);
-            profile.printColumn(_fout, _width);
-            particles.printColumn(_fout, _width);
+            perturber.printColumnAscii(_fout, _width);
+            info.printColumnAscii(_fout, _width);
+            profile.printColumnAscii(_fout, _width);
+            particles.printColumnAscii(_fout, _width);
         }        
 
         //! count steps histogram

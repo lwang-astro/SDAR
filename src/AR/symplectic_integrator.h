@@ -2515,14 +2515,14 @@ namespace AR {
                                     std::cerr<<"Interrupt condition triggered! Destroy";
                                     std::cerr<<" Time: "<<time_;
                                     auto bin_adr = bin_interrupt.getBinaryTreeAddress();
-                                    bin_adr->printColumnTitle(std::cerr);
+                                    bin_adr->printColumnTitleAscii(std::cerr);
                                     std::cerr<<std::endl;
-                                    bin_adr->printColumn(std::cerr);
+                                    bin_adr->printColumnAscii(std::cerr);
                                     std::cerr<<std::endl;
-                                    Tparticle::printColumnTitle(std::cerr);
+                                    Tparticle::printColumnTitleAscii(std::cerr);
                                     std::cerr<<std::endl;
                                     for (int j=0; j<2; j++) {
-                                        bin_adr->getMember(j)->printColumn(std::cerr);
+                                        bin_adr->getMember(j)->printColumnAscii(std::cerr);
                                         std::cerr<<std::endl;
                                     }
 #endif
@@ -2606,14 +2606,14 @@ namespace AR {
                                 std::cerr<<" Slowdown: "<<bin_root.slowdown.getSlowDownFactor()<<std::endl;
 #endif
                                 auto bin_adr = bin_interrupt.getBinaryTreeAddress();
-                                bin_adr->printColumnTitle(std::cerr);
+                                bin_adr->printColumnTitleAscii(std::cerr);
                                 std::cerr<<std::endl;
-                                bin_adr->printColumn(std::cerr);
+                                bin_adr->printColumnAscii(std::cerr);
                                 std::cerr<<std::endl;
-                                Tparticle::printColumnTitle(std::cerr);
+                                Tparticle::printColumnTitleAscii(std::cerr);
                                 std::cerr<<std::endl;
                                 for (int j=0; j<2; j++) {
-                                    bin_adr->getMember(j)->printColumn(std::cerr);
+                                    bin_adr->getMember(j)->printColumnAscii(std::cerr);
                                     std::cerr<<std::endl;
                                 }
 #endif
@@ -2892,9 +2892,9 @@ namespace AR {
                             std::cerr<<std::endl;
                             warning_print_once = false;
                         }
-                        //printColumnTitle(std::cerr,20,info.binarytree.getSize());
+                        //printColumnTitleAscii(std::cerr,20,info.binarytree.getSize());
                         //std::cerr<<std::endl;
-                        //printColumn(std::cerr,20,info.binarytree.getSize());
+                        //printColumnAscii(std::cerr,20,info.binarytree.getSize());
                         //std::cerr<<std::endl;
 #ifdef AR_DEBUG_DUMP
                         if (!info.dump_flag) {
@@ -2926,9 +2926,9 @@ namespace AR {
                 // When time sychronization steps too large, abort
                 if(step_count_tsyn>manager->step_count_max) {
                     printMessage("Error! step count after time synchronization is too large");
-                    printColumnTitle(std::cerr,20,info.binarytree.getSize());
+                    printColumnTitleAscii(std::cerr,20,info.binarytree.getSize());
                     std::cerr<<std::endl;
-                    printColumn(std::cerr,20,info.binarytree.getSize());
+                    printColumnAscii(std::cerr,20,info.binarytree.getSize());
                     std::cerr<<std::endl;
 //                    restoreIntData(backup_data_init);
 #ifdef AR_DEBUG_DUMP
@@ -3929,7 +3929,7 @@ namespace AR {
           @param[in] _width: print width 
           @param[in] _n_sd: slowdown inner group
         */
-        void printColumnTitle(std::ostream & _fout, const int _width=20, const int _n_sd=0) {
+        void printColumnTitleAscii(std::ostream & _fout, const int _width=20, const int _n_sd=0) {
             _fout<<std::setw(_width)<<"Time"
                  <<std::setw(_width)<<"dE"
                  <<std::setw(_width)<<"Etot"
@@ -3942,12 +3942,12 @@ namespace AR {
 #endif
                  <<std::setw(_width)<<"dE_intr"
                  <<std::setw(_width)<<"dH_intr";
-            perturber.printColumnTitle(_fout, _width);
-            info.printColumnTitle(_fout, _width);
+            perturber.printColumnTitleAscii(_fout, _width);
+            info.printColumnTitleAscii(_fout, _width);
 #ifdef AR_HYBRID
             _fout<<std::setw(_width)<<"hybrid";
 #endif
-            profile.printColumnTitle(_fout, _width);
+            profile.printColumnTitleAscii(_fout, _width);
 #ifdef AR_SLOWDOWN_TREE
             _fout<<std::setw(_width)<<"dE_SD" 
                  <<std::setw(_width)<<"Etot_SD" 
@@ -3961,10 +3961,10 @@ namespace AR {
             for (int i=0; i<_n_sd; i++) {
                 _fout<<std::setw(_width)<<"I1"
                      <<std::setw(_width)<<"I2";
-                SlowDown::printColumnTitle(_fout, _width);
+                SlowDown::printColumnTitleAscii(_fout, _width);
             }
 #endif
-            particles.printColumnTitle(_fout, _width);
+            particles.printColumnTitleAscii(_fout, _width);
         }
 
         //! print data of class members using column style
@@ -3973,7 +3973,7 @@ namespace AR {
           @param[in] _width: print width 
           @param[in] _n_sd: slowdown inner group
         */
-        void printColumn(std::ostream & _fout, const int _width=20, const int _n_sd=0){
+        void printColumnAscii(std::ostream & _fout, const int _width=20, const int _n_sd=0){
             _fout<<std::setw(_width)<<getTime()
                  <<std::setw(_width)<<getEnergyError()
                  <<std::setw(_width)<<etot_ref_
@@ -4002,12 +4002,12 @@ namespace AR {
 #endif
                  <<std::setw(_width)<<de_change_interrupt_
                  <<std::setw(_width)<<dH_change_interrupt_;
-            perturber.printColumn(_fout, _width);
-            info.printColumn(_fout, _width);
+            perturber.printColumnAscii(_fout, _width);
+            info.printColumnAscii(_fout, _width);
 #ifdef AR_HYBRID
             _fout<<std::setw(_width)<<hybrid_switch;
 #endif
-            profile.printColumn(_fout, _width);
+            profile.printColumnAscii(_fout, _width);
 #ifdef AR_SLOWDOWN_TREE
             _fout<<std::setw(_width)<<getEnergyErrorSlowDown()
                  <<std::setw(_width)<<etot_sd_ref_ 
@@ -4024,21 +4024,21 @@ namespace AR {
                 if (i<n_sd_now) {
                     _fout<<std::setw(_width)<<info.binarytree[i].getMemberIndex(0)
                          <<std::setw(_width)<<info.binarytree[i].getMemberIndex(1);
-                    info.binarytree[i].slowdown.printColumn(_fout, _width);
+                    info.binarytree[i].slowdown.printColumnAscii(_fout, _width);
                 }
                 else {
                     _fout<<std::setw(_width)<<-1
                          <<std::setw(_width)<<-1;
-                    sd_empty.printColumn(_fout, _width);
+                    sd_empty.printColumnAscii(_fout, _width);
                 }
             }
 #endif
 #ifdef USE_CM_FRAME
             _fout<<std::setw(_width)<<particles.getSize();
-            particles.cm.printColumn(_fout, _width);
+            particles.cm.printColumnAscii(_fout, _width);
             info.getBinaryTreeRoot().printMemberIter(_fout, _width);
 #else                
-            particles.printColumn(_fout, _width);
+            particles.printColumnAscii(_fout, _width);
 #endif            
         }
 

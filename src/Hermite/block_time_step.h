@@ -82,7 +82,7 @@ namespace H4{
           @param[out] _fout: std::ostream output object
           @param[in] _width: print width (defaulted 20)
         */
-        void printColumnTitle(std::ostream & _fout, const int _width=20) {
+        void printColumnTitleAscii(std::ostream & _fout, const int _width=20) {
             _fout<<std::setw(_width)<<"Eta(4th)"
                  <<std::setw(_width)<<"Eta(2nd)";
         }
@@ -92,7 +92,7 @@ namespace H4{
           @param[out] _fout: std::ostream output object
           @param[in] _width: print width (defaulted 20)
         */
-        void printColumn(std::ostream & _fout, const int _width=20){
+        void printColumnAscii(std::ostream & _fout, const int _width=20){
             _fout<<std::setw(_width)<<eta_4th
                  <<std::setw(_width)<<eta_2nd;
         }
@@ -280,8 +280,8 @@ namespace H4{
           @param[out] _fout: std::ostream output object
           @param[in] _width: print width (defaulted 20)
         */
-        void printColumnTitle(std::ostream & _fout, const int _width=20) {
-            TimeStep4th::printColumnTitle(_fout, _width);
+        void printColumnTitleAscii(std::ostream & _fout, const int _width=20) {
+            TimeStep4th::printColumnTitleAscii(_fout, _width);
             _fout<<std::setw(_width)<<"Dt_max"
                  <<std::setw(_width)<<"Dt_min";
         }
@@ -291,8 +291,8 @@ namespace H4{
           @param[out] _fout: std::ostream output object
           @param[in] _width: print width (defaulted 20)
         */
-        void printColumn(std::ostream & _fout, const int _width=20){
-            TimeStep4th::printColumn(_fout, _width);
+        void printColumnAscii(std::ostream & _fout, const int _width=20){
+            TimeStep4th::printColumnAscii(_fout, _width);
             _fout<<std::setw(_width)<<dt_max_
                  <<std::setw(_width)<<dt_min_;
         }

@@ -54,10 +54,10 @@ namespace COMM {
           @param[out] _fout: std::ostream output object
           @param[in] _width: print width (defaulted 20)
         */
-        void printColumnTitle(std::ostream & _fout, const int _width=20) {
+        void printColumnTitleAscii(std::ostream & _fout, const int _width=20) {
             _fout<<std::setw(_width)<<"N";
-            cm.printColumnTitle(_fout, _width);
-            for (int i=0; i<TList::num_; i++) TList::data_[i].printColumnTitle(_fout, _width);
+            cm.printColumnTitleAscii(_fout, _width);
+            for (int i=0; i<TList::num_; i++) TList::data_[i].printColumnTitleAscii(_fout, _width);
         }
 
         //! print data of class members using column style
@@ -65,10 +65,10 @@ namespace COMM {
           @param[out] _fout: std::ostream output object
           @param[in] _width: print width (defaulted 20)
         */
-        void printColumn(std::ostream & _fout, const int _width=20){
+        void printColumnAscii(std::ostream & _fout, const int _width=20){
             _fout<<std::setw(_width)<<TList::num_;
-            cm.printColumn(_fout, _width);
-            for (int i=0; i<TList::num_; i++) TList::data_[i].printColumn(_fout, _width);
+            cm.printColumnAscii(_fout, _width);
+            for (int i=0; i<TList::num_; i++) TList::data_[i].printColumnAscii(_fout, _width);
         }
 
         //! write particle data to files (notice original address is lost)

@@ -38,7 +38,7 @@ namespace AR{
           @param[out] _fout: std::ostream output object
           @param[in] _width: print width (defaulted 20)
         */
-        void printColumnTitle(std::ostream & _fout, const int _width=20) {
+        void printColumnTitleAscii(std::ostream & _fout, const int _width=20) {
             _fout<<std::setw(_width)<<"Nstep(sum)"
                  <<std::setw(_width)<<"Nstep_tsyn(sum)"
                  <<std::setw(_width)<<"Nstep"
@@ -55,7 +55,7 @@ namespace AR{
           @param[out] _fout: std::ostream output object
           @param[in] _width: print width (defaulted 20)
         */
-        void printColumn(std::ostream & _fout, const int _width=20){
+        void printColumnAscii(std::ostream & _fout, const int _width=20){
             _fout<<std::setw(_width)<<step_count_sum
                  <<std::setw(_width)<<step_count_tsyn_sum
                  <<std::setw(_width)<<step_count
