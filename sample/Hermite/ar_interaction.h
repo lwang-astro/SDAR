@@ -342,6 +342,16 @@ public:
 #endif
     }
 
+        Float calcPertFromForcePot(const Float* _force, const Float& _pot) {
+        Float force2 = _force[0]*_force[0]+_force[1]*_force[1]+_force[2]*_force[2];
+    #ifdef AR_SLOWDOWN_PERT_R4
+        Float inv_r = -force2/_pot;
+        return sqrt(force2)*inv_r*inv_r*inv_r/gravitational_constant;
+    #else
+        return -force2/(_pot*gravitational_constant);
+    #endif
+        }
+
     //! calculate perturbation from binary tree
     static Float calcPertFromBinary(const AR::BinaryTree<Particle>& _bin) {
         Float apo = _bin.semi*(1.0+_bin.ecc);
@@ -418,15 +428,20 @@ public:
 #endif
     }
 
+    //! (Necessary) calculate slowdown perturbation and timescale from binary tree
+    void calcSlowDownPertExt(Float& _pert_out, const AR::BinaryTree<Particle>& _bin) {
+    }
+
     //! (Necessary) calculate slowdown perturbation and timescale
     /*!
       @param[out] _pert_out: perturbation 
       @param[out] _t_min_sq: timescale limit 
       @param[in] _time: physical time for prediction
+      @param[in] _bin: binary tree for the inner member
       @param[in] _particle_cm: center-of-mass particle
       @param[in] _perturber: pertuber container
     */
-    void calcSlowDownPert(Float& _pert_out, Float& _t_min_sq, const Float& _time, const H4Ptcl& _particle_cm, const H4::Neighbor<Particle>& _perturber) {
+    void calcSlowDownPert(Float& _pert_out, Float& _t_min_sq, const Float& _time, const AR::BinaryTree<Particle>& _bin, const H4Ptcl& _particle_cm, const H4::Neighbor<Particle>& _perturber) {
         static const Float inv3 = 1.0 / 3.0;
 
         const int n_pert = _perturber.neighbor_address.getSize();
@@ -512,6 +527,7 @@ public:
 #endif
             }
         }
+        calcSlowDownPertExt(_pert_out, _bin);
     }
 #endif
         

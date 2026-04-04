@@ -1,28 +1,9 @@
 #pragma once
 
 #include <limits>
+#include <cmath>
 
-#ifdef USE_QD
-#include <qd/qd_real.h>
-#include <qd/qd_inline.h>
-typedef qd_real Float;
-const Float ROUND_OFF_ERROR_LIMIT=1e-60;
-const Float NUMERIC_FLOAT_MAX = std::numeric_limits<double>::max();
-const Float FLOAT_NAN = std::numeric_limits<double>::quiet_NaN();
-const int WRITE_WIDTH=68;
-const int WRITE_PRECISION=60;
-
-#elif USE_DD
-#include <qd/dd_real.h>
-#include <qd/dd_inline.h>
-typedef dd_real Float;
-const Float ROUND_OFF_ERROR_LIMIT=1e-30;
-const Float NUMERIC_FLOAT_MAX = std::numeric_limits<double>::max();
-const Float FLOAT_NAN = std::numeric_limits<double>::quiet_NaN();
-const int WRITE_WIDTH=38;
-const int WRITE_PRECISION=30;
-
-#elif USE_MPFRC
+#ifdef USE_MPFRC
 #include <mpreal.h>
 using mpfr::mpreal;
 typedef mpreal Float;
@@ -32,6 +13,10 @@ static Float NUMERIC_FLOAT_MAX = std::numeric_limits<mpreal>::max();
 static Float FLOAT_NAN = std::numeric_limits<mpreal>::quiet_NaN();
 static int WRITE_WIDTH = 38;
 static int WRITE_PRECISION = 30;
+
+inline long long int llroundFloat(const Float& x) {
+    return static_cast<long long int>(floor(x + Float(0.5)));
+}
 
 //* set MPFRC digits
 void setMPFRPrec(const int digits) {
@@ -54,6 +39,10 @@ const Float NUMERIC_FLOAT_MAX = std::numeric_limits<Float>::max();
 const Float FLOAT_NAN = std::numeric_limits<Float>::quiet_NaN();
 const int WRITE_WIDTH=23;
 const int WRITE_PRECISION=14;
+
+inline long long int llroundFloat(const Float& x) {
+    return std::llround(x);
+}
 
 using std::sqrt;
 using std::abs;

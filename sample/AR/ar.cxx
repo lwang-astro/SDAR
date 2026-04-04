@@ -389,11 +389,11 @@ int main(int argc, char **argv){
     int n_sd = 0;
 #endif
     //print column title
-    sym_int.printColumnTitle(std::cout, print_width.value, n_sd);
+    sym_int.printColumnTitleAscii(std::cout, print_width.value, n_sd);
     std::cout<<std::endl;
 
     //print initial data
-    sym_int.printColumn(std::cout, print_width.value, n_sd);
+    sym_int.printColumnAscii(std::cout, print_width.value, n_sd);
     std::cout<<std::endl;
 
     
@@ -425,7 +425,7 @@ int main(int argc, char **argv){
                 if (fsnap != NULL) 
                     sym_int.writeBinary(fsnap);
                 else {
-                    sym_int.printColumn(std::cout, print_width.value, n_sd);
+                    sym_int.printColumnAscii(std::cout, print_width.value, n_sd);
                     std::cout<<std::endl;
                 }
                 time_out += dt_out.value;
@@ -456,16 +456,16 @@ int main(int argc, char **argv){
                     break;
                 }
                 std::cerr<<std::endl;
-                bin_interrupt.printColumnTitle(std::cerr);
+                bin_interrupt.printColumnTitleAscii(std::cerr);
                 std::cerr<<std::endl;
-                bin_interrupt.printColumn(std::cerr);
+                bin_interrupt.printColumnAscii(std::cerr);
                 std::cerr<<std::endl;
 
                 Particle* p1 = bin_interrupt.getBinaryTreeAddress()->getLeftMember();
                 Particle* p2 = bin_interrupt.getBinaryTreeAddress()->getRightMember();
                 // merger case, quit integration
                 if (n_particle==2&&(p1->mass==0||p2->mass==0)) {
-                    sym_int.printColumn(std::cout, print_width.value, n_sd);
+                    sym_int.printColumnAscii(std::cout, print_width.value, n_sd);
                     std::cout<<std::endl;
                     break;
                 }
@@ -476,7 +476,7 @@ int main(int argc, char **argv){
             if (fsnap != NULL) 
                 sym_int.writeBinary(fsnap);
             else {
-                sym_int.printColumn(std::cout, print_width.value, n_sd);
+                sym_int.printColumnAscii(std::cout, print_width.value, n_sd);
                 std::cout<<std::endl;
             }
         }

@@ -176,7 +176,7 @@ namespace H4{
 
         //! correct round-off error
         inline Float correctTimeRoundOff(const Float _time) const {
-            const Float n = std::llround(_time/dt_min_);
+            const long long int n = llroundFloat(_time/dt_min_);
             return n*dt_min_;
         }
 
@@ -192,7 +192,7 @@ namespace H4{
             if(_time==0.0) return dt_max_;
             else {
                 // the binary tree for current time position in block step 
-                unsigned long long int bitmap = std::llround(_time/dt_min_);
+                unsigned long long int bitmap = static_cast<unsigned long long int>(llroundFloat(_time/dt_min_));
                 //#ifdef __GNUC__ 
                 //        PS::S64 dts = __builtin_ctz(bitmap) ;
                 //        PS::U64 c = (1<<dts);

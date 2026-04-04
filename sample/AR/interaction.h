@@ -257,15 +257,25 @@ public:
 
     //! (Necessary) calculate slowdown factor based on perturbers
     /*!
+        @param[out] _pert_out: perturbation 
+        @param[out] _bin: binary tree to calculate perturbation from
+    */
+    void calcSlowDownPertExt(Float& _pert_out, const AR::BinaryTree<Particle>& _bin) {
+    }
+
+    //! (Necessary) calculate slowdown factor based on perturbers
+    /*!
       @param[out] _pert_out: perturbation 
       @param[out] _t_min_sq: timescale limit 
       @param[in] _time: physical time for prediction
+      @param[in] _bin: binary tree to calculate perturbation from
       @param[in] _particle_cm: center-of-mass particle
       @param[in] _perturber: pertuber container
     */
-    void calcSlowDownPert(Float& _pert_out, Float& _t_min_sq, const Float& _time, const Particle& _particle_cm, const Perturber& _perturber) {
+    void calcSlowDownPert(Float& _pert_out, Float& _t_min_sq, const Float& _time, const AR::BinaryTree<Particle>& _bin, const Particle& _particle_cm, const Perturber& _perturber) {
         _pert_out = 0.0;
         _t_min_sq = 0.0;
+        calcSlowDownPertExt(_pert_out, _bin);
     }
 #endif
 

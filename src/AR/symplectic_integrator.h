@@ -1686,7 +1686,7 @@ namespace AR {
             ASSERT(_ds>0);
 
 #ifdef AR_TIME_FUNCTION_MAX_POT
-            if (hybrid_switch && (gt_kick_inv_.inew != gt_kick_inv_.i || gt_kick_inv_.jnew != gt_kick_inv_.jnew)) {
+            if (hybrid_switch && (gt_kick_inv_.inew != gt_kick_inv_.i || gt_kick_inv_.jnew != gt_kick_inv_.j)) {
                 // update i and j for calculate gt_kick_inv
                 gt_kick_inv_.i = gt_kick_inv_.inew;
                 gt_kick_inv_.j = gt_kick_inv_.jnew;
@@ -1772,7 +1772,7 @@ namespace AR {
 #endif
 
 #ifdef AR_TIME_FUNCTION_MAX_POT
-            if (hybrid_switch && (gt_kick_inv_.inew != gt_kick_inv_.i || gt_kick_inv_.jnew != gt_kick_inv_.jnew)) {
+            if (hybrid_switch && (gt_kick_inv_.inew != gt_kick_inv_.i || gt_kick_inv_.jnew != gt_kick_inv_.j)) {
                 // update i and j for calculate gt_kick_inv
                 gt_kick_inv_.i = gt_kick_inv_.inew;
                 gt_kick_inv_.j = gt_kick_inv_.jnew;
@@ -2074,22 +2074,25 @@ namespace AR {
                 // update real time
                 _time_table[i+1] = time_;
 #ifdef AR_SLOWDOWN_TREE
-                Float dt_sd = dt*kappa_inv;
+                dt *= kappa_inv;
 #endif
                 // drift position
-                pos1[0] += dt_sd * vel1[0];
-                pos1[1] += dt_sd * vel1[1];
-                pos1[2] += dt_sd * vel1[2];
+                pos1[0] += dt * vel1[0];
+                pos1[1] += dt * vel1[1];
+                pos1[2] += dt * vel1[2];
 
-                pos2[0] += dt_sd * vel2[0];
-                pos2[1] += dt_sd * vel2[1];
-                pos2[2] += dt_sd * vel2[2];
+                pos2[0] += dt * vel2[0];
+                pos2[1] += dt * vel2[1];
+                pos2[2] += dt * vel2[2];
 
                 // pertuber force
                 manager->interaction.calcAccPert(force_data, particle_data, n_particle, particles.cm, perturber, time_);
                 
                 ds = manager->step.getCK(i+1)*_ds;
                 dt = ds/gt_inv;
+#ifdef AR_SLOWDOWN_TREE
+                dt /= kappa_inv;
+#endif
 
                 // kick velocity due to perturbartion
                 vel1[0] += dt * pert1[0];
@@ -2153,17 +2156,8 @@ namespace AR {
                 _time_table[i] = time_;
 
 #ifdef AR_SLOWDOWN_TREE
-                Float dt_sd = dt*kappa_inv;
-
-                // drift position
-                pos1[0] += dt_sd * vel1[0];
-                pos1[1] += dt_sd * vel1[1];
-                pos1[2] += dt_sd * vel1[2];
-
-                pos2[0] += dt_sd * vel2[0];
-                pos2[1] += dt_sd * vel2[1];
-                pos2[2] += dt_sd * vel2[2];
-#else
+                dt *= kappa_inv;
+#endif
                 // drift position
                 pos1[0] += dt * vel1[0];
                 pos1[1] += dt * vel1[1];
@@ -2172,7 +2166,6 @@ namespace AR {
                 pos2[0] += dt * vel2[0];
                 pos2[1] += dt * vel2[1];
                 pos2[2] += dt * vel2[2];
-#endif
 
                 // step for kick
                 ds = manager->step.getDK(i)*_ds;

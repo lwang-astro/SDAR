@@ -286,7 +286,7 @@ int main(int argc, char **argv){
     if (interrupt_detection_option.value>0) {
         std::string finterrupt_name = std::string(filename) + ".interrupt";
         finterrupt.open(finterrupt_name.c_str(),std::ofstream::out);
-        AR::InterruptBinary<Particle>::printColumnTitle(finterrupt,20,true);
+        AR::InterruptBinary<Particle>::printColumnTitleAscii(finterrupt,20,true);
         finterrupt<<std::endl;
     }
 
@@ -325,7 +325,7 @@ int main(int argc, char **argv){
 
 
     std::cerr<<"CM: after shift ";
-    h4_int.particles.cm.printColumn(std::cerr, 22);
+    h4_int.particles.cm.printColumnAscii(std::cerr, 22);
     std::cerr<<std::endl;
 
     h4_int.groups.setMode(COMM::ListMode::local);
@@ -360,15 +360,15 @@ int main(int argc, char **argv){
     // cm
     h4_int.particles.calcCenterOfMass();
     std::cerr<<"CM:";
-    h4_int.particles.cm.printColumn(std::cerr, 22);
+    h4_int.particles.cm.printColumnAscii(std::cerr, 22);
     std::cerr<<std::endl;
 
     //print column title
-    h4_int.printColumnTitle(std::cout, print_width.value, n_group_sub_init, n_group_init, n_group_sub_tot_init);
+    h4_int.printColumnTitleAscii(std::cout, print_width.value, n_group_sub_init, n_group_init, n_group_sub_tot_init);
     std::cout<<std::endl;
 
     //print initial data
-    h4_int.printColumn(std::cout, print_width.value, n_group_sub_init, n_group_init, n_group_sub_tot_init);
+    h4_int.printColumnAscii(std::cout, print_width.value, n_group_sub_init, n_group_init, n_group_sub_tot_init);
     std::cout<<std::endl;
     
     // dt_out
@@ -396,12 +396,12 @@ int main(int argc, char **argv){
                 break;
             }
             std::cerr<<std::endl;
-            interrupt_info.printColumnTitle(std::cerr);
+            interrupt_info.printColumnTitleAscii(std::cerr);
             std::cerr<<std::endl;
-            interrupt_info.printColumn(std::cerr);
+            interrupt_info.printColumnAscii(std::cerr);
             std::cerr<<std::endl;
             if (interrupt_detection_option.value>0) {
-                interrupt_info.printColumn(finterrupt, 20, true);
+                interrupt_info.printColumnAscii(finterrupt, 20, true);
                 finterrupt<<std::endl;
             }
         }
@@ -416,11 +416,11 @@ int main(int argc, char **argv){
             
             h4_int.particles.calcCenterOfMass();
             std::cerr<<"CM:";
-            h4_int.particles.cm.printColumn(std::cerr, 22);
+            h4_int.particles.cm.printColumnAscii(std::cerr, 22);
             std::cerr<<std::endl;
 
             // Notice in energy calculation, writeBackGroupMembers() is already done;
-            h4_int.printColumn(std::cout, print_width.value, n_group_sub_init, n_group_init, n_group_sub_tot_init);
+            h4_int.printColumnAscii(std::cout, print_width.value, n_group_sub_init, n_group_init, n_group_sub_tot_init);
             std::cout<<std::endl;
             h4_int.printStepHist();
 
