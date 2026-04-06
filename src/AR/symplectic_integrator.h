@@ -1915,12 +1915,10 @@ namespace AR {
             Float gt_inv = manager->interaction.calcGTDriftInv(ekin_-etot_ref_); // pt = -etot
 #endif
 #endif
-            // add first perturbation kick
+            // add first perturbation kick, note no need to divide kappa_inv, 
+            // since gt_inv already include kappa
             Float ds = manager->step.getHalfK(0)*_ds;
             Float dt = ds/gt_inv;
-#ifdef AR_SLOWDOWN_TREE
-            dt /= kappa_inv;
-#endif
 
             // pertuber force kick
             // manager->interaction.calcAccPert(force_data, particle_data, n_particle, particles.cm, perturber, time_);
@@ -2090,9 +2088,6 @@ namespace AR {
                 
                 ds = manager->step.getCK(i+1)*_ds;
                 dt = ds/gt_inv;
-#ifdef AR_SLOWDOWN_TREE
-                dt /= kappa_inv;
-#endif
 
                 // kick velocity due to perturbartion
                 vel1[0] += dt * pert1[0];
