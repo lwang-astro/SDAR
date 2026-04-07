@@ -204,11 +204,11 @@ namespace AR {
             step.writeBinary(_fout);
         }
 
-        void writeBinary(std::ostream& _fout) const {
+        void printColumnBinary(std::ostream& _fout) const {
             size_t size = sizeof(*this) - sizeof(interaction) - sizeof(step);
             _fout.write(reinterpret_cast<const char*>(this), size);
-            interaction.writeBinary(_fout);
-            step.writeBinary(_fout);
+            interaction.printColumnBinary(_fout);
+            step.printColumnBinary(_fout);
         }
 
         //! read class data with BINARY format and initial the array
@@ -3883,7 +3883,7 @@ namespace AR {
                     fout.write(reinterpret_cast<const char*>(&time_group), sizeof(time_group));
                     fout.write(reinterpret_cast<const char*>(pos_cm), sizeof(Float)*3);
                     fout.write(reinterpret_cast<const char*>(vel_cm), sizeof(Float)*3);
-                    bin_root.writeBinaryTreeIter(fout);
+                    bin_root.printBinaryTreeIterBinary(fout);
                 }
                 else {
                     const int precision = _group_out.getAsciiPrecision();
@@ -3897,7 +3897,7 @@ namespace AR {
                         <<std::setw(_width)<<vel_cm[0]
                         <<std::setw(_width)<<vel_cm[1]
                         <<std::setw(_width)<<vel_cm[2];
-                    bin_root.printBinaryTreeIter(fout, _width);
+                    bin_root.printBinaryTreeIterAscii(fout, _width);
                     fout<<std::endl;
                 }
             }
@@ -4057,7 +4057,7 @@ namespace AR {
             profile.writeBinary(_fout);
         }
 
-        void writeBinary(std::ostream& _fout) {
+        void printColumnBinary(std::ostream& _fout) {
             _fout.write(reinterpret_cast<const char*>(&time_), sizeof(Float));
             _fout.write(reinterpret_cast<const char*>(&etot_ref_), sizeof(Float));
             _fout.write(reinterpret_cast<const char*>(&ekin_), sizeof(Float));
@@ -4067,18 +4067,18 @@ namespace AR {
 #endif
             int size = force_.getSize();
             _fout.write(reinterpret_cast<const char*>(&size), sizeof(int));
-            for (int i=0; i<size; i++) force_[i].writeBinary(_fout);
+            for (int i=0; i<size; i++) force_[i].printColumnBinary(_fout);
 
 #ifdef USE_CM_FRAME
             int n_particle = particles.getSize();
             _fout.write(reinterpret_cast<const char*>(&n_particle), sizeof(int));
             info.getBinaryTreeRoot().writeMemberBinaryIter(_fout);
 #else
-            particles.writeBinary(_fout);
+            particles.printColumnBinary(_fout);
 #endif
-            perturber.writeBinary(_fout);
-            info.writeBinary(_fout);
-            profile.writeBinary(_fout);
+            perturber.printColumnBinary(_fout);
+            info.printColumnBinary(_fout);
+            profile.printColumnBinary(_fout);
         }
 
         //! read class data with BINARY format and initial the array

@@ -134,7 +134,7 @@ namespace AR{
             fwrite(&kappa_max_, sizeof(kappa_max_), 1, _fout);
         }
 
-        void writeBinary(std::ostream& _fout) const {
+        void printColumnBinary(std::ostream& _fout) const {
             _fout.write(reinterpret_cast<const char*>(&kappa_), sizeof(kappa_));
             _fout.write(reinterpret_cast<const char*>(&kappa_org_), sizeof(kappa_org_));
             _fout.write(reinterpret_cast<const char*>(&kappa_max_), sizeof(kappa_max_));

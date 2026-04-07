@@ -138,7 +138,7 @@ namespace H4{
 #endif
         }
 
-        void writeBinary(std::ostream& _fout) const {
+        void printColumnBinary(std::ostream& _fout) const {
             _fout.write(reinterpret_cast<const char*>(&reinitialize_step_dm_criterion), sizeof(reinitialize_step_dm_criterion));
             _fout.write(reinterpret_cast<const char*>(&reinitialize_step_de_criterion), sizeof(reinitialize_step_de_criterion));
             _fout.write(reinterpret_cast<const char*>(&n_neighbor_max), sizeof(n_neighbor_max));
@@ -146,8 +146,8 @@ namespace H4{
             _fout.write(reinterpret_cast<const char*>(&kdtree_n_particles_min), sizeof(kdtree_n_particles_min));
             _fout.write(reinterpret_cast<const char*>(&kdtree_r_ratio_limit), sizeof(kdtree_r_ratio_limit));
     #endif
-            interaction.writeBinary(_fout);
-            step.writeBinary(_fout);
+            interaction.printColumnBinary(_fout);
+            step.printColumnBinary(_fout);
     #ifdef ADJUST_GROUP_PRINT
             const bool write_flag = group_info_output.isWriteEnabled();
             const bool binary_flag = group_info_output.isBinary();

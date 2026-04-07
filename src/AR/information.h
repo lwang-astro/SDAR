@@ -19,9 +19,9 @@ namespace AR {
             slowdown.writeBinary(_fp);
         }
 
-        void writeBinary(std::ostream& _fout) const {
-            Binary::writeBinary(_fout);
-            slowdown.writeBinary(_fout);
+        void printColumnBinary(std::ostream& _fout) const {
+            Binary::printColumnBinary(_fout);
+            slowdown.printColumnBinary(_fout);
         }
 
         //! read class data to file with binary format
@@ -562,7 +562,7 @@ namespace AR {
             fwrite(&fix_step_option, sizeof(FixStepOption),1,_fout);
         }
 
-        void writeBinary(std::ostream& _fout) const {
+        void printColumnBinary(std::ostream& _fout) const {
             _fout.write(reinterpret_cast<const char*>(&ds), sizeof(int));
             _fout.write(reinterpret_cast<const char*>(&time_offset), sizeof(Float));
             _fout.write(reinterpret_cast<const char*>(&r_break_crit), sizeof(Float));

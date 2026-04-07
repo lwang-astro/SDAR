@@ -83,12 +83,12 @@ namespace COMM {
             cm.writeBinary(_fout);
         }
 
-        void writeBinary(std::ostream& _fout) {
+        void printColumnBinary(std::ostream& _fout) {
             int num = TList::num_;
             _fout.write(reinterpret_cast<const char*>(&num), sizeof(int));
-            for (int i=0; i<TList::num_; i++) TList::data_[i].writeBinary(_fout);
+            for (int i=0; i<TList::num_; i++) TList::data_[i].printColumnBinary(_fout);
             _fout.write(reinterpret_cast<const char*>(&origin_frame_flag), sizeof(bool));
-            cm.writeBinary(_fout);
+            cm.printColumnBinary(_fout);
         }
 
         ////! write particle data to files (notice original address is lost)

@@ -437,7 +437,7 @@ namespace COMM{
             fwrite(this, sizeof(*this),1,_fp);
         }
 
-        void writeBinary(std::ostream& _fout) const {
+        void printColumnBinary(std::ostream& _fout) const {
             _fout.write(reinterpret_cast<const char*>(this), sizeof(*this));
         }
 
@@ -1256,7 +1256,7 @@ namespace COMM{
             if (isOriginFrame()) {
                 for (int k=0; k<2; k++)
                     if (isMemberTree(k)) getMemberAsTree(k)->writeMemberBinaryIter(_fout);
-                    else member[k]->writeBinary(_fout);
+                    else member[k]->printColumnBinary(_fout);
             }
             else {
                 for (int k=0; k<2; k++)
@@ -1284,15 +1284,15 @@ namespace COMM{
                             pk.vel[0] += _vel_up[0];
                             pk.vel[1] += _vel_up[1];
                             pk.vel[2] += _vel_up[2];
-                            pk.writeBinary(_fout);
+                            pk.printColumnBinary(_fout);
                         }
-                        else member[k]->writeBinary(_fout);
+                        else member[k]->printColumnBinary(_fout);
                     }
             }
         }
 
-        //! write binary-tree information in BINARY format iteratively
-        /*! Binary node data are written in the same pre-order sequence as printBinaryTreeIter.
+        //! write binary-tree information in BINARY format iteratively (FILE version)
+        /*! Binary node data are written in the same pre-order sequence as printBinaryTreeIterBinary.
           @param[in] _fp: FILE type file for output
          */
         void writeBinaryTreeIter(FILE *_fp) const {
@@ -1303,24 +1303,24 @@ namespace COMM{
             }
         }
 
-        //! write binary-tree information in BINARY format iteratively
-        /*! Binary node data are written in the same pre-order sequence as printBinaryTreeIter.
+                //! write binary-tree information in BINARY format iteratively (ostream version)
+                /*! Binary node data are written in the same pre-order sequence as printBinaryTreeIterBinary.
           @param[in,out] _fout: stream output in binary mode
          */
-        void writeBinaryTreeIter(std::ostream& _fout) const {
-            Tbinary::writeBinary(_fout);
-            for (int k=0; k<2; k++) member[k]->writeBinary(_fout);
+        void printBinaryTreeIterBinary(std::ostream& _fout) const {
+            Tbinary::printColumnBinary(_fout);
+            for (int k=0; k<2; k++) member[k]->printColumnBinary(_fout);
             for (int k=0; k<2; k++) {
-                if (isMemberTree(k)) getMemberAsTree(k)->writeBinaryTreeIter(_fout);
+                if (isMemberTree(k)) getMemberAsTree(k)->printBinaryTreeIterBinary(_fout);
             }
         }
 
-        //! print binary and member information
-        void printBinaryTreeIter(std::ostream & _fout, const int _width=20){
+        //! print binary and member information in ASCII format
+        void printBinaryTreeIterAscii(std::ostream & _fout, const int _width=20){
             Tbinary::printColumnAscii(_fout, _width);
             for (int k=0; k<2; k++) member[k]->printColumnAscii(_fout,_width);
             for (int k=0; k<2; k++) 
-                if (isMemberTree(k)) getMemberAsTree(k)->printBinaryTreeIter(_fout, _width);
+                if (isMemberTree(k)) getMemberAsTree(k)->printBinaryTreeIterAscii(_fout, _width);
         }
 
         //! print binary function
