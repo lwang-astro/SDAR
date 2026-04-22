@@ -396,6 +396,7 @@ namespace H4{
         /*! \return true: all correct
          */
         bool checkParams() {
+            ASSERT(step.checkParams());
             ASSERT(manager!=NULL);
             ASSERT(manager->checkParams());
             ASSERT(ar_manager!=NULL);
