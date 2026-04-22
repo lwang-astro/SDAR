@@ -1519,9 +1519,9 @@ namespace H4{
                     std::cerr<<group_new.info.particle_index[k]<<" ";
                 std::cerr<<"r_break_crit: "<<group_new.info.r_break_crit;
                 std::cerr<<std::endl;
-                bin.printColumnTitleAscii(std::cerr);
+                bin.printColumnTitleOrbitAscii(std::cerr, 16);
                 std::cerr<<std::endl;
-                bin.printColumnAscii(std::cerr);
+                bin.printColumnOrbitAscii(std::cerr, 16);
                 std::cerr<<std::endl;
 #endif
 
@@ -2671,7 +2671,7 @@ namespace H4{
 
                         #pragma omp critical
                         {
-#ifdef HERMITE_DEBUG
+#ifdef HERMITE_DEBUG_PRINT
                         std::cerr<<"Interrupt ";
                         switch (interrupt_binary.status) {
                         case AR::InterruptStatus::change:
@@ -2687,9 +2687,9 @@ namespace H4{
                             break;
                         }
                         std::cerr<<std::endl;
-                        interrupt_binary.printColumnTitleAscii(std::cerr);
+                        interrupt_binary.printColumnTitleOrbitAscii(std::cerr,16);
                         std::cerr<<std::endl;
-                        interrupt_binary.printColumnAscii(std::cerr);
+                        interrupt_binary.printColumnOrbitAscii(std::cerr,16);
                         std::cerr<<std::endl;
 #endif
                         // particle cm is the old cm in original frame

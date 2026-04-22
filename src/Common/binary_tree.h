@@ -429,6 +429,40 @@ namespace COMM{
                  <<std::setw(_width)<<stab;
         }
 
+        //! print titles of class members using column style for orbit data
+        /*! print titles of class members in one line for column style for orbit data
+          @param[out] _fout: std::ostream output object
+          @param[in] _width: print width (defaulted 20)
+        */
+        static void printColumnTitleOrbitAscii(std::ostream & _fout, const int _width=20) {
+            _fout<<std::setw(_width)<<"m1"
+                 <<std::setw(_width)<<"m2"
+                 <<std::setw(_width)<<"semi"
+                 <<std::setw(_width)<<"ecc"
+                 <<std::setw(_width)<<"period"
+                 <<std::setw(_width)<<"t_peri"
+                 <<std::setw(_width)<<"ecca"
+                 <<std::setw(_width)<<"r"
+                 <<std::setw(_width)<<"stab";            
+        }
+
+        //! print data of class members using column style for orbit data
+        /*! print data of class members in one line for column style for orbit data. Notice no newline is printed at the end
+          @param[out] _fout: std::ostream output object
+          @param[in] _width: print width (defaulted 20)
+        */
+        void printColumnOrbitAscii(std::ostream & _fout, const int _width=20) {
+            _fout<<std::setw(_width)<<m1
+                 <<std::setw(_width)<<m2
+                 <<std::setw(_width)<<semi
+                 <<std::setw(_width)<<ecc
+                 <<std::setw(_width)<<period
+                 <<std::setw(_width)<<t_peri
+                 <<std::setw(_width)<<ecca
+                 <<std::setw(_width)<<r
+                 <<std::setw(_width)<<stab;            
+        }
+
 
         //! write class data to file with binary format
         /*! @param[in] _fp: FILE type file for output

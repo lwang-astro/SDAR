@@ -2503,16 +2503,16 @@ namespace AR {
                                     std::cerr<<"Interrupt condition triggered! Destroy";
                                     std::cerr<<" Time: "<<time_;
                                     auto bin_adr = bin_interrupt.getBinaryTreeAddress();
-                                    bin_adr->printColumnTitleAscii(std::cerr);
+                                    bin_adr->printColumnTitleOrbitAscii(std::cerr,16);
                                     std::cerr<<std::endl;
-                                    bin_adr->printColumnAscii(std::cerr);
+                                    bin_adr->printColumnOrbitAscii(std::cerr,16);
                                     std::cerr<<std::endl;
-                                    Tparticle::printColumnTitleAscii(std::cerr);
-                                    std::cerr<<std::endl;
-                                    for (int j=0; j<2; j++) {
-                                        bin_adr->getMember(j)->printColumnAscii(std::cerr);
-                                        std::cerr<<std::endl;
-                                    }
+                                    //Tparticle::printColumnTitleAscii(std::cerr,16);
+                                    //std::cerr<<std::endl;
+                                    //for (int j=0; j<2; j++) {
+                                    //    bin_adr->getMember(j)->printColumnAscii(std::cerr,16);
+                                    //    std::cerr<<std::endl;
+                                    //}
 #endif
 
                                     // set binary tree mass to zero
@@ -2594,16 +2594,16 @@ namespace AR {
                                 std::cerr<<" Slowdown: "<<bin_root.slowdown.getSlowDownFactor()<<std::endl;
 #endif
                                 auto bin_adr = bin_interrupt.getBinaryTreeAddress();
-                                bin_adr->printColumnTitleAscii(std::cerr);
+                                bin_adr->printColumnTitleOrbitAscii(std::cerr,16);
                                 std::cerr<<std::endl;
-                                bin_adr->printColumnAscii(std::cerr);
+                                bin_adr->printColumnOrbitAscii(std::cerr,16);
                                 std::cerr<<std::endl;
-                                Tparticle::printColumnTitleAscii(std::cerr);
-                                std::cerr<<std::endl;
-                                for (int j=0; j<2; j++) {
-                                    bin_adr->getMember(j)->printColumnAscii(std::cerr);
-                                    std::cerr<<std::endl;
-                                }
+                                //Tparticle::printColumnTitleAscii(std::cerr,16);
+                                //std::cerr<<std::endl;
+                                //for (int j=0; j<2; j++) {
+                                //    bin_adr->getMember(j)->printColumnAscii(std::cerr,16);
+                                //    std::cerr<<std::endl;
+                                //}
 #endif
 
                                 // change fix step option to make safety if energy change is large
