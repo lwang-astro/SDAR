@@ -38,9 +38,9 @@ int main(int argc, char **argv){
        case 'h':
            std::cout<<"keplerorbit [option] datafilename\n"
                     <<"    pariticle data (two lines): \n";
-           Particle::printColumnTitle(std::cout, 12);
+           Particle::printColumnTitleAscii(std::cout, 12);
            std::cout<<"\n    orbital data (one line): (t_peri, period, r, L.(x/y/z) are not used)\n";
-           COMM::BinaryTree<Particle,COMM::Binary>::printColumnTitle(std::cout, 12);
+           COMM::BinaryTree<Particle,COMM::Binary>::printColumnTitleAscii(std::cout, 12);
            std::cout<<"\nOptions: (*) show defaulted values\n"
                     <<"   -i:        read particle data, output kepler orbit data (one line)\n"
                     <<"   -n [int]:  number of pairs(1)\n"
@@ -120,7 +120,7 @@ int main(int argc, char **argv){
            bin.calcOrbit(G);
            // yr -> days
            if (unit>1&&unit!=4) bin.period *= 365.25;
-           bin.printColumn(std::cout, width);
+           bin.printColumnAscii(std::cout, width);
            std::cout<<std::endl;
        }
    }
@@ -150,7 +150,7 @@ int main(int argc, char **argv){
                    if (unit==3) p[k].pos[j] /= pc2au;
                }
 
-               p[k].printColumn(std::cout, width);
+               p[k].printColumnAscii(std::cout, width);
                std::cout<<std::endl;
            }
        }

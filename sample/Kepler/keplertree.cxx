@@ -224,7 +224,7 @@ int main(int argc, char **argv){
 
         std::cout<<std::setprecision(precision);
         for (int i=0; i<N; i++) {
-            plist[i].printColumn(std::cout, width);
+            plist[i].printColumnAscii(std::cout, width);
             std::cout<<std::endl;
         }
     }
