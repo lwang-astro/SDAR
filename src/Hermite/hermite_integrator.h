@@ -2481,6 +2481,10 @@ namespace H4{
                 pcm.dt   = 0.0;
                 ASSERT(k+index_offset_group_<pred_.getSize());
                 pred_[k+index_offset_group_] = pcm;
+
+                // get initial perturber energy                
+                Float epert = manager->interaction.calcEnergyPertOneGroup(group_ptr[k], perturber);
+                group_ptr[k].info.epert_record = epert;
             }
 
             dt_limit_ = step.calcNextDtLimit(time_);
@@ -3141,8 +3145,8 @@ namespace H4{
             Float dvbin[3] = {vbin[0] - vbin_bk[0], vbin[1] - vbin_bk[1], vbin[2] - vbin_bk[2]};
             Float de_kin = bink.mass*(dvbin[0]*vcm[0]+dvbin[1]*vcm[1]+dvbin[2]*vcm[2]);
             Float epert = manager->interaction.calcEnergyPertOneGroup(groupi, perturber);
-            energy_.de_cum -= epert - de_kin;
-            energy_sd_.de_cum -= epert - de_kin ;
+            energy_.de_cum += (epert - groupi.info.epert_record) - de_kin;
+            energy_sd_.de_cum += (epert - groupi.info.epert_record) - de_kin ;
         }
 
         //! correct Etot slowdown reference due to the groups change

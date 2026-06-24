@@ -39,8 +39,9 @@ namespace H4{
         Float dt_limit;       ///> hermite time step limit for this group
         COMM::List<int> particle_index; // particle index in original array (Hermite particles)
         Float vcm_record[3];  // record the last group c.m. velocity before the energy correction after interruption. This is used to get correct kinetic energy corretion for perturbation in hermite_manager.calcEnergy
+        Float epert_record; // record the last group perturbation energy before the energy correction after interruption. This is used to get correct kinetic energy corretion for perturbation in hermite_manager.calcEnergy
 
-        ARInformation(): ARInfoBase(), dt_limit(NUMERIC_FLOAT_MAX), particle_index(), vcm_record{0,0,0}{}
+        ARInformation(): ARInfoBase(), dt_limit(NUMERIC_FLOAT_MAX), particle_index(), vcm_record{0,0,0}, epert_record(0.0)  {}
 
         //! check whether parameters values are correct
         /*! \return true: all correct
