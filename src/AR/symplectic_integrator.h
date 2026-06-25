@@ -2886,7 +2886,8 @@ namespace AR {
                         //std::cerr<<std::endl;
 #ifdef AR_DEBUG_DUMP
                         if (!info.dump_flag) {
-                            DATADUMP("dump_large_step");
+                            std::string dump_name = "dump_large_step_ar_n" + std::to_string(particles.getSize());
+                            DATADUMP(dump_name.c_str());
                             info.dump_flag=true;
                         }
 #endif
@@ -2921,7 +2922,8 @@ namespace AR {
 //                    restoreIntData(backup_data_init);
 #ifdef AR_DEBUG_DUMP
                     if (!info.dump_flag) {
-                        DATADUMP("dump_large_step");
+                        std::string dump_name = "dump_large_step_ar_n" + std::to_string(particles.getSize());
+                        DATADUMP(dump_name.c_str());
                         info.dump_flag=true;
                     }
 #endif

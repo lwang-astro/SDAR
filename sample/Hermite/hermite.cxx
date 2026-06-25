@@ -26,250 +26,292 @@ using namespace H4;
 
 typedef HermiteIntegrator<Particle, Particle, HermitePerturber, Neighbor<Particle>, HermiteInteraction, ARInteraction, HermiteInformation> H4Int;
 
+//! IO parameters for Hermite integration
+class IOParamsH4{
+public:
+    COMM::IOParamsContainer input_par_store;
+
+    COMM::IOParams<int>     print_width;
+    COMM::IOParams<int>     print_precision;
+    COMM::IOParams<int>     nstep_max;
+    COMM::IOParams<int>     sym_order;
+    COMM::IOParams<int>     dt_min_power_index;
+    COMM::IOParams<int>     dt_max_power_index;
+    COMM::IOParams<int>     dt_out_power_index;
+    COMM::IOParams<int>     n_neighbor_max;
+    COMM::IOParams<double>  ds_scale;
+    COMM::IOParams<int>     interrupt_detection_option;
+    COMM::IOParams<double>  energy_error;
+    COMM::IOParams<double>  time_error;
+    COMM::IOParams<double>  time_zero;
+    COMM::IOParams<double>  time_end;
+    COMM::IOParams<double>  r_break;
+    COMM::IOParams<double>  r_search;
+    COMM::IOParams<double>  eta_4th;
+    COMM::IOParams<double>  eta_2nd;
+    COMM::IOParams<double>  eps_sq;
+    COMM::IOParams<double>  grav_const;
+    COMM::IOParams<double>  slowdown_ref;
+#ifdef SLOWDOWN_MASSRATIO
+    COMM::IOParams<double>  slowdown_mass_ref;
+#endif
+    COMM::IOParams<double>  slowdown_timescale_max;
+#ifdef USE_MPFRC
+    COMM::IOParams<int>     mpfr_digits;
+#endif
+    COMM::IOParams<std::string> filename_par;
+
+    IOParamsH4()
+        : input_par_store()
+        , print_width         (input_par_store, WRITE_WIDTH,        "print-width",          "print width of value")
+        , print_precision     (input_par_store, WRITE_PRECISION,    "print-precision",      "print digital precision")
+        , nstep_max           (input_par_store, 1000000,            "n-step-max",           "number of maximum step for AR integration")
+        , sym_order           (input_par_store, -6,                 "k",                    "Symplectic integrator order, should be even number")
+        , dt_min_power_index  (input_par_store, 40,                 "dt-min-power",         "power index to calculate mimimum hermite time step: dt_max*0.5^n")
+        , dt_max_power_index  (input_par_store, 2,                  "dt-max-power",         "power index of 0.5 for maximum hermite time step")
+        , dt_out_power_index  (input_par_store, 2,                  "o",                    "power index of 0.5 for output time interval")
+        , n_neighbor_max      (input_par_store, -1,                 "n-neighbor-max",       "maximum number of neighbors for group","same as N")
+        , ds_scale            (input_par_store, 1.0,                "ds-scale",             "step size scaling factor for Ar integration")
+        , interrupt_detection_option(input_par_store, 0,            "i",                    "modify orbits and check interruption: 0: turn off; 1: modify the binary orbits based on detection criterion; 2. only record the binary information when interruption criterion is triggered")
+        , energy_error        (input_par_store, 1e-10,              "e",                    "relative energy error limit for AR")
+        , time_error          (input_par_store, 0.0,                "time-error",           "time synchronization absolute error limit for AR","default is 0.25*dt-min")
+        , time_zero           (input_par_store, 0.0,                "time-start",           "initial physical time")
+        , time_end            (input_par_store, 1.0,                "t",                    "ending physical time ")
+        , r_break             (input_par_store, 1e-3,               "r",                    "distance criterion for switching AR and Hermite")
+        , r_search            (input_par_store, 5.0,                "R",                    "neighbor search radius")
+        , eta_4th             (input_par_store, 0.1,                "eta-4th",              "time step coefficient for 4th order")
+        , eta_2nd             (input_par_store, 0.001,              "eta-2nd",              "time step coefficient for 2nd order")
+        , eps_sq              (input_par_store, 0.0,                "eps",                  "softerning parameter")
+        , grav_const          (input_par_store, 1.0,                "G",                    "gravitational constant")
+        , slowdown_ref        (input_par_store, 1e-6,               "slowdown-ref",         "slowdown perturbation ratio reference")
+#ifdef SLOWDOWN_MASSRATIO
+        , slowdown_mass_ref   (input_par_store, 0.0,                "slowdown-mass-ref",    "slowdowm mass reference","averaged mass")
+#endif
+        , slowdown_timescale_max(input_par_store, 0.0,              "slowdown-timescale-max", "maximum timescale for maximum slowdown factor","time-end")
+#ifdef USE_MPFRC
+        , mpfr_digits         (input_par_store, 30,                 "mpfr-dights",          "dights for MPFR precison")
+#endif
+        , filename_par        (input_par_store, "",                 "p",                    "filename to load manager parameters","input name")
+    {}
+
+    int read(int argc, char* argv[], const char* bin_name) {
+        static int h4_flag = -1;
+        static struct option long_options[] = {
+            {print_width.key,              required_argument, &h4_flag, 1},
+            {print_precision.key,          required_argument, &h4_flag, 2},
+            {nstep_max.key,                required_argument, &h4_flag, 3},
+            {dt_min_power_index.key,       required_argument, &h4_flag, 4},
+            {dt_max_power_index.key,       required_argument, &h4_flag, 5},
+            {n_neighbor_max.key,           required_argument, &h4_flag, 6},
+            {ds_scale.key,                 required_argument, &h4_flag, 7},
+            {time_error.key,               required_argument, &h4_flag, 8},
+            {time_zero.key,                required_argument, &h4_flag, 9},
+            {eta_4th.key,                  required_argument, &h4_flag, 10},
+            {eta_2nd.key,                  required_argument, &h4_flag, 11},
+            {eps_sq.key,                   required_argument, &h4_flag, 12},
+            {slowdown_ref.key,             required_argument, &h4_flag, 13},
+            {slowdown_timescale_max.key,   required_argument, &h4_flag, 14},
+#ifdef SLOWDOWN_MASSRATIO
+            {slowdown_mass_ref.key,        required_argument, &h4_flag, 15},
+#endif
+#ifdef USE_MPFRC
+            {mpfr_digits.key,              required_argument, &h4_flag, 16},
+#endif
+            {"help",                       no_argument,       0, 'h'},
+            {0, 0, 0, 0}
+        };
+
+        int opt_used = 0;
+        int copt;
+        int option_index;
+        optind = 0;
+        while ((copt = getopt_long(argc, argv, "t:r:R:k:G:e:o:i:p:h", long_options, &option_index)) != -1)
+            switch (copt) {
+            case 0:
+                switch (h4_flag) {
+                case 1:
+                    print_width.value = atoi(optarg);
+                    opt_used += 2;
+                    break;
+                case 2:
+                    print_precision.value = atoi(optarg);
+                    opt_used += 2;
+                    break;
+                case 3:
+                    nstep_max.value = atoi(optarg);
+                    opt_used += 2;
+                    break;
+                case 4:
+                    dt_min_power_index.value = atoi(optarg);
+                    opt_used += 2;
+                    break;
+                case 5:
+                    dt_max_power_index.value = atoi(optarg);
+                    opt_used += 2;
+                    break;
+                case 6:
+                    n_neighbor_max.value = atoi(optarg);
+                    opt_used += 2;
+                    break;
+                case 7:
+                    ds_scale.value = atof(optarg);
+                    opt_used += 2;
+                    break;
+                case 8:
+                    time_error.value = atof(optarg);
+                    opt_used += 2;
+                    break;
+                case 9:
+                    time_zero.value = atof(optarg);
+                    opt_used += 2;
+                    break;
+                case 10:
+                    eta_4th.value = atof(optarg);
+                    opt_used += 2;
+                    break;
+                case 11:
+                    eta_2nd.value = atof(optarg);
+                    opt_used += 2;
+                    break;
+                case 12:
+                    eps_sq.value = atof(optarg);
+                    opt_used += 2;
+                    break;
+                case 13:
+                    slowdown_ref.value = atof(optarg);
+                    opt_used += 2;
+                    break;
+                case 14:
+                    slowdown_timescale_max.value = atof(optarg);
+                    opt_used += 2;
+                    break;
+#ifdef SLOWDOWN_MASSRATIO
+                case 15:
+                    slowdown_mass_ref.value = atof(optarg);
+                    opt_used += 2;
+                    break;
+#endif
+#ifdef USE_MPFRC
+                case 16:
+                    mpfr_digits.value = atoi(optarg);
+                    opt_used += 2;
+                    break;
+#endif
+                }
+                break;
+            case 't':
+                time_end.value = atof(optarg);
+                opt_used++;
+                break;
+            case 'r':
+                r_break.value = atof(optarg);
+                opt_used++;
+                break;
+            case 'R':
+                r_search.value = atof(optarg);
+                opt_used++;
+                break;
+            case 'k':
+                sym_order.value = atoi(optarg);
+                opt_used++;
+                break;
+            case 'G':
+                grav_const.value = atof(optarg);
+                opt_used++;
+                break;
+            case 'e':
+                energy_error.value = atof(optarg);
+                opt_used++;
+                break;
+            case 'o':
+                dt_out_power_index.value = atoi(optarg);
+                opt_used++;
+                break;
+            case 'i':
+                interrupt_detection_option.value = atoi(optarg);
+                opt_used++;
+                break;
+            case 'p':
+                filename_par.value = optarg;
+                {
+                    FILE* fpar_in;
+                    if( (fpar_in = fopen(filename_par.value.c_str(),"r")) == NULL) {
+                        fprintf(stderr,"Error: Cannot open file %s.\n", filename_par.value.c_str());
+                        abort();
+                    }
+                    input_par_store.readAscii(fpar_in);
+                    fclose(fpar_in);
+                }
+                opt_used++;
+                break;
+            case 'h':
+                std::cout<<bin_name<<" [option] data_filename\n"
+                         <<"Input data file format: \n"
+                         <<"  First   line:  number of particles(N)\n"
+                         <<"  2-(N+1) line:  mass, x, y, z, vx, vy, vz, radius\n"
+                         <<"  last    line:  N_group, group_offset_index_lst[N_group], group_member_particle_index[N_member_total]\n";
+                input_par_store.printHelp(std::cout);
+                std::cout<<"Size of integrator: (bytes)"<<sizeof(H4Int)<<std::endl;
+                return -1;
+            default:
+                std::cerr<<"Unknown argument. check '-h' for help.\n";
+                abort();
+            }
+        return opt_used;
+    }
+};
+
 int main(int argc, char **argv){
 
     //unsigned int oldcw;
     //fpu_fix_start(&oldcw);
-    // initial parameters
-    COMM::IOParamsContainer input_par_store;
 
-    COMM::IOParams<int> print_width    (input_par_store, WRITE_WIDTH,     "print width of value"); //print width
-    COMM::IOParams<int> print_precision(input_par_store, WRITE_PRECISION, "print digital precision"); //print digital precision
-    COMM::IOParams<int> nstep_max      (input_par_store, 1000000, "number of maximum step for AR integration"); // maximum time step allown for tsyn integration
-    COMM::IOParams<int> sym_order      (input_par_store, -6, "Symplectic integrator order, should be even number"); // symplectic integrator order
-    COMM::IOParams<int> dt_min_power_index (input_par_store, 40, "power index to calculate mimimum hermite time step: dt_max*0.5^n"); // power index to calculate minimum physical time step
-    COMM::IOParams<int> dt_max_power_index (input_par_store, 2, "power index of 0.5 for maximum hermite time step"); // maximum physical time step
-    COMM::IOParams<int> dt_out_power_index (input_par_store, 2, "power index of 0.5 for output time interval"); // output time interval
-    COMM::IOParams<int> n_neighbor_max (input_par_store, -1, "maximum number of neighbors for group","same as N"); // maximum number of neighbors for AR perturbation
-    COMM::IOParams<double> ds_scale     (input_par_store, 1.0,  "step size scaling factor for Ar integration");    // step size scaling factor
-    COMM::IOParams<int>   interrupt_detection_option(input_par_store, 0, "modify orbits and check interruption: 0: turn off; 1: modify the binary orbits based on detection criterion; 2. only record the binary information when interruption criterion is triggered");  // modify orbit or check interruption using modifyAndInterruptIter function
-    COMM::IOParams<double> energy_error (input_par_store, 1e-10,"relative energy error limit for AR"); // phase error requirement
-    COMM::IOParams<double> time_error   (input_par_store, 0.0, "time synchronization absolute error limit for AR","default is 0.25*dt-min"); // time synchronization error
-    COMM::IOParams<double> time_zero    (input_par_store, 0.0, "initial physical time");    // initial physical time
-    COMM::IOParams<double> time_end     (input_par_store, 1.0, "ending physical time "); // ending physical time
-    COMM::IOParams<double> r_break      (input_par_store, 1e-3, "distance criterion for switching AR and Hermite"); // binary break criterion
-    COMM::IOParams<double> r_search     (input_par_store, 5.0,  "neighbor search radius"); // neighbor search radius for AR
-    COMM::IOParams<double> eta_4th      (input_par_store, 0.1,  "time step coefficient for 4th order"); // time step coefficient 
-    COMM::IOParams<double> eta_2nd      (input_par_store, 0.001,"time step coefficient for 2nd order"); // time step coefficient for 2nd order
-    COMM::IOParams<double> eps_sq       (input_par_store, 0.0,  "softerning parameter");    // softening parameter
-    COMM::IOParams<double> grav_const   (input_par_store, 1.0,  "gravitational constant");      // gravitational constant
-    COMM::IOParams<double> slowdown_ref (input_par_store, 1e-6, "slowdown perturbation ratio reference"); // slowdown reference factor
-#ifdef SLOWDOWN_MASSRATIO
-    COMM::IOParams<double> slowdown_mass_ref (input_par_store, 0.0, "slowdowm mass reference","averaged mass"); // slowdown mass reference
-#endif
-    COMM::IOParams<double> slowdown_timescale_max (input_par_store, 0.0, "maximum timescale for maximum slowdown factor","time-end"); // slowdown timescale
-#ifdef USE_MPFRC
-    COMM::IOParams<int>   mpfr_digits     (input_par_store, 30, "dights for MPFR precison");
-#endif
-    COMM::IOParams<std::string> filename_par (input_par_store, "", "filename to load manager parameters","input name"); // par dumped filename
-
-    int copt;
-    static struct option long_options[] = {
-        {"time-start", required_argument, 0, 0},
-        {"time-end", required_argument, 0, 't'},
-        {"r-break", required_argument, 0, 'r'},
-        {"energy-error",required_argument, 0, 'e'},
-        {"time-error",required_argument, 0, 4},
-        {"dt-max-power",required_argument, 0, 5},
-        {"dt-min-power",required_argument, 0, 6},
-        {"n-neighbor-max",required_argument, 0, 3},
-        {"n-step-max",required_argument, 0, 7},
-        {"eta-4th",required_argument, 0, 8},
-        {"eta-2nd",required_argument, 0, 9},
-        {"eps",required_argument, 0, 10},
-        {"slowdown-ref",required_argument, 0, 11},
-#ifdef SLOWDOWN_MASSRATIO
-        {"slowdown-mass-ref",required_argument, 0, 12},
-#endif
-        {"slowdown-timescale-max",required_argument, 0, 13},
-        {"print-width",required_argument, 0, 14},
-        {"print-precision",required_argument, 0, 15},
-        {"ds-scale",required_argument, 0, 16},
-#ifdef USE_MPFRC
-        {"mpfr-dights", required_argument, 0, 17},
-#endif
-        {"help",no_argument, 0, 'h'},
-        {0,0,0,0}
-    };
-  
-    int option_index;
-    while ((copt = getopt_long(argc, argv, "t:r:R:k:G:e:o:i:p:h", long_options, &option_index)) != -1)
-        switch (copt) {
-        case 0:
-            time_zero.value = atof(optarg);
-            break;
-        case 3:
-            n_neighbor_max.value = atoi(optarg);
-            break;
-        case 4:
-            time_error.value = atof(optarg);
-            break;
-        case 5:
-            dt_max_power_index.value = atoi(optarg);
-            break;
-        case 6:
-            dt_min_power_index.value = atoi(optarg);
-            break;
-        case 7:
-            nstep_max.value = atoi(optarg);
-            break;
-        case 8:
-            eta_4th.value = atof(optarg);
-            break;
-        case 9:
-            eta_2nd.value = atof(optarg);
-            break;
-        case 10:
-            eps_sq.value = atof(optarg);
-            break;
-        case 11:
-            slowdown_ref.value = atof(optarg);
-            break;
-#ifdef SLOWDOWN_MASSRATIO
-        case 12:
-            slowdown_mass_ref.value = atof(optarg);
-            break;
-#endif
-        case 13:
-            slowdown_timescale_max.value = atof(optarg);
-            break;
-        case 14:
-            print_width.value = atof(optarg);
-            break;
-        case 15:
-            print_precision.value = atoi(optarg);
-            break;
-        case 16:
-            ds_scale.value = atof(optarg);
-            break;
-#ifdef USE_MPFRC
-        case 17:
-            mpfr_digits.value = atoi(optarg);
-#endif        
-        case 't':
-            time_end.value = atof(optarg);
-            break;
-        case 'r':
-            r_break.value = atof(optarg);
-            break;
-        case 'R':
-            r_search.value = atof(optarg);
-            break;
-        case 'k':
-            sym_order.value = atoi(optarg);
-            break;
-        case 'G':
-            grav_const.value = atof(optarg);
-            break;
-        case 'e':
-            energy_error.value = atof(optarg);
-            break;
-        case 'o':
-            dt_out_power_index.value = atoi(optarg);
-            break;
-        case 'i':
-            interrupt_detection_option.value = atoi(optarg);
-            break;
-        case 'p':
-            filename_par.value = optarg;
-            FILE* fpar_in;
-            if( (fpar_in = fopen(filename_par.value.c_str(),"r")) == NULL) {
-                fprintf(stderr,"Error: Cannot open file %s.\n", filename_par.value.c_str());
-                abort();
-            }
-            input_par_store.readAscii(fpar_in);
-            fclose(fpar_in);
-            break;
-        case 'h':
-            std::cout<<"hermite [option] data_filename\n"
-                     <<"Input data file format: \n"
-                     <<"  First   line:  number of particles(N)\n"
-                     <<"  2-(N+1) line:  mass, x, y, z, vx, vy, vz, radius\n"
-                     <<"  last    line:  N_group, group_offset_index_lst[N_group], group_member_particle_index[N_member_total]\n"
-                     <<"Options: (*) show defaulted values\n"
-                     <<"          --dt-max-power [Float]:  "<<dt_max_power_index<<"\n"
-                     <<"          --dt-min-power [int]  :  "<<dt_min_power_index<<"\n"
-                     <<"          --ds-scale     [Float]:  "<<ds_scale<<"\n"
-                     <<"    -e [Float]:  "<<energy_error<<"\n"
-                     <<"          --energy-error [Float]:  same as -e\n"
-                     <<"          --eta-4th:     [Float]:  "<<eta_4th<<"\n"
-                     <<"          --eta-2nd:     [Float]:  "<<eta_2nd<<"\n"
-                     <<"          --eps:         [Float]:  "<<eps_sq<<"\n"
-                     <<"    -G [Float]:  "<<grav_const<<"\n"
-                     <<"    -i [int]:    "<<interrupt_detection_option<<"\n"
-                     <<"    -k [int]:    "<<sym_order<<"\n"
-                     <<"          --load-par     [string]: "<<filename_par<<"\n"
-#ifdef USE_MPFRC
-                     <<"          --mpfr-digits     [int]: "<<mpfr_digits<<"\n"
-#endif
-                     <<"          --n-step-max      [int]: "<<nstep_max<<"\n"
-                     <<"          --n-neighbor-max  [int]: "<<n_neighbor_max<<"\n"
-                     <<"    -o [int]:    "<<dt_out_power_index<<"\n"
-                     <<"          --print-width     [int]: "<<print_width<<"\n"
-                     <<"          --print-precision [int]: "<<print_precision<<"\n"
-                     <<"    -p [string]: "<<filename_par<<"\n"
-                     <<"    -r [Float]:  "<<r_break<<"\n"
-                     <<"          --r-break      [Float]: same as -r\n"
-                     <<"    -R [Float]:  "<<r_search<<"\n"
-                     <<"          --slowdown-ref:           [Float]: "<<slowdown_ref<<"\n"
-#ifdef SLOWDOWN_MASSRATIO
-                     <<"          --slowdown-mass-ref       [Float]: "<<slowdown_mass_ref<<"\n"
-#endif
-                     <<"          --slowdown-timescale-max: [Float]: "<<slowdown_timescale_max<<"\n"
-                     <<"    -t [Float]:  "<<time_end<<"\n"
-                     <<"          --time-start   [Float]:  "<<time_zero<<"\n"
-                     <<"          --time-end     [Float]:  same as -t\n"
-                     <<"          --time-error   [Float]:  "<<time_error<<"\n"
-                     <<"    -h :         print option information\n"
-                     <<"          --help:                 same as -h\n";
-            std::cout<<"Size of integrator: (bytes)"<<sizeof(H4Int)<<std::endl;
-            return 0;
-        default:
-            std::cerr<<"Unknown argument. check '-h' for help.\n";
-            abort();
-        }
+    IOParamsH4 iop;
 
     if (argc==1) {
         std::cerr<<"Please provide particle data filename\n";
         abort();
     }
 
+    int opt_used = iop.read(argc, argv, "hermite");
+    if (opt_used < 0) return 0;
+
     // data file name
     char* filename = argv[argc-1];
 
 #ifdef USE_MPFRC
-    setMPFRPrec(mpfr_digits.value);
+    setMPFRPrec(iop.mpfr_digits.value);
 #endif
 
     // manager
     HermiteManager<HermiteInteraction> manager;
     AR::TimeTransformedSymplecticManager<ARInteraction> ar_manager;
 
-    Particle::r_break_crit = r_break.value;
-    Particle::r_neighbor_crit = r_search.value;
-    manager.step.eta_4th = eta_4th.value;
-    manager.step.eta_2nd = eta_2nd.value;
-    Float dt_max = pow(Float(0.5), Float(dt_max_power_index.value));
-    manager.step.setDtRange(dt_max, dt_min_power_index.value - dt_max_power_index.value);
-    manager.interaction.eps_sq = eps_sq.value;
-    manager.interaction.gravitational_constant = grav_const.value;
-    ar_manager.interaction.eps_sq = eps_sq.value;
-    ar_manager.interaction.gravitational_constant = grav_const.value;
+    Particle::r_break_crit = iop.r_break.value;
+    Particle::r_neighbor_crit = iop.r_search.value;
+    manager.step.eta_4th = iop.eta_4th.value;
+    manager.step.eta_2nd = iop.eta_2nd.value;
+    Float dt_max = pow(Float(0.5), Float(iop.dt_max_power_index.value));
+    manager.step.setDtRange(dt_max, iop.dt_min_power_index.value - iop.dt_max_power_index.value);
+    manager.interaction.eps_sq = iop.eps_sq.value;
+    manager.interaction.gravitational_constant = iop.grav_const.value;
+    ar_manager.interaction.eps_sq = iop.eps_sq.value;
+    ar_manager.interaction.gravitational_constant = iop.grav_const.value;
     ar_manager.time_step_min = manager.step.getDtMin();
-    ar_manager.ds_scale = ds_scale.value;
-    if (time_error.value == 0.0) ar_manager.time_error_max = 0.25*ar_manager.time_step_min;
-    else ar_manager.time_error_max = time_error.value;
+    ar_manager.ds_scale = iop.ds_scale.value;
+    if (iop.time_error.value == 0.0) ar_manager.time_error_max = 0.25*ar_manager.time_step_min;
+    else ar_manager.time_error_max = iop.time_error.value;
 
     ASSERT(ar_manager.time_error_max>1e-14);
     // time error cannot be smaller than round-off error
-    ar_manager.energy_error_relative_max = energy_error.value; 
-    ar_manager.slowdown_pert_ratio_ref = slowdown_ref.value;
-    if (slowdown_timescale_max.value>0.0) ar_manager.slowdown_timescale_max = slowdown_timescale_max.value;
-    else ar_manager.slowdown_timescale_max = time_end.value;
-    ar_manager.step_count_max = nstep_max.value;
+    ar_manager.energy_error_relative_max = iop.energy_error.value; 
+    ar_manager.slowdown_pert_ratio_ref = iop.slowdown_ref.value;
+    if (iop.slowdown_timescale_max.value>0.0) ar_manager.slowdown_timescale_max = iop.slowdown_timescale_max.value;
+    else ar_manager.slowdown_timescale_max = iop.time_end.value;
+    ar_manager.step_count_max = iop.nstep_max.value;
     // set symplectic order
-    ar_manager.step.initialSymplecticCofficients(sym_order.value);
-    ar_manager.interaction.interrupt_detection_option = interrupt_detection_option.value;
+    ar_manager.step.initialSymplecticCofficients(iop.sym_order.value);
+    ar_manager.interaction.interrupt_detection_option = iop.interrupt_detection_option.value;
 
     // store input parameters
     std::string fpar_out = std::string(filename) + ".par";
@@ -278,12 +320,12 @@ int main(int argc, char **argv){
         std::cerr<<"Error: data file "<<fpar_out<<" cannot be open!\n";
         abort();
     }
-    input_par_store.writeAscii(fout);
+    iop.input_par_store.writeAscii(fout);
     fclose(fout);
 
     // interrupt file output
     std::ofstream finterrupt;
-    if (interrupt_detection_option.value>0) {
+    if (iop.interrupt_detection_option.value>0) {
         std::string finterrupt_name = std::string(filename) + ".interrupt";
         finterrupt.open(finterrupt_name.c_str(),std::ofstream::out);
         AR::InterruptBinary<Particle>::printColumnTitleAscii(finterrupt,20,true);
@@ -308,16 +350,16 @@ int main(int argc, char **argv){
     h4_int.particles.shiftToCenterOfMassFrame();
     h4_int.particles.calcCenterOfMass();
 
-    if (n_neighbor_max.value <=0) manager.n_neighbor_max = h4_int.particles.getSize();
-    else manager.n_neighbor_max = n_neighbor_max.value;
+    if (iop.n_neighbor_max.value <=0) manager.n_neighbor_max = h4_int.particles.getSize();
+    else manager.n_neighbor_max = iop.n_neighbor_max.value;
         
     Float m_ave = h4_int.particles.cm.mass/h4_int.particles.getSize();
-    manager.step.calcAcc0OffsetSq(m_ave, r_search.value, grav_const.value);
+    manager.step.calcAcc0OffsetSq(m_ave, iop.r_search.value, iop.grav_const.value);
     h4_int.step = manager.step;
 
 #ifdef SLOWDOWN_MASSRATIO
-    if (slowdown_mass_ref.value<=0.0) ar_manager.slowdown_mass_ref = m_ave;
-    else ar_manager.slowdown_mass_ref = slowdown_mass_ref.value;
+    if (iop.slowdown_mass_ref.value<=0.0) ar_manager.slowdown_mass_ref = m_ave;
+    else ar_manager.slowdown_mass_ref = iop.slowdown_mass_ref.value;
 #endif
     // print parameters
     manager.print(std::cerr);
@@ -332,7 +374,7 @@ int main(int argc, char **argv){
     h4_int.groups.reserveMem(h4_int.particles.getSize());
     h4_int.reserveIntegratorMem();
     // initial system 
-    h4_int.initialSystemSingle(time_zero.value);
+    h4_int.initialSystemSingle(iop.time_zero.value);
     h4_int.readGroupConfigureAscii(fin);
 
     // initialization 
@@ -353,7 +395,7 @@ int main(int argc, char **argv){
     h4_int.sortDtAndSelectActParticle();
 
     // precision
-    std::cout<<std::setprecision(print_precision.value);
+    std::cout<<std::setprecision(iop.print_precision.value);
 
     // get initial energy
     h4_int.calcEnergySlowDown(true);
@@ -364,19 +406,19 @@ int main(int argc, char **argv){
     std::cerr<<std::endl;
 
     //print column title
-    h4_int.printColumnTitleAscii(std::cout, print_width.value, n_group_sub_init, n_group_init, n_group_sub_tot_init);
+    h4_int.printColumnTitleAscii(std::cout, iop.print_width.value, n_group_sub_init, n_group_init, n_group_sub_tot_init);
     std::cout<<std::endl;
 
     //print initial data
-    h4_int.printColumnAscii(std::cout, print_width.value, n_group_sub_init, n_group_init, n_group_sub_tot_init);
+    h4_int.printColumnAscii(std::cout, iop.print_width.value, n_group_sub_init, n_group_init, n_group_sub_tot_init);
     std::cout<<std::endl;
     
     // dt_out
-    Float dt_out = pow(Float(0.5),Float(dt_out_power_index.value));
-    Float time_out = time_zero.value + dt_out;
+    Float dt_out = pow(Float(0.5),Float(iop.dt_out_power_index.value));
+    Float time_out = iop.time_zero.value + dt_out;
 
     // integration loop
-    while (h4_int.getTime()<time_end.value) {
+    while (h4_int.getTime()<iop.time_end.value) {
         h4_int.integrateGroupsOneStep();
         int n_interrupt = h4_int.getNInterrupt();
         for (int i=0; i<n_interrupt; i++) {
@@ -400,7 +442,7 @@ int main(int argc, char **argv){
             std::cerr<<std::endl;
             interrupt_info.printColumnAscii(std::cerr);
             std::cerr<<std::endl;
-            if (interrupt_detection_option.value>0) {
+            if (iop.interrupt_detection_option.value>0) {
                 interrupt_info.printColumnAscii(finterrupt, 20, true);
                 finterrupt<<std::endl;
             }
@@ -420,7 +462,7 @@ int main(int argc, char **argv){
             std::cerr<<std::endl;
 
             // Notice in energy calculation, writeBackGroupMembers() is already done;
-            h4_int.printColumnAscii(std::cout, print_width.value, n_group_sub_init, n_group_init, n_group_sub_tot_init);
+            h4_int.printColumnAscii(std::cout, iop.print_width.value, n_group_sub_init, n_group_init, n_group_sub_tot_init);
             std::cout<<std::endl;
             h4_int.printStepHist();
 

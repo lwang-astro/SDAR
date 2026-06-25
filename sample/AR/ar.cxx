@@ -25,45 +25,335 @@ using namespace AR;
 
 typedef TimeTransformedSymplecticIntegrator<Particle, Particle, Perturber, Interaction, Information<Particle,Particle>> ARInt;
 
+//! IO parameters for AR integration
+class IOParamsAR{
+public:
+    COMM::IOParamsContainer input_par_store;
+
+    COMM::IOParams<int>     print_width;
+    COMM::IOParams<int>     print_precision;
+    COMM::IOParams<int>     nstep_max;
+    COMM::IOParams<int>     sym_order;
+    COMM::IOParams<double>  energy_error;
+    COMM::IOParams<double>  time_error;
+    COMM::IOParams<double>  time_zero;
+    COMM::IOParams<double>  time_end;
+    COMM::IOParams<double>  r_break;
+    COMM::IOParams<int>     nstep;
+    COMM::IOParams<double>  s;
+    COMM::IOParams<double>  ds_scale;
+    COMM::IOParams<double>  gravitational_constant;
+    COMM::IOParams<double>  dt_min;
+    COMM::IOParams<double>  dt_out;
+    COMM::IOParams<double>  slowdown_ref;
+#ifdef AR_SLOWDOWN_MASSRATIO
+    COMM::IOParams<double>  slowdown_mass_ref;
+#endif
+    COMM::IOParams<double>  slowdown_timescale_max;
+    COMM::IOParams<int>     interrupt_detection_option;
+    COMM::IOParams<int>     fix_step_option;
+#ifdef USE_MPFRC
+    COMM::IOParams<int>     mpfr_digits;
+#endif
+#ifdef AR_HYBRID
+    COMM::IOParams<int>     hybrid_option;
+#endif
+    COMM::IOParams<std::string> filename_par;
+    COMM::IOParams<std::string> filename_out;
+    COMM::IOParams<int> synch_flag;
+    COMM::IOParams<int> load_flag;
+
+    IOParamsAR()
+        : input_par_store()
+        , print_width         (input_par_store, WRITE_WIDTH,        "print-width",     "print width of value")
+        , print_precision     (input_par_store, WRITE_PRECISION,    "print-precision", "print digital precision")
+        , nstep_max           (input_par_store, 1000000,            "n-step-max",      "number of maximum (integrate/output) step for AR integration")
+        , sym_order           (input_par_store, -6,                 "k",               "Symplectic integrator order, should be even number, positive value for Yoshida 1st method (can be arbitrary precision); negative value for Yoshida 2nd method (only limited to double precision)")
+        , energy_error        (input_par_store, 1e-10,              "e",               "relative energy error limit for AR")
+        , time_error          (input_par_store, 0.0,                "time-error",      "time synchronization absolute error limit for AR","default is 0.25*dt-min")
+        , time_zero           (input_par_store, 0.0,                "time-start",      "initial physical time")
+        , time_end            (input_par_store, 0.0,                "t",               "ending physical time")
+        , r_break             (input_par_store, 1e-3,               "r",               "distance criterion for checking stability")
+        , nstep               (input_par_store, 0,                  "n",               "number of integration steps (higher priority than time_end)")
+        , s                   (input_par_store, 0.0,                "s",               "step size, not physical time step","auto")
+        , ds_scale            (input_par_store, 1.0,                "ds-scale",        "step size scaling factor")
+        , gravitational_constant(input_par_store, 1.0,              "G",               "gravitational constant")
+        , dt_min              (input_par_store, 1e-13,              "dt-min",          "minimum physical time step")
+        , dt_out              (input_par_store, 0.0,                "dt-out",          "output time interval")
+        , slowdown_ref        (input_par_store, 1e-6,               "slowdown-ref",    "slowdown perturbation ratio reference")
+#ifdef AR_SLOWDOWN_MASSRATIO
+        , slowdown_mass_ref   (input_par_store, 0.0,                "slowdown-mass-ref", "slowdowm mass reference","averaged mass")
+#endif
+        , slowdown_timescale_max(input_par_store, 0.0,              "slowdown-timescale-max", "maximum timescale for maximum slowdown factor","time-end")
+        , interrupt_detection_option(input_par_store, 0,            "i",               "modify orbits and check interruption: 0: turn off; 1: modify the binary orbits based on interruption criterion; 2. recored binary parameters based on interruption criterion")
+        , fix_step_option     (input_par_store, -1,                 "fix-step-option", "fix step options: always, later, none","auto")
+#ifdef USE_MPFRC
+        , mpfr_digits         (input_par_store, 30,                 "mpfr-dights",     "dights for MPFR precison")
+#endif
+#ifdef AR_HYBRID
+        , hybrid_option       (input_par_store, -1,                 "hybrid-method",   "use Hybrid methods: on, off, auto","auto")
+#endif
+        , filename_par        (input_par_store, "",                 "p",               "filename to load manager parameters","input name")
+        , filename_out        (input_par_store, "",                 "f",               "filename to output snapshots in BINARY format; if not given, print directly in standard output","input name")
+        , synch_flag          (input_par_store, 0,                  "S",               "Switch on time synchronization (use with -o or -n)")
+        , load_flag           (input_par_store, 0,                  "l",               "Load dumped data for restart (if used, the input file is dumped data)")
+    {}
+
+    int read(int argc, char* argv[], const char* bin_name) {
+        static int ar_flag = -1;
+        static struct option long_options[] = {
+            {print_width.key,              required_argument, &ar_flag, 1},
+            {print_precision.key,          required_argument, &ar_flag, 2},
+            {nstep_max.key,                required_argument, &ar_flag, 3},
+            {sym_order.key,                required_argument, &ar_flag, 4},
+            {energy_error.key,             required_argument, &ar_flag, 5},
+            {time_error.key,               required_argument, &ar_flag, 6},
+            {time_zero.key,                required_argument, &ar_flag, 7},
+            {time_end.key,                 required_argument, &ar_flag, 8},
+            {r_break.key,                  required_argument, &ar_flag, 9},
+            {nstep.key,                    required_argument, &ar_flag, 10},
+            {s.key,                        required_argument, &ar_flag, 11},
+            {ds_scale.key,                 required_argument, &ar_flag, 12},
+            {gravitational_constant.key,   required_argument, &ar_flag, 13},
+            {dt_min.key,                   required_argument, &ar_flag, 14},
+            {dt_out.key,                   required_argument, &ar_flag, 15},
+            {slowdown_ref.key,             required_argument, &ar_flag, 16},
+#ifdef AR_SLOWDOWN_MASSRATIO
+            {slowdown_mass_ref.key,        required_argument, &ar_flag, 17},
+#endif
+            {slowdown_timescale_max.key,   required_argument, &ar_flag, 18},
+            {interrupt_detection_option.key, required_argument, &ar_flag, 24},
+            {fix_step_option.key,          required_argument, &ar_flag, 19},
+#ifdef USE_MPFRC
+            {mpfr_digits.key,              required_argument, &ar_flag, 20},
+#endif
+#ifdef AR_HYBRID
+            {hybrid_option.key,            required_argument, &ar_flag, 21},
+#endif
+            {filename_par.key,             required_argument, &ar_flag, 22},
+            {filename_out.key,             required_argument, &ar_flag, 23},
+            {synch_flag.key,               no_argument,       &ar_flag, 25},
+            {load_flag.key,                no_argument,       &ar_flag, 26},
+            {"help",                       no_argument,       0, 'h'},
+            {0, 0, 0, 0}
+        };
+
+        int opt_used = 0;
+        int copt;
+        int option_index;
+        optind = 0;
+        while ((copt = getopt_long(argc, argv, "-n:t:r:s:Sk:G:e:p:f:i:lh", long_options, &option_index)) != -1)
+            switch (copt) {
+            case 0:
+                switch (ar_flag) {
+                case 1:
+                    print_width.value = atoi(optarg);
+                    opt_used += 2;
+                    break;
+                case 2:
+                    print_precision.value = atoi(optarg);
+                    opt_used += 2;
+                    break;
+                case 3:
+                    nstep_max.value = atoi(optarg);
+                    opt_used += 2;
+                    break;
+                case 4:
+                    sym_order.value = atoi(optarg);
+                    opt_used += 2;
+                    break;
+                case 5:
+                    energy_error.value = atof(optarg);
+                    opt_used += 2;
+                    break;
+                case 6:
+                    time_error.value = atof(optarg);
+                    opt_used += 2;
+                    break;
+                case 7:
+                    time_zero.value = atof(optarg);
+                    opt_used += 2;
+                    break;
+                case 8:
+                    time_end.value = atof(optarg);
+                    opt_used += 2;
+                    break;
+                case 9:
+                    r_break.value = atof(optarg);
+                    opt_used += 2;
+                    break;
+                case 10:
+                    nstep.value = atoi(optarg);
+                    opt_used += 2;
+                    break;
+                case 11:
+                    s.value = atof(optarg);
+                    opt_used += 2;
+                    break;
+                case 12:
+                    ds_scale.value = atof(optarg);
+                    opt_used += 2;
+                    break;
+                case 13:
+                    gravitational_constant.value = atof(optarg);
+                    opt_used += 2;
+                    break;
+                case 14:
+                    dt_min.value = atof(optarg);
+                    opt_used += 2;
+                    break;
+                case 15:
+                    dt_out.value = atof(optarg);
+                    opt_used += 2;
+                    break;
+                case 16:
+                    slowdown_ref.value = atof(optarg);
+                    opt_used += 2;
+                    break;
+#ifdef AR_SLOWDOWN_MASSRATIO
+                case 17:
+                    slowdown_mass_ref.value = atof(optarg);
+                    opt_used += 2;
+                    break;
+#endif
+                case 18:
+                    slowdown_timescale_max.value = atof(optarg);
+                    opt_used += 2;
+                    break;
+                case 19:
+                    if (!strcmp(optarg,"none")) fix_step_option.value = 2;
+                    else if (!strcmp(optarg,"always")) fix_step_option.value = 0;
+                    else if (!strcmp(optarg,"later")) fix_step_option.value = 1;
+                    else {
+                        std::cerr<<"Error: fix step option unknown ("<<optarg<<"), should be always, later, none\n";
+                        abort();
+                    }
+                    opt_used += 2;
+                    break;
+#ifdef USE_MPFRC
+                case 20:
+                    mpfr_digits.value = atoi(optarg);
+                    opt_used += 2;
+                    break;
+#endif
+#ifdef AR_HYBRID
+                case 21:
+                    if (!strcmp(optarg,"auto")) hybrid_option.value = -1;
+                    else if (!strcmp(optarg,"on")) hybrid_option.value = 1;
+                    else if (!strcmp(optarg,"off")) hybrid_option.value = 0;
+                    else {
+                        std::cerr<<"Error: hybrid option unknown ("<<optarg<<"), should be on, off, auto\n";
+                        abort();
+                    }
+                    opt_used += 2;
+                    break;
+#endif
+                case 22:
+                    filename_par.value = optarg;
+                    {
+                        FILE* fpar_in;
+                        if( (fpar_in = fopen(filename_par.value.c_str(),"r")) == NULL) {
+                            fprintf(stderr,"Error: Cannot open file %s.\n", filename_par.value.c_str());
+                            abort();
+                        }
+                        input_par_store.readAscii(fpar_in);
+                        fclose(fpar_in);
+                    }
+                    opt_used += 2;
+                    break;
+                case 23:
+                    filename_out.value = optarg;
+                    opt_used += 2;
+                    break;
+                case 24:
+                    interrupt_detection_option.value = atoi(optarg);
+                    opt_used += 2;
+                    break;
+                case 25:
+                    synch_flag.value = 1;
+                    opt_used++;
+                    break;
+                case 26:
+                    load_flag.value = 1;
+                    opt_used++;
+                    break;
+                }
+                break;
+            case 'n':
+                nstep.value = atoi(optarg);
+                opt_used++;
+                break;
+            case 't':
+                time_end.value = atof(optarg);
+                opt_used++;
+                break;
+            case 'r':
+                r_break.value = atof(optarg);
+                opt_used++;
+                break;
+            case 's':
+                s.value = atof(optarg);
+                opt_used++;
+                break;
+            case 'k':
+                sym_order.value = atoi(optarg);
+                opt_used++;
+                break;
+            case 'G':
+                gravitational_constant.value = atof(optarg);
+                opt_used++;
+                break;
+            case 'e':
+                energy_error.value = atof(optarg);
+                opt_used++;
+                break;
+            case 'p':
+                filename_par.value = optarg;
+                {
+                    FILE* fpar_in;
+                    if( (fpar_in = fopen(filename_par.value.c_str(),"r")) == NULL) {
+                        fprintf(stderr,"Error: Cannot open file %s.\n", filename_par.value.c_str());
+                        abort();
+                    }
+                    input_par_store.readAscii(fpar_in);
+                    fclose(fpar_in);
+                }
+                opt_used++;
+                break;
+            case 'f':
+                filename_out.value = optarg;
+                opt_used++;
+                break;
+            case 'i':
+                interrupt_detection_option.value = atoi(optarg);
+                opt_used++;
+                break;
+            case 'l':
+                load_flag.value = 1;
+                opt_used++;
+                break;
+            case 'h':
+                std::cout<<bin_name<<" [option] data_filename\n"
+                         <<"Input data file format: \n"
+                         <<"    header line: number_of_particle\n"
+                         <<"    following lines: mass, x, y, z, vx, vy, vz, radius\n";
+                input_par_store.printHelp(std::cout);
+                std::cout<<"Size of integrator class: (bytes) "<<sizeof(ARInt)<<std::endl;
+                return -1;
+            default:
+                std::cerr<<"Unknown argument. check '-h' for help.\n";
+                abort();
+            }
+        return opt_used;
+    }
+};
+
 int main(int argc, char **argv){
 
     //unsigned int oldcw;
     //fpu_fix_start(&oldcw);
 
-    COMM::IOParamsContainer input_par_store;
-
-    COMM::IOParams<int> print_width    (input_par_store, WRITE_WIDTH,     "print width of value"); //print width
-    COMM::IOParams<int> print_precision(input_par_store, WRITE_PRECISION, "print digital precision"); //print digital precision
-    COMM::IOParams<int> nstep_max      (input_par_store, 1000000, "number of maximum (integrate/output) step for AR integration"); // maximum time step allown for tsyn integration
-    COMM::IOParams<int> sym_order      (input_par_store, -6,   "Symplectic integrator order, should be even number, positive value for Yoshida 1st method (can be arbitrary precision); negative value for Yoshida 2nd method (only limited to double precision)"); // symplectic integrator order
-    COMM::IOParams<double> energy_error (input_par_store, 1e-10,"relative energy error limit for AR"); // phase error requirement
-    COMM::IOParams<double> time_error   (input_par_store, 0.0,  "time synchronization absolute error limit for AR","default is 0.25*dt-min"); // time synchronization error
-    COMM::IOParams<double> time_zero    (input_par_store, 0.0,  "initial physical time");    // initial physical time
-    COMM::IOParams<double> time_end     (input_par_store, 0.0,  "ending physical time"); // ending physical time
-    COMM::IOParams<double> r_break      (input_par_store, 1e-3, "distance criterion for checking stability"); // binary break criterion
-    COMM::IOParams<int>   nstep        (input_par_store,  0, "number of integration steps (higher priority than time_end)"); // total step size
-    COMM::IOParams<double> s            (input_par_store, 0.0,  "step size, not physical time step","auto");    // step size
-    COMM::IOParams<double> ds_scale     (input_par_store, 1.0,  "step size scaling factor");    // step size scaling factor
-    COMM::IOParams<double> gravitational_constant   (input_par_store, 1.0, "gravitational constant"); // gravitational constant
-    COMM::IOParams<double> dt_min       (input_par_store, 1e-13,"minimum physical time step"); // minimum physical time step
-    COMM::IOParams<double> dt_out       (input_par_store, 0.0,"output time interval"); // output time interval
-    COMM::IOParams<double> slowdown_ref (input_par_store, 1e-6, "slowdown perturbation ratio reference"); // slowdown reference factor
-#ifdef AR_SLOWDOWN_MASSRATIO
-    COMM::IOParams<double> slowdown_mass_ref (input_par_store, 0.0, "slowdowm mass reference","averaged mass"); // slowdown mass reference
-#endif
-    COMM::IOParams<double> slowdown_timescale_max (input_par_store, 0.0, "maximum timescale for maximum slowdown factor","time-end"); // slowdown timescale
-    COMM::IOParams<int>   interrupt_detection_option(input_par_store, 0, "modify orbits and check interruption: 0: turn off; 1: modify the binary orbits based on interruption criterion; 2. recored binary parameters based on interruption criterion");  // modify orbit or check interruption using modifyAndInterruptIter function
-    COMM::IOParams<int>   fix_step_option (input_par_store, -1, "fix step options: always, later, none","auto"); // if true; use input fix step option
-#ifdef USE_MPFRC
-    COMM::IOParams<int>   mpfr_digits     (input_par_store, 30, "dights for MPFR precison");
-#endif
-#ifdef AR_HYBRID
-    COMM::IOParams<int>   hybrid_option  (input_par_store, -1, "use Hybrid methods: on, off, auto", "auto"); // determine whether hybrid method is used
-#endif
-    COMM::IOParams<std::string> filename_par (input_par_store, "", "filename to load manager parameters","input name"); // par dumped filename
-    COMM::IOParams<std::string> filename_out (input_par_store, "", "filename to output snapshots in BINARY format; if not given, print directly in standard output","input name"); // par dumped filename
-    bool load_flag=false;  // if true; load dumped data
-    bool synch_flag=false; // if true, switch on time synchronization
+    IOParamsAR iop;
 
     FILE* fsnap = NULL;
 
@@ -78,193 +368,16 @@ int main(int argc, char **argv){
     bin_name += ".sd.t";
 #endif
 
-    int copt;
-    static struct option long_options[] = {
-        {"time-start", required_argument, 0, 0},
-        {"time-end", required_argument, 0, 't'},
-        {"r-break", required_argument, 0, 'r'},
-        {"fix-step-option", required_argument, 0, 2},
-        {"energy-error",required_argument, 0, 'e'},
-        {"time-error",required_argument, 0, 4},
-        {"dt-min",required_argument, 0, 5},
-        {"n-step-max",required_argument, 0, 6},
-        {"slowdown-ref",required_argument, 0, 7},
-#ifdef AR_SLOWDOWN_MASSRATIO
-        {"slowdown-mass-ref",required_argument, 0, 8},
-#endif
-        {"slowdown-timescale-max",required_argument, 0, 9},
-        {"print-width",required_argument, 0, 10},
-        {"print-precision",required_argument, 0, 11},
-        {"ds-scale",required_argument, 0, 12},
-#ifdef USE_MPFRC
-        {"mpfr-dights", required_argument, 0, 13},
-#endif
-#ifdef AR_HYBRID
-        {"hybrid-method", required_argument, 0, 14},
-#endif
-        {"load-data",no_argument, 0, 'l'},
-        {"help",no_argument, 0, 'h'},
-        {0,0,0,0}
-    };
-  
-    int option_index;
-    while ((copt = getopt_long(argc, argv, "N:n:t:r:s:Sk:G:e:p:o:f:i:lh", long_options, &option_index)) != -1)
-        switch (copt) {
-        case 0:
-            time_zero.value = atof(optarg);
-            break;
-        case 2:
-            if (!strcmp(optarg,"none")) fix_step_option.value=2;
-            else if (!strcmp(optarg,"always")) fix_step_option.value=0;
-            else if (!strcmp(optarg,"later")) fix_step_option.value=1;
-            else {
-                std::cerr<<"Error: fix step option unknown ("<<optarg<<"), should be always, later, none\n";
-                abort();
-            }
-            break;
-        case 4:
-            time_error.value = atof(optarg);
-            break;
-        case 5:
-            dt_min.value = atof(optarg);
-                break;
-        case 6:
-            nstep_max.value = atoi(optarg);
-            break;
-        case 7:
-            slowdown_ref.value = atof(optarg);
-            break;
-#ifdef AR_SLOWDOWN_MASSRATIO
-        case 8:
-            slowdown_mass_ref.value = atof(optarg);
-            break;
-#endif
-        case 9:
-            slowdown_timescale_max.value = atof(optarg);
-            break;
-        case 10:
-            print_width.value = atof(optarg);
-            break;
-        case 11:
-            print_precision.value = atoi(optarg);
-            break;
-        case 12:
-            ds_scale.value = atof(optarg);
-            break;
-#ifdef USE_MPFRC
-        case 13:
-            mpfr_digits.value = atoi(optarg);
-#endif
-#ifdef AR_HYBRID
-        case 14:
-            if (!strcmp(optarg,"auto")) hybrid_option.value=-1;
-            else if (!strcmp(optarg,"on")) hybrid_option.value=1;
-            else if (!strcmp(optarg,"off")) hybrid_option.value=0;
-            else {
-                std::cerr<<"Error: fix step option unknown ("<<optarg<<"), should be on, off, auto\n";
-                abort();
-            }
-            break;
-#endif
-        case 'G':
-            gravitational_constant.value = atof(optarg);
-            break;
-        case 'n':
-            nstep.value = atoi(optarg);
-            break;
-        case 't':
-            time_end.value = atof(optarg);
-            break;
-        case 'r':
-            r_break.value = atof(optarg);
-            break;
-        case 's':
-            s.value = atof(optarg);
-            break;
-        case 'S':
-            synch_flag = true;
-            break;
-        case 'k':
-            sym_order.value = atoi(optarg);
-            break;
-        case 'e':
-            energy_error.value = atof(optarg);
-            break;
-        case 'l':
-            load_flag = true;
-            break;
-        case 'p':
-            filename_par.value = optarg;
-            FILE* fpar_in;
-            if( (fpar_in = fopen(filename_par.value.c_str(),"r")) == NULL) {
-                fprintf(stderr,"Error: Cannot open file %s.\n", filename_par.value.c_str());
-                abort();
-            }
-            input_par_store.readAscii(fpar_in);
-            fclose(fpar_in);
-            break;
-        case 'f':
-            filename_out.value = optarg;
-            if( (fsnap = fopen(filename_out.value.c_str(),"r")) == NULL) {
-                fprintf(stderr,"Error: Cannot open file %s.\n", filename_out.value.c_str());
-                abort();
-            }
-            break;
-        case 'o':
-            dt_out.value = atof(optarg);
-            break;
-        case 'i':
-            interrupt_detection_option.value = atoi(optarg);
-            break;
-        case 'h':
-            std::cout<<bin_name<<" [option] data_filename\n"
-                     <<"Input data file format: \n"
-                     <<"    header line: number_of_particle\n"
-                     <<"    following lines: mass, x, y, z, vx, vy, vz, radius\n"
-                     <<"Options: (*) show defaulted values\n"
-                     <<"          --dt-min          [int]  :  "<<dt_min<<"\n"
-                     <<"          --ds-scale        [Float]:  "<<ds_scale<<"\n"
-                     <<"    -e [Float]:  "<<energy_error<<"\n"
-                     <<"          --energy-error    [Float]:  same as -e\n"
-                     <<"          --fix-step-option [string]: "<<fix_step_option<<"\n"
-                     <<"    -f [string]: "<<filename_out<<"\n"
-                     <<"    -G [Float]:  "<<gravitational_constant<<"\n"
-#ifdef AR_HYBRID
-                     <<"          --hybrid-method   [string]: "<<hybrid_option<<"\n"
-#endif
-                     <<"    -k [int]:    "<<sym_order<<"\n"
-                     <<"    -i [string]: "<<interrupt_detection_option<<"\n"
-                     <<"    -l :          load dumped data for restart (if used, the input file is dumped data)\n"
-                     <<"          --load-data (same as -l)\n"
-#ifdef USE_MPFRC
-                     <<"          --mpfr-digits     [int]  :  "<<mpfr_digits<<"\n"
-#endif
-                     <<"    -n [int]:    "<<nstep<<"\n"
-                     <<"    -o [float]:  "<<dt_out<<"\n"
-                     <<"    -p [string]: "<<filename_par<<"\n"
-                     <<"          --print-width     [int]  : "<<print_width<<"\n"
-                     <<"          --print-precision [int]  : "<<print_precision<<"\n"
-                     <<"    -r [Float]:  "<<r_break<<"\n"
-                     <<"          --r-break      [Float]: same as -r\n"
-                     <<"    -s [Float]:  "<<s<<"\n"
-                     <<"          --slowdown-ref:           [Float]: "<<slowdown_ref<<"\n"
-#ifdef AR_SLOWDOWN_MASSRATIO
-                     <<"          --slowdown-mass-ref       [Float]: "<<slowdown_mass_ref<<"\n"
-#endif
-                     <<"          --slowdown-timescale-max: [Float]: "<<slowdown_timescale_max<<"\n"
-                     <<"    -S :         Switch on time synchronization (use with -o or -n)\n"
-                     <<"    -t [Float]:  "<<time_end<<"\n"
-                     <<"          --time-start      [Float]:  "<<time_zero<<"\n"
-                     <<"          --time-end        [Float]:  same as -t\n"
-                     <<"          --time-error      [Float]:  "<<time_error<<"\n"
-                     <<"    -h :          print option information\n"
-                     <<"          --help (same as -h)\n";
-            std::cout<<"Size of integrator class: (bytes) "<<sizeof(ARInt)<<std::endl;
-            return 0;
-        default:
-            std::cerr<<"Unknown argument. check '-h' for help.\n";
+    int opt_used = iop.read(argc, argv, bin_name.c_str());
+    if (opt_used < 0) return 0;
+
+    // Open output file if filename_out was specified
+    if (!iop.filename_out.value.empty()) {
+        if( (fsnap = fopen(iop.filename_out.value.c_str(),"r")) == NULL) {
+            fprintf(stderr,"Error: Cannot open file %s.\n", iop.filename_out.value.c_str());
             abort();
         }
+    }
 
     if (argc==1) {
         std::cerr<<"Please provide particle data filename\n";
@@ -275,27 +388,26 @@ int main(int argc, char **argv){
     char* filename = argv[argc-1];
 
 #ifdef USE_MPFRC
-    setMPFRPrec(mpfr_digits.value);
+    setMPFRPrec(iop.mpfr_digits.value);
 #endif
 
     // manager
     TimeTransformedSymplecticManager<Interaction> manager;
-    manager.interaction.gravitational_constant = gravitational_constant.value;
-    manager.time_step_min = dt_min.value;
-    manager.ds_scale = ds_scale.value;
-    if (time_error.value>0.0)  manager.time_error_max = time_error.value;
-    else manager.time_error_max = 0.25*dt_min.value;
-    manager.energy_error_relative_max = energy_error.value; 
-    if (slowdown_timescale_max.value>0.0) manager.slowdown_timescale_max = slowdown_timescale_max.value;
-    else if (time_end.value>0.0) manager.slowdown_timescale_max = time_end.value;
+    manager.interaction.gravitational_constant = iop.gravitational_constant.value;
+    manager.time_step_min = iop.dt_min.value;
+    manager.ds_scale = iop.ds_scale.value;
+    if (iop.time_error.value>0.0)  manager.time_error_max = iop.time_error.value;
+    else manager.time_error_max = 0.25*iop.dt_min.value;
+    manager.energy_error_relative_max = iop.energy_error.value; 
+    if (iop.slowdown_timescale_max.value>0.0) manager.slowdown_timescale_max = iop.slowdown_timescale_max.value;
+    else if (iop.time_end.value>0.0) manager.slowdown_timescale_max = iop.time_end.value;
     else manager.slowdown_timescale_max = NUMERIC_FLOAT_MAX;
-    manager.slowdown_pert_ratio_ref = slowdown_ref.value;
-    manager.step_count_max = nstep_max.value;
+    manager.slowdown_pert_ratio_ref = iop.slowdown_ref.value;
+    manager.step_count_max = iop.nstep_max.value;
     // set symplectic order
-    manager.step.initialSymplecticCofficients(sym_order.value);
+    manager.step.initialSymplecticCofficients(iop.sym_order.value);
 
-    manager.interaction.interrupt_detection_option = interrupt_detection_option.value;
-
+    manager.interaction.interrupt_detection_option = iop.interrupt_detection_option.value;
 
     // store input parameters
     std::string fpar_out = std::string(filename) + ".par";
@@ -304,14 +416,14 @@ int main(int argc, char **argv){
         std::cerr<<"Error: data file "<<fpar_out<<" cannot be open!\n";
         abort();
     }
-    input_par_store.writeAscii(fout);
+    iop.input_par_store.writeAscii(fout);
     fclose(fout);
     
     // integrator
     ARInt sym_int;
     sym_int.manager = &manager;
 
-    if(load_flag) {
+    if(iop.load_flag.value) {
         std::FILE* fin = std::fopen(filename,"r");
         if (fin==NULL) {
             std::cerr<<"Error: data file "<<filename<<" cannot be open!\n";
@@ -336,8 +448,8 @@ int main(int argc, char **argv){
     sym_int.particles.calcCenterOfMass();
 #ifdef AR_SLOWDOWN_MASSRATIO
     Float m_ave = sym_int.particles.cm.mass/sym_int.particles.getSize();
-    if (slowdown_mass_ref.value<=0.0) manager.slowdown_mass_ref = m_ave;
-    else manager.slowdown_mass_ref = slowdown_mass_ref.value;
+    if (iop.slowdown_mass_ref.value<=0.0) manager.slowdown_mass_ref = m_ave;
+    else manager.slowdown_mass_ref = iop.slowdown_mass_ref.value;
 #endif
     manager.print(std::cerr);
 
@@ -347,22 +459,22 @@ int main(int argc, char **argv){
     sym_int.info.generateBinaryTree(sym_int.particles,manager.interaction.gravitational_constant);
 
 #ifdef AR_HYBRID
-    if (hybrid_option.value!=-1) sym_int.hybrid_switch = hybrid_option.value;
+    if (iop.hybrid_option.value!=-1) sym_int.hybrid_switch = iop.hybrid_option.value;
 #endif
 
     // r_break
-    sym_int.info.r_break_crit = r_break.value;
+    sym_int.info.r_break_crit = iop.r_break.value;
 
     // no initial when both parameters and data are load
-    if(!load_flag) {
+    if(!iop.load_flag.value) {
         // initialization 
-        sym_int.initialIntegration(time_zero.value);
+        sym_int.initialIntegration(iop.time_zero.value);
         sym_int.info.calcDsAndStepOption(manager.step.getOrder(), manager.interaction.gravitational_constant, manager.ds_scale);
     }
 
     // use input fix step option
-    if (fix_step_option.value>=0) {
-        switch (fix_step_option.value) {
+    if (iop.fix_step_option.value>=0) {
+        switch (iop.fix_step_option.value) {
         case 2:
             sym_int.info.fix_step_option = FixStepOption::none;
             break;
@@ -376,10 +488,10 @@ int main(int argc, char **argv){
     }
 
     // use input ds
-    if (s.value>0.0) sym_int.info.ds = s.value;
+    if (iop.s.value>0.0) sym_int.info.ds = iop.s.value;
 
     // precision
-    std::cout<<std::setprecision(print_precision.value);
+    std::cout<<std::setprecision(iop.print_precision.value);
 
 #ifdef AR_SLOWDOWN_ARRAY
     int n_sd = sym_int.binary_slowdown.getSize();
@@ -389,18 +501,18 @@ int main(int argc, char **argv){
     int n_sd = 0;
 #endif
     //print column title
-    sym_int.printColumnTitleAscii(std::cout, print_width.value, n_sd);
+    sym_int.printColumnTitleAscii(std::cout, iop.print_width.value, n_sd);
     std::cout<<std::endl;
 
     //print initial data
-    sym_int.printColumnAscii(std::cout, print_width.value, n_sd);
+    sym_int.printColumnAscii(std::cout, iop.print_width.value, n_sd);
     std::cout<<std::endl;
 
     
     // integration loop
     const int n_particle = sym_int.particles.getSize();
-    if (!synch_flag) {
-        Float time_out = time_zero.value + dt_out.value;
+    if (!iop.synch_flag.value) {
+        Float time_out = iop.time_zero.value + iop.dt_out.value;
         Float time_table[manager.step.getCDPairSize()];
         sym_int.profile.step_count = 1;
         auto IntegrateOneStep = [&] (){
@@ -408,7 +520,7 @@ int main(int argc, char **argv){
             sym_int.updateSlowDownAndCorrectEnergy(true, false);
 #endif
 #ifdef AR_HYBRID
-            if (hybrid_option.value==-1) {
+            if (iop.hybrid_option.value==-1) {
                 sym_int.info.generateBinaryTree(sym_int.particles,manager.interaction.gravitational_constant);
                 sym_int.switchHybridMethod();
             }
@@ -425,21 +537,21 @@ int main(int argc, char **argv){
                 if (fsnap != NULL) 
                     sym_int.writeBinary(fsnap);
                 else {
-                    sym_int.printColumnAscii(std::cout, print_width.value, n_sd);
+                    sym_int.printColumnAscii(std::cout, iop.print_width.value, n_sd);
                     std::cout<<std::endl;
                 }
-                time_out += dt_out.value;
+                time_out += iop.dt_out.value;
             }
             sym_int.profile.step_count_sum++;
         };
-        if (nstep.value>0) for (int i=0; i<nstep.value; i++) IntegrateOneStep();
-        else while (sym_int.getTime()<time_end.value) IntegrateOneStep();
+        if (iop.nstep.value>0) for (int i=0; i<iop.nstep.value; i++) IntegrateOneStep();
+        else while (sym_int.getTime()<iop.time_end.value) IntegrateOneStep();
     }
     else {
-        if (dt_out.value>0.0) nstep.value = int(time_end.value/dt_out.value+0.5);
-        else if (nstep.value>0) dt_out.value = time_end.value/nstep.value;
-        for (int i=1; i<=nstep.value; i++) {
-            auto bin_interrupt = sym_int.integrateToTime(dt_out.value*i);
+        if (iop.dt_out.value>0.0) iop.nstep.value = int(iop.time_end.value/iop.dt_out.value+0.5);
+        else if (iop.nstep.value>0) iop.dt_out.value = iop.time_end.value/iop.nstep.value;
+        for (int i=1; i<=iop.nstep.value; i++) {
+            auto bin_interrupt = sym_int.integrateToTime(iop.dt_out.value*i);
             if (bin_interrupt.status!=InterruptStatus::none) {
                 std::cerr<<"Interrupt condition triggered! ";
                 switch (bin_interrupt.status) {
@@ -465,7 +577,7 @@ int main(int argc, char **argv){
                 Particle* p2 = bin_interrupt.getBinaryTreeAddress()->getRightMember();
                 // merger case, quit integration
                 if (n_particle==2&&(p1->mass==0||p2->mass==0)) {
-                    sym_int.printColumnAscii(std::cout, print_width.value, n_sd);
+                    sym_int.printColumnAscii(std::cout, iop.print_width.value, n_sd);
                     std::cout<<std::endl;
                     break;
                 }
@@ -476,7 +588,7 @@ int main(int argc, char **argv){
             if (fsnap != NULL) 
                 sym_int.writeBinary(fsnap);
             else {
-                sym_int.printColumnAscii(std::cout, print_width.value, n_sd);
+                sym_int.printColumnAscii(std::cout, iop.print_width.value, n_sd);
                 std::cout<<std::endl;
             }
         }
