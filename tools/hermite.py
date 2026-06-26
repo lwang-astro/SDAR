@@ -3,10 +3,34 @@ from .base import *
 from .particle import *
 from .ar import *
 
-class HermiteParticle(SDARParticle):
-    """ Hermite particle type
+class HermiteBaseParticle(SDARParticle):
+    """ Hermite base particle type (c.m. and member particle common fields)
     keys: (class members)
         Members inherited from SDARParticle: see manual of SDARParticle
+        r_group (1D): per-particle group radius criterion
+        r_neighbor (1D): per-particle neighbor radius criterion
+    """
+
+    def __init__ (self, _dat=None, _offset=int(0), _append=False, **kwargs):
+        """ DictNpArrayMix type initialzation, see help(DictNpArrayMix.__init__)
+
+        keyword arguments:
+            float_type: type (np.float64)
+                floating point data type
+        """
+        if ('float_type' in kwargs.keys()): float_type = kwargs['float_type']
+        else: float_type = np.float64
+
+        keys = [['r_group', float_type], ['r_neighbor', float_type]]
+
+        SDARParticle.__init__(self, _dat, _offset, _append, **kwargs)
+        DictNpArrayMix.__init__(self, keys, _dat, _offset+self.ncols, True, **kwargs)
+
+
+class HermiteParticle(HermiteBaseParticle):
+    """ Hermite particle type (member particles in Hermite integrator output)
+    keys: (class members)
+        Members inherited from HermiteBaseParticle: see manual of HermiteBaseParticle
         dt    (1D): time step
         time  (1D): current time
         acc   (2D,3): acceleration x, y, z
@@ -26,8 +50,9 @@ class HermiteParticle(SDARParticle):
 
         keys = [['dt', float_type], ['time', float_type], ['acc', (float_type, 3)], ['jerk', (float_type, 3)], ['pot', float_type]]
 
-        SDARParticle.__init__(self, _dat, _offset, _append, **kwargs)
+        HermiteBaseParticle.__init__(self, _dat, _offset, _append, **kwargs)
         DictNpArrayMix.__init__(self, keys, _dat, _offset+self.ncols, True, **kwargs)
+
 
 class HermiteEnergy(DictNpArrayMix):
     """ Hermite integrator energy data
@@ -100,7 +125,7 @@ class HermiteData(DictNpArrayMix):
         ----------
         keyword arguments:
             member_type: member particle type (HermiteParticle)
-            cm_type: c.m. particle type (SDARParticle)
+            cm_type: c.m. particle type (HermiteBaseParticle)
             N_particle: int (0)
                 Number of members of one group
             N_sd: int (0)
@@ -117,7 +142,7 @@ class HermiteData(DictNpArrayMix):
         if ('cm_type' in kwargs.keys()):
             kwargs['cm_type'] = kwargs['cm_type']
         else:
-            kwargs['cm_type'] = SDARParticle
+            kwargs['cm_type'] = HermiteBaseParticle
 
         keys=[['time', np.float64], ['time_offset', np.float64], ['energy_phy', HermiteEnergy], ['energy_sd', HermiteEnergy], ['sd', SlowDownGroup]]
         keys = keys + [['profile', HermiteProfile], ['particles', ParticleGroup]]

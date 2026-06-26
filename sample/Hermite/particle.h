@@ -1,6 +1,7 @@
 #pragma once
 #include <cassert>
 #include <iomanip>
+#include <sstream>
 #include "Common/Float.h"
 
 #ifndef NAN_CHECK
@@ -25,10 +26,24 @@ public:
     Float dm;
     Float time_check; // time to check next interrupt
     long long int binary_state; // contain two parts, low bits (first BINARY_STATE_ID_SHIFT bits) is binary interrupt state and high bits are pair ID
-    static Float r_neighbor_crit;
-    static Float r_break_crit;
+    Float r_group_crit;      // per-particle group radius criterion
+    Float r_neighbor_crit;   // per-particle neighbor radius criterion
 
-    Particle(): mass(0.0), pos{0,0,0}, vel{0,0,0}, radius(0.0), id(-1), dm(0.0), time_check(NUMERIC_FLOAT_MAX), binary_state(0) {}
+    Particle(): mass(0.0), pos{0,0,0}, vel{0,0,0}, radius(0.0), id(-1), dm(0.0), time_check(NUMERIC_FLOAT_MAX), binary_state(0), r_group_crit(-1.0), r_neighbor_crit(-1.0) {}
+
+    //! Initialize group and neighbor radii with mass-dependent weighting
+    /*! Similar to PeTar's ChangeOver::setR() logic.
+      @param[in] _r_break: base group radius (r_break input)
+      @param[in] _r_neighbor_over_group: coefficient to compute neighbor radius from group radius
+      @param[in] _mass_ref: reference mass (typically average mass)
+    */
+    void setRGroupAndNeighbor(const Float _r_break,
+                              const Float _r_neighbor_over_group,
+                              const Float _mass_ref) {
+        Float mass_factor = std::max(std::pow(mass / _mass_ref, Float(1.0/3.0)), Float(1.0));
+        r_group_crit    = _r_break * mass_factor;
+        r_neighbor_crit = r_group_crit * _r_neighbor_over_group;
+    }
 
     //! save pair id in binary_state with shift bit size of BINARY_STATE_ID_SHIFT
     void setBinaryPairID(const int _id) {
@@ -65,7 +80,7 @@ public:
     }
 
     //! Get neighbor distance criterion 
-    Float getRNeighbor() {
+    Float getRNeighbor() const {
         return r_neighbor_crit;
     }
 
@@ -75,8 +90,8 @@ public:
     }
 
     //! Get Group distance criterion 
-    Float getRGroup() {
-        return r_break_crit;
+    Float getRGroup() const {
+        return r_group_crit;
     }
 
     //! write class data to file with binary format
@@ -133,14 +148,27 @@ public:
              <<vel[0]<<" " 
              <<vel[1]<<" " 
              <<vel[2]<<" "
-             <<radius<<" ";
+             <<radius<<" "
+             <<r_group_crit<<" "
+             <<r_neighbor_crit<<" ";
     }
 
     //! read class data to file with ASCII format
     /*! @param[in] _fin: std::istream file for input
+        Supports both new format (with r_group_crit, r_neighbor_crit) and
+        old format (without them) via line-based parsing.
      */
     void readAscii(std::istream&  _fin) {
-        _fin>>mass>>pos[0]>>pos[1]>>pos[2]>>vel[0]>>vel[1]>>vel[2]>>radius;
+        std::string line;
+        std::getline(_fin, line);
+        std::istringstream iss(line);
+        iss>>mass>>pos[0]>>pos[1]>>pos[2]>>vel[0]>>vel[1]>>vel[2]>>radius;
+        if (iss>>r_group_crit) {
+            iss>>r_neighbor_crit;
+        } else {
+            r_group_crit = -1.0;
+            r_neighbor_crit = -1.0;
+        }
     }
     
     //! print titles of class members using column style
@@ -157,7 +185,9 @@ public:
              <<std::setw(_width)<<"vel.y"
              <<std::setw(_width)<<"vel.z"
              <<std::setw(_width)<<"radius"
-             <<std::setw(_width)<<"id";
+             <<std::setw(_width)<<"id"
+             <<std::setw(_width)<<"r_group"
+             <<std::setw(_width)<<"r_neighbor";
     }
 
     //! print data of class members using column style
@@ -174,12 +204,11 @@ public:
              <<std::setw(_width)<<vel[1]
              <<std::setw(_width)<<vel[2]
              <<std::setw(_width)<<radius
-             <<std::setw(_width)<<id;
+             <<std::setw(_width)<<id
+             <<std::setw(_width)<<r_group_crit
+             <<std::setw(_width)<<r_neighbor_crit;
     }
     
 };
-
-Float Particle::r_neighbor_crit = -1.0;
-Float Particle::r_break_crit = -1.0;
 
 

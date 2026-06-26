@@ -46,7 +46,7 @@ public:
     COMM::IOParams<double>  time_zero;
     COMM::IOParams<double>  time_end;
     COMM::IOParams<double>  r_break;
-    COMM::IOParams<double>  r_search;
+    COMM::IOParams<double>  r_neighbor_over_group;
     COMM::IOParams<double>  eta_4th;
     COMM::IOParams<double>  eta_2nd;
     COMM::IOParams<double>  eps_sq;
@@ -72,13 +72,13 @@ public:
         , dt_out_power_index  (input_par_store, 2,                  "o",                    "power index of 0.5 for output time interval")
         , n_neighbor_max      (input_par_store, -1,                 "n-neighbor-max",       "maximum number of neighbors for group","same as N")
         , ds_scale            (input_par_store, 1.0,                "ds-scale",             "step size scaling factor for Ar integration")
-        , interrupt_detection_option(input_par_store, 0,            "i",                    "modify orbits and check interruption: 0: turn off; 1: modify the binary orbits based on detection criterion; 2. only record the binary information when interruption criterion is triggered")
+        , interrupt_detection_option(input_par_store, 0,            "i",                    "modify orbits and check interruption; 0: turn off; 1: modify the binary orbits based on detection criterion; 2. only record the binary information when interruption criterion is triggered")
         , energy_error        (input_par_store, 1e-10,              "e",                    "relative energy error limit for AR")
         , time_error          (input_par_store, 0.0,                "time-error",           "time synchronization absolute error limit for AR","default is 0.25*dt-min")
         , time_zero           (input_par_store, 0.0,                "time-start",           "initial physical time")
         , time_end            (input_par_store, 1.0,                "t",                    "ending physical time ")
         , r_break             (input_par_store, 1e-3,               "r",                    "distance criterion for switching AR and Hermite")
-        , r_search            (input_par_store, 5.0,                "R",                    "neighbor search radius")
+        , r_neighbor_over_group(input_par_store, 2.0,                "r-neighbor-over-group", "coefficient to compute neighbor radius from group radius")
         , eta_4th             (input_par_store, 0.1,                "eta-4th",              "time step coefficient for 4th order")
         , eta_2nd             (input_par_store, 0.001,              "eta-2nd",              "time step coefficient for 2nd order")
         , eps_sq              (input_par_store, 0.0,                "eps",                  "softerning parameter")
@@ -117,6 +117,7 @@ public:
 #ifdef USE_MPFRC
             {mpfr_digits.key,              required_argument, &h4_flag, 16},
 #endif
+            {"r-neighbor-over-group",      required_argument, &h4_flag, 17},
             {"help",                       no_argument,       0, 'h'},
             {0, 0, 0, 0}
         };
@@ -125,7 +126,7 @@ public:
         int copt;
         int option_index;
         optind = 0;
-        while ((copt = getopt_long(argc, argv, "t:r:R:k:G:e:o:i:p:h", long_options, &option_index)) != -1)
+        while ((copt = getopt_long(argc, argv, "t:r:k:G:e:o:i:p:h", long_options, &option_index)) != -1)
             switch (copt) {
             case 0:
                 switch (h4_flag) {
@@ -197,6 +198,10 @@ public:
                     opt_used += 2;
                     break;
 #endif
+                case 17:
+                    r_neighbor_over_group.value = atof(optarg);
+                    opt_used += 2;
+                    break;
                 }
                 break;
             case 't':
@@ -205,10 +210,6 @@ public:
                 break;
             case 'r':
                 r_break.value = atof(optarg);
-                opt_used++;
-                break;
-            case 'R':
-                r_search.value = atof(optarg);
                 opt_used++;
                 break;
             case 'k':
@@ -287,8 +288,6 @@ int main(int argc, char **argv){
     HermiteManager<HermiteInteraction> manager;
     AR::TimeTransformedSymplecticManager<ARInteraction> ar_manager;
 
-    Particle::r_break_crit = iop.r_break.value;
-    Particle::r_neighbor_crit = iop.r_search.value;
     manager.step.eta_4th = iop.eta_4th.value;
     manager.step.eta_2nd = iop.eta_2nd.value;
     Float dt_max = pow(Float(0.5), Float(iop.dt_max_power_index.value));
@@ -354,7 +353,14 @@ int main(int argc, char **argv){
     else manager.n_neighbor_max = iop.n_neighbor_max.value;
         
     Float m_ave = h4_int.particles.cm.mass/h4_int.particles.getSize();
-    manager.step.calcAcc0OffsetSq(m_ave, iop.r_search.value, iop.grav_const.value);
+    // initialize per-particle group and neighbor radii with mass-dependent weighting
+    Float r_neighbor_sum = 0.0;
+    for (int i=0; i<h4_int.particles.getSize(); i++) {
+        h4_int.particles[i].setRGroupAndNeighbor(iop.r_break.value, iop.r_neighbor_over_group.value, m_ave);
+        r_neighbor_sum += h4_int.particles[i].getRNeighbor();
+    }
+    Float r_neighbor_ave = r_neighbor_sum / h4_int.particles.getSize();
+    manager.step.calcAcc0OffsetSq(m_ave, r_neighbor_ave, iop.grav_const.value);
     h4_int.step = manager.step;
 
 #ifdef SLOWDOWN_MASSRATIO
