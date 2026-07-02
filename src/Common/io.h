@@ -320,15 +320,14 @@ public:
         for(auto iter=d_s32.begin(); iter!=d_s32.end(); iter++)
             MPI_Bcast(&(iter->second->value), 1, MPI_INT, 0, MPI_COMM_WORLD);
         for(auto iter=d_str.begin(); iter!=d_str.end(); iter++) {
-            size_t str_size=iter->second->value.size();
+            size_t str_size = iter->second->value.size();
             unsigned long long str_size_ull = str_size;
             MPI_Bcast(&str_size_ull, 1, MPI_UNSIGNED_LONG_LONG, 0, MPI_COMM_WORLD);
             str_size = static_cast<size_t>(str_size_ull);
-            std::string stmp(str_size, '\0');
+            iter->second->value.resize(str_size);
             if (str_size > 0) {
-                MPI_Bcast(&stmp[0], str_size, MPI_CHAR, 0, MPI_COMM_WORLD);
+                MPI_Bcast(&(iter->second->value[0]), str_size, MPI_CHAR, 0, MPI_COMM_WORLD);
             }
-            iter->second->value = stmp;
         }
     }
 #endif
