@@ -127,8 +127,8 @@ def calcTGW(m1, m2, semi, ecc):
         eccentricity
     """    
  
+    from astropy import units as u
     from scipy import integrate
-    pc_to_au = 206264.81
 
     # Merging time in myr for one, hyperbolic orbit returns nan
     def time_gw_myr_one(_m1_msun, _m2_msun, _semi_au, _ecc):
@@ -148,7 +148,7 @@ def calcTGW(m1, m2, semi, ecc):
             eint=integrate.quad(e_fun,0,_ecc)
             return (12.0/19.0)*c0**4/beta*(eint[0])*1e-6
 
-    semi_au = semi*pc_to_au
+    semi_au = (semi * u.pc).to(u.AU).value
     if (type(m1) == np.ndarray) | (type(m1) == list):
         return np.array(list(map(time_gw_myr_one,m1,m2,semi_au,ecc)))
     else: 
