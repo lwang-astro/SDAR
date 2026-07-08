@@ -552,7 +552,7 @@ namespace COMM{
             std::array<int,3> cell, cell_min, cell_max;            
             getCellIndex(pos, cell);             
 
-            Float &rsearch = particle.getRSearch();
+            const Float &rsearch = particle.getRSearch();
             // if particle has large r_search, determine search cell range accordingly, otherwise only search neighboring cells
             int dn_cells = (rsearch <= r_cell_max) ? 1 : static_cast<int>(std::ceil(rsearch / r_cell_max));
             for (int i=0; i<3; i++){
@@ -617,13 +617,13 @@ namespace COMM{
                 const auto& particle = (*groups)[particle_index].cm;
                 pos = particle.pos;
                 rsearch = particle.getRSearch();
-                searchNeighbor(particle, particle_index, is_group, result, result_group);
+                searchNeighbor(particle, result, result_group);
             }
             else {
                 const auto& particle = (*particles)[particle_index];
                 pos = particle.pos;
                 rsearch = particle.getRSearch();
-                searchNeighbor(particle, particle_index, is_group, result, result_group);
+                searchNeighbor(particle, result, result_group);
             }
 
             int n_found = result.size() + result_group.size();

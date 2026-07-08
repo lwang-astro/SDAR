@@ -1,7 +1,8 @@
-#TARGET= ar.logh ar.logh.sd.t ar.ttl ar.ttl.sd.t ar.ttl.sd.t.mulpot ar.ttl.sd.t.mulpot.cm ar.ttl.sd.t.maxpot.cm ar.ttl.sd.t.addpot.cm ar.logh.sd.t.kdk.pert ar.ttl.sd.t.kdk.pert
-TARGET= ar.logh ar.ttl ar.logh.sd.t.kdk.pert ar.ttl.sd.t.kdk.pert
+TARGET= ar.logh ar.logh.sd.t ar.ttl ar.ttl.sd.t ar.ttl.sd.t.mulpot ar.ttl.sd.t.mulpot.cm ar.ttl.sd.t.maxpot.cm ar.ttl.sd.t.addpot.cm ar.logh.sd.t.kdk.pert ar.ttl.sd.t.kdk.pert
+#TARGET= ar.logh ar.ttl ar.logh.sd.t.kdk.pert ar.ttl.sd.t.kdk.pert
 TARGET_MPFRC= ar.ttl.sd.t.cm ar.logh.mpfrc ar.ttl.mpfrc ar.ttl.sd.t.mulpot.cm.mpfrc ar.ttl.sd.t.mulpot.mpfrc 
 INSTALL_PATH=~/bin
+BUILD_DIR=./build
 
 VPATH=../../src 
 
@@ -70,59 +71,63 @@ TARGET += ${TARGET_MPFRC}
 endif
 
 
-all: $(TARGET) 
+all: $(addprefix $(BUILD_DIR)/, $(TARGET))
+
+$(BUILD_DIR):
+	mkdir -p $(BUILD_DIR)
+
 ## Target --------------------------------------------#
 
-ar.logh: ar.cxx  ${SOURCE}
+$(BUILD_DIR)/ar.logh: ar.cxx  ${SOURCE}
 	$(CXX) $(CXXFLAGS) $< -o $@ $(CXXLIBS)
 
-ar.logh.mpfrc: ar.cxx  ${SOURCE}
+$(BUILD_DIR)/ar.logh.mpfrc: ar.cxx  ${SOURCE}
 	$(CXX) $(CXXFLAGS) $(MPFRC_FLAGS) $< -o $@ $(CXXLIBS) $(MPFRC_LIBS)
 
-ar.logh.sd.t: ar.cxx ${SOURCE}
+$(BUILD_DIR)/ar.logh.sd.t: ar.cxx ${SOURCE}
 	$(CXX) $(CXXFLAGS) -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE  $< -o $@ $(CXXLIBS)
 
-ar.logh.sd.t.kdk.pert: ar.cxx ${SOURCE}
+$(BUILD_DIR)/ar.logh.sd.t.kdk.pert: ar.cxx ${SOURCE}
 	$(CXX) $(CXXFLAGS) -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE -D AR_KDK_PERT $< -o $@ $(CXXLIBS)
 
-ar.ttl: ar.cxx ${SOURCE}
+$(BUILD_DIR)/ar.ttl: ar.cxx ${SOURCE}
 	$(CXX) $(CXXFLAGS) -D AR_TTL $< -o $@ $(CXXLIBS)
 
-ar.ttl.mpfrc: ar.cxx ${SOURCE}
+$(BUILD_DIR)/ar.ttl.mpfrc: ar.cxx ${SOURCE}
 	$(CXX) $(CXXFLAGS) $(MPFRC_FLAGS) -D AR_TTL $< -o $@ $(CXXLIBS) $(MPFRC_LIBS)
 
-ar.ttl.m: ar.cxx ${SOURCE}
+$(BUILD_DIR)/ar.ttl.m: ar.cxx ${SOURCE}
 	$(CXX) $(CXXFLAGS) -D AR_TTL -D AR_TTL_GT_MULTI $< -o $@ $(CXXLIBS)
 
-ar.ttl.sd.t: ar.cxx ${SOURCE}
+$(BUILD_DIR)/ar.ttl.sd.t: ar.cxx ${SOURCE}
 	$(CXX) $(CXXFLAGS) -D AR_TTL -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE  $< -o $@ $(CXXLIBS)
 
-ar.ttl.sd.t.kdk.pert: ar.cxx ${SOURCE}
+$(BUILD_DIR)/ar.ttl.sd.t.kdk.pert: ar.cxx ${SOURCE}
 	$(CXX) $(CXXFLAGS) -D AR_TTL -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE -D AR_KDK_PERT $< -o $@ $(CXXLIBS)
 
-ar.ttl.sd.t.cm: ar.cxx ${SOURCE}
+$(BUILD_DIR)/ar.ttl.sd.t.cm: ar.cxx ${SOURCE}
 	$(CXX) $(CXXFLAGS) -D AR_TTL -D USE_CM_FRAME -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE  $< -o $@ $(CXXLIBS)
 
-ar.ttl.sd.t.mulpot: ar.cxx ${SOURCE}
+$(BUILD_DIR)/ar.ttl.sd.t.mulpot: ar.cxx ${SOURCE}
 	$(CXX) $(CXXFLAGS) -D AR_TTL -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE -D AR_TIME_FUNCTION_MUL_POT $< -o $@ $(CXXLIBS)
 
-ar.ttl.sd.t.mulpot.cm: ar.cxx ${SOURCE}
+$(BUILD_DIR)/ar.ttl.sd.t.mulpot.cm: ar.cxx ${SOURCE}
 	$(CXX) $(CXXFLAGS) -D AR_TTL -D USE_CM_FRAME -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE -D AR_TIME_FUNCTION_MUL_POT $< -o $@ $(CXXLIBS)
 
-ar.ttl.sd.t.mulpot.mpfrc: ar.cxx ${SOURCE}
+$(BUILD_DIR)/ar.ttl.sd.t.mulpot.mpfrc: ar.cxx ${SOURCE}
 	$(CXX) $(CXXFLAGS) $(MPFRC_FLAGS) -D AR_TTL -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE -D AR_TIME_FUNCTION_MUL_POT $< -o $@ $(CXXLIBS) $(MPFRC_LIBS)
 
-ar.ttl.sd.t.mulpot.cm.mpfrc: ar.cxx ${SOURCE}
+$(BUILD_DIR)/ar.ttl.sd.t.mulpot.cm.mpfrc: ar.cxx ${SOURCE}
 	$(CXX) $(CXXFLAGS) $(MPFRC_FLAGS) -D AR_TTL -D USE_CM_FRAME -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE -D AR_TIME_FUNCTION_MUL_POT $< -o $@ $(CXXLIBS) $(MPFRC_LIBS)
 
-ar.ttl.sd.t.maxpot.cm: ar.cxx ${SOURCE}
+$(BUILD_DIR)/ar.ttl.sd.t.maxpot.cm: ar.cxx ${SOURCE}
 	$(CXX) $(CXXFLAGS) -D AR_TTL -D USE_CM_FRAME -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE -D AR_TIME_FUNCTION_MAX_POT $< -o $@ $(CXXLIBS)
 
-ar.ttl.sd.t.addpot.cm: ar.cxx ${SOURCE}
+$(BUILD_DIR)/ar.ttl.sd.t.addpot.cm: ar.cxx ${SOURCE}
 	$(CXX) $(CXXFLAGS) -D AR_TTL -D USE_CM_FRAME -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE -D AR_TIME_FUNCTION_ADD_POT $< -o $@ $(CXXLIBS)
 
-install: $(TARGET)
-	install -m 755 $(TARGET) $(INSTALL_PATH)
+install: $(addprefix $(BUILD_DIR)/, $(TARGET))
+	install -m 755 $(addprefix $(BUILD_DIR)/, $(TARGET)) $(INSTALL_PATH)
 
 clean:
-	rm -f $(TARGET)
+	rm -rf $(BUILD_DIR)

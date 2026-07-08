@@ -1,6 +1,10 @@
 ## TARGET
+BUILD_DIR=./build
 TARGET= hermite hermite.mpfrc hermite.kdk.pert
-all: $(TARGET)
+all: $(addprefix $(BUILD_DIR)/, $(TARGET))
+
+$(BUILD_DIR):
+	mkdir -p $(BUILD_DIR)
 
 INSTALL_PATH=$(HOME)/bin
 
@@ -18,8 +22,8 @@ GPERF_PATH = $(HOME)
 ## compiler-------------------------------------------#
 ifeq ($(use_x86),yes)
 CXX= g++
-CXXFLAGS += -O2 -Wall
-#CXXFLAGS += -g -fbounds-check -Wall -O0
+#CXXFLAGS += -O2 -Wall
+CXXFLAGS += -g -fbounds-check -Wall -O0
 endif
 
 ifeq ($(use_k_computer),yes)
@@ -78,17 +82,17 @@ endif
 
 ## Target --------------------------------------------#
 
-hermite: hermite.cxx ${SOURCE}
+$(BUILD_DIR)/hermite: hermite.cxx ${SOURCE}
 	$(CXX) $(CXXFLAGS) $< -o $@ $(CXXLIBS)
 
-hermite.mpfrc: hermite.cxx ${SOURCE}
+$(BUILD_DIR)/hermite.mpfrc: hermite.cxx ${SOURCE}
 	$(CXX) $(CXXFLAGS) $(MPFRC_FLAGS) $< -o $@ $(CXXLIBS) $(MPFRC_LIBS)
 
-hermite.kdk.pert: hermite.cxx ${SOURCE}
+$(BUILD_DIR)/hermite.kdk.pert: hermite.cxx ${SOURCE}
 	$(CXX) $(CXXFLAGS) -D AR_KDK_PERT $< -o $@ $(CXXLIBS)
 
-install: $(TARGET)
-	install -m 755 $(TARGET) $(INSTALL_PATH)
+install: $(addprefix $(BUILD_DIR)/, $(TARGET))
+	install -m 755 $(addprefix $(BUILD_DIR)/, $(TARGET)) $(INSTALL_PATH)
 
 clean:
-	rm -f $(TARGET)
+	rm -rf $(BUILD_DIR)

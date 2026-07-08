@@ -31,5 +31,23 @@
 *.out
 *.app
 
+# Build output directories
+sample/*/build/
+
 # emacs backup
 *~
+
+# clangd index
+.cache/
+*.idx
+
+# doc latex
+docs/latex/
+
+tools/__pycache__/
+
+.vscode/settings.json
+
+# temp src
+src/*/tmp
+

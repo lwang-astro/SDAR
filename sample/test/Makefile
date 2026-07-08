@@ -1,5 +1,11 @@
 ## TARGET
 TARGET=ptclgrouptest binarytest particlemeshtest particlekdtreetest
+BUILD_DIR=./build
+
+all: $(addprefix $(BUILD_DIR)/, $(TARGET))
+
+$(BUILD_DIR):
+	mkdir -p $(BUILD_DIR)
 
 VPATH=../../src 
 
@@ -53,8 +59,8 @@ endif
 
 ## Target --------------------------------------------#
 
-$(TARGET): %: %.cxx 
+$(addprefix $(BUILD_DIR)/, $(TARGET)): $(BUILD_DIR)/%: %.cxx
 	$(CXX) $(CXXFLAGS) $< -o $@ $(CXXLIBS)
 
 clean:
-	rm -f $(TARGET)
+	rm -rf $(BUILD_DIR)

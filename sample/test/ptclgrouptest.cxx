@@ -57,7 +57,7 @@ struct PtclTest{
       @param[out] _fout: std::ostream output object
       @param[in] _width: print width (defaulted 20)
     */
-    void printColumn(std::ostream & _fout, const int _width=20){
+    void printColumnAscii(std::ostream & _fout, const int _width=20){
         _fout<<std::setw(_width)<<id;
     }
     
@@ -94,7 +94,7 @@ int main(int argc, char **argv){
     for (int i=0; i<num; i++) {
         group.addMemberAndAddress(ptcl[i]);
     }
-    group.printColumn(std::cout, 4);
+    group.printColumnAscii(std::cout, 4);
     std::cout<<std::endl;
 
     std::cout<<"Test removeParticle, list:\n";
@@ -105,13 +105,13 @@ int main(int argc, char **argv){
     group.removeMemberList(rmlist,4);
 
     std::cout<<"After remove\n";
-    group.printColumn(std::cout, 4);
+    group.printColumnAscii(std::cout, 4);
     std::cout<<std::endl;
     printPtclAdr(group);
 
     for (int i=0; i<4; i++) group.addMemberAndAddress(ptcl[rmlist[i]]);
     std::cout<<"Add back\n";
-    group.printColumn(std::cout, 4);
+    group.printColumnAscii(std::cout, 4);
     std::cout<<std::endl;
     printPtclAdr(group);
     
@@ -123,14 +123,14 @@ int main(int argc, char **argv){
     
     group.removeMemberList(rmlistall,num);
     std::cout<<"After remove\n";
-    group.printColumn(std::cout, 4);
+    group.printColumnAscii(std::cout, 4);
     std::cout<<std::endl;
 
     group.clear();
     group.setMode(ListMode::link);
     group.linkMemberArray(ptcl, num);
     std::cout<<"Clear and link to particle\n";
-    group.printColumn(std::cout, 4);
+    group.printColumnAscii(std::cout, 4);
     std::cout<<std::endl;
 
     return 0;

@@ -1,4 +1,10 @@
 TARGET= keplerorbit keplertree
+BUILD_DIR=./build
+
+all: $(addprefix $(BUILD_DIR)/, $(TARGET))
+
+$(BUILD_DIR):
+	mkdir -p $(BUILD_DIR)
 
 INSTALL_PATH=~/bin
 
@@ -50,14 +56,14 @@ endif
 
 ## Target --------------------------------------------#
 
-keplerorbit: keplerorbit.cxx  ${SOURCE}
+$(BUILD_DIR)/keplerorbit: keplerorbit.cxx  ${SOURCE}
 	$(CXX) $(CXXFLAGS) $< -o $@ $(CXXLIBS)
 
-keplertree: keplertree.cxx ${SOURCE}
+$(BUILD_DIR)/keplertree: keplertree.cxx ${SOURCE}
 	$(CXX) $(CXXFLAGS) $< -o $@ $(CXXLIBS)
 
-install: $(TARGET)
-	install -m 755 $(TARGET) $(INSTALL_PATH)
+install: $(addprefix $(BUILD_DIR)/, $(TARGET))
+	install -m 755 $(addprefix $(BUILD_DIR)/, $(TARGET)) $(INSTALL_PATH)
 
 clean:
-	rm -f $(TARGET)
+	rm -rf $(BUILD_DIR)
