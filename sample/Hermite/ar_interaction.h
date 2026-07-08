@@ -620,7 +620,7 @@ public:
                                 //p2->setBinaryPairID(p1->id);
                                 p1->setBinaryInterruptState(BinaryInterruptState::delaycollision);
                                 p2->setBinaryInterruptState(BinaryInterruptState::delaycollision);
-                                p1->time_check = std::min(p1->time_check, _bin_interrupt.time_now + drdv<0 ? t_peri : (_bin.period - t_peri));
+                                p1->time_check = std::min(p1->time_check, _bin_interrupt.time_now + (drdv<0 ? t_peri : (_bin.period - t_peri)));
                                 p2->time_check = std::min(p1->time_check, p2->time_check);
                             }
                         }
