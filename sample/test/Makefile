@@ -59,7 +59,7 @@ endif
 
 ## Target --------------------------------------------#
 
-$(addprefix $(BUILD_DIR)/, $(TARGET)): $(BUILD_DIR)/%: %.cxx
+$(addprefix $(BUILD_DIR)/, $(TARGET)): $(BUILD_DIR)/%: %.cxx | $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) $< -o $@ $(CXXLIBS)
 
 clean:

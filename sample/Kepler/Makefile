@@ -56,10 +56,10 @@ endif
 
 ## Target --------------------------------------------#
 
-$(BUILD_DIR)/keplerorbit: keplerorbit.cxx  ${SOURCE}
+$(BUILD_DIR)/keplerorbit: keplerorbit.cxx  ${SOURCE} | $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) $< -o $@ $(CXXLIBS)
 
-$(BUILD_DIR)/keplertree: keplertree.cxx ${SOURCE}
+$(BUILD_DIR)/keplertree: keplertree.cxx ${SOURCE} | $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) $< -o $@ $(CXXLIBS)
 
 install: $(addprefix $(BUILD_DIR)/, $(TARGET))

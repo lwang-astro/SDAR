@@ -40,7 +40,7 @@ public:
     void setRGroupAndNeighbor(const Float _r_break,
                               const Float _r_neighbor_over_group,
                               const Float _mass_ref) {
-        Float mass_factor = std::max(std::pow(mass / _mass_ref, Float(1.0/3.0)), Float(1.0));
+        Float mass_factor = std::max(pow(mass / _mass_ref, Float(1.0/3.0)), Float(1.0));
         r_group_crit    = _r_break * mass_factor;
         r_neighbor_crit = r_group_crit * _r_neighbor_over_group;
     }
