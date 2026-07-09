@@ -175,6 +175,7 @@ namespace COMM {
             ASSERT(TList::nmax_==0);
             int n_new;
             _fin>>n_new;
+            _fin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
             ASSERT(!_fin.eof());
             if(n_new<=0) {
                 std::cerr<<"Error: reading particle number "<<n_new<<"<=0!\n";

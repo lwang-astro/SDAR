@@ -162,7 +162,12 @@ public:
         std::string line;
         std::getline(_fin, line);
         std::istringstream iss(line);
-        iss>>mass>>pos[0]>>pos[1]>>pos[2]>>vel[0]>>vel[1]>>vel[2]>>radius;
+        if (!(iss>>mass>>pos[0]>>pos[1]>>pos[2]
+                >>vel[0]>>vel[1]>>vel[2]>>radius)) {
+            std::cerr<<"Error: readAscii failed to read 8 required fields.\n"
+                     <<"  Line content: [" << line << "]\n";
+            abort();
+        }
         if (iss>>r_group_crit) {
             iss>>r_neighbor_crit;
         } else {
