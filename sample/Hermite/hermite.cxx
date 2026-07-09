@@ -45,7 +45,7 @@ public:
     COMM::IOParams<double>  time_error;
     COMM::IOParams<double>  time_zero;
     COMM::IOParams<double>  time_end;
-    COMM::IOParams<double>  r_break;
+    COMM::IOParams<double>  r_group;
     COMM::IOParams<double>  r_neighbor_over_group;
     COMM::IOParams<double>  eta_4th;
     COMM::IOParams<double>  eta_2nd;
@@ -77,7 +77,7 @@ public:
         , time_error          (input_par_store, 0.0,                "time-error",           "time synchronization absolute error limit for AR","default is 0.25*dt-min")
         , time_zero           (input_par_store, 0.0,                "time-start",           "initial physical time")
         , time_end            (input_par_store, 1.0,                "t",                    "ending physical time ")
-        , r_break             (input_par_store, 1e-3,               "r",                    "distance criterion for switching AR and Hermite")
+        , r_group             (input_par_store, 1e-3,               "r-group",                    "distance criterion (group radius) reference for switching AR and Hermite;  the final radius is scaled by max(1,(mass/<mass>)^(1/3))")
         , r_neighbor_over_group(input_par_store, 2.0,                "r-neighbor-over-group", "coefficient to compute neighbor radius from group radius")
         , eta_4th             (input_par_store, 0.1,                "eta-4th",              "time step coefficient for 4th order")
         , eta_2nd             (input_par_store, 0.001,              "eta-2nd",              "time step coefficient for 2nd order")
@@ -118,6 +118,7 @@ public:
             {mpfr_digits.key,              required_argument, &h4_flag, 16},
 #endif
             {"r-neighbor-over-group",      required_argument, &h4_flag, 17},
+            {"r-group",                     required_argument, &h4_flag, 18},
             {"help",                       no_argument,       0, 'h'},
             {0, 0, 0, 0}
         };
@@ -126,7 +127,7 @@ public:
         int copt;
         int option_index;
         optind = 0;
-        while ((copt = getopt_long(argc, argv, "t:r:k:G:e:o:i:p:h", long_options, &option_index)) != -1)
+        while ((copt = getopt_long(argc, argv, "t:k:G:e:o:i:p:h", long_options, &option_index)) != -1)
             switch (copt) {
             case 0:
                 switch (h4_flag) {
@@ -202,14 +203,14 @@ public:
                     r_neighbor_over_group.value = atof(optarg);
                     opt_used += 2;
                     break;
+                case 18:
+                    r_group.value = atof(optarg);
+                    opt_used += 2;
+                    break;
                 }
                 break;
             case 't':
                 time_end.value = atof(optarg);
-                opt_used++;
-                break;
-            case 'r':
-                r_break.value = atof(optarg);
                 opt_used++;
                 break;
             case 'k':
@@ -268,6 +269,14 @@ int main(int argc, char **argv){
     //fpu_fix_start(&oldcw);
 
     IOParamsH4 iop;
+    
+    // Check whether all options are defined
+    std::vector<COMM::IOParamsContainer*> all_pars;
+    all_pars.push_back(&iop.input_par_store);
+    std::vector<std::string> known_options;
+    known_options.push_back("help");
+    known_options.push_back("h");
+    FindUndefinedOptions(all_pars, argc, argv, &known_options);
 
     if (argc==1) {
         std::cerr<<"Please provide particle data filename\n";
@@ -356,7 +365,7 @@ int main(int argc, char **argv){
     // initialize per-particle group and neighbor radii with mass-dependent weighting
     Float r_neighbor_sum = 0.0;
     for (int i=0; i<h4_int.particles.getSize(); i++) {
-        h4_int.particles[i].setRGroupAndNeighbor(iop.r_break.value, iop.r_neighbor_over_group.value, m_ave);
+        h4_int.particles[i].setRGroupAndNeighbor(iop.r_group.value, iop.r_neighbor_over_group.value, m_ave);
         r_neighbor_sum += h4_int.particles[i].getRNeighbor();
     }
     Float r_neighbor_ave = r_neighbor_sum / h4_int.particles.getSize();

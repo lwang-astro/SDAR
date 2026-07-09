@@ -9,7 +9,7 @@ VPATH=../../src
 SOURCE=${shell ls ../../src/AR/*.h} ${shell ls ../../src/Common/*.h} ${shell ls ./*.h}
 
 use_x86=yes
-#use_mpfrc=yes
+use_mpfrc=yes
 #use_k_computer=yes
 #QD_PATH=../../../../
 #MPFRC_PATH=../../../mpreal

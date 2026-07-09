@@ -79,19 +79,23 @@ public:
         , ds_scale            (input_par_store, 1.0,                "ds-scale",        "step size scaling factor")
         , gravitational_constant(input_par_store, 1.0,              "G",               "gravitational constant")
         , dt_min              (input_par_store, 1e-13,              "dt-min",          "minimum physical time step")
-        , dt_out              (input_par_store, 0.0,                "dt-out",          "output time interval")
+        , dt_out              (input_par_store, 0.0,                "o",               "output time interval")
         , slowdown_ref        (input_par_store, 1e-6,               "slowdown-ref",    "slowdown perturbation ratio reference")
 #ifdef AR_SLOWDOWN_MASSRATIO
         , slowdown_mass_ref   (input_par_store, 0.0,                "slowdown-mass-ref", "slowdowm mass reference","averaged mass")
 #endif
         , slowdown_timescale_max(input_par_store, 0.0,              "slowdown-timescale-max", "maximum timescale for maximum slowdown factor","time-end")
-        , interrupt_detection_option(input_par_store, 0,            "i",               "modify orbits and check interruption: 0: turn off; 1: modify the binary orbits based on interruption criterion; 2. recored binary parameters based on interruption criterion")
+        , interrupt_detection_option(input_par_store, 0,            "i",               "modify orbits and check interruption; 0: turn off; 1: modify the binary orbits based on interruption criterion; 2. recored binary parameters based on interruption criterion")
         , fix_step_option     (input_par_store, -1,                 "fix-step-option", "fix step options: always, later, none","auto")
 #ifdef USE_MPFRC
         , mpfr_digits         (input_par_store, 30,                 "mpfr-dights",     "dights for MPFR precison")
 #endif
-#ifdef AR_HYBRID
-        , hybrid_option       (input_par_store, -1,                 "hybrid-method",   "use Hybrid methods: on, off, auto","auto")
+#ifdef AR_TIME_FUNCTION_MUL_POT
+        , hybrid_option       (input_par_store, -1,                 "hybrid-method",   "use time transformation function with the production of pair potentials; binary: use only innermost binaries; normal-binary: use only innermost binaries with normalized production of potentials: value^(1/n_bin) where n_bin is number of binaries; all: use all pairs; off: not used, standard method; auto: auto-detect the type of systems to apply the 'binary' method","auto")
+#elif AR_TIME_FUNCTION_MAX_POT
+        , hybrid_option       (input_par_store, -1,                 "hybrid-method",   "use time transformation function with maximum of pair potentials (on, off, auto)","auto")
+#elif AR_TIME_FUNCTION_ADD_POT
+        , hybrid_option       (input_par_store, -1,                 "hybrid-method",   "use time transformation function with summation of inner most pair potentials (on, off, auto)","auto")
 #endif
         , filename_par        (input_par_store, "",                 "p",               "filename to load manager parameters","input name")
         , filename_out        (input_par_store, "",                 "f",               "filename to output snapshots in BINARY format; if not given, print directly in standard output","input name")
@@ -116,7 +120,6 @@ public:
             {ds_scale.key,                 required_argument, &ar_flag, 12},
             {gravitational_constant.key,   required_argument, &ar_flag, 13},
             {dt_min.key,                   required_argument, &ar_flag, 14},
-            {dt_out.key,                   required_argument, &ar_flag, 15},
             {slowdown_ref.key,             required_argument, &ar_flag, 16},
 #ifdef AR_SLOWDOWN_MASSRATIO
             {slowdown_mass_ref.key,        required_argument, &ar_flag, 17},
@@ -142,7 +145,7 @@ public:
         int copt;
         int option_index;
         optind = 0;
-        while ((copt = getopt_long(argc, argv, "-n:t:r:s:Sk:G:e:p:f:i:lh", long_options, &option_index)) != -1)
+        while ((copt = getopt_long(argc, argv, "-n:t:r:s:Sk:G:e:p:f:i:o:lh", long_options, &option_index)) != -1)
             switch (copt) {
             case 0:
                 switch (ar_flag) {
@@ -202,10 +205,6 @@ public:
                     dt_min.value = atof(optarg);
                     opt_used += 2;
                     break;
-                case 15:
-                    dt_out.value = atof(optarg);
-                    opt_used += 2;
-                    break;
                 case 16:
                     slowdown_ref.value = atof(optarg);
                     opt_used += 2;
@@ -239,7 +238,13 @@ public:
 #ifdef AR_HYBRID
                 case 21:
                     if (!strcmp(optarg,"auto")) hybrid_option.value = -1;
+#ifdef AR_TIME_FUNCTION_MUL_POT
+                    else if (!strcmp(optarg,"binary")) hybrid_option.value = 1;
+                    else if (!strcmp(optarg,"normal-binary")) hybrid_option.value = 2;
+                    else if (!strcmp(optarg,"all")) hybrid_option.value = 3;
+#else
                     else if (!strcmp(optarg,"on")) hybrid_option.value = 1;
+#endif
                     else if (!strcmp(optarg,"off")) hybrid_option.value = 0;
                     else {
                         std::cerr<<"Error: hybrid option unknown ("<<optarg<<"), should be on, off, auto\n";
@@ -340,9 +345,11 @@ public:
                 input_par_store.printHelp(std::cout);
                 std::cout<<"Size of integrator class: (bytes) "<<sizeof(ARInt)<<std::endl;
                 return -1;
+            case '?':
+                opt_used +=2;
+                break;
             default:
-                std::cerr<<"Unknown argument. check '-h' for help.\n";
-                abort();
+                break;
             }
         return opt_used;
     }
@@ -354,6 +361,14 @@ int main(int argc, char **argv){
     //fpu_fix_start(&oldcw);
 
     IOParamsAR iop;
+
+    // Check whether all options are defined
+    std::vector<COMM::IOParamsContainer*> all_pars;
+    all_pars.push_back(&iop.input_par_store);
+    std::vector<std::string> known_options;
+    known_options.push_back("help");
+    known_options.push_back("h");
+    FindUndefinedOptions(all_pars, argc, argv, &known_options);
 
     FILE* fsnap = NULL;
 
