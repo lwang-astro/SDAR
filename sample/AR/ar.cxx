@@ -288,6 +288,10 @@ public:
                 nstep.value = atoi(optarg);
                 opt_used++;
                 break;
+            case 'o':
+                dt_out.value = atof(optarg);
+                opt_used++;
+                break;
             case 't':
                 time_end.value = atof(optarg);
                 opt_used++;
@@ -331,6 +335,10 @@ public:
                 break;
             case 'i':
                 interrupt_detection_option.value = atoi(optarg);
+                opt_used++;
+                break;
+            case 'S':
+                synch_flag.value = 1;
                 opt_used++;
                 break;
             case 'l':
