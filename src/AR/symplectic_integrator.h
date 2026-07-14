@@ -308,6 +308,8 @@ namespace AR {
 #elif AR_TIME_FUNCTION_MUL_POT
             int nbin; ///< number of binaries included in gt_kick_inv
             Float mul_pot_no_pow; ///< production of potential with no power
+            Float sd_prod; ///< product of slowdown factors (inverse nested sd) used for drift gradient correction
+            Float sd_correction; ///< correction factor for dgt_drift_inv scaling to compensate extra slowdown in gt_kick_inv_.value
 #endif
 
             // initialization
@@ -315,7 +317,7 @@ namespace AR {
 #ifdef AR_TIME_FUNCTION_MAX_POT
                 value(0.0), i(-1), j(-1), gtgrad{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}, max(0.0), scale(1.0), initial(false), inew(-1), jnew(-1)
 #elif AR_TIME_FUNCTION_MUL_POT
-                value(1.0), nbin(0)
+                value(1.0), nbin(0), mul_pot_no_pow(1.0), sd_prod(1.0), sd_correction(1.0)
 #else
                 value(0.0)
 #endif
@@ -330,8 +332,11 @@ namespace AR {
                 max = 0.0;
                 initial = false;
 #elif AR_TIME_FUNCTION_MUL_POT
-                if (hybrid_switch) 
+                if (hybrid_switch) {
                     value = 1.0;
+                    sd_prod = 1.0;
+                    sd_correction = 1.0;
+                }
                 else
                     value = 0.0;
                 nbin = 0;
@@ -352,6 +357,8 @@ namespace AR {
 #elif AR_TIME_FUNCTION_MUL_POT
                 value = 1.0;
                 nbin = 0;
+                sd_prod = 1.0;
+                sd_correction = 1.0;
 #else
                 value = 0.0;
 #endif
@@ -896,32 +903,22 @@ namespace AR {
                 }
                 else {
 #elif AR_TIME_FUNCTION_MUL_POT
-                if (hybrid_switch==1 || hybrid_switch==2) {
-                    // Here gtgrad excludes gt_kick and slowdown factor, these factors will be multipled when gt_drift_inv is calculated.
+                if (hybrid_switch) {
+                    // Here gtgrad and gt_kick_inv accumulate with slowdown factor;
+                    // sd_prod tracks the product of slowdown factors for later correction in kickEtotAndGTDrift.
                     Float gt_kick = 1.0/gt_kick_inv;
-                    force_[_i].gtgrad[0] = fij[0].gtgrad[0]*gt_kick;
-                    force_[_i].gtgrad[1] = fij[0].gtgrad[1]*gt_kick;
-                    force_[_i].gtgrad[2] = fij[0].gtgrad[2]*gt_kick;
-                    force_[_j].gtgrad[0] = fij[1].gtgrad[0]*gt_kick;
-                    force_[_j].gtgrad[1] = fij[1].gtgrad[1]*gt_kick;
-                    force_[_j].gtgrad[2] = fij[1].gtgrad[2]*gt_kick;
+                    Float gt_kick_sd = gt_kick*_inv_nest_sd;
+                    force_[_i].gtgrad[0] += fij[0].gtgrad[0]*gt_kick_sd;
+                    force_[_i].gtgrad[1] += fij[0].gtgrad[1]*gt_kick_sd;
+                    force_[_i].gtgrad[2] += fij[0].gtgrad[2]*gt_kick_sd;
+                    force_[_j].gtgrad[0] += fij[1].gtgrad[0]*gt_kick_sd;
+                    force_[_j].gtgrad[1] += fij[1].gtgrad[1]*gt_kick_sd;
+                    force_[_j].gtgrad[2] += fij[1].gtgrad[2]*gt_kick_sd;
 
                     // add binary count and multiply gt_kick_inv_sd
                     gt_kick_inv_.nbin++;
                     gt_kick_inv_.value *= gt_kick_inv_sd;
-                }
-                else if (hybrid_switch==3) {
-                    Float gt_kick = 1.0/gt_kick_inv;
-                    force_[_i].gtgrad[0] *= fij[0].gtgrad[0]*gt_kick;
-                    force_[_i].gtgrad[1] *= fij[0].gtgrad[1]*gt_kick;
-                    force_[_i].gtgrad[2] *= fij[0].gtgrad[2]*gt_kick;
-                    force_[_j].gtgrad[0] *= fij[1].gtgrad[0]*gt_kick;
-                    force_[_j].gtgrad[1] *= fij[1].gtgrad[1]*gt_kick;
-                    force_[_j].gtgrad[2] *= fij[1].gtgrad[2]*gt_kick;
-
-                    // add binary count and multiply gt_kick_inv_sd
-                    gt_kick_inv_.nbin++;
-                    gt_kick_inv_.value *= gt_kick_inv_sd;
+                    gt_kick_inv_.sd_prod *= _inv_nest_sd;
                 }
                 else {
 #endif
@@ -1064,11 +1061,10 @@ namespace AR {
         inline void calcAccPotAndGTKickInv() {
             epot_ = 0.0;
             epot_sd_ = 0.0;
+            for (int i=0; i<force_.getSize(); i++) force_[i].clear();
 #ifdef AR_HYBRID
-            for (int i=0; i<force_.getSize(); i++) force_[i].clear((hybrid_switch==3));
             gt_kick_inv_.reset(hybrid_switch);
 #else
-            for (int i=0; i<force_.getSize(); i++) force_[i].clear();
             gt_kick_inv_.reset();
 #endif
 #ifdef USE_CM_FRAME
@@ -1081,6 +1077,12 @@ namespace AR {
                 // use power in gt_kick_inv_
                 gt_kick_inv_.mul_pot_no_pow = gt_kick_inv_.value;
                 gt_kick_inv_.value = pow(gt_kick_inv_.mul_pot_no_pow, 1.0/gt_kick_inv_.nbin);
+                // slowdown correction for geometric mean: divide by sd_prod^(1/nbin)
+                gt_kick_inv_.sd_correction = 1.0 / pow(gt_kick_inv_.sd_prod, 1.0/gt_kick_inv_.nbin);
+            }
+            else if (hybrid_switch) {
+                // slowdown correction: divide by product of all slowdown factors
+                gt_kick_inv_.sd_correction = 1.0 / gt_kick_inv_.sd_prod;
             }
 #endif
 
@@ -1213,9 +1215,9 @@ namespace AR {
 #endif
 #ifdef AR_TIME_FUNCTION_MUL_POT
             if (hybrid_switch==1 || hybrid_switch==3) 
-                dgt_drift_inv *= gt_kick_inv_.value;
+                dgt_drift_inv *= gt_kick_inv_.value * gt_kick_inv_.sd_correction;
             else if (hybrid_switch==2)
-                dgt_drift_inv *= gt_kick_inv_.value/gt_kick_inv_.nbin;
+                dgt_drift_inv *= gt_kick_inv_.value * gt_kick_inv_.sd_correction / gt_kick_inv_.nbin;
 #endif
             gt_drift_inv_ += dgt_drift_inv*_dt;
         }
@@ -2028,7 +2030,7 @@ namespace AR {
                                                          vel2[2] * gtgrad2[2]);
 #ifdef AR_TIME_FUNCTION_MUL_POT
                 if (hybrid_switch) 
-                    dgt_drift_inv *= gt_kick_inv_.value;
+                    dgt_drift_inv *= gt_kick_inv_.value * gt_kick_inv_.sd_correction;
 #endif
                 gt_drift_inv_ += dgt_drift_inv;
 
@@ -2261,7 +2263,7 @@ namespace AR {
                                                                    vel2[2] * gtgrad2[2]);
 #ifdef AR_TIME_FUNCTION_MUL_POT
                 if (hybrid_switch) 
-                    dgt_drift_inv *= gt_kick_inv_.value;
+                    dgt_drift_inv *= gt_kick_inv_.value * gt_kick_inv_.sd_correction;
 #endif
                 gt_drift_inv_ += dgt_drift_inv;
 

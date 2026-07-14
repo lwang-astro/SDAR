@@ -63,13 +63,12 @@ namespace AR {
         }
 
         //! clear
-        void clear(bool set_gtgrad_one=false) {
+        void clear() {
             acc_in[0] = acc_in[1] = acc_in[2] = 0.0;
             acc_pert[0] = acc_pert[1] = acc_pert[2] = 0.0;
             pot_in = pot_pert = 0.0;
 #ifdef AR_TTL
-            if (set_gtgrad_one) gtgrad[0] = gtgrad[1] = gtgrad[2] = 1.0;
-            else gtgrad[0] = gtgrad[1] = gtgrad[2] = 0.0;
+            gtgrad[0] = gtgrad[1] = gtgrad[2] = 0.0;
 #endif            
         }
     };
