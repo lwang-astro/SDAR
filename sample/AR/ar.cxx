@@ -68,14 +68,14 @@ public:
         , print_width         (input_par_store, WRITE_WIDTH,        "print-width",     "print width of value")
         , print_precision     (input_par_store, WRITE_PRECISION,    "print-precision", "print digital precision")
         , nstep_max           (input_par_store, 1000000,            "n-step-max",      "number of maximum (integrate/output) step for AR integration")
-        , sym_order           (input_par_store, -6,                 "k",               "Symplectic integrator order, should be even number, positive value for Yoshida 1st method (can be arbitrary precision); negative value for Yoshida 2nd method (only limited to double precision)")
+        , sym_order           (input_par_store, -6,                 "k",               "Symplectic integrator order, should be even number, positive value for Yoshida 1st method (can be arbitrary precision);  negative value for Yoshida 2nd method (only limited to double precision)")
         , energy_error        (input_par_store, 1e-10,              "e",               "relative energy error limit for AR")
         , time_error          (input_par_store, 0.0,                "time-error",      "time synchronization absolute error limit for AR","default is 0.25*dt-min")
         , time_zero           (input_par_store, 0.0,                "time-start",      "initial physical time")
         , time_end            (input_par_store, 0.0,                "t",               "ending physical time")
         , r_break             (input_par_store, 1e-3,               "r",               "distance criterion for checking stability")
         , nstep               (input_par_store, 0,                  "n",               "number of integration steps (higher priority than time_end)")
-        , s                   (input_par_store, 0.0,                "s",               "step size, not physical time step","auto")
+        , s                   (input_par_store, 0.0,                "s",               "step size, not physical time step;  <=0: auto;   >0: fixed")
         , ds_scale            (input_par_store, 1.0,                "ds-scale",        "step size scaling factor")
         , gravitational_constant(input_par_store, 1.0,              "G",               "gravitational constant")
         , dt_min              (input_par_store, 1e-13,              "dt-min",          "minimum physical time step")
@@ -85,20 +85,20 @@ public:
         , slowdown_mass_ref   (input_par_store, 0.0,                "slowdown-mass-ref", "slowdowm mass reference","averaged mass")
 #endif
         , slowdown_timescale_max(input_par_store, 0.0,              "slowdown-timescale-max", "maximum timescale for maximum slowdown factor","time-end")
-        , interrupt_detection_option(input_par_store, 0,            "i",               "modify orbits and check interruption; 0: turn off; 1: modify the binary orbits based on interruption criterion; 2. recored binary parameters based on interruption criterion")
+        , interrupt_detection_option(input_par_store, 0,            "i",               "modify orbits and check interruption;  0: turn off;  1: modify the binary orbits based on interruption criterion;  2. recored binary parameters based on interruption criterion")
         , fix_step_option     (input_par_store, -1,                 "fix-step-option", "fix step options: always, later, none","auto")
 #ifdef USE_MPFRC
         , mpfr_digits         (input_par_store, 30,                 "mpfr-dights",     "dights for MPFR precison")
 #endif
 #ifdef AR_TIME_FUNCTION_MUL_POT
-        , hybrid_option       (input_par_store, -1,                 "hybrid-method",   "use time transformation function with the production of pair potentials; binary: use only innermost binaries; normal-binary: use only innermost binaries with normalized production of potentials: value^(1/n_bin) where n_bin is number of binaries; all: use all pairs; off: not used, standard method; auto: auto-detect the type of systems to apply the 'binary' method","auto")
+        , hybrid_option       (input_par_store, -1,                 "hybrid-method",   "use time transformation function with the production of pair potentials;  1: use only innermost binaries;  2: use only innermost binaries with normalized production of potentials: value^(1/n_bin) where n_bin is number of binaries;  3: use all pairs;  4: tree-level product (inner x outer nodes);  0: not used, standard method; -1: auto-detect the type of systems to apply the 'binary' method")
 #elif AR_TIME_FUNCTION_MAX_POT
         , hybrid_option       (input_par_store, -1,                 "hybrid-method",   "use time transformation function with maximum of pair potentials (on, off, auto)","auto")
 #elif AR_TIME_FUNCTION_ADD_POT
         , hybrid_option       (input_par_store, -1,                 "hybrid-method",   "use time transformation function with summation of inner most pair potentials (on, off, auto)","auto")
 #endif
         , filename_par        (input_par_store, "",                 "p",               "filename to load manager parameters","input name")
-        , filename_out        (input_par_store, "",                 "f",               "filename to output snapshots in BINARY format; if not given, print directly in standard output","input name")
+        , filename_out        (input_par_store, "",                 "f",               "filename to output snapshots in BINARY format;  if not given, print directly in standard output","input name")
         , synch_flag          (input_par_store, 0,                  "S",               "Switch on time synchronization (use with -o or -n)")
         , load_flag           (input_par_store, 0,                  "l",               "Load dumped data for restart (if used, the input file is dumped data)")
     {}
@@ -237,19 +237,7 @@ public:
 #endif
 #ifdef AR_HYBRID
                 case 21:
-                    if (!strcmp(optarg,"auto")) hybrid_option.value = -1;
-#ifdef AR_TIME_FUNCTION_MUL_POT
-                    else if (!strcmp(optarg,"binary")) hybrid_option.value = 1;
-                    else if (!strcmp(optarg,"normal-binary")) hybrid_option.value = 2;
-                    else if (!strcmp(optarg,"all")) hybrid_option.value = 3;
-#else
-                    else if (!strcmp(optarg,"on")) hybrid_option.value = 1;
-#endif
-                    else if (!strcmp(optarg,"off")) hybrid_option.value = 0;
-                    else {
-                        std::cerr<<"Error: hybrid option unknown ("<<optarg<<"), should be on, off, auto\n";
-                        abort();
-                    }
+                    hybrid_option.value = atoi(optarg);
                     opt_used += 2;
                     break;
 #endif
@@ -492,7 +480,11 @@ int main(int argc, char **argv){
     if(!iop.load_flag.value) {
         // initialization 
         sym_int.initialIntegration(iop.time_zero.value);
+#ifdef AR_HYBRID
+        sym_int.info.calcDsAndStepOption(manager.step.getOrder(), manager.interaction.gravitational_constant, manager.ds_scale, sym_int.hybrid_switch);
+#else
         sym_int.info.calcDsAndStepOption(manager.step.getOrder(), manager.interaction.gravitational_constant, manager.ds_scale);
+#endif
     }
 
     // use input fix step option

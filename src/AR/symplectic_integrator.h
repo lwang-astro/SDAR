@@ -1017,7 +1017,7 @@ namespace AR {
 
             bool calc_gt_cross = true;
 #ifdef AR_HYBRID
-            if (hybrid_switch>0 && hybrid_switch<=2) 
+            if ((hybrid_switch>0 && hybrid_switch<=2) || hybrid_switch==4)
                 calc_gt_cross = false;
 #endif
 
@@ -1057,6 +1057,93 @@ namespace AR {
             }
         }
 
+#ifdef AR_TIME_FUNCTION_MUL_POT
+        //! Process non-leaf tree nodes for hierarchical BLogH (fused traversal)
+        /*! Single tree traversal combining two operations for each node with >2 members:
+            1. Multiply U_node = G * m1 * m2 / r_sep into gt_kick_inv_.value
+            2. Distribute ∇ln U_node gradient to leaf particles via addOuterGradientToMember
+            
+            @param[in] _bin: current binary tree node
+            @param[in] _inv_nest_sd: inverse of nested slowdown factor at this level
+        */
+        void processOuterNode(AR::BinaryTree<Tparticle>& _bin,
+                              const Float& _inv_nest_sd) {
+            if (_bin.getMemberN() > 2) {
+                // --- common: separation and unit vector (computed once) ---
+                auto* m0 = _bin.getMember(0);
+                auto* m1 = _bin.getMember(1);
+                Float dx = m0->pos[0] - m1->pos[0];
+                Float dy = m0->pos[1] - m1->pos[1];
+                Float dz = m0->pos[2] - m1->pos[2];
+                Float r_sep = sqrt(dx*dx + dy*dy + dz*dz);
+                ASSERT(r_sep > 0);
+                Float inv_r = 1.0 / r_sep;
+                Float r_hat[3] = {dx * inv_r, dy * inv_r, dz * inv_r};
+
+                // --- U_node into gt_kick_inv_ ---
+                Float G = manager->interaction.gravitational_constant;
+                gt_kick_inv_.value *= G * _bin.m1 * _bin.m2 * inv_r;
+
+                // --- distribute gradient to leaf particles ---
+                Float inv_nest_sd_child = _inv_nest_sd
+                    / _bin.slowdown.getSlowDownFactor();
+
+                // Left member:  gtgrad += -r̂ * (m_i / M_left) / r / s_i
+                addOuterGradientToMember(*_bin.getMemberAsTree(0),
+                    r_hat, -inv_r / _bin.m1, inv_nest_sd_child);
+
+                // Right member: gtgrad += +r̂ * (m_j / M_right) / r / s_j
+                addOuterGradientToMember(*_bin.getMemberAsTree(1),
+                    r_hat, +inv_r / _bin.m2, inv_nest_sd_child);
+
+                // --- single recursion into children ---
+                for (int k = 0; k < 2; k++) {
+                    if (_bin.isMemberTree(k)) {
+                        processOuterNode(*_bin.getMemberAsTree(k),
+                                         inv_nest_sd_child);
+                    }
+                }
+            }
+        }
+
+        //! Distribute outer node gradient to all leaf particles within a subtree
+        /*! @param[in] _bin: subtree root
+            @param[in] _r_hat: unit direction vector (from right to left)
+            @param[in] _scale: pre-factor = ±1/(r * M_member)
+            @param[in] _inv_nest_sd: inverse nested slowdown at this level
+        */
+        void addOuterGradientToMember(AR::BinaryTree<Tparticle>& _bin,
+                                       const Float* _r_hat,
+                                       const Float _scale,
+                                       const Float& _inv_nest_sd) {
+            if (_bin.getMemberN() > 2) {
+                Float inv_nest_sd_child = _inv_nest_sd
+                    / _bin.slowdown.getSlowDownFactor();
+                for (int k = 0; k < 2; k++) {
+                    if (_bin.isMemberTree(k)) {
+                        addOuterGradientToMember(*_bin.getMemberAsTree(k),
+                            _r_hat, _scale, inv_nest_sd_child);
+                    } else {
+                        int idx = _bin.getMemberIndex(k);
+                        Float factor = particles[idx].mass * _scale * _inv_nest_sd;
+                        force_[idx].gtgrad[0] += _r_hat[0] * factor;
+                        force_[idx].gtgrad[1] += _r_hat[1] * factor;
+                        force_[idx].gtgrad[2] += _r_hat[2] * factor;
+                    }
+                }
+            } else {
+                // leaf binary — apply to both particles
+                for (int k = 0; k < 2; k++) {
+                    int idx = _bin.getMemberIndex(k);
+                    Float factor = particles[idx].mass * _scale * _inv_nest_sd;
+                    force_[idx].gtgrad[0] += _r_hat[0] * factor;
+                    force_[idx].gtgrad[1] += _r_hat[1] * factor;
+                    force_[idx].gtgrad[2] += _r_hat[2] * factor;
+                }
+            }
+        }
+#endif
+
         //! calc force, potential and inverse time transformation factor for kick
         inline void calcAccPotAndGTKickInv() {
             epot_ = 0.0;
@@ -1073,6 +1160,9 @@ namespace AR {
             calcAccPotAndGTKickInvTreeIter(1.0, info.getBinaryTreeRoot());
 
 #ifdef AR_TIME_FUNCTION_MUL_POT
+            if (hybrid_switch==4) {
+                processOuterNode(info.getBinaryTreeRoot(), 1.0);
+            }
             if (hybrid_switch==2) {
                 // use power in gt_kick_inv_
                 gt_kick_inv_.mul_pot_no_pow = gt_kick_inv_.value;
@@ -1214,7 +1304,7 @@ namespace AR {
             Float dgt_drift_inv = kickEtotAndGTDriftTreeIter(_dt, vel_cm, sd_factor, bin_root);
 #endif
 #ifdef AR_TIME_FUNCTION_MUL_POT
-            if (hybrid_switch==1 || hybrid_switch==3) 
+            if (hybrid_switch==1 || hybrid_switch==3 || hybrid_switch==4) 
                 dgt_drift_inv *= gt_kick_inv_.value * gt_kick_inv_.sd_correction;
             else if (hybrid_switch==2)
                 dgt_drift_inv *= gt_kick_inv_.value * gt_kick_inv_.sd_correction / gt_kick_inv_.nbin;

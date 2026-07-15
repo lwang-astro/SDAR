@@ -96,6 +96,74 @@ namespace AR {
      */
     template <class Tparticle, class Tpcm>
     class Information{
+#ifdef AR_TIME_FUNCTION_MUL_POT
+    private:
+        //! Iteration to accumulate product of ds_i and periods for BLogH ds formula
+        /*! For each innermost binary, computes per-orbit ds_i (no substep coeff)
+            and accumulates ds_prod and period_prod.
+            BLogH ds = prod(ds_i) / prod(P_i)^((nbin-1)/nbin) for switch=1,3,4
+                      = (prod(ds_i))^(1/nbin)                    for switch=2
+        */
+        void calcBLogHDsIter(Float& _ds_prod, Float& _period_prod, int& _nbin,
+                             BinaryTree<Tparticle>& _bin,
+                             const int _int_order, const Float& _G) {
+            if (_bin.getMemberN() > 2) {
+                for (int k=0; k<2; k++) {
+                    if (_bin.isMemberTree(k)) {
+                        calcBLogHDsIter(_ds_prod, _period_prod, _nbin,
+                                       *_bin.getMemberAsTree(k), _int_order, _G);
+                    }
+                }
+            } else {
+                if (_bin.m1 > 0 && _bin.m2 > 0) {
+                    Float pert_ratio = (_bin.slowdown.pert_out > 0 && _bin.slowdown.pert_in > 0)
+                                      ? _bin.slowdown.pert_in / _bin.slowdown.pert_out : 1.0;
+                    Float scale_factor = std::min(Float(1.0),
+                        pow(ds_pert_ratio_coff * pert_ratio, 1.0 / Float(_int_order)));
+
+                    Float ds_i;
+                    // per-orbit ds via calcDsElliptic/calcDsHyperbolic with coeff=2*pi
+                    const Float coeff_orbit = 2.0 * COMM::PI;
+                    if (_bin.semi > 0) {
+                        ds_i = calcDsElliptic(_bin, _G, coeff_orbit);
+                    } else {
+                        ds_i = calcDsHyperbolic(_bin, _G, coeff_orbit);
+                    }
+                    ds_i *= scale_factor;
+                    _ds_prod *= ds_i;
+                    _period_prod *= _bin.period;
+                    _nbin++;
+                }
+            }
+        }
+
+        //! Multiply non-leaf tree node potentials into ds for hierarchical BLogH
+        /*! Walks binary tree recursively. For each node with >2 members (non-leaf),
+            multiplies U_node = G * m1 * m2 / r_sep into ds,
+            where r_sep is the instantaneous separation between the two member CMs.
+        */
+        void multiplyDsByNodePotentials(BinaryTree<Tparticle>& _bin, const Float& _G) {
+            if (_bin.getMemberN() > 2) {
+                // instantaneous separation between the two members
+                auto* m0 = _bin.getMember(0);
+                auto* m1 = _bin.getMember(1);
+                Float dx = m0->pos[0] - m1->pos[0];
+                Float dy = m0->pos[1] - m1->pos[1];
+                Float dz = m0->pos[2] - m1->pos[2];
+                Float r_sep = sqrt(dx*dx + dy*dy + dz*dz);
+                ASSERT(r_sep > 0);
+                Float U_node = _G * _bin.m1 * _bin.m2 / r_sep;
+                ds *= U_node;
+
+                for (int k=0; k<2; k++) {
+                    if (_bin.isMemberTree(k)) {
+                        multiplyDsByNodePotentials(*_bin.getMemberAsTree(k), _G);
+                    }
+                }
+            }
+        }
+#endif
+
     public:
         Float ds;  ///> initial step size for integration
         Float ds_pert_ratio_coff; ///> coefficient to scale ds based on perturbation ratio
@@ -348,10 +416,44 @@ namespace AR {
           @param[in] _int_order: accuracy order of the symplectic integrator.
           @param[in] _G: gravitational constant
           @param[in] _ds_scale: scaling factor to determine ds
+          @param[in] _hybrid_switch: option to determine whether to multiply node potentials into ds (default: 0, no multiply)
          */
-        void calcDsAndStepOption(const int _int_order, const Float& _G, const Float& _ds_scale) {
+        void calcDsAndStepOption(const int _int_order, const Float& _G, const Float& _ds_scale, const int _hybrid_switch = 0) {
             auto& bin_root = getBinaryTreeRoot();
+
+#ifdef AR_TIME_FUNCTION_MUL_POT
+            if (_hybrid_switch > 0) {
+                // BLogH: accumulate product of per-orbit ds_i and periods
+                Float ds_prod = 1.0;
+                Float period_prod = 1.0;
+                int nbin = 0;
+                calcBLogHDsIter(ds_prod, period_prod, nbin, bin_root, _int_order, _G);
+
+                if (nbin > 0) {
+                    if (_hybrid_switch == 2) {
+                        // normal-binary: geometric mean, ds ~ [energy·time]
+                        ds = pow(ds_prod, 1.0 / Float(nbin));
+                    } else {
+                        // binary/all/hierarchical: product formula, ds ~ [energy^nbin·time]
+                        ds = ds_prod / pow(period_prod, Float(nbin - 1) / Float(nbin));
+                    }
+                    // apply substep division (1/32) and user ds_scale
+                    ds *= (1.0 / 32.0) * _ds_scale;
+                } else {
+                    // fallback: no valid inner binary found
+                    ds = calcDsKeplerBinaryTree(bin_root, _int_order, _G, _ds_scale);
+                }
+
+                // hierarchical: multiply outer node potentials
+                if (_hybrid_switch == 4) {
+                    multiplyDsByNodePotentials(bin_root, _G);
+                }
+            } else {
+                ds = calcDsKeplerBinaryTree(bin_root, _int_order, _G, _ds_scale);
+            }
+#else
             ds = calcDsKeplerBinaryTree(bin_root, _int_order, _G, _ds_scale);
+#endif
             ASSERT(ds>0);
 
             // Avoid too small step
