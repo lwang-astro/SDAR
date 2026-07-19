@@ -1089,12 +1089,28 @@ namespace AR {
                     / _bin.slowdown.getSlowDownFactor();
 
                 // Left member:  gtgrad += -r̂ * (m_i / M_left) / r / s_i
-                addOuterGradientToMember(*_bin.getMemberAsTree(0),
-                    r_hat, -inv_r / _bin.m1, inv_nest_sd_child);
+                if (_bin.isMemberTree(0)) {
+                    addOuterGradientToMember(*_bin.getMemberAsTree(0),
+                        r_hat, -inv_r / _bin.m1, inv_nest_sd_child);
+                } else {
+                    int idx = _bin.getMemberIndex(0);
+                    Float factor = particles[idx].mass * (-inv_r / _bin.m1) * inv_nest_sd_child;
+                    force_[idx].gtgrad[0] += r_hat[0] * factor;
+                    force_[idx].gtgrad[1] += r_hat[1] * factor;
+                    force_[idx].gtgrad[2] += r_hat[2] * factor;
+                }
 
                 // Right member: gtgrad += +r̂ * (m_j / M_right) / r / s_j
-                addOuterGradientToMember(*_bin.getMemberAsTree(1),
-                    r_hat, +inv_r / _bin.m2, inv_nest_sd_child);
+                if (_bin.isMemberTree(1)) {
+                    addOuterGradientToMember(*_bin.getMemberAsTree(1),
+                        r_hat, +inv_r / _bin.m2, inv_nest_sd_child);
+                } else {
+                    int idx = _bin.getMemberIndex(1);
+                    Float factor = particles[idx].mass * (+inv_r / _bin.m2) * inv_nest_sd_child;
+                    force_[idx].gtgrad[0] += r_hat[0] * factor;
+                    force_[idx].gtgrad[1] += r_hat[1] * factor;
+                    force_[idx].gtgrad[2] += r_hat[2] * factor;
+                }
 
                 // --- single recursion into children ---
                 for (int k = 0; k < 2; k++) {
@@ -1132,10 +1148,12 @@ namespace AR {
                     }
                 }
             } else {
-                // leaf binary — apply to both particles
-                for (int k = 0; k < 2; k++) {
+                // leaf: apply gradient to each particle with correct slowdown
+                Float inv_nest_sd_child = _inv_nest_sd
+                    / _bin.slowdown.getSlowDownFactor();
+                for (int k = 0; k < _bin.getMemberN(); k++) {
                     int idx = _bin.getMemberIndex(k);
-                    Float factor = particles[idx].mass * _scale * _inv_nest_sd;
+                    Float factor = particles[idx].mass * _scale * inv_nest_sd_child;
                     force_[idx].gtgrad[0] += _r_hat[0] * factor;
                     force_[idx].gtgrad[1] += _r_hat[1] * factor;
                     force_[idx].gtgrad[2] += _r_hat[2] * factor;
