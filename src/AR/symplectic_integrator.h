@@ -1555,6 +1555,28 @@ namespace AR {
                 //}
             }
 
+#ifdef AR_TIME_FUNCTION_MUL_POT
+            // --- BTLogH κ-capping: ensure all inner binaries have comparable resolution ---
+            // Product-form g_eff = g/(κ_i1·κ_i2·κ_root) couples all inner binaries to
+            // the same dt. If one binary has much larger κ, the unslowed binaries lose
+            // resolution. Cap each κ so that all P_eff = period·κ are bounded by the
+            // minimum P_eff among inner binaries.
+            if (hybrid_switch == 4) {
+                Float P_eff_min = NUMERIC_FLOAT_MAX;
+                for (int i = 0; i < n_bin - 1; i++) {
+                    auto& bini = info.binarytree[i];
+                    if (bini.semi > 0 && bini.period > 0) {
+                        Float P_eff = bini.slowdown.getEffectivePeriod();
+                        if (P_eff < P_eff_min) P_eff_min = P_eff;
+                    }
+                }
+                if (P_eff_min < NUMERIC_FLOAT_MAX) {
+                    for (int i = 0; i < n_bin - 1; i++) {
+                        info.binarytree[i].slowdown.capSlowDownFactor(P_eff_min);
+                    }
+                }
+            }
+#endif
 
             if (_update_energy_flag) {
                 Float ekin_sd_bk = ekin_sd_;

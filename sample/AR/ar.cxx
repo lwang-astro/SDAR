@@ -75,7 +75,7 @@ public:
         , time_end            (input_par_store, 0.0,                "t",               "ending physical time")
         , r_break             (input_par_store, 1e-3,               "r",               "distance criterion for checking stability")
         , nstep               (input_par_store, 0,                  "n",               "number of integration steps (higher priority than time_end)")
-        , s                   (input_par_store, 0.0,                "s",               "step size, not physical time step;  <=0: auto;   >0: fixed")
+        , s                   (input_par_store, 0.0,                "s",               "step size, not physical time step;  <=0: auto, try to achieve min binary period/32;   >0: fixed")
         , ds_scale            (input_par_store, 1.0,                "ds-scale",        "step size scaling factor")
         , gravitational_constant(input_par_store, 1.0,              "G",               "gravitational constant")
         , dt_min              (input_par_store, 1e-13,              "dt-min",          "minimum physical time step")

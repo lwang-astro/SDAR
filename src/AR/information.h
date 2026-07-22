@@ -105,12 +105,13 @@ namespace AR {
                       = (prod(ds_i))^(1/nbin)                    for switch=2
         */
         void calcBLogHDsIter(Float& _ds_prod, Float& _period_prod, int& _nbin,
+                             Float& _P_eff_min,
                              BinaryTree<Tparticle>& _bin,
                              const int _int_order, const Float& _G) {
             if (_bin.getMemberN() > 2) {
                 for (int k=0; k<2; k++) {
                     if (_bin.isMemberTree(k)) {
-                        calcBLogHDsIter(_ds_prod, _period_prod, _nbin,
+                        calcBLogHDsIter(_ds_prod, _period_prod, _nbin, _P_eff_min,
                                        *_bin.getMemberAsTree(k), _int_order, _G);
                     }
                 }
@@ -131,7 +132,18 @@ namespace AR {
                     }
                     ds_i *= scale_factor;
                     _ds_prod *= ds_i;
-                    _period_prod *= _bin.period;
+                    // equivalent timescale or effective period
+                    Float P_equiv;
+                    if (_bin.semi > 0) {
+                        P_equiv = _bin.slowdown.getEffectivePeriod();
+                    } else {
+                        // hyperbolic: T = 2π |a|^{3/2} / √(G(m1+m2))
+                        Float abs_semi = -_bin.semi;
+                        P_equiv = coeff_orbit
+                                * sqrt(pow(abs_semi, Float(3)) / (_G * (_bin.m1 + _bin.m2)));
+                    }
+                    _period_prod *= P_equiv;
+                    if (P_equiv > 0 && P_equiv < _P_eff_min) _P_eff_min = P_equiv;
                     _nbin++;
                 }
             }
@@ -426,28 +438,29 @@ namespace AR {
                 // BLogH: accumulate product of per-orbit ds_i and periods
                 Float ds_prod = 1.0;
                 Float period_prod = 1.0;
+                Float P_eff_min = NUMERIC_FLOAT_MAX;
                 int nbin = 0;
-                calcBLogHDsIter(ds_prod, period_prod, nbin, bin_root, _int_order, _G);
+                calcBLogHDsIter(ds_prod, period_prod, nbin, P_eff_min, bin_root, _int_order, _G);
 
-                if (nbin > 0) {
-                    if (_hybrid_switch == 2) {
-                        // normal-binary: geometric mean, ds ~ [energy·time]
-                        ds = pow(ds_prod, 1.0 / Float(nbin));
-                    } else {
-                        // binary/all/hierarchical: product formula, ds ~ [energy^nbin·time]
-                        ds = ds_prod / pow(period_prod, Float(nbin - 1) / Float(nbin));
+                ASSERT(nbin > 0);
+                if (_hybrid_switch == 2) {
+                    // normal-binary: geometric mean, ds ~ [energy·time]
+                    ds = pow(ds_prod, 1.0 / Float(nbin));
+                } else if (_hybrid_switch == 1 || _hybrid_switch == 4) {
+                    // binary/all/hierarchical: product formula, ds ~ [energy^nbin·time]
+                    // ds = Π(ds_i) * P_eff_min / Π(P_eff)
+                    ds = ds_prod * P_eff_min / period_prod;
+                    if (_hybrid_switch == 4) {
+                        // with outer potential, eccentricity may affect ds determination that ds is not exact reach P_eff_min.
+                        multiplyDsByNodePotentials(bin_root, _G);
                     }
-                    // apply substep division (1/32) and user ds_scale
-                    ds *= (1.0 / 32.0) * _ds_scale;
-                } else {
-                    // fallback: no valid inner binary found
-                    ds = calcDsKeplerBinaryTree(bin_root, _int_order, _G, _ds_scale);
                 }
-
-                // hierarchical: multiply outer node potentials
-                if (_hybrid_switch == 4) {
-                    multiplyDsByNodePotentials(bin_root, _G);
+                else {
+                    std::cerr << "Error: auto ds is not valid for hybrid_switch=" << _hybrid_switch << std::endl;
+                    abort();
                 }
+                // DKD integrator divides each orbit into n_sub substeps, default is 32 substeps, use _ds_scale to change it.
+                ds *= _ds_scale / 32.0;
             } else {
                 ds = calcDsKeplerBinaryTree(bin_root, _int_order, _G, _ds_scale);
             }

@@ -103,6 +103,25 @@ namespace AR{
             return kappa_org_;
         }
 
+        //! Cap slowdown factor so that effective period <= P_eff_max
+        /*! For BTLogH: ensures all inner binaries have comparable effective
+            resolution. Only reduces kappa, never increases.
+          @param[in] _P_eff_max: maximum allowed effective period (= period * kappa)
+        */
+        void capSlowDownFactor(const Float _P_eff_max) {
+            if (period > 0 && _P_eff_max > 0) {
+                Float kappa_cap = _P_eff_max / period;
+                if (kappa_ > kappa_cap) kappa_ = std::max(Float(1.0), kappa_cap);
+            }
+        }
+
+        //! Effective orbital period considering slowdown
+        /*! \return period * kappa
+        */
+        Float getEffectivePeriod() const {
+            return period * kappa_;
+        }
+
         //! Get sd reference factor
         Float getSlowDownFactorReference() const {
             return kappa_ref_;
