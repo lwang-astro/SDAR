@@ -1570,11 +1570,15 @@ namespace AR {
                         if (P_eff < P_eff_min) P_eff_min = P_eff;
                     }
                 }
-                if (P_eff_min < NUMERIC_FLOAT_MAX) {
-                    for (int i = 0; i < n_bin - 1; i++) {
-                        info.binarytree[i].slowdown.capSlowDownFactor(P_eff_min);
-                    }
-                }
+                // κ-capping disabled: H4 tests show larger κ does NOT reduce resolution
+                // of other binaries in product-form g. If P_eff_min is needed for ds
+                // calculation in the future, keep the computation above and only
+                // uncomment the loop below.
+                //if (P_eff_min < NUMERIC_FLOAT_MAX) {
+                //    for (int i = 0; i < n_bin - 1; i++) {
+                //        info.binarytree[i].slowdown.capSlowDownFactor(P_eff_min);
+                //    }
+                //}
             }
 #endif
 
