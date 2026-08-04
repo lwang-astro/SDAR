@@ -401,6 +401,12 @@ namespace H4{
             ASSERT(manager->checkParams());
             ASSERT(ar_manager!=NULL);
             ASSERT(ar_manager->checkParams());
+            // defensive constraint: the AR time synchronization tolerance must stay a small
+            // fraction of the minimum block step. If it approached or exceeded dt_min, an AR
+            // group could finish more than half a block step away from the requested grid
+            // time and break the correctTimeRoundOff grid consistency (sample default is
+            // 0.25*dt_min; 0.5*dt_min is the hard limit before this can happen).
+            ASSERT(ar_manager->time_error_max <= 0.5*step.getDtMin());
             ASSERT(perturber.checkParams());
             ASSERT(info.checkParams());
             return true;
@@ -2783,10 +2789,17 @@ namespace H4{
                     }
                 }
 #ifdef HERMITE_DEBUG
+                // groups[k].getTime() returns the internal integrated time (the AR clock),
+                // matching the internal time_next.
                 const Float time_now = groups[k].getTime();
                 const Float time_diff = abs(time_now - time_next);
+                // time_next is passed to the AR integrator as its _time_end, so this
+                // tolerance must match the effective time_error clamped inside
+                // AR::TimeTransformedSymplecticIntegrator::integrateToTime (a few ulps of
+                // |time|), otherwise the AR group can legitimately finish up to that bound
+                // away and this debug check would falsely fire near the round-off limit.
                 const Float time_tol = std::max(ar_manager->time_error_max,
-                                                std::numeric_limits<Float>::epsilon() * (abs(time_next) + abs(time_now) + Float(1.0)));
+                                                Float(4.0)*std::numeric_limits<Float>::epsilon()*std::max(abs(time_next), Float(1.0)));
                 ASSERT(time_diff <= time_tol);
 #endif
 
@@ -3417,6 +3430,37 @@ namespace H4{
             time_offset_ = _time_offset;
         }
 
+        //! Shift the internal time origin
+        /*! Subtract _dt from all internal clocks (Hermite time_, particle times, group
+          AR internal clocks) and add it to the time offsets, keeping the real physical
+          time (getTime()) unchanged. This keeps the internal clock small so that the
+          machine round-off limit (eps*|time|) does not degrade over very long runs.
+          @param[in] _dt: shift amount, must be a multiple of dt_min so the block-time
+          step grid (correctTimeRoundOff) stays aligned.
+         */
+        void shiftTimeOrigin(const Float _dt) {
+            time_ -= _dt;
+            time_offset_ += _dt;
+            time_next_min_ -= _dt;
+            // all real particles (singles and group members, members are referenced)
+            auto* ptcl = particles.getDataAddress();
+            for (int i=0; i<particles.getSize(); i++) ptcl[i].time -= _dt;
+            // all AR groups (their internal time_, cm.time and time stamps)
+            auto* group_ptr = groups.getDataAddress();
+            for (int i=0; i<groups.getSize(); i++) group_ptr[i].shiftTimeOrigin(_dt);
+            // time_next of every single/group in the sorted lists (active and inactive).
+            // This is required for consistency: time_next_[k] = correctTimeRoundOff(time_k+dt_k)
+            // must match the shifted time_k. Since _dt is a multiple of dt_min,
+            // correctTimeRoundOff(x-_dt) == correctTimeRoundOff(x) - _dt, so the block grid
+            // stays aligned. Masked/cleared groups are not in the lists and are recomputed
+            // (updateTimeNextList) on reactivation.
+            auto* tn = time_next_.getDataAddress();
+            for (int i=0; i<index_dt_sorted_single_.getSize(); i++)
+                tn[index_dt_sorted_single_[i]] -= _dt;
+            for (int i=0; i<index_dt_sorted_group_.getSize(); i++)
+                tn[index_dt_sorted_group_[i]+index_offset_group_] -= _dt;
+        }
+
         //! get interrupt group index
         /*! if not exist, return -1
          */
@@ -3603,7 +3647,7 @@ namespace H4{
 
         //! print step histogram
         void printStepHist(){
-            std::cerr<<"Step hist: time = "<<time_<<"\n";
+            std::cerr<<"Step hist: time = "<<getTime()<<"\n";
             for(auto i=profile.stephist.begin(); i!=profile.stephist.end(); i++) {
                 std::cerr<<std::setw(24)<<i->first;
             }

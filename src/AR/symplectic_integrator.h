@@ -2444,8 +2444,16 @@ namespace AR {
             // real full time step
             const Float dt_full = _time_end - time_;
 
-            // time error 
-            const Float time_error = manager->time_error_max;
+            // time error
+            // time_error_max is an absolute tolerance. Once |time| becomes large it can drop
+            // below the machine round-off (e.g. time_error_max=2.8e-14 at time ~256, where
+            // 1 ulp = 5.7e-14). Then the finish window [_time_end-time_error, _time_end+time_error]
+            // collapses to a single representable value (or even an empty range after rounding),
+            // the time synchronization can never converge, and dt may stay 0 (infinite loop).
+            // Clamp the effective time error to a few ulps of |_time_end| so the window always
+            // contains representable time values.
+            const Float time_error = std::max(manager->time_error_max,
+                Float(4.0)*std::numeric_limits<Float>::epsilon()*std::max(abs(_time_end), Float(1.0)));
 
             // energy error limit
             const Float energy_error_rel_max = manager->energy_error_relative_max;
@@ -3238,7 +3246,8 @@ namespace AR {
                         else if (n_step_end>1 && dt<0.3*dt_end) {
                             // dt should be >0.0
                             // ASSERT(dt>0.0);
-                            ds[1-ds_switch] = ds[ds_switch] * dt_end/dt;
+                            if (dt==0.0) ds[1-ds_switch] = ds[ds_switch] * dt_end/time_error;
+                            else ds[1-ds_switch] = ds[ds_switch] * dt_end/dt;
                             ASSERT(!ISINF(ds[1-ds_switch]));
 #ifdef AR_DEEP_DEBUG
                             std::cerr<<"Time step dt(real) "<<dt<<" <0.3*(time_end-time)(real) "<<dt_end<<" enlarge step factor: "<<dt_end/dt<<" new ds: "<<ds[1-ds_switch]<<std::endl;
@@ -3266,7 +3275,7 @@ namespace AR {
                     int i=-1,k=0; // i indicate the increasing time index, k is the corresponding index in time_table
                     for(i=0; i<cd_pair_size; i++) {
                         k = manager->step.getSortCumSumCKIndex(i);
-                        if(_time_end<time_table[k]) break;
+                        if(_time_end<=time_table[k]) break;
                     }
                     if (i==0) { // first step case
                         ASSERT(time_table[k]>0.0);
@@ -3300,6 +3309,14 @@ namespace AR {
                     }
                 }
                 else {
+                    // time is within time_error of _time_end here (the finish window), so
+                    // snap the integrated time to _time_end exactly. This makes the returned
+                    // time exactly the requested end, which matters when time_error is at the
+                    // machine round-off level and |time| is large: the Hermite caller keeps
+                    // group times on its block-time-step grid (multiples of dt_min), and an
+                    // off-grid error up to time_error could otherwise exceed dt_min/2 and
+                    // corrupt the correctTimeRoundOff snapping.
+                    time_ = _time_end;
 #ifdef AR_DEEP_DEBUG
                     std::cerr<<"Finish, time_diff_rel = "<<time_diff_rel<<" integration_error_rel_abs = "<<integration_error_rel_abs<<std::endl;
 #endif
@@ -3574,11 +3591,37 @@ namespace AR {
         }
 #endif
 
-        //! Get current physical time
-        /*! \return current physical time
+        //! Get current integrated time
+        /*! \return the internal integrated time. This is the clock used by all internal
+          physics: calcSlowDownPert extrapolates particle positions with
+          _time - particle.time, which requires _time and particle.time to be in the same
+          (internal) frame. Do NOT add info.time_offset here: once the time origin is
+          re-anchored (shiftTimeOrigin) the offset grows and this would produce huge
+          prediction intervals, corrupting the slowdown/perturbation. The real (physical)
+          time is time_ + info.time_offset and is only reported at the interface (e.g.
+          bin_interrupt).
          */
         Float getTime() const {
             return time_;
+        }
+
+        //! Shift the internal time origin
+        /*! Subtract _dt from the internal integrated time and all internal time stamps,
+          and add it to info.time_offset, so that the physical time (getTime()) is unchanged
+          while the internal clock stays small. Used by the outer (Hermite) integrator to
+          periodically re-anchor the clock and avoid the machine round-off limit
+          (eps*|time|) degrading over very long runs.
+          @param[in] _dt: shift amount, must be a multiple of the outer block step (dt_min)
+         */
+        void shiftTimeOrigin(const Float _dt) {
+            time_ -= _dt;
+            info.time_offset += _dt;
+            // shift internal time stamps consistently
+            particles.cm.time -= _dt;
+            for (int i=0; i<info.binarytree.getSize(); i++) {
+                info.binarytree[i].stab_check_time -= _dt;
+                info.binarytree[i].slowdown.shiftTime(_dt);
+            }
         }
 
         //! Get current kinetic energy

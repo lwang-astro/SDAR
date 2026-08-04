@@ -61,6 +61,11 @@ namespace AR{
             time_update_ += period;
         }
 
+        //! shift the internal update time (used when the outer integrator re-anchors the time origin)
+        void shiftTime(const Float _dt) {
+            time_update_ -= _dt;
+        }
+
         //! manually set kappa
         void setSlowDownFactor(const Float _kappa) {
             kappa_ = _kappa;

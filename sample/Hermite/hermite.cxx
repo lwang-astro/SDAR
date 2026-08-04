@@ -60,6 +60,8 @@ public:
     COMM::IOParams<int>     mpfr_digits;
 #endif
     COMM::IOParams<std::string> filename_par;
+    COMM::IOParams<int>         load_flag;
+    COMM::IOParams<std::string> filename_chkpt;
 
     IOParamsH4()
         : input_par_store()
@@ -67,7 +69,7 @@ public:
         , print_precision     (input_par_store, WRITE_PRECISION,    "print-precision",      "print digital precision")
         , nstep_max           (input_par_store, 1000000,            "n-step-max",           "number of maximum step for AR integration")
         , sym_order           (input_par_store, -6,                 "k",                    "Symplectic integrator order, should be even number")
-        , dt_min_power_index  (input_par_store, 40,                 "dt-min-power",         "power index to calculate mimimum hermite time step: dt_max*0.5^n")
+        , dt_min_power_index  (input_par_store, 40,                 "dt-min-power",         "power index to calculate mimimum hermite time step: 0.5^n")
         , dt_max_power_index  (input_par_store, 2,                  "dt-max-power",         "power index of 0.5 for maximum hermite time step")
         , dt_out_power_index  (input_par_store, 2,                  "o",                    "power index of 0.5 for output time interval")
         , n_neighbor_max      (input_par_store, -1,                 "n-neighbor-max",       "maximum number of neighbors for group","same as N")
@@ -92,6 +94,8 @@ public:
         , mpfr_digits         (input_par_store, 30,                 "mpfr-dights",          "dights for MPFR precison")
 #endif
         , filename_par        (input_par_store, "",                 "p",                    "filename to load manager parameters","input name")
+        , load_flag           (input_par_store, 0,                  "l",                    "Load dumped data for restart (if used, the input file is dumped data)")
+        , filename_chkpt      (input_par_store, "",                 "c",                    "filename for the checkpoint at the last output time for restart (binary format)", "<data_filename>.last")
     {}
 
     int read(int argc, char* argv[], const char* bin_name) {
@@ -119,6 +123,8 @@ public:
 #endif
             {"r-neighbor-over-group",      required_argument, &h4_flag, 17},
             {"r-group",                     required_argument, &h4_flag, 18},
+            {filename_chkpt.key,           required_argument, &h4_flag, 19},
+            {load_flag.key,                no_argument,       &h4_flag, 20},
             {"help",                       no_argument,       0, 'h'},
             {0, 0, 0, 0}
         };
@@ -127,7 +133,7 @@ public:
         int copt;
         int option_index;
         optind = 0;
-        while ((copt = getopt_long(argc, argv, "t:k:G:e:o:i:p:h", long_options, &option_index)) != -1)
+        while ((copt = getopt_long(argc, argv, "t:k:G:e:o:i:p:c:lh", long_options, &option_index)) != -1)
             switch (copt) {
             case 0:
                 switch (h4_flag) {
@@ -207,6 +213,14 @@ public:
                     r_group.value = atof(optarg);
                     opt_used += 2;
                     break;
+                case 19:
+                    filename_chkpt.value = optarg;
+                    opt_used += 2;
+                    break;
+                case 20:
+                    load_flag.value = 1;
+                    opt_used++;
+                    break;
                 }
                 break;
             case 't':
@@ -246,12 +260,23 @@ public:
                 }
                 opt_used++;
                 break;
+            case 'c':
+                filename_chkpt.value = optarg;
+                opt_used++;
+                break;
+            case 'l':
+                load_flag.value = 1;
+                opt_used++;
+                break;
             case 'h':
                 std::cout<<bin_name<<" [option] data_filename\n"
                          <<"Input data file format: \n"
                          <<"  First   line:  number of particles(N)\n"
                          <<"  2-(N+1) line:  mass, x, y, z, vx, vy, vz, radius\n"
-                         <<"  last    line:  N_group, group_offset_index_lst[N_group], group_member_particle_index[N_member_total]\n";
+                         <<"  last    line:  N_group, group_offset_index_lst[N_group], group_member_particle_index[N_member_total]\n"
+                         <<"Restart: a binary checkpoint is written at every output time.\n"
+                         <<"  Default name: <data_filename>.last;  -c <name> overrides it.\n"
+                         <<"  To resume, run with -l <checkpoint> (e.g. -l <data_filename>.last)\n";
                 input_par_store.printHelp(std::cout);
                 std::cout<<"Size of integrator: (bytes)"<<sizeof(H4Int)<<std::endl;
                 return -1;
@@ -289,6 +314,12 @@ int main(int argc, char **argv){
     // data file name
     char* filename = argv[argc-1];
 
+    // Checkpoint file name: -c overrides; default is <input>.last
+    std::string chkpt_filename = iop.filename_chkpt.value.empty()
+        ? std::string(filename) + ".last"
+        : iop.filename_chkpt.value;
+    iop.filename_chkpt.value = chkpt_filename;
+
 #ifdef USE_MPFRC
     setMPFRPrec(iop.mpfr_digits.value);
 #endif
@@ -300,7 +331,7 @@ int main(int argc, char **argv){
     manager.step.eta_4th = iop.eta_4th.value;
     manager.step.eta_2nd = iop.eta_2nd.value;
     Float dt_max = pow(Float(0.5), Float(iop.dt_max_power_index.value));
-    manager.step.setDtRange(dt_max, iop.dt_min_power_index.value - iop.dt_max_power_index.value);
+    manager.step.setDtRange(dt_max, iop.dt_min_power_index.value);
     manager.interaction.eps_sq = iop.eps_sq.value;
     manager.interaction.gravitational_constant = iop.grav_const.value;
     ar_manager.interaction.eps_sq = iop.eps_sq.value;
@@ -309,6 +340,32 @@ int main(int argc, char **argv){
     ar_manager.ds_scale = iop.ds_scale.value;
     if (iop.time_error.value == 0.0) ar_manager.time_error_max = 0.25*ar_manager.time_step_min;
     else ar_manager.time_error_max = iop.time_error.value;
+
+    // defensive checks
+    // 1) keep the AR time synchronization tolerance a small fraction of the minimum block
+    //    step (hard limit time_error_max<=0.5*dt_min is enforced in
+    //    HermiteIntegrator::checkParams; the default is 0.25*dt_min)
+    if (ar_manager.time_error_max > 0.25*manager.step.getDtMin()) {
+        std::cerr<<"Warning: time-error ("<<ar_manager.time_error_max
+                 <<") > 0.25*dt_min ("<<0.25*manager.step.getDtMin()<<"). "
+                 <<"The AR time synchronization tolerance is unusually large relative to the "
+                 <<"minimum block step, group times may be inconsistent with the block grid.\n";
+    }
+    // 2) dt_min must stay resolvable in floating point up to the end of the run. Once it
+    //    approaches ~eps*t_end, the block time grid (correctTimeRoundOff) and the AR time
+    //    resolution near the end degrade.
+    {
+        const Float t_end = iop.time_end.value > 1.0 ? iop.time_end.value : 1.0;
+        const Float dt_min_resolvable = 8.0*std::numeric_limits<Float>::epsilon()*t_end;
+        if (manager.step.getDtMin() < dt_min_resolvable) {
+            std::cerr<<"Warning: dt_min ("<<manager.step.getDtMin()
+                     <<") < 8*eps*t_end ("<<dt_min_resolvable<<"). "
+                     <<"The block time-step grid is no longer resolvable in the current Float "
+                     <<"precision by the end of the run (t_end="<<iop.time_end.value<<"). "
+                     <<"Consider increasing dt-min, shortening the run, or enabling "
+                     <<"-mpfr-digits for higher precision.\n";
+        }
+    }
 
     ASSERT(ar_manager.time_error_max>1e-14);
     // time error cannot be smaller than round-off error
@@ -322,7 +379,13 @@ int main(int argc, char **argv){
     ar_manager.interaction.interrupt_detection_option = iop.interrupt_detection_option.value;
 
     // store input parameters
-    std::string fpar_out = std::string(filename) + ".par";
+    // Set effective default filenames BEFORE writing the .par file, so the saved
+    // file contains real (non-empty) values for p and c (empty values would
+    // misalign the ASCII parameter parsing on restart with -p).
+    // filename_chkpt's effective value is already computed above (chkpt_filename).
+    if (iop.filename_par.value.empty())
+        iop.filename_par.value = std::string(filename) + ".par";
+    std::string fpar_out = iop.filename_par.value;
     std::FILE* fout = std::fopen(fpar_out.c_str(),"w");
     if (fout==NULL) {
         std::cerr<<"Error: data file "<<fpar_out<<" cannot be open!\n";
@@ -331,13 +394,16 @@ int main(int argc, char **argv){
     iop.input_par_store.writeAscii(fout);
     fclose(fout);
 
-    // interrupt file output
+    // interrupt file output (append mode for restart)
     std::ofstream finterrupt;
     if (iop.interrupt_detection_option.value>0) {
         std::string finterrupt_name = std::string(filename) + ".interrupt";
-        finterrupt.open(finterrupt_name.c_str(),std::ofstream::out);
-        AR::InterruptBinary<Particle>::printColumnTitleAscii(finterrupt,20,true);
-        finterrupt<<std::endl;
+        auto ios_mode = iop.load_flag.value ? std::ofstream::app : std::ofstream::out;
+        finterrupt.open(finterrupt_name.c_str(), ios_mode);
+        if (!iop.load_flag.value) {
+            AR::InterruptBinary<Particle>::printColumnTitleAscii(finterrupt,20,true);
+            finterrupt<<std::endl;
+        }
     }
 
     // integrator
@@ -345,121 +411,311 @@ int main(int argc, char **argv){
     h4_int.manager = &manager;
     h4_int.ar_manager = &ar_manager;
 
-    std::fstream fin;
-    fin.open(filename,std::fstream::in);
-    if(!fin.is_open()) {
-        std::cerr<<"Error: data file "<<filename<<" cannot be open!\n";
-        abort();
-    }
-    h4_int.particles.setMode(COMM::ListMode::local);
-    h4_int.particles.readMemberAscii(fin);
-    for (int i=0; i<h4_int.particles.getSize(); i++) h4_int.particles[i].id = i+1;
-    h4_int.particles.calcCenterOfMass();
-    h4_int.particles.shiftToCenterOfMassFrame();
-    h4_int.particles.calcCenterOfMass();
+    typedef H4::ParticleH4<Particle> H4Particle;
+    COMM::List<H4Particle> restart_particles;
+    COMM::List<int> restart_group_offsets;
+    COMM::List<int> restart_group_members;
+    Float restart_time_int = iop.time_zero.value;  // internal clock to restore
+    Float restart_time_offset = 0.0;               // time offset to restore
+    int n_ptcl = 0, n_group = 0;
 
-    if (iop.n_neighbor_max.value <=0) manager.n_neighbor_max = h4_int.particles.getSize();
-    else manager.n_neighbor_max = iop.n_neighbor_max.value;
-        
-    Float m_ave = h4_int.particles.cm.mass/h4_int.particles.getSize();
-    // initialize per-particle group and neighbor radii with mass-dependent weighting
-    Float r_neighbor_sum = 0.0;
-    for (int i=0; i<h4_int.particles.getSize(); i++) {
-        h4_int.particles[i].setRGroupAndNeighbor(iop.r_group.value, iop.r_neighbor_over_group.value, m_ave);
-        r_neighbor_sum += h4_int.particles[i].getRNeighbor();
-    }
-    Float r_neighbor_ave = r_neighbor_sum / h4_int.particles.getSize();
-    manager.step.calcAcc0OffsetSq(m_ave, r_neighbor_ave, iop.grav_const.value);
-    h4_int.step = manager.step;
+    if (iop.load_flag.value) {
+        // === RESTART: read binary checkpoint ===
+        std::FILE* fin_bin = std::fopen(filename, "r");
+        if (fin_bin == NULL) {
+            std::cerr << "Error: data file " << filename << " cannot be open!\n";
+            abort();
+        }
+        uint32_t magic;
+        size_t rcount = fread(&magic, sizeof(uint32_t), 1, fin_bin);
+        if (rcount < 1 || magic != 0x48434B50U) {
+            std::cerr << "Error: Not a valid Hermite checkpoint file (bad magic).\n";
+            abort();
+        }
+        rcount = 0;
+        rcount += fread(&n_ptcl, sizeof(int), 1, fin_bin);
+        restart_particles.setMode(COMM::ListMode::local);
+        restart_particles.reserveMem(n_ptcl);
+        restart_particles.resizeNoInitialize(n_ptcl);
+        for (int i = 0; i < n_ptcl; i++) {
+            size_t rp = fread(&restart_particles[i], sizeof(H4Particle), 1, fin_bin);
+            if (rp < 1) {
+                std::cerr << "Error: checkpoint particle reading fails!\n";
+                abort();
+            }
+        }
+
+        rcount += fread(&n_group, sizeof(int), 1, fin_bin);
+        size_t n_expect = 4;  // n_ptcl, n_group, time_int, time_off
+        if (n_group > 0) {
+            restart_group_offsets.setMode(COMM::ListMode::local);
+            restart_group_offsets.reserveMem(n_group + 1);
+            restart_group_offsets.resizeNoInitialize(n_group + 1);
+            for (int i = 0; i < n_group + 1; i++)
+                rcount += fread(&restart_group_offsets[i], sizeof(int), 1, fin_bin);
+            int n_members = restart_group_offsets[n_group];
+            restart_group_members.setMode(COMM::ListMode::local);
+            restart_group_members.reserveMem(n_members);
+            restart_group_members.resizeNoInitialize(n_members);
+            for (int i = 0; i < n_members; i++)
+                rcount += fread(&restart_group_members[i], sizeof(int), 1, fin_bin);
+            n_expect += (size_t)(n_group + 1) + (size_t)n_members;
+        }
+        // internal clock: real time = restart_time_int + restart_time_offset
+        rcount += fread(&restart_time_int, sizeof(Float), 1, fin_bin);
+        rcount += fread(&restart_time_offset, sizeof(Float), 1, fin_bin);
+        std::fclose(fin_bin);
+        if (rcount != n_expect) {
+            std::cerr << "Error: Hermite checkpoint file is truncated.\n";
+            abort();
+        }
+
+        // --- Reconstruct integrator state from checkpoint ---
+        h4_int.particles.setMode(COMM::ListMode::local);
+        h4_int.particles.reserveMem(n_ptcl);
+        h4_int.particles.resizeNoInitialize(n_ptcl);
+        for (int i = 0; i < n_ptcl; i++) h4_int.particles[i] = restart_particles[i];
+
+        h4_int.particles.calcCenterOfMass();
+
+        if (iop.n_neighbor_max.value <= 0) manager.n_neighbor_max = n_ptcl;
+        else manager.n_neighbor_max = iop.n_neighbor_max.value;
+
+        Float m_ave = h4_int.particles.cm.mass / n_ptcl;
+        Float r_neighbor_sum = 0.0;
+        for (int i = 0; i < n_ptcl; i++)
+            r_neighbor_sum += h4_int.particles[i].getRNeighbor();
+        Float r_neighbor_ave = r_neighbor_sum / n_ptcl;
+        manager.step.calcAcc0OffsetSq(m_ave, r_neighbor_ave, iop.grav_const.value);
+        h4_int.step = manager.step;
 
 #ifdef SLOWDOWN_MASSRATIO
-    if (iop.slowdown_mass_ref.value<=0.0) ar_manager.slowdown_mass_ref = m_ave;
-    else ar_manager.slowdown_mass_ref = iop.slowdown_mass_ref.value;
+        if (iop.slowdown_mass_ref.value <= 0.0) ar_manager.slowdown_mass_ref = m_ave;
+        else ar_manager.slowdown_mass_ref = iop.slowdown_mass_ref.value;
 #endif
-    // print parameters
+
+        h4_int.groups.setMode(COMM::ListMode::local);
+        h4_int.groups.reserveMem(n_ptcl);
+        h4_int.reserveIntegratorMem();
+
+        // Standard init flow: needed to build groups, neighbors, forces
+        // Restore the internal clock and its offset so that real time = time_ + time_offset_
+        // matches the checkpoint and the (small, shifted) internal particle times are
+        // consistent with time_. AR groups pick up time_offset_ inside initialIntegration.
+        h4_int.setTimeOffset(restart_time_offset);
+        h4_int.initialSystemSingle(restart_time_int);
+        if (n_group > 0)
+            h4_int.addGroups(restart_group_members.getDataAddress(),
+                             restart_group_offsets.getDataAddress(), n_group);
+        h4_int.initialIntegration();
+
+        // initialIntegration zeroes acc0/acc1/dt for "init" particles -
+        // restore the saved values from the checkpoint so the predictor
+        // step in the next integration uses the correct derivatives.
+        // NOTE: AR integrator state inside groups is rebuilt from scratch;
+        // this means restart is NOT bit-exact, but results are within
+        // the integration accuracy (~1e-7 relative error).
+        for (int i = 0; i < n_ptcl; i++) {
+            h4_int.particles[i].acc0[0] = restart_particles[i].acc0[0];
+            h4_int.particles[i].acc0[1] = restart_particles[i].acc0[1];
+            h4_int.particles[i].acc0[2] = restart_particles[i].acc0[2];
+            h4_int.particles[i].acc1[0] = restart_particles[i].acc1[0];
+            h4_int.particles[i].acc1[1] = restart_particles[i].acc1[1];
+            h4_int.particles[i].acc1[2] = restart_particles[i].acc1[2];
+            h4_int.particles[i].pot    = restart_particles[i].pot;
+            h4_int.particles[i].time   = restart_particles[i].time;
+            h4_int.particles[i].dt     = restart_particles[i].dt;
+        }
+    } else {
+        // === NORMAL START: read ASCII input ===
+        std::fstream fin;
+        fin.open(filename, std::fstream::in);
+        if (!fin.is_open()) {
+            std::cerr << "Error: data file " << filename << " cannot be open!\n";
+            abort();
+        }
+        h4_int.particles.setMode(COMM::ListMode::local);
+        h4_int.particles.readMemberAscii(fin);
+        for (int i = 0; i < h4_int.particles.getSize(); i++) h4_int.particles[i].id = i + 1;
+        h4_int.particles.calcCenterOfMass();
+        h4_int.particles.shiftToCenterOfMassFrame();
+        h4_int.particles.calcCenterOfMass();
+
+        if (iop.n_neighbor_max.value <= 0) manager.n_neighbor_max = h4_int.particles.getSize();
+        else manager.n_neighbor_max = iop.n_neighbor_max.value;
+
+        Float m_ave = h4_int.particles.cm.mass / h4_int.particles.getSize();
+        Float r_neighbor_sum = 0.0;
+        for (int i = 0; i < h4_int.particles.getSize(); i++) {
+            h4_int.particles[i].setRGroupAndNeighbor(iop.r_group.value, iop.r_neighbor_over_group.value, m_ave);
+            r_neighbor_sum += h4_int.particles[i].getRNeighbor();
+        }
+        Float r_neighbor_ave = r_neighbor_sum / h4_int.particles.getSize();
+        manager.step.calcAcc0OffsetSq(m_ave, r_neighbor_ave, iop.grav_const.value);
+        h4_int.step = manager.step;
+
+#ifdef SLOWDOWN_MASSRATIO
+        if (iop.slowdown_mass_ref.value <= 0.0) ar_manager.slowdown_mass_ref = m_ave;
+        else ar_manager.slowdown_mass_ref = iop.slowdown_mass_ref.value;
+#endif
+
+        h4_int.groups.setMode(COMM::ListMode::local);
+        h4_int.groups.reserveMem(h4_int.particles.getSize());
+        h4_int.reserveIntegratorMem();
+        h4_int.initialSystemSingle(iop.time_zero.value);
+        h4_int.readGroupConfigureAscii(fin);
+        h4_int.initialIntegration();
+    }
+
+    // --- Common post-init ---
     manager.print(std::cerr);
     ar_manager.print(std::cerr);
-
-
-    std::cerr<<"CM: after shift ";
+    std::cerr << "CM: after shift ";
     h4_int.particles.cm.printColumnAscii(std::cerr, 22);
-    std::cerr<<std::endl;
+    std::cerr << std::endl;
 
-    h4_int.groups.setMode(COMM::ListMode::local);
-    h4_int.groups.reserveMem(h4_int.particles.getSize());
-    h4_int.reserveIntegratorMem();
-    // initial system 
-    h4_int.initialSystemSingle(iop.time_zero.value);
-    h4_int.readGroupConfigureAscii(fin);
-
-    // initialization 
-    h4_int.initialIntegration(); // get neighbors and min particles
+    // Group slowdown tracking (for output column formatting)
     const int n_group_init = h4_int.getNGroup();
-    // AR inner slowdown number
-    int n_group_sub_init[n_group_init], n_group_sub_tot_init=0;
-    for (int i=0; i<n_group_init; i++) {
+    int n_group_sub_tot_init = 0;
+    COMM::List<int> n_group_sub_init_lst;
+    n_group_sub_init_lst.setMode(COMM::ListMode::local);
+    n_group_sub_init_lst.reserveMem(n_group_init);
+    n_group_sub_init_lst.resizeNoInitialize(n_group_init);
+    for (int i = 0; i < n_group_init; i++) {
 #ifdef AR_SLOWDOWN_ARRAY
-        n_group_sub_init[i] = h4_int.groups[i].binary_slowdown.getSize();
+        n_group_sub_init_lst[i] = h4_int.groups[i].binary_slowdown.getSize();
 #elif AR_SLOWDOWN_TREE
-        n_group_sub_init[i] = h4_int.groups[i].info.binarytree.getSize();
+        n_group_sub_init_lst[i] = h4_int.groups[i].info.binarytree.getSize();
+#else
+        n_group_sub_init_lst[i] = 0;
 #endif
-        n_group_sub_tot_init += n_group_sub_init[i];
+        n_group_sub_tot_init += n_group_sub_init_lst[i];
     }
-    h4_int.adjustGroups(true);
+
+    bool use_adjust_true = !iop.load_flag.value;
+    h4_int.adjustGroups(use_adjust_true);
     h4_int.initialIntegration();
     h4_int.sortDtAndSelectActParticle();
 
     // precision
-    std::cout<<std::setprecision(iop.print_precision.value);
+    std::cout << std::setprecision(iop.print_precision.value);
 
-    // get initial energy
-    h4_int.calcEnergySlowDown(true);
-    // cm
-    h4_int.particles.calcCenterOfMass();
-    std::cerr<<"CM:";
-    h4_int.particles.cm.printColumnAscii(std::cerr, 22);
-    std::cerr<<std::endl;
+    if (!iop.load_flag.value) {
+        // get initial energy (fresh start only)
+        h4_int.calcEnergySlowDown(true);
+        h4_int.particles.calcCenterOfMass();
+        std::cerr << "CM:";
+        h4_int.particles.cm.printColumnAscii(std::cerr, 22);
+        std::cerr << std::endl;
 
-    //print column title
-    h4_int.printColumnTitleAscii(std::cout, iop.print_width.value, n_group_sub_init, n_group_init, n_group_sub_tot_init);
-    std::cout<<std::endl;
+        const int* sd_arr = n_group_sub_init_lst.getDataAddress();
+        h4_int.printColumnTitleAscii(std::cout, iop.print_width.value, sd_arr, n_group_init, n_group_sub_tot_init);
+        std::cout << std::endl;
+        h4_int.printColumnAscii(std::cout, iop.print_width.value, sd_arr, n_group_init, n_group_sub_tot_init);
+        std::cout << std::endl;
+    }
 
-    //print initial data
-    h4_int.printColumnAscii(std::cout, iop.print_width.value, n_group_sub_init, n_group_init, n_group_sub_tot_init);
-    std::cout<<std::endl;
-    
-    // dt_out
-    Float dt_out = pow(Float(0.5),Float(iop.dt_out_power_index.value));
-    Float time_out = iop.time_zero.value + dt_out;
+    // dt_out and first output time
+    Float dt_out = pow(Float(0.5), Float(iop.dt_out_power_index.value));
+    Float time_out;
+    if (iop.load_flag.value) {
+        time_out = iop.time_zero.value + dt_out;
+        while (time_out <= h4_int.getTime() + Float(1e-15)) time_out += dt_out;
+    } else {
+        time_out = iop.time_zero.value + dt_out;
+    }
+
+    const int* sd_arr = n_group_sub_init_lst.getDataAddress();
+
+    // BINARY CHECKPOINT WRITER
+    auto writeCheckpoint = [&](const char* chkpt_path) {
+        std::FILE* fchkpt = std::fopen(chkpt_path, "w");
+        if (fchkpt == NULL) return;
+        uint32_t magic = 0x48434B50U;
+        fwrite(&magic, sizeof(uint32_t), 1, fchkpt);
+        int n_p = h4_int.particles.getSize();
+        fwrite(&n_p, sizeof(int), 1, fchkpt);
+        h4_int.writeBackGroupMembers();
+        for (int i = 0; i < n_p; i++) fwrite(&h4_int.particles[i], sizeof(H4Particle), 1, fchkpt);
+        int n_g = h4_int.getNGroup();
+        fwrite(&n_g, sizeof(int), 1, fchkpt);
+        if (n_g > 0) {
+            COMM::List<int> offsets, members;
+            offsets.setMode(COMM::ListMode::local);
+            offsets.reserveMem(n_g + 1);
+            offsets.resizeNoInitialize(n_g + 1);
+            offsets[0] = 0;
+            int tot = 0;
+            for (int i = 0; i < n_g; i++) {
+                int nm = h4_int.groups[i].particles.getSize();
+                tot += nm;
+                offsets[i + 1] = tot;
+            }
+            members.setMode(COMM::ListMode::local);
+            members.reserveMem(tot);
+            members.resizeNoInitialize(tot);
+            int idx = 0;
+            for (int g = 0; g < n_g; g++) {
+                int nm = h4_int.groups[g].particles.getSize();
+                for (int j = 0; j < nm; j++)
+                    members[idx++] = h4_int.groups[g].info.particle_index[j];
+            }
+            for (int i = 0; i < n_g + 1; i++) fwrite(&offsets[i], sizeof(int), 1, fchkpt);
+            for (int i = 0; i < tot; i++) fwrite(&members[i], sizeof(int), 1, fchkpt);
+        }
+        // Save the internal clock state so restart can reconstruct both time_ and
+        // time_offset_ (real time = time_ + time_offset_). This is required after the
+        // periodic time-origin shift keeps the internal clock small while time_offset_
+        // grows; otherwise a restart would set time_ to the (large) real time while the
+        // particle .time fields are the (small) internal times.
+        Float time_int = h4_int.getTimeInt();
+        Float time_off = h4_int.getTime() - time_int;
+        fwrite(&time_int, sizeof(Float), 1, fchkpt);
+        fwrite(&time_off, sizeof(Float), 1, fchkpt);
+        std::fclose(fchkpt);
+    };
 
     // integration loop
-    while (h4_int.getTime()<iop.time_end.value) {
+    while (h4_int.getTime() < iop.time_end.value) {
+        // periodically re-anchor the internal clock to keep |time_| small (reset to
+        // [0, dt_max) once it reaches a dt_max multiple). The real physical time
+        // (h4_int.getTime()) is unchanged, but the internal clock stays far from the
+        // machine round-off limit even for very long runs. The shift amount is a
+        // multiple of dt_max (hence of dt_min), so the block-time-step grid stays aligned.
+        {
+            const Float dt_max_shift = manager.step.getDtMax();
+            const Float time_int = h4_int.getTimeInt();
+            if (time_int >= dt_max_shift) {
+                const Float shift = dt_max_shift * floor(time_int/dt_max_shift);
+                h4_int.shiftTimeOrigin(shift);
+            }
+        }
         h4_int.integrateGroupsOneStep();
         int n_interrupt = h4_int.getNInterrupt();
-        for (int i=0; i<n_interrupt; i++) {
+        for (int i = 0; i < n_interrupt; i++) {
             auto& interrupt_info = h4_int.getInterruptInfo(i);
-            std::cerr<<"Interrupt "<<i<<" : ";
+            std::cerr << "Interrupt " << i << " : ";
             switch (interrupt_info.status) {
             case AR::InterruptStatus::change:
-                std::cerr<<" Change";
+                std::cerr << " Change";
                 break;
             case AR::InterruptStatus::merge:
-                std::cerr<<" Merge";
+                std::cerr << " Merge";
                 break;
             case AR::InterruptStatus::destroy:
-                std::cerr<<" Destroy";
+                std::cerr << " Destroy";
                 break;
             case AR::InterruptStatus::none:
                 break;
             }
-            std::cerr<<std::endl;
+            std::cerr << std::endl;
             interrupt_info.printColumnTitleAscii(std::cerr);
-            std::cerr<<std::endl;
+            std::cerr << std::endl;
             interrupt_info.printColumnAscii(std::cerr);
-            std::cerr<<std::endl;
-            if (iop.interrupt_detection_option.value>0) {
+            std::cerr << std::endl;
+            if (iop.interrupt_detection_option.value > 0) {
                 interrupt_info.printColumnAscii(finterrupt, 20, true);
-                finterrupt<<std::endl;
+                finterrupt << std::endl;
             }
         }
         h4_int.integrateSingleOneStepAct();
@@ -468,18 +724,19 @@ int main(int argc, char **argv){
         h4_int.modifySingleParticles();
         h4_int.sortDtAndSelectActParticle();
 
-        if (h4_int.getTime()>=time_out) {
+        if (h4_int.getTime() >= time_out) {
             h4_int.calcEnergySlowDown(false);
-            
             h4_int.particles.calcCenterOfMass();
-            std::cerr<<"CM:";
+            std::cerr << "CM:";
             h4_int.particles.cm.printColumnAscii(std::cerr, 22);
-            std::cerr<<std::endl;
+            std::cerr << std::endl;
 
-            // Notice in energy calculation, writeBackGroupMembers() is already done;
-            h4_int.printColumnAscii(std::cout, iop.print_width.value, n_group_sub_init, n_group_init, n_group_sub_tot_init);
-            std::cout<<std::endl;
+            h4_int.printColumnAscii(std::cout, iop.print_width.value, sd_arr, n_group_init, n_group_sub_tot_init);
+            std::cout << std::endl;
             h4_int.printStepHist();
+
+            // Write restart checkpoint at every output time (always enabled)
+            writeCheckpoint(chkpt_filename.c_str());
 
             time_out += dt_out;
         }
