@@ -96,7 +96,7 @@ namespace AR {
      */
     template <class Tparticle, class Tpcm>
     class Information{
-#ifdef AR_TIME_FUNCTION_MUL_POT
+#ifdef AR_G_FUNC_MUL_POT
     private:
         //! Iteration to accumulate product of ds_i and periods for BLogH ds formula
         /*! For each innermost binary, computes per-orbit ds_i (no substep coeff)
@@ -239,7 +239,7 @@ namespace AR {
             return _coff*sqrt(-_G*_bin.semi/(_bin.m1+_bin.m2))*(_bin.m1*_bin.m2);
         }
 
-#ifdef AR_TIME_FUNCTION_MUL_POT
+#ifdef AR_G_FUNC_MUL_POT
         //! iteration function to calculate summation and production of ds for all inner kepler orbits of a binary tree
         /*! 
           @param[out] ds_sum: summation of inner binaries' ds
@@ -428,13 +428,13 @@ namespace AR {
           @param[in] _int_order: accuracy order of the symplectic integrator.
           @param[in] _G: gravitational constant
           @param[in] _ds_scale: scaling factor to determine ds
-          @param[in] _hybrid_switch: option to determine whether to multiply node potentials into ds (default: 0, no multiply)
+          @param[in] _g_func: option to determine whether to multiply node potentials into ds (default: 0, no multiply)
          */
-        void calcDsAndStepOption(const int _int_order, const Float& _G, const Float& _ds_scale, const int _hybrid_switch = 0) {
+        void calcDsAndStepOption(const int _int_order, const Float& _G, const Float& _ds_scale, const int _g_func = 0) {
             auto& bin_root = getBinaryTreeRoot();
 
-#ifdef AR_TIME_FUNCTION_MUL_POT
-            if (_hybrid_switch > 0) {
+#ifdef AR_G_FUNC_MUL_POT
+            if (_g_func > 0) {
                 // BLogH: accumulate product of per-orbit ds_i and periods
                 Float ds_prod = 1.0;
                 Float period_prod = 1.0;
@@ -443,20 +443,20 @@ namespace AR {
                 calcBLogHDsIter(ds_prod, period_prod, nbin, P_eff_min, bin_root, _int_order, _G);
 
                 ASSERT(nbin > 0);
-                if (_hybrid_switch == 2) {
+                if (_g_func == 2) {
                     // normal-binary: geometric mean, ds ~ [energy·time]
                     ds = pow(ds_prod, 1.0 / Float(nbin));
-                } else if (_hybrid_switch == 1 || _hybrid_switch == 4) {
+                } else if (_g_func == 1 || _g_func == 4) {
                     // binary/all/hierarchical: product formula, ds ~ [energy^nbin·time]
                     // ds = Π(ds_i) * P_eff_min / Π(P_eff)
                     ds = ds_prod * P_eff_min / period_prod;
-                    if (_hybrid_switch == 4) {
+                    if (_g_func == 4) {
                         // with outer potential, eccentricity may affect ds determination that ds is not exact reach P_eff_min.
                         multiplyDsByNodePotentials(bin_root, _G);
                     }
                 }
                 else {
-                    std::cerr << "Error: auto ds is not valid for hybrid_switch=" << _hybrid_switch << std::endl;
+                    std::cerr << "Error: auto ds is not valid for g_func=" << _g_func << std::endl;
                     abort();
                 }
                 // DKD integrator divides each orbit into n_sub substeps, default is 32 substeps, use _ds_scale to change it.

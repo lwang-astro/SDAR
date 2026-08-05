@@ -70,9 +70,9 @@ Is the system hierarchical (nested binaries)?
 | `sd.t` | `-D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE` | None |
 | `kdk.pert` | `-D AR_KDK_PERT` | None |
 | `ttl` | `-D AR_TTL` | None |
-| `mulpot` | `-D AR_TIME_FUNCTION_MUL_POT` | None |
-| `maxpot` | `-D AR_TIME_FUNCTION_MAX_POT` | None |
-| `addpot` | `-D AR_TIME_FUNCTION_ADD_POT` | None |
+| `mulpot` | `-D AR_G_FUNC_MUL_POT` | None |
+| `maxpot` | `-D AR_G_FUNC_MAX_POT` | None |
+| `addpot` | `-D AR_G_FUNC_ADD_POT` | None |
 | `mpfrc` | `-D USE_MPFRC` | `libmpfr`, `libgmp` |
 
 ## Skill Behavior

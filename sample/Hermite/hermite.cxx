@@ -331,7 +331,7 @@ int main(int argc, char **argv){
     manager.step.eta_4th = iop.eta_4th.value;
     manager.step.eta_2nd = iop.eta_2nd.value;
     Float dt_max = pow(Float(0.5), Float(iop.dt_max_power_index.value));
-    manager.step.setDtRange(dt_max, iop.dt_min_power_index.value);
+    manager.step.setDtRange(dt_max, iop.dt_min_power_index.value - iop.dt_max_power_index.value);
     manager.interaction.eps_sq = iop.eps_sq.value;
     manager.interaction.gravitational_constant = iop.grav_const.value;
     ar_manager.interaction.eps_sq = iop.eps_sq.value;

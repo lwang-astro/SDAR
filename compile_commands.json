@@ -41,7 +41,7 @@
             "-D",
             "AR_SLOWDOWN_TIMESCALE",
             "-D",
-            "AR_TIME_FUNCTION_MUL_POT",
+            "AR_G_FUNC_MUL_POT",
             "-o",
             "build/ar.ttl.sd.t.mulpot.cm",
             "ar.cxx"
@@ -149,7 +149,7 @@
             "-D",
             "AR_SLOWDOWN_TIMESCALE",
             "-D",
-            "AR_TIME_FUNCTION_MAX_POT",
+            "AR_G_FUNC_MAX_POT",
             "-o",
             "build/ar.ttl.sd.t.maxpot.cm",
             "ar.cxx"
@@ -341,7 +341,7 @@
             "-D",
             "AR_SLOWDOWN_TIMESCALE",
             "-D",
-            "AR_TIME_FUNCTION_ADD_POT",
+            "AR_G_FUNC_ADD_POT",
             "-o",
             "build/ar.ttl.sd.t.addpot.cm",
             "ar.cxx"
@@ -511,7 +511,7 @@
             "-D",
             "AR_SLOWDOWN_TIMESCALE",
             "-D",
-            "AR_TIME_FUNCTION_MUL_POT",
+            "AR_G_FUNC_MUL_POT",
             "-o",
             "build/ar.ttl.sd.t.mulpot",
             "ar.cxx"

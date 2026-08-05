@@ -2658,8 +2658,8 @@ namespace H4{
 //                    ASSERT(abs(groups[k].getTime()-time_)<=ar_manager->time_error_max);
 //#endif
                 // get ds estimation
-#ifdef AR_HYBRID
-                groups[k].info.calcDsAndStepOption(ar_manager->step.getOrder(), ar_manager->interaction.gravitational_constant, ar_manager->ds_scale, groups[k].hybrid_switch);
+#ifdef AR_G_FUNC
+                groups[k].info.calcDsAndStepOption(ar_manager->step.getOrder(), ar_manager->interaction.gravitational_constant, ar_manager->ds_scale, groups[k].g_func);
 #else
                 groups[k].info.calcDsAndStepOption(ar_manager->step.getOrder(), ar_manager->interaction.gravitational_constant, ar_manager->ds_scale);
 #endif

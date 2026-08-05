@@ -71,6 +71,27 @@ if hasattr(data, 'de_sd'):
     print("Slowdown factor:", data.sd.slowdown_factor)
 ```
 
+## Pattern 1a: Read AR Output with g-function mode (MUL_POT / MAX_POT / ADD_POT)
+
+**Since 2026-08-05**: Output from `--g-func` modes (any non-zero) includes an extra `g_func` column.
+Pass `g_func=True` to `SDARData` to read it.
+
+> **Migration from old API (pre-2026-08)**: Old `hybrid=True` keyword → new `g_func=True`.
+> Old column `hybrid_flag` → new column `g_func` (values 0-4, not 0/1).
+
+```python
+from sdar import SDARData
+
+# g-func output (BTLogH/BLogH/MAX_POT/ADD_POT with --g-func 1-4)
+data = SDARData(g_func=True, N_particle=4, slowdown=True, N_sd=3, time_measure=True)
+data.loadtxt("btlogh_output.log", skiprows=1)
+
+# Access g-func column (0=LogH, 1=BLogH, 2=norm, 3=all, 4=BTLogH)
+print("g_func:", data.g_func)
+```
+
+**Without `g_func=True`**, the reader misaligns columns and produces garbled data.
+
 ## Pattern 2: Read Hermite Output
 
 ```python

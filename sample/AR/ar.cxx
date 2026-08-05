@@ -55,8 +55,9 @@ public:
 #ifdef USE_MPFRC
     COMM::IOParams<int>     mpfr_digits;
 #endif
-#ifdef AR_HYBRID
-    COMM::IOParams<int>     hybrid_option;
+#ifdef AR_G_FUNC
+    COMM::IOParams<int>     g_func_option;
+    COMM::IOParams<std::string> g_func_switch_option;
 #endif
     COMM::IOParams<std::string> filename_par;
     COMM::IOParams<std::string> filename_out;
@@ -90,12 +91,15 @@ public:
 #ifdef USE_MPFRC
         , mpfr_digits         (input_par_store, 30,                 "mpfr-dights",     "dights for MPFR precison")
 #endif
-#ifdef AR_TIME_FUNCTION_MUL_POT
-        , hybrid_option       (input_par_store, -1,                 "hybrid-method",   "use time transformation function with the production of pair potentials;  1: use only innermost binaries;  2: use only innermost binaries with normalized production of potentials: value^(1/n_bin) where n_bin is number of binaries;  3: use all pairs;  4: tree-level product (inner x outer nodes);  0: not used, standard method; -1: auto-detect the type of systems to apply the 'binary' method")
-#elif AR_TIME_FUNCTION_MAX_POT
-        , hybrid_option       (input_par_store, -1,                 "hybrid-method",   "use time transformation function with maximum of pair potentials (on, off, auto)","auto")
-#elif AR_TIME_FUNCTION_ADD_POT
-        , hybrid_option       (input_par_store, -1,                 "hybrid-method",   "use time transformation function with summation of inner most pair potentials (on, off, auto)","auto")
+#ifdef AR_G_FUNC_MUL_POT
+        , g_func_option      (input_par_store, 0,                  "g-func",          "g-function mode: 0=standard LogH, 1=BLogH (innermost binaries), 2=normalized BLogH, 3=all pairs, 4=BTLogH (tree-level product)")
+#elif AR_G_FUNC_MAX_POT
+        , g_func_option      (input_par_store, 0,                  "g-func",          "g-function mode: 0=standard LogH, 1=use maximum pair potential","0")
+#elif AR_G_FUNC_ADD_POT
+        , g_func_option      (input_par_store, 0,                  "g-func",          "g-function mode: 0=standard LogH, 1=use summation of innermost pair potentials","0")
+#endif
+#ifdef AR_G_FUNC
+        , g_func_switch_option(input_par_store, "fixed",           "g-func-switch",   "how to apply --g-func: fixed (always use it), auto (switch between --g-func and 0 based on perturbation)","fixed")
 #endif
         , filename_par        (input_par_store, "",                 "p",               "filename to load manager parameters","input name")
         , filename_out        (input_par_store, "",                 "f",               "filename to output snapshots in BINARY format;  if not given, print directly in standard output","input name")
@@ -130,8 +134,9 @@ public:
 #ifdef USE_MPFRC
             {mpfr_digits.key,              required_argument, &ar_flag, 20},
 #endif
-#ifdef AR_HYBRID
-            {hybrid_option.key,            required_argument, &ar_flag, 21},
+#ifdef AR_G_FUNC
+            {g_func_option.key,            required_argument, &ar_flag, 21},
+            {g_func_switch_option.key,     required_argument, &ar_flag, 27},
 #endif
             {filename_par.key,             required_argument, &ar_flag, 22},
             {filename_out.key,             required_argument, &ar_flag, 23},
@@ -235,9 +240,13 @@ public:
                     opt_used += 2;
                     break;
 #endif
-#ifdef AR_HYBRID
+#ifdef AR_G_FUNC
                 case 21:
-                    hybrid_option.value = atoi(optarg);
+                    g_func_option.value = atoi(optarg);
+                    opt_used += 2;
+                    break;
+                case 27:
+                    g_func_switch_option.value = optarg;
                     opt_used += 2;
                     break;
 #endif
@@ -469,8 +478,12 @@ int main(int argc, char **argv){
     sym_int.info.reserveMem(sym_int.particles.getSize());
     sym_int.info.generateBinaryTree(sym_int.particles,manager.interaction.gravitational_constant);
 
-#ifdef AR_HYBRID
-    if (iop.hybrid_option.value!=-1) sym_int.hybrid_switch = iop.hybrid_option.value;
+#ifdef AR_G_FUNC
+    sym_int.g_func_user = iop.g_func_option.value;
+    if (iop.g_func_switch_option.value == "auto")
+        sym_int.g_func_switch = AR::TimeTransformedSymplecticIntegrator<Particle, Particle, Perturber, Interaction, AR::Information<Particle, Particle>>::GFUNC_AUTO;
+    else
+        sym_int.g_func_switch = AR::TimeTransformedSymplecticIntegrator<Particle, Particle, Perturber, Interaction, AR::Information<Particle, Particle>>::GFUNC_FIXED;
 #endif
 
     // r_break
@@ -480,8 +493,8 @@ int main(int argc, char **argv){
     if(!iop.load_flag.value) {
         // initialization 
         sym_int.initialIntegration(iop.time_zero.value);
-#ifdef AR_HYBRID
-        sym_int.info.calcDsAndStepOption(manager.step.getOrder(), manager.interaction.gravitational_constant, manager.ds_scale, sym_int.hybrid_switch);
+#ifdef AR_G_FUNC
+        sym_int.info.calcDsAndStepOption(manager.step.getOrder(), manager.interaction.gravitational_constant, manager.ds_scale, sym_int.g_func);
 #else
         sym_int.info.calcDsAndStepOption(manager.step.getOrder(), manager.interaction.gravitational_constant, manager.ds_scale);
 #endif
@@ -534,10 +547,10 @@ int main(int argc, char **argv){
 #ifdef AR_SLOWDOWN_TREE
             sym_int.updateSlowDownAndCorrectEnergy(true, false);
 #endif
-#ifdef AR_HYBRID
-            if (iop.hybrid_option.value==-1) {
+#ifdef AR_G_FUNC
+            if (0) {  // legacy external -1 auto mode disabled; use --g-func-switch auto instead
                 sym_int.info.generateBinaryTree(sym_int.particles,manager.interaction.gravitational_constant);
-                sym_int.switchHybridMethod();
+                sym_int.switchGFuncFixed();
             }
 #endif
 #ifdef SDAR_TIME_MEASURE
