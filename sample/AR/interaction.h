@@ -179,25 +179,18 @@ public:
         }            
     }
 
-    //! calculate perturbation from binary tree
+    //! (deprecated) calculate perturbation from binary tree — moved to COMM::Binary::calcPertFromBinary
+    /*! Kept as a forwarding wrapper for source compatibility; new code should call
+        COMM::Binary::calcPertFromBinary directly. */
     static Float calcPertFromBinary(const AR::BinaryTree<Particle>& _bin) {
-        Float apo = _bin.semi*(1.0+_bin.ecc);
-        Float apo2 = apo*apo;
-#ifdef AR_SLOWDOWN_PERT_R4
-        return (_bin.m1*_bin.m2)/(apo2*apo2);
-#else
-        return (_bin.m1*_bin.m2)/(apo2*apo);
-#endif
+        return COMM::Binary::calcPertFromBinary(_bin);
     }
 
-    //! calculate perturbation from distance to perturber and masses of particle and perturber 
+    //! (deprecated) calculate perturbation from distance to perturber — moved to COMM::Binary::calcPertFromMR
+    /*! Kept as a forwarding wrapper for source compatibility; new code should call
+        COMM::Binary::calcPertFromMR directly. */
     static Float calcPertFromMR(const Float _r, const Float _mp, const Float _mpert) {
-        Float r2 = _r*_r;
-#ifdef AR_SLOWDOWN_PERT_R4
-        return _mp*_mpert/(r2*r2);
-#else
-        return (_mp*_mpert)/(r2*_r);
-#endif
+        return COMM::Binary::calcPertFromMR(_r, _mp, _mpert);
     }
 
 #if (defined AR_SLOWDOWN_ARRAY) || (defined AR_SLOWDOWN_TREE)
@@ -214,7 +207,7 @@ public:
                        pj.pos[2] - pi.pos[2]};
         Float r2 = dr[0]*dr[0] + dr[1]*dr[1] + dr[2]*dr[2];
         Float r = sqrt(r2);
-        _pert_out += calcPertFromMR(r, pi.mass, pj.mass);
+        _pert_out += COMM::Binary::calcPertFromMR(r, pi.mass, pj.mass);
             
 #ifdef AR_SLOWDOWN_TIMESCALE
         Float dv[3] = {pj.vel[0] - pi.vel[0],

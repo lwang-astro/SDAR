@@ -1,0 +1,14 @@
+# clangd configuration for SDAR
+#
+# compile_commands.json already carries AR_G_FUNC_{MUL,MAX,ADD}_POT on the
+# ar.cxx translation units, but clangd may associate a header such as
+# src/AR/symplectic_integrator.h with a TU that does not define any g-function
+# variant (e.g. the hermite.cxx entries), leaving the AR_G_FUNC code paths
+# inactive in the index.
+#
+# To match the latest sample/AR/Makefile default g-function build, force the
+# flag on for every TU. Swap MUL_POT for MAX_POT / ADD_POT to index a different
+# variant.
+CompileFlags:
+  Add:
+    - "-DAR_G_FUNC_MUL_POT"

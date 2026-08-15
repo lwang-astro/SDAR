@@ -61,7 +61,7 @@ public:
 #endif
     COMM::IOParams<std::string> filename_par;
     COMM::IOParams<std::string> filename_out;
-    COMM::IOParams<int> synch_flag;
+    COMM::IOParams<std::string> integration_mode;
     COMM::IOParams<int> load_flag;
 
     IOParamsAR()
@@ -92,7 +92,7 @@ public:
         , mpfr_digits         (input_par_store, 30,                 "mpfr-dights",     "dights for MPFR precison")
 #endif
 #ifdef AR_G_FUNC_MUL_POT
-        , g_func_option      (input_par_store, 0,                  "g-func",          "g-function mode: 0=standard LogH, 1=BLogH (innermost binaries), 2=normalized BLogH, 3=all pairs, 4=BTLogH (tree-level product)")
+        , g_func_option      (input_par_store, 0,                  "g-func",          "time transformation (g) function mode;  0=standard LogH;  1=BLogH (innermost binaries);  2=normalized BLogH;  3=all pairs;  4=BTLogH (tree-level product)")
 #elif AR_G_FUNC_MAX_POT
         , g_func_option      (input_par_store, 0,                  "g-func",          "g-function mode: 0=standard LogH, 1=use maximum pair potential","0")
 #elif AR_G_FUNC_ADD_POT
@@ -103,7 +103,7 @@ public:
 #endif
         , filename_par        (input_par_store, "",                 "p",               "filename to load manager parameters","input name")
         , filename_out        (input_par_store, "",                 "f",               "filename to output snapshots in BINARY format;  if not given, print directly in standard output","input name")
-        , synch_flag          (input_par_store, 0,                  "S",               "Switch on time synchronization (use with -o or -n)")
+        , integration_mode    (input_par_store, "base",             "m",               "Integration mode;  base: no time synchronization, orbital parameters and step size update;  orbit: no time synchronization, update orbital parameters and step size every step;  full: use time synchronization (integrateToTime) with full orbital parameters and step size update")
         , load_flag           (input_par_store, 0,                  "l",               "Load dumped data for restart (if used, the input file is dumped data)")
     {}
 
@@ -140,7 +140,6 @@ public:
 #endif
             {filename_par.key,             required_argument, &ar_flag, 22},
             {filename_out.key,             required_argument, &ar_flag, 23},
-            {synch_flag.key,               no_argument,       &ar_flag, 25},
             {load_flag.key,                no_argument,       &ar_flag, 26},
             {"help",                       no_argument,       0, 'h'},
             {0, 0, 0, 0}
@@ -150,7 +149,7 @@ public:
         int copt;
         int option_index;
         optind = 0;
-        while ((copt = getopt_long(argc, argv, "-n:t:r:s:Sk:G:e:p:f:i:o:lh", long_options, &option_index)) != -1)
+        while ((copt = getopt_long(argc, argv, "-n:t:r:s:m:k:G:e:p:f:i:o:lh", long_options, &option_index)) != -1)
             switch (copt) {
             case 0:
                 switch (ar_flag) {
@@ -271,10 +270,6 @@ public:
                     interrupt_detection_option.value = atoi(optarg);
                     opt_used += 2;
                     break;
-                case 25:
-                    synch_flag.value = 1;
-                    opt_used++;
-                    break;
                 case 26:
                     load_flag.value = 1;
                     opt_used++;
@@ -334,9 +329,9 @@ public:
                 interrupt_detection_option.value = atoi(optarg);
                 opt_used++;
                 break;
-            case 'S':
-                synch_flag.value = 1;
-                opt_used++;
+            case 'm':
+                integration_mode.value = optarg;
+                opt_used += 2;
                 break;
             case 'l':
                 load_flag.value = 1;
@@ -539,20 +534,36 @@ int main(int argc, char **argv){
     
     // integration loop
     const int n_particle = sym_int.particles.getSize();
-    if (!iop.synch_flag.value) {
+    if (iop.integration_mode.value != "full") {
+        bool do_orbit_update = (iop.integration_mode.value == "orbit");
         Float time_out = iop.time_zero.value + iop.dt_out.value;
         Float time_table[manager.step.getCDPairSize()];
         sym_int.profile.step_count = 1;
         auto IntegrateOneStep = [&] (){
+            if (do_orbit_update) {
+                bool update_flag = sym_int.updateBinarySemiEccPeriodIter(
+                    sym_int.info.getBinaryTreeRoot(),
+                    manager.interaction.gravitational_constant,
+                    sym_int.getTime());
+                if (update_flag) {
+                    auto& root = sym_int.info.getBinaryTreeRoot();
+                    root.stableCheckIter(root, 10000 * root.period);
+                }
 #ifdef AR_SLOWDOWN_TREE
-            sym_int.updateSlowDownAndCorrectEnergy(true, false);
+                sym_int.syncTreeSlowDownAndDs(true, false);
+#else
+                if (update_flag) {
+                    sym_int.info.calcDsAndStepOption(
+                        manager.step.getOrder(),
+                        manager.interaction.gravitational_constant,
+                        manager.ds_scale
+    #ifdef AR_G_FUNC
+                        , sym_int.g_func
+    #endif
+                    );
+                }
 #endif
-#ifdef AR_G_FUNC
-            if (0) {  // legacy external -1 auto mode disabled; use --g-func-switch auto instead
-                sym_int.info.generateBinaryTree(sym_int.particles,manager.interaction.gravitational_constant);
-                sym_int.switchGFuncFixed();
             }
-#endif
 #ifdef SDAR_TIME_MEASURE
             sym_int.profile.prof_tot.start();
 #endif

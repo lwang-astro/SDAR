@@ -34,7 +34,57 @@ namespace COMM{
                   period(NUMERIC_FLOAT_MAX), ecca(NUMERIC_FLOAT_MAX),
                   m1(NUMERIC_FLOAT_MAX), m2(NUMERIC_FLOAT_MAX), r(NUMERIC_FLOAT_MAX),
                   am(NUMERIC_FLOAT_MAX,NUMERIC_FLOAT_MAX,NUMERIC_FLOAT_MAX), stab(NUMERIC_FLOAT_MAX) {}
-                  
+
+        //! calculate tidal perturbation m_i*m_j/r^3 (or r^4 with AR_SLOWDOWN_PERT_R4) from member masses and separation
+        /*! Purely Newtonian metric shared by: the binary-tree construction pairing
+            (calcBindingList), the tree-stale detection (calcBinaryTreeSlowDown) and
+            the slowdown factor calculation — single source of truth so the three
+            always use the SAME units. Resides in Binary (not in the user interaction
+            class) because it has no user-defined freedom; the interaction class only
+            keeps the accumulation hooks (calcSlowDownPert*, calcSlowDownPertExt).
+            @param[in] _r: separation between the two bodies
+            @param[in] _mp: mass of body 1
+            @param[in] _mpert: mass of body 2
+        */
+        static Float calcPertFromMR(const Float _r, const Float _mp, const Float _mpert) {
+            Float r2 = _r*_r;
+#ifdef AR_SLOWDOWN_PERT_R4
+            return _mp*_mpert/(r2*r2);
+#else
+            return (_mp*_mpert)/(r2*_r);
+#endif
+        }
+
+        //! calculate tidal perturbation from apo-center based orbit elements (m1*m2/apo^3)
+        /*! Conservative (apo-based) version used for the slowdown factor itself —
+            smooth and time-independent. Not used for the tree-stale criterion, which
+            needs the instantaneous calcPertFromMR(r) to stay consistent with the
+            tree construction.
+        */
+        static Float calcPertFromBinary(const Binary& _bin) {
+            Float apo = _bin.semi*(1.0+_bin.ecc);
+            Float apo2 = apo*apo;
+#ifdef AR_SLOWDOWN_PERT_R4
+            return (_bin.m1*_bin.m2)/(apo2*apo2);
+#else
+            return (_bin.m1*_bin.m2)/(apo2*apo);
+#endif
+        }
+
+        //! calculate perturbation of a c.m. from its acceleration and potential
+        /*! @param[in] _G: gravitational constant
+            @param[in] _force: c.m. acceleration (or force, sign cancels in the ratio)
+            @param[in] _pot: c.m. potential
+        */
+        static Float calcPertFromForcePot(const Float _G, const Float* _force, const Float& _pot) {
+            Float force2 = _force[0]*_force[0]+_force[1]*_force[1]+_force[2]*_force[2];
+#ifdef AR_SLOWDOWN_PERT_R4
+            Float inv_r = -force2/_pot;
+            return sqrt(force2)*inv_r*inv_r*inv_r/_G;
+#else
+            return -force2/(_pot*_G);
+#endif
+        }
 
         //! Orbit to position and velocity
         /*! refer to the P3T code developed by Iwasawa M.
@@ -556,7 +606,7 @@ namespace COMM{
     template <class Tptcl, class Tbinary>
     class BinaryTree: public Tptcl, public Tbinary {
     private: 
-        typedef std::pair<Float, int> R2Index;  // First is distance square, second is index
+        typedef std::pair<Float, int> BindingIndex;  // First is m_i·m_j/r³ (pert metric), second is index
         typedef BinaryTree<Tptcl,Tbinary> BinaryTreeLocal; // local defined binarytree 
         /*                          Example for level & branch
                           -------------------------------------------------
@@ -577,32 +627,37 @@ namespace COMM{
         long long int branch;    ///> the branch in each level, count from the left member to right. 
 
     private:
-        static bool pairLess(const R2Index& a, const R2Index & b)  {
-            return a.first < b.first;
+        static bool pairGreater(const BindingIndex& a, const BindingIndex & b)  {
+            // descending: larger m_i*m_j/r^3 (more bound) comes first
+            return a.first > b.first;
         }
 
-        //! Find the minimum distant particle and same the sqrt distance at first and index at second of r2_list
-        /* @param[in,out] _member_list: group particle member index, will be reordered by the minimum distance chain.
-           @param[in,out] _r2_list: a pair. first is the square distance of closes neighbor (next particle i+1 in _member_list); second is equal to particle current index i
+        //! Find the most-bound neighbor and save m_i·m_j/r³ (pert metric) at first and index at second of binding_list
+        /* @param[in,out] _ptcl_list: group particle member index, will be reordered by the maximum binding chain.
+           @param[in,out] _binding_list: a pair. first is m_i·m_j/r³ of the most-bound neighbor (next particle i+1 in _ptcl_list); second is equal to particle current index i
            @param[in] _n_members: number of members
-           @param[in] _ptcl_org: original particle data
+           @param[in] _ptcl: original particle data
         */
-        static void calcMinDisList(int _ptcl_list[], 
-                                   R2Index _r2_list[],
+        static void calcBindingList(int _ptcl_list[], 
+                                   BindingIndex _binding_list[],
                                    const int _n_members,
                                    const Tptcl* _ptcl) {
             for (int i=0; i<_n_members-1; i++) {
                 int k = _ptcl_list[i];
                 int jc=-1;
-                Float r2min = NUMERIC_FLOAT_MAX;
+                Float pert_max = 0.0;
                 for(int j=i+1; j<_n_members; j++) {
                     const int kj =_ptcl_list[j];
                     Vector3<Float> dr = {_ptcl[k].pos[0] - _ptcl[kj].pos[0],
                                          _ptcl[k].pos[1] - _ptcl[kj].pos[1],
                                          _ptcl[k].pos[2] - _ptcl[kj].pos[2]};
                     Float r2 = dr*dr;
-                    if(r2<r2min) {
-                        r2min = r2;
+                    Float r = sqrt(r2);
+                    // same tidal metric as calcBinaryTreeSlowDown and the slowdown
+                    // perturbation: m_i*m_j/r^3 via COMM::Binary::calcPertFromMR
+                    Float pert = COMM::Binary::calcPertFromMR(r, _ptcl[k].mass, _ptcl[kj].mass);
+                    if(pert > pert_max) {
+                        pert_max = pert;
                         jc = j;
                     }
                 }
@@ -614,8 +669,8 @@ namespace COMM{
                     _ptcl_list[i+1] = _ptcl_list[jc];
                     _ptcl_list[jc]  = jtmp;
                 }
-                _r2_list[i].first = r2min;
-                _r2_list[i].second = i;
+                _binding_list[i].first = pert_max;
+                _binding_list[i].second = i;
             }
         }
     
@@ -777,21 +832,21 @@ namespace COMM{
                                        const Float _G) {
             ASSERT(_n>=2);
 
-            R2Index r2_list[_n];
-            // reorder _ptcl_list by minimum distance of each particles, and save square minimum distance r2min and index i in _ptcl_list (not particle index in _ptcl) in r2_list 
-            calcMinDisList(_ptcl_list, r2_list, _n, _ptcl);
-            // sort r2_list by r2min 
-            if(_n>2) std::sort(r2_list, r2_list+_n-1, pairLess);
+            BindingIndex binding_list[_n];
+            // reorder _ptcl_list by maximum m_i·m_j/r³ (most-bound neighbor first), and save binding value and index i in _ptcl_list in binding_list 
+            calcBindingList(_ptcl_list, binding_list, _n, _ptcl);
+            // sort binding_list by pert descending (most-bound pair first)
+            if(_n>2) std::sort(binding_list, binding_list+_n-1, pairGreater);
 
             // tree root for each binary pair
             BinaryTreeLocal* bin_host[_n]; 
             for(auto &p : bin_host) p=NULL;
     
             const int binary_tree_index = static_cast<int>(BinaryTreeMemberIndexTag::binarytree);
-            // check binary from the closest pair to longest pair
+            // build binary tree from the most-bound pair to least-bound pair
             for(int i=0; i<_n-1; i++) {
-                // get the pair index k in _ptcl_list with sorted r2_list, i represent the sorted r2min order.
-                int k = r2_list[i].second;
+                // get the pair index k in _ptcl_list with sorted binding_list, i represents the sorted binding order (most-bound first).
+                int k = binding_list[i].second;
                 Tptcl* p[2];
                 int pindex[2]={binary_tree_index, binary_tree_index};
                 // if no tree root assign, set member 1 to particle and their host to current bins i

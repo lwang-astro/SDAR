@@ -1965,11 +1965,11 @@ namespace H4{
                         // calculate slowdown in a consistent way like in checknewgroup to avoid switching
                         // fcm may not properly represent the perturbation force (perturber mass is unknown)
                         //sd.pert_in = ar_manager->interaction.calcPertFromBinary(bin_root);
-                        sd.pert_in = ar_manager->interaction.calcPertFromMR(bin_root.r, bin_root.m1, bin_root.m2);  // to be consistent with find new group
+                        sd.pert_in = COMM::Binary::calcPertFromMR(bin_root.r, bin_root.m1, bin_root.m2);  // to be consistent with find new group
                         Float* acc_cm = groupk.particles.cm.acc0;
                         Float& pot_cm = groupk.particles.cm.pot;
                         //Float fcm[3] = {acc_cm[0]*bin_root.mass, acc_cm[1]*bin_root.mass, acc_cm[2]*bin_root.mass };
-                        sd.pert_out= ar_manager->interaction.calcPertFromForcePot(acc_cm, pot_cm);
+                        sd.pert_out= COMM::Binary::calcPertFromForcePot(ar_manager->interaction.gravitational_constant, acc_cm, pot_cm);
                         sd.calcSlowDownFactor();
                         Float kappa_org = sd.getSlowDownFactorOrigin();
 
@@ -2017,10 +2017,10 @@ namespace H4{
                                 if (bin_sub->semi>0.0) {
 
                                     Float apo_in = bin_sub->semi*(1+bin_sub->ecc);
-                                    sd.pert_in = ar_manager->interaction.calcPertFromMR(apo_in, bin_sub->m1, bin_sub->m2);
+                                    sd.pert_in = COMM::Binary::calcPertFromMR(apo_in, bin_sub->m1, bin_sub->m2);
 
                                     // present slowdown 
-                                    sd.pert_out = ar_manager->interaction.calcPertFromMR(bin_root.r, bin_root.m1, bin_root.m2);
+                                    sd.pert_out = COMM::Binary::calcPertFromMR(bin_root.r, bin_root.m1, bin_root.m2);
                                     sd.calcSlowDownFactor();
                                     Float kappa_in = sd.getSlowDownFactorOrigin();
 
@@ -2030,7 +2030,7 @@ namespace H4{
                                         // if outer is binary, estimate slowdown max (apo_out)
                                         if (bin_root.semi>0.0) {
                                             Float apo_out = bin_root.semi*(1+bin_root.ecc);
-                                            sd.pert_out = ar_manager->interaction.calcPertFromMR(apo_out, bin_root.m1, bin_root.m2);
+                                            sd.pert_out = COMM::Binary::calcPertFromMR(apo_out, bin_root.m1, bin_root.m2);
                                             sd.calcSlowDownFactor();
 
                                             kappa_in_max = sd.getSlowDownFactorOrigin();
@@ -2182,8 +2182,8 @@ namespace H4{
 #else
                         sd.initialSlowDownReference(ar_manager->slowdown_pert_ratio_ref, ar_manager->slowdown_timescale_max);
 #endif
-                        sd.pert_in = ar_manager->interaction.calcPertFromMR(dr, pi.mass, pj->mass);
-                        sd.pert_out = ar_manager->interaction.calcPertFromForcePot(fcm, potcm);
+                        sd.pert_in = COMM::Binary::calcPertFromMR(dr, pi.mass, pj->mass);
+                        sd.pert_out = COMM::Binary::calcPertFromForcePot(ar_manager->interaction.gravitational_constant, fcm, potcm);
 
                         sd.calcSlowDownFactor();
                         Float kappa_org = sd.getSlowDownFactorOrigin();
@@ -2296,8 +2296,8 @@ namespace H4{
 #else
                         sd.initialSlowDownReference(ar_manager->slowdown_pert_ratio_ref, ar_manager->slowdown_timescale_max);
 #endif
-                        sd.pert_in = ar_manager->interaction.calcPertFromMR(dr, pi.mass, pj->mass);
-                        sd.pert_out = ar_manager->interaction.calcPertFromForcePot(fcm, potcm);
+                        sd.pert_in = COMM::Binary::calcPertFromMR(dr, pi.mass, pj->mass);
+                        sd.pert_out = COMM::Binary::calcPertFromForcePot(ar_manager->interaction.gravitational_constant, fcm, potcm);
 
                         sd.calcSlowDownFactor();
                         Float kappa_org = sd.getSlowDownFactorOrigin();

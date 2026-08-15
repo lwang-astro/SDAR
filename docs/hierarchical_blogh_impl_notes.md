@@ -1,9 +1,16 @@
 # Hierarchical BLogH 实现笔记
 
-> **最后更新**: 2026-08-05
-> - 重构：`hybrid_switch` → `g_func` / `g_func_user` / `g_func_switch` 三变量拆分
-> - 统一：MUL_POT / MAX_POT / ADD_POT 三种方法共用 `--g-func` + `--g-func-switch` CLI
-> - 重命名：`AR_HYBRID` → `AR_G_FUNC`，`AR_TIME_FUNCTION_*` → `AR_G_FUNC_*`
+> **最后更新**: 2026-08-14
+> - 重构：`updateSlowDownAndCorrectEnergy` + `switchGFuncAuto` → 统一为 `syncTreeSlowDownAndDs`
+> - 新增辅助函数：`calcBinaryTreeSlowDown`, `applyStableCheckAndSlowDown`, `correctSlowDownEnergy`
+> - 中断处理简化：`_is_interrupt` 标志消除重复 tree/force/energy 代码
+> - `stableCheckIter` 条件化：仅 tree 重建或轨道更新后触发
+> - pert 判据修正：`pert_out/pert_in > 1`（无量纲比值）
+> - g_func-aware ds 统一：`update_flag` 路径改用 `calcDsAndStepOption`
+> - `synch_flag` → `integration_mode` 重命名，短选项 `-S` → `-m`（ar.cxx）
+> - 2026-08-11：tree 配对度量 `r²` → `r³/(m_i·m_j)`（`calcMinDisList` → `calcBindingList`）
+> - 2026-08-14：`calcBinaryTreeSlowDown` 的 tree-stale 判据改用瞬时度量（`calcPertFromMR`），与 `generateBinaryTree` 自洽；排除组外摄动
+> - 2026-08-15：pert 度量函数（`calcPertFromMR`/`calcPertFromBinary`/`calcPertFromForcePot`）从 interaction 类迁移到 `COMM::Binary`，单一事实源；`calcBindingList` 改调用同一函数（`pairLess` → `pairGreater`）
 
 ## Summary
 
@@ -13,23 +20,25 @@
 ## Files Changed
 
 - **`src/AR/symplectic_integrator.h`**:
-  - `processOuterNode()` — fused traversal: U_node 乘入 gt_kick_inv + 梯度分发，一次递归完成
-  - `addOuterGradientToMember()` — 叶子层梯度分发辅助函数
-  - `calc_gt_cross` 门控扩展：`(g_func>0 && g_func<=2) || g_func==4`
-  - `kickEtotAndGTDrift` 缩放扩展：`g_func==1 || g_func==3 || g_func==4`
-  - `g_func` / `g_func_user` / `g_func_switch` — 三变量设计（`AR_G_FUNC`）
-  - `switchGFuncAuto()` — 通用 auto-switch（`AR_G_FUNC`）
-  - `checkGFuncCriterionIter()` — 扰动比判据（原 `checkHybridMethodCriterionIter`）
-  - `GFUNC_CHECK_INTERVAL=100` — 检查频率
+  - `syncTreeSlowDownAndDs()` — 统一函数：slowdown → tree 重建 → stab → g_func → 力 → energy → ds
+  - `calcBinaryTreeSlowDown()` — root + inner pert/slowdown 合并
+  - `applyStableCheckAndSlowDown()` — 仅设 slowdown factor（不调 stableCheckIter）
+  - `correctSlowDownEnergy()` — 能量修正（全量重算 vs sd_backup 缩放）
+  - `_is_interrupt` 参数 — 中断路径跳过 pert 检查，tree 重建内化
+  - `stableCheckIter` 条件化 — 仅 tree 重建或 `update_flag` 时触发
+  - pert 判据：`pert_out/pert_in > 1.0`（无量纲）
+  - g_func 每调用点评估（取消 hysterisis / 100 步间隔）
+  - `processOuterNode()` — BTLogH 梯度分发
+  - `updateBinarySemiEccPeriodIter` 提升为 public
 
-- **`src/AR/information.h`**:
-  - `calcBLogHDsIter()` — BLogH 乘积 ds 公式
-  - `multiplyDsByNodePotentials()` — hierarchical ds 缩放
-  - 修复了所有 BLogH 模式 (1/2/3/4) 的 ds 计算
+- **`sample/AR/ar.cxx`**: 
+  - `--g-func 0-4` + `--g-func-switch fixed|auto` CLI
+  - `synch_flag` → `integration_mode` 重命名，短选项 `-S` → `-m`
+  - 每步积分前：`updateBinarySemiEccPeriodIter` + `stableCheckIter` + `syncTreeSlowDownAndDs`
 
-- **`sample/AR/ar.cxx`**: `--g-func 0-4` + `--g-func-switch fixed|auto` CLI（三种 POT 统一）
+- **`src/AR/information.h`**: `calcDsAndStepOption` 统一 ds 接口（g_func-aware）
 - **`src/Hermite/hermite_integrator.h`**: `g_func` 传递给 `calcDsAndStepOption`
-- **`tools/ar.py`**: `g_func` → `g_func` 列名
+- **`tools/ar.py`**: `g_func` 列名
 
 ## 编译 Flag 速查
 
@@ -137,89 +146,83 @@ time = snap.time + snap.time_offset
 
 ---
 
-## Auto-Switching — 2026-08-05 重构
-
-### 概述
-
-通过 `--g-func-switch auto` 启用自动切换。与 `--g-func` 指定的方法共同决定行为：
-
-| `--g-func` | `--g-func-switch` | 行为 |
-|------------|-------------------|------|
-| 4 | fixed | 始终 BTLogH |
-| 4 | auto | BTLogH ↔ LogH 自动切换 |
-
-通用设计：`--g-func N --g-func-switch auto` 对任意 N=1-4 均自动在 N ↔ 0 间切换。
-
-### 三变量设计
+## g_func 三变量设计
 
 | 变量 | 含义 | 取值 |
 |------|------|------|
-| `g_func` | 当前生效的 g 函数 | 0-4（永远是合法分支选择器） |
-| `g_func_user` | 用户通过 CLI 选择的方法 | 0-4 |
+| `g_func` | 当前生效的 g 函数 | 0-4 |
+| `g_func_user` | 用户 CLI 选择的方法 | 0-4 |
 | `g_func_switch` | 自动切换模式 | `GFUNC_FIXED=0`, `GFUNC_AUTO=1` |
 
-### 实现位置
+`checkGFuncCriterionIter()` 遍历 tree 检查扰动比——所有内层 binary `pert_ratio < 1` 时可用 g_func，否则退为 0。BTLogH (g_func=4) 跳过 pert_ratio 检查（`processOuterNode` 处理外层节点）。
 
-- **`src/AR/symplectic_integrator.h`**:
-  - `g_func` / `g_func_user` / `g_func_switch` — 三个独立变量（`AR_G_FUNC`）
-  - `g_func_switch_pending_` / `g_func_switch_confirm_` — hysterisis 状态（`AR_G_FUNC_MUL_POT`）
-  - `switchGFuncAuto()` — 通用切换函数，target = criterion ? `g_func_user` : 0
-  - `checkGFuncCriterionIter()` — 扰动比判据（原 `checkHybridMethodCriterionIter`）
-  - `initialIntegration()` — 三变量初始化
-  - `integrateToTime()` — 每 100 步检查
+## 架构 — 2026-08-07 重构
 
-- **`sample/AR/ar.cxx`**: `--g-func` + `--g-func-switch` CLI
-- **`src/Hermite/hermite_integrator.h`**: `hybrid_switch` → `g_func`
+### `syncTreeSlowDownAndDs` 统一函数
 
-### CLI 用法
+将原来的 `updateSlowDownAndCorrectEnergy` + `switchGFuncAuto` 合并为单一入口：
 
-```bash
---g-func 4 --g-func-switch fixed     # 始终 BTLogH
---g-func 4 --g-func-switch auto      # BTLogH ↔ LogH 自动切换
---g-func 1 --g-func-switch auto      # BLogH ↔ LogH 自动切换（通用）
+```
+Step 1: calcBinaryTreeSlowDown      ← root + inner pert/slowdown
+Step 2: pert_ratio_max > 1 → tree 重建
+Step 3: stableCheckIter（仅重建时）
+Step 4: applyStableCheckAndSlowDown  ← 基于已有 stab 设 slowdown factor
+Step 5: BTLogH κ-capping
+Step 6: g_func 评估 + 切换
+Step 7: 力同步 + correctSlowDownEnergy + calcDsAndStepOption
 ```
 
-### 判据
+### 辅助函数
 
-`checkGFuncCriterionIter()` 的扰动比判据：
-
-$$\text{pert\_ratio} = \frac{M_{\text{out},1}M_{\text{out},2}}{M_{\text{in},1}M_{\text{in},2}} \cdot \left(\frac{a_{\text{in}}(1+e_{\text{in}})}{a_{\text{out}}(1-e_{\text{out}})}\right)^3$$
-
-- 所有 inner binary `pert_ratio < 1` → `g_func = g_func_user`
-- 任意 inner binary `pert_ratio >= 1` 或 hyperbolic → `g_func = 0`
-
-### 切换时的关键操作
-
-| 操作 | 说明 |
+| 函数 | 职责 |
 |------|------|
-| `calcAccPotAndGTKickInv()` | 用新 `g_func` 重算力和 g |
-| `gt_drift_inv_` 调整 | 变化 > 0.1% 时直接重置，否则 `+= diff` |
-| `info.calcDsAndStepOption()` | 用新 `g_func` 重算 ds |
-| `ds[0]`/`ds[1]`/`ds_init`/`ds_backup` 同步 | 取 `min(当前, 新 ds)` |
+| `calcBinaryTreeSlowDown(Float* ratio)` | root pert + inner slowdown，可选返回 max pert_out/pert_in |
+| `applyStableCheckAndSlowDown(flag)` | 基于已有 stab 设 root slowdown factor |
+| `correctSlowDownEnergy(sd_backup, force_recalc, is_interrupt)` | 能量修正：全量重算 或 sd_backup 缩放 |
 
-### Hysteresis
+### 调用点
 
-要求连续 3 次判据一致才切换。`g_func_switch_pending_` 记候选目标，`g_func_switch_confirm_` 记连续确认次数。
+| 位置 | 调用 | 特点 |
+|------|------|------|
+| `initialIntegration` | `calcBinaryTreeSlowDown` + `stableCheckIter` + `applyStableCheckAndSlowDown` | 无 tree/g_func/ds |
+| `integrateToTime` 循环前 | `syncTreeSlowDownAndDs(true, true)` | 在 ds 初始化之前 |
+| `integrateToTime` orbit 更新 | `updateBinarySemiEccPeriodIter` + `stableCheckIter`(if updated) + `syncTreeSlowDownAndDs` | ds 变化时传播到数组 |
+| `integrateToTime` 中断 | `syncTreeSlowDownAndDs(true, true, true)` | 内化 tree 重建，跳过 pert 检查 |
+| `ar.cxx` 手动循环 | 同 orbit 更新 | 每步 |
 
-### 架构决策
+### `_is_interrupt` 标志
 
-- **内置于 `integrateToTime()`**（方案 A）：standalone AR、Hermite、PeTar 自动继承
-- **不每步重建 binary tree**：判据依赖的 orbital 参数通过 `updateBinarySemiEccPeriodIter` 更新
-- **检查频率**：每 100 步
+当 `true` 时：跳过 pert 检查，强制 tree 重建（因中断引起质量变化），能量修正额外更新 `de_sd_change_interrupt_`。
 
-### 编译状态
+### 中断处理优化
 
-✅ 所有 AR binary variants 编译通过，零 warning。
-✅ Hermite sample 编译通过。
+中断处理中的 `generateBinaryTree`、g_func 评估、`calcAccPotAndGTKickInv`、`calcEKin`、slowdown 能量记账全部删除——由 `syncTreeSlowDownAndDs(true, true, true)` 一次完成。中断处理器仅保留非 slowdown 能量记账和 merger 检测。
 
-### 测试状态
+### 判据与切换
 
-| 测试 | 状态 |
-|------|:---:|
-| 编译通过 | ✅ |
-| 冒烟测试（固定 + auto 模式运行不崩溃） | ✅ |
-| 层级三体 KL 循环（g_func 切换验证） | ❌ 待设计 |
+g_func 在每次 `syncTreeSlowDownAndDs` 调用时评估（`GFUNC_AUTO` 模式），不设间隔限制。
 
-### 设计文档
+### Tree-stale 判据度量统一（2026-08-14）
 
-详见 [`hierarchical_blogh_plan.md` §2](./hierarchical_blogh_plan.md)。
+**问题**：旧判据中 `pert_in` 用 apo 口径（`calcPertFromBinary`：$m_1m_2/\mathrm{apo}^3$），而 `pert_out` 与 tree 配对都用瞬时距离口径，导致内双星近日点附近 ratio 被高估 $(\mathrm{apo}/r)^3$ 倍（$e=0.9$ 时约 7000 倍），频繁假重建。
+
+**修改**（`calcBinaryTreeSlowDown`）：
+- `pert_in` 改用 `calcPertFromMR(r_12, m1, m2)`，$r_{12}$ 取两成员**实时**分离（叶子用粒子 `pos`，子树用 `getMemberAsTree()->pos`，两种坐标系下均为活量）；
+- `pert_out` 排除组外部分：`bini.slowdown.pert_out - bin_root.slowdown.pert_out`（组外摄动不能改变组内配对，但 PeTar 中会抬升 ratio 造成假重建）；
+- 边界保护：`r²>0`、`m1,m2>0`、`pert_out_internal>0`。
+
+**结果**：判据与 `generateBinaryTree` 的 `r³/(m_i·m_j)` 配对度量完全自洽——`pert_ratio_max>1` 即外部潮汐力超过内束缚力，正是配对被翻转的物理条件。apo 口径 `pert_in` 仅保留给 (保守的) slowdown factor 本身。
+
+### 度量函数迁移到 `COMM::Binary`（2026-08-15）
+
+**动机**：`calcBindingList` 原先内联 `r³/(m_i·m_j)`，与 `calcPertFromMR`（interaction 类内）存在 R4 宏口径分裂隐患。且度量是纯牛顿潮汐力，无用户自定义自由度；真正可定制的累积钩子（`calcSlowDownPert*`、PN 修正等）仍在 interaction 类。
+
+**修改**：
+- `calcPertFromMR` / `calcPertFromBinary` / `calcPertFromForcePot(G, ...)` 移入 `COMM::Binary`（`binary_tree.h`），成为 tree 配对、tree-stale 判据、slowdown 三者的**单一事实源**（同一函数 → 口径永久一致，R4 分支保留亦可自洽）；
+- `calcBindingList` 改调 `COMM::Binary::calcPertFromMR`，方向从 min(r³/m₁m₂) 翻转为 max(m₁m₂/r³)，排序比较器 `pairLess` → `pairGreater`（降序，最紧束缚优先）；
+- SDAR sample 的 `interaction.h` / `ar_interaction.h` 保留 deprecated 转发包装（兼容外部用户）；PeTar `ar_interaction.hpp` 直接删除（内部全部调用点已更新）；Hermite 侧 `calcPertFromForcePot` 新增 `G` 参数；
+- 兼容性注意：PeTar 粒子 `pos` 为 `F64vec`，访问需通过基类引用而非裸指针。
+
+Tree 重建判据：`pert_out / pert_in > 1.0`（无量纲比值）。`pert_in = m1·m2 / apo³`，`pert_out` 为外部扰动。当任意内层 binary 的比值超过 1 时触发 `generateBinaryTree`。
+
+已知局限：判据可能触发树结构不变的无效重建。在少数粒子系统中开销可忽略，后续可加拓扑变化检测优化。

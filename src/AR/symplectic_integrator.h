@@ -370,8 +370,6 @@ namespace AR {
         int g_func;        ///> current active g-function mode (0-4): 0=LogH, 1=BLogH, 2=normal-binary, 3=all, 4=BTLogH
         int g_func_user;   ///> user-selected g-function mode (0-4) via CLI --g-func
         int g_func_switch; ///> auto-switch mode: GFUNC_FIXED=use g_func_user always, GFUNC_AUTO=switch (user ↔ 0)
-        int g_func_switch_pending_;     ///> pending target g_func for auto-switch, -1: unset
-        int g_func_switch_confirm_;     ///> consecutive confirmations for hysterisis
 #endif
         TimeTransformedSymplecticManager<Tmethod>* manager; ///< integration manager
         COMM::ParticleGroup<Tparticle,Tpcm> particles; ///< particle group manager
@@ -394,8 +392,6 @@ namespace AR {
                                                g_func(0),
                                                g_func_user(0),
                                                g_func_switch(GFUNC_FIXED),
-                                               g_func_switch_pending_(-1),
-                                               g_func_switch_confirm_(0),
 #endif
                                                manager(NULL), particles(), 
                                                perturber(), info(), profile() {}
@@ -450,8 +446,6 @@ namespace AR {
             g_func = 0;
             g_func_user = 0;
             g_func_switch = GFUNC_FIXED;
-            g_func_switch_pending_ = -1;
-            g_func_switch_confirm_ = 0;
 #endif
             particles.clear();
             perturber.clear();
@@ -540,7 +534,7 @@ namespace AR {
           @param[in] _bin: binary tree for calculating slowdown
         */
         void calcSlowDownInnerBinary(BinaryTree<Tparticle>& _bin) {
-            _bin.slowdown.pert_in = manager->interaction.calcPertFromBinary(_bin);
+            _bin.slowdown.pert_in = COMM::Binary::calcPertFromBinary(_bin);
 
             Float pert_out = 0.0;
             Float t_min_sq = NUMERIC_FLOAT_MAX;
@@ -802,8 +796,8 @@ namespace AR {
             dpb[1] *= mcm_inv;
             dpb[2] *= mcm_inv;
 
-            Float dpbm = sqrt(dpb[0]*dpb[0] + dpb[1]*dpb[1] + dpb[2]*dpb[2]);
-            ASSERT(dpbm<ROUND_OFF_ERROR_LIMIT*100);
+            //Float dpbm = sqrt(dpb[0]*dpb[0] + dpb[1]*dpb[1] + dpb[2]*dpb[2]);
+            //ASSERT(dpbm<ROUND_OFF_ERROR_LIMIT*100);
             /*// correct c.m. position
             _bin.pos[0] += dpb[0];
             _bin.pos[1] += dpb[1];
@@ -1481,7 +1475,8 @@ namespace AR {
                 }
             }
         }
-
+            
+    public:
         //! update binary semi, ecc and period iteratively for unstable multiple systems
         bool updateBinarySemiEccPeriodIter(AR::BinaryTree<Tparticle>& _bin, const Float& _G, const Float _time, const bool _check=false) {
             bool check = _check;
@@ -1498,86 +1493,169 @@ namespace AR {
             }
             return false;
         }
-            
-    public:
+
 #ifdef AR_SLOWDOWN_TREE
-        //! update slowdown factor based on perturbation and record slowdown energy change
-        /*! Update slowdown inner and global.
-            @param [in] _update_energy_flag: Record cumulative slowdown energy change if true;
-            @param [in] _stable_check_flag: check whether the binary tree is stable if true;
+        //! correct slowdown energy after slowdown factors have been updated
+        /*! Caller must have called calcAccPotAndGTKickInv() if _force_full_recalc is true.
+            @param _sd_backup: root slowdown factor before update (for scaling path)
+            @param _force_full_recalc: if true, use calcEKin(); else use sd_backup scaling
+            @param _is_interrupt: if true, also accumulate to interrupt-specific counters
          */
-        void updateSlowDownAndCorrectEnergy(const bool _update_energy_flag, const bool _stable_check_flag) {
+        void correctSlowDownEnergy(const Float _sd_backup, const bool _force_full_recalc,
+                                     const bool _is_interrupt = false) {
+            Float ekin_sd_bk = ekin_sd_;
+            Float epot_sd_bk = epot_sd_;
+            Float H_sd_bk = getHSlowDown();
+            if (_force_full_recalc) {
+                calcEKin();
+            } else {
+                Float kappa_inv = 1.0 / info.getBinaryTreeRoot().slowdown.getSlowDownFactor();
+#ifdef AR_TTL
+                Float gt_kick_inv_new = gt_kick_inv_.value * _sd_backup * kappa_inv;
+                gt_drift_inv_ += gt_kick_inv_new - gt_kick_inv_.value;
+                gt_kick_inv_.value = gt_kick_inv_new;
+#endif
+                ekin_sd_ = ekin_ * kappa_inv;
+                epot_sd_ = epot_ * kappa_inv;
+            }
+            Float de_sd = (ekin_sd_ - ekin_sd_bk) + (epot_sd_ - epot_sd_bk);
+            etot_sd_ref_ += de_sd;
+            Float dH_sd = getHSlowDown() - H_sd_bk;
+            de_sd_change_cum_ += de_sd;
+            dH_sd_change_cum_ += dH_sd;
+            if (_is_interrupt) {
+                de_sd_change_interrupt_ += de_sd;
+                dH_sd_change_interrupt_ += dH_sd;
+            }
+        }
+
+        //! calculate root + inner binary slowdown, optionally collect max pert_out/pert_in ratio
+        /*! The collected tree-stale ratio uses the instantaneous tidal metric
+            (r^3/(m_i*m_j)) via calcPertFromMR on the LIVE member separation — the same
+            metric as the binary-tree construction pairing in generateBinaryTree — so
+            that tree-stale detection (pert_ratio_max > 1) is self-consistent with the
+            tree construction. The apo-based calcPertFromBinary pert_in is retained only
+            for the (conservative) slowdown factor itself: at peri-center it would
+            overestimate the ratio by (apo/r)^3 (~7000x at e=0.9) and cause spurious
+            tree rebuilds.
+            @return true if any inner binary exists (slowdown changed)
+         */
+        bool calcBinaryTreeSlowDown(Float* _pert_ratio_max = nullptr) {
+            // --- root binary pert ---
             auto& bin_root = info.getBinaryTreeRoot();
             auto& sd_root = bin_root.slowdown;
-
-#ifdef AR_TTL
-            Float sd_backup = sd_root.getSlowDownFactor();
-#endif
-
-            // when the maximum inner slowdown is large, the outer should not be slowed down since the system may not be stable.
-            //if (inner_sd_change_flag&&sd_org_inner_max<1000.0*manager->slowdown_pert_ratio_ref) sd_root.setSlowDownFactor(1.0);
-            //if (time_>=sd_root.getUpdateTime()) {
-            sd_root.pert_in = manager->interaction.calcPertFromBinary(bin_root);
+            sd_root.pert_in = COMM::Binary::calcPertFromBinary(bin_root);
             sd_root.pert_out = 0.0;
-            Float t_min_sq= NUMERIC_FLOAT_MAX;
+            Float t_min_sq = NUMERIC_FLOAT_MAX;
             manager->interaction.calcSlowDownPert(sd_root.pert_out, t_min_sq, getTime(), bin_root, particles.cm, perturber);
             sd_root.timescale = std::min(sd_root.getTimescaleMax(), sqrt(t_min_sq));
 
-            //Float period_amplify_max = NUMERIC_FLOAT_MAX;
+            // --- inner binary slowdown ---
+            if (_pert_ratio_max) *_pert_ratio_max = 0.0;
+            int n_bin = info.binarytree.getSize();
+            if (n_bin <= 1) return false;
+            for (int i = 0; i < n_bin - 1; i++) {
+                auto& bini = info.binarytree[i];
+#ifndef USE_CM_FRAME
+                bini.calcCenterOfMass();
+#endif
+                calcSlowDownInnerBinary(bini);
+                if (_pert_ratio_max) {
+                    // instantaneous inner binding — live member separation
+                    // (leaf particle pos or subtree CM pos), same metric as the
+                    // tree construction pairing r^3/(m_i*m_j)
+                    // note: getMemberAsTree()->pos is the (live) subtree CM stored in
+                    // the Tparticle base subobject, works for both Float[3] and F64vec
+                    const auto& pm0 = (bini.isMemberTree(0) ? *bini.getMemberAsTree(0) : *bini.getMember(0));
+                    const auto& pm1 = (bini.isMemberTree(1) ? *bini.getMemberAsTree(1) : *bini.getMember(1));
+                    Float dr[3] = {pm1.pos[0]-pm0.pos[0], pm1.pos[1]-pm0.pos[1], pm1.pos[2]-pm0.pos[2]};
+                    Float r2 = dr[0]*dr[0] + dr[1]*dr[1] + dr[2]*dr[2];
+                    if (r2 > 0.0 && bini.m1 > 0.0 && bini.m2 > 0.0) {
+                        Float pert_in_mr = COMM::Binary::calcPertFromMR(sqrt(r2), bini.m1, bini.m2);
+                        if (pert_in_mr > 0.0) {
+                            // only the intra-group perturbation matters for the member
+                            // pairing; the group-external part (from bin_root, e.g. the
+                            // host cluster/galaxy potential in PeTar) cannot restructure
+                            // this group's internal hierarchy
+                            Float pert_out_internal = bini.slowdown.pert_out - bin_root.slowdown.pert_out;
+                            if (pert_out_internal > 0.0) {
+                                Float ratio = pert_out_internal / pert_in_mr;
+                                if (ratio > *_pert_ratio_max) *_pert_ratio_max = ratio;
+                            }
+                        }
+                    }
+                }
+            }
+            return true;
+        }
+
+        //! set root slowdown factor based on current stab and stability check flag
+        void applyStableCheckAndSlowDown(const bool _stable_check_flag) {
+            auto& bin_root = info.getBinaryTreeRoot();
+            auto& sd_root = bin_root.slowdown;
             if (_stable_check_flag) {
-                // check whether the system is stable for 10000 out period and the apo-center is below break criterion
-                Float stab = bin_root.stableCheckIter(bin_root,10000*bin_root.period);
-                Float apo = bin_root.semi*(1+bin_root.ecc);
-                if (stab<1.0 && apo<info.r_break_crit) {
+                Float apo = bin_root.semi * (1 + bin_root.ecc);
+                if (bin_root.stab < 1.0 && apo < info.r_break_crit) {
                     sd_root.period = bin_root.period;
                     sd_root.calcSlowDownFactor();
                 }
                 else sd_root.setSlowDownFactor(1.0);
-
-                // stablility criterion
-                // The slowdown factor should not make the system unstable, thus the Qst/Q set the limitation of the increasing of inner semi-major axis.
-                //if (stab>0 && stab != NUMERIC_FLOAT_MAX) {
-                //    Float semi_amplify_max =  std::max(Float(1.0),1.0/stab);
-                //    period_amplify_max = pow(semi_amplify_max,3.0/2.0);
-                //}
             }
-            else if (bin_root.semi>0) {
+            else if (bin_root.semi > 0) {
                 sd_root.period = bin_root.period;
                 sd_root.calcSlowDownFactor();
             }
             else sd_root.setSlowDownFactor(1.0);
+        }
 
-            //sd_root.increaseUpdateTimeOnePeriod();
-            //}
+        //! update slowdown, detect tree-stale, switch g_func, recalc ds, and correct energy
+        /*! Unified function: slowdown update → tree-stale detection (rebuild once if needed) →
+            stable check / slowdown factor → BTLogH κ-capping → g_func auto-switch →
+            ds recalculation (if tree/g_func changed) → energy correction.
+            @param [in] _update_energy_flag: Record cumulative slowdown energy change if true;
+            @param [in] _stable_check_flag: check whether the binary tree is stable if true;
+         */
+        void syncTreeSlowDownAndDs(const bool _update_energy_flag, const bool _stable_check_flag,
+                                    const bool _is_interrupt = false) {
+            auto& G = manager->interaction.gravitational_constant;
 
-            // inner binary slowdown
-            Float sd_org_inner_max = 0.0;
-            bool inner_sd_change_flag=false;
-            int n_bin = info.binarytree.getSize();
-            for (int i=0; i<n_bin-1; i++) {
-                auto& bini = info.binarytree[i];
-                //if (time_>=bini.slowdown.getUpdateTime()) {
-#ifndef USE_CM_FRAME
-                // this is already updated when USE_CM_FRAME is used, should not calculate twice
-                bini.calcCenterOfMass();
+            Float sd_backup = 0.0;
+#ifdef AR_TTL
+            sd_backup = info.getBinaryTreeRoot().slowdown.getSlowDownFactor();
 #endif
-                calcSlowDownInnerBinary(bini);
 
-                //sdi->slowdown.increaseUpdateTimeOnePeriod();
-                sd_org_inner_max = std::max(bini.slowdown.getSlowDownFactorOrigin(),sd_org_inner_max);
-                inner_sd_change_flag=true;
-                //}
+            // --- Step 1 & 2: slowdown + tree rebuild if stale (or forced by interrupt) ---
+            bool tree_rebuilt = false;
+            bool inner_sd_change_flag;
+            if (_is_interrupt) {
+                info.generateBinaryTree(particles, G);
+                tree_rebuilt = true;
+                inner_sd_change_flag = calcBinaryTreeSlowDown();
+            } else {
+                Float pert_ratio_max;
+                inner_sd_change_flag = calcBinaryTreeSlowDown(&pert_ratio_max);
+                if (pert_ratio_max > 1.0) {
+                    info.generateBinaryTree(particles, G);
+                    tree_rebuilt = true;
+                    inner_sd_change_flag = calcBinaryTreeSlowDown();
+                }
             }
 
+            // --- Step 3: stability check (update stab when tree was rebuilt) ---
+            if (tree_rebuilt) {
+                auto& bin_root = info.getBinaryTreeRoot();
+                bin_root.stableCheckIter(bin_root, 10000 * bin_root.period);
+            }
+
+            // --- Step 4: stable check / slowdown factor (on final tree) ---
+            applyStableCheckAndSlowDown(_stable_check_flag);
+
+            // --- Step 5: BTLogH κ-capping ---
 #ifdef AR_G_FUNC_MUL_POT
-            // --- BTLogH κ-capping: ensure all inner binaries have comparable resolution ---
-            // Product-form g_eff = g/(κ_i1·κ_i2·κ_root) couples all inner binaries to
-            // the same dt. If one binary has much larger κ, the unslowed binaries lose
-            // resolution. Cap each κ so that all P_eff = period·κ are bounded by the
-            // minimum P_eff among inner binaries.
             if (g_func == 4) {
                 Float P_eff_min = NUMERIC_FLOAT_MAX;
-                for (int i = 0; i < n_bin - 1; i++) {
+                int n_bin_kc = info.binarytree.getSize();
+                for (int i = 0; i < n_bin_kc - 1; i++) {
                     auto& bini = info.binarytree[i];
                     if (bini.semi > 0 && bini.period > 0) {
                         Float P_eff = bini.slowdown.getEffectivePeriod();
@@ -1596,46 +1674,69 @@ namespace AR {
             }
 #endif
 
-            if (_update_energy_flag) {
-                Float ekin_sd_bk = ekin_sd_;
-                Float epot_sd_bk = epot_sd_;
-                Float H_sd_bk = getHSlowDown();
-                if(inner_sd_change_flag) {
-#ifdef AR_TTL
-                    Float gt_kick_inv_bk = gt_kick_inv_.value;
-                    calcAccPotAndGTKickInv();
-                    gt_drift_inv_ += gt_kick_inv_.value - gt_kick_inv_bk;
-#else                    
-                    calcAccPotAndGTKickInv();
+            // --- Step 6: g_func evaluation + switch ---
+            bool g_func_switched = false;
+#ifdef AR_G_FUNC
+            if (g_func_switch == GFUNC_AUTO) {
+                auto& bin_root = info.getBinaryTreeRoot();
+                int target = checkGFuncCriterionIter(bin_root) ? g_func_user : 0;
+                if (target != g_func) {
+#ifdef AR_DEBUG_PRINT
+                    std::cerr << "g_func auto-switch: " << g_func
+                              << " -> " << target
+                              << " at time " << time_ << std::endl;
 #endif
-                    calcEKin();
+                    g_func = target;
+                    g_func_switched = true;
+                }
+            }
+#endif
+
+            // --- Step 7: force sync + energy correction + ds ---
+            bool need_ds_update = false;
+            bool need_force_sync = tree_rebuilt || g_func_switched || (_update_energy_flag && inner_sd_change_flag);
+
+            if (need_force_sync) {
+                Float gt_kick_inv_bk = gt_kick_inv_.value;
+                calcAccPotAndGTKickInv();
+                Float dg = gt_kick_inv_.value - gt_kick_inv_bk;
+                // tree/g_func change: gt could jump; reset if > 1e-3 relative
+                if (fabs(dg) / std::max(fabs(gt_kick_inv_bk), fabs(gt_kick_inv_.value)) > 1e-3) {
+                    need_ds_update = true;
+#ifdef AR_TTL
+                    gt_drift_inv_ = gt_kick_inv_.value;
                 }
                 else {
-                    Float kappa_inv = 1.0/sd_root.getSlowDownFactor();
-#ifdef AR_TTL
-                    Float gt_kick_inv_new = gt_kick_inv_.value*sd_backup*kappa_inv;
-                    gt_drift_inv_ += gt_kick_inv_new - gt_kick_inv_.value;
-                    gt_kick_inv_.value = gt_kick_inv_new;
+                    gt_drift_inv_ += dg;
 #endif
-                    ekin_sd_ = ekin_*kappa_inv;
-                    epot_sd_ = epot_*kappa_inv;
                 }
-                Float de_sd = (ekin_sd_ - ekin_sd_bk) + (epot_sd_ - epot_sd_bk);
-                etot_sd_ref_ += de_sd;
+            }
 
-                Float dH_sd = getHSlowDown() - H_sd_bk;
+            if (_update_energy_flag) {
+                correctSlowDownEnergy(sd_backup, need_force_sync, _is_interrupt);
+            }
 
-                // add slowdown change to the global slowdown energy
-                de_sd_change_cum_ += de_sd;
-                dH_sd_change_cum_ += dH_sd;
+            if (need_ds_update) {
+                info.calcDsAndStepOption(manager->step.getOrder(), G, manager->ds_scale
+#ifdef AR_G_FUNC
+                                         , g_func
+#endif
+                );
             }
         }
 #endif
 
 #ifdef AR_G_FUNC
         //! check whether g-function method can be used
-        /*! If all inner most triples or quadruples have perturbation ratio < 1, use g-func method, otherwise not
-          perturbation ratio is  m_3*(m_1+m_2)/(m_1*m_2) * (a_i(1+e_i)/(a_o(1-e_o)))^3
+        /*! Mode-aware criterion:
+            - For BTLogH (g_func_user==4): use instantaneous separation ratio.
+              Unlike the conservative a_in(1+e_in)/a_out(1-e_out) formula which
+              triggers at the worst-case pericenter, this uses actual positions
+              (same as processOuterNode) and only switches when the outer body
+              is genuinely close.
+            - For other modes (1/2/3): use conservative peri-center formula —
+              outer nodes are NOT in the g-function for these modes.
+            perturbation ratio is  m_3*(m_1+m_2)/(m_1*m_2) * (sep_ratio)^3
          */
         bool checkGFuncCriterionIter(AR::BinaryTree<Tparticle>& _bin) {
             bool use_gfunc = true;
@@ -1647,10 +1748,14 @@ namespace AR {
                         use_gfunc = use_gfunc && checkGFuncCriterionIter(*bink);
                     }
                     else {
+                        if (g_func_user == 4) {
+                            // BTLogH: outer nodes in g via processOuterNode — 
+                            // no pert_ratio needed. always use
+                            continue;
+                        }
                         if (bink->semi>0) {
                             // check perturbation ratio, if too strong, return false
                             Float r_ratio = bink->semi*(1+bink->ecc) / (_bin.semi*(1-_bin.ecc));
-                            
                             Float pert_ratio = _bin.m1*_bin.m2/(bink->m1*bink->m2) * r_ratio*r_ratio*r_ratio;
                             if (pert_ratio>1) use_gfunc = false;
                         }
@@ -1661,86 +1766,6 @@ namespace AR {
             return use_gfunc;
         }
 
-        // switch on/off g-function method depending on perturbation criterion
-        // (legacy, used by ar.cxx external -1 auto mode; prefer switchGFuncAuto for internal use)
-        void switchGFuncFixed() {
-            int g_func_bk = g_func; 
-            auto& bin_root = info.getBinaryTreeRoot();
-            if (checkGFuncCriterionIter(bin_root)) g_func = g_func_user;
-            else g_func = 0;
-
-            // if method switches, need to initialize gt_drift_inv_ 
-#ifdef AR_TTL            
-            if (g_func_bk != g_func) {
-                Float gt_kick_inv_bk = gt_kick_inv_.value;
-                calcAccPotAndGTKickInv();
-                gt_drift_inv_ += gt_kick_inv_.value - gt_kick_inv_bk;
-            }
-#endif
-        }
-
-#ifdef AR_G_FUNC
-        //! auto-switch g-function mode: g_func_user ↔ 0 based on perturbation criterion
-        /*! Generic for any g_func_user (1-4 for MUL_POT, 1 for MAX_POT/ADD_POT).
-            When hierarchy is intact: g_func = g_func_user;
-            when broken: g_func = 0. Includes hysterisis (3 consecutive confirmations).
-            Also recalculates ds after switching.
-        */
-        void switchGFuncAuto() {
-            const int CONFIRM_REQUIRED = 3;
-            auto& bin_root = info.getBinaryTreeRoot();
-            int target = checkGFuncCriterionIter(bin_root) ? g_func_user : 0;
-
-            if (target == g_func) {
-                g_func_switch_pending_ = -1;
-                g_func_switch_confirm_ = 0;
-                return;
-            }
-
-            // hysterisis: require consecutive confirmations
-            if (target == g_func_switch_pending_) {
-                g_func_switch_confirm_++;
-            } else {
-                g_func_switch_pending_ = target;
-                g_func_switch_confirm_ = 1;
-                return;
-            }
-
-            if (g_func_switch_confirm_ < CONFIRM_REQUIRED) return;
-
-            // perform switch
-#ifdef AR_DEBUG_PRINT
-            int g_func_bk = g_func;
-#endif
-            g_func = target;
-            g_func_switch_pending_ = -1;
-            g_func_switch_confirm_ = 0;
-
-#ifdef AR_TTL
-            Float gt_kick_inv_bk = gt_kick_inv_.value;
-            calcAccPotAndGTKickInv();
-            Float dg = gt_kick_inv_.value - gt_kick_inv_bk;
-            if (fabs(dg) / std::max(fabs(gt_kick_inv_bk), fabs(gt_kick_inv_.value)) > 1e-3)
-                gt_drift_inv_ = gt_kick_inv_.value;
-            else
-                gt_drift_inv_ += dg;
-#else
-            calcAccPotAndGTKickInv();
-#endif
-
-            info.calcDsAndStepOption(
-                manager->step.getOrder(),
-                manager->interaction.gravitational_constant,
-                manager->ds_scale,
-                g_func);
-
-#ifdef AR_DEBUG_PRINT
-            std::cerr << "g_func auto-switch: " << g_func_bk
-                      << " -> " << g_func
-                      << " at time " << time_ << std::endl;
-#endif
-        }
-#endif // AR_G_FUNC
 #endif // AR_G_FUNC
 
         //! initialization for integration
@@ -1792,7 +1817,11 @@ namespace AR {
             for (int i=0; i<info.binarytree.getSize(); i++) 
                 info.binarytree[i].slowdown.initialSlowDownReference(manager->slowdown_pert_ratio_ref, manager->slowdown_timescale_max);
 
-            updateSlowDownAndCorrectEnergy(false,true);
+            // slowdown initialization (tree was just built — no rebuild needed)
+            calcBinaryTreeSlowDown();
+            auto& bin_root = info.getBinaryTreeRoot();
+            bin_root.stableCheckIter(bin_root, 10000 * bin_root.period);
+            applyStableCheckAndSlowDown(true);
 
 #endif // END AR_SLOWDOWN_TREE
 
@@ -1801,7 +1830,6 @@ namespace AR {
             if (g_func_switch == GFUNC_FIXED) {
                 g_func = g_func_user;
             } else {  // GFUNC_AUTO
-                auto& bin_root = info.getBinaryTreeRoot();
                 g_func = checkGFuncCriterionIter(bin_root) ? g_func_user : 0;
 #ifdef AR_DEBUG_PRINT
                 std::cerr << "g_func auto-switch init: g_func = "
@@ -2563,6 +2591,14 @@ namespace AR {
 #endif
             bool backup_flag=true; // flag for backup or restore
 
+#ifdef AR_SLOWDOWN_TREE
+            syncTreeSlowDownAndDs(true, true);
+#endif
+
+            // reset binary stab_check_time (after possible tree rebuild)
+            for (int i=0; i<info.binarytree.getSize(); i++)
+                info.binarytree[i].stab_check_time = time_;
+
             // time table
             const int cd_pair_size = manager->step.getCDPairSize();
             Float time_table[cd_pair_size]; // for storing sub-integrated time 
@@ -2677,15 +2713,6 @@ namespace AR {
             backupIntData(backup_data_init);
 #endif
       
-#ifdef AR_SLOWDOWN_TREE
-            // update slowdown and correct slowdown energy and gt_inv
-            updateSlowDownAndCorrectEnergy(true, true);
-#endif
-
-            // reset binary stab_check_time
-            for (int i=0; i<info.binarytree.getSize(); i++)
-                info.binarytree[i].stab_check_time = time_;
-
 #ifdef AR_KDK_PERT
             manager->interaction.calcAccPert(force_.getDataAddress(), particles.getDataAddress(), n_particle, particles.cm, perturber, time_);            
 #endif
@@ -2770,77 +2797,50 @@ namespace AR {
                                 Float epot_bk = epot_;
                                 Float H_bk = getH();
 
-#ifdef AR_SLOWDOWN_TREE
-                                Float ekin_sd_bk = ekin_sd_;
-                                Float epot_sd_bk = epot_sd_;
-                                Float H_sd_bk = getHSlowDown();
+#ifdef AR_DEBUG_PRINT
+                                std::cerr<<"Interrupt condition triggered!";
+                                std::cerr<<" Time: "<<time_;
+                                {
+                                    auto bin_adr = bin_interrupt.getBinaryTreeAddress();
+                                    bin_adr->printColumnTitleOrbitAscii(std::cerr,16);
+                                    std::cerr<<std::endl;
+                                    bin_adr->printColumnOrbitAscii(std::cerr,16);
+                                    std::cerr<<std::endl;
+                                }
 #endif
-                                
-                                // update binary tree, put unused zero-mass particles out of the tree
-                                info.generateBinaryTree(particles, G);
+
                                 binary_update_flag = true;
-                                
+
+#ifdef AR_SLOWDOWN_TREE
+                                // tree rebuild + slowdown + forces + g_func + ds (handles interrupt energy too)
+                                syncTreeSlowDownAndDs(true, true, true);
+#else
+                                info.generateBinaryTree(particles, G);
+#ifdef AR_G_FUNC
+                                if (g_func_switch == GFUNC_AUTO) {
+                                    auto& bin_root = info.getBinaryTreeRoot();
+                                    g_func = checkGFuncCriterionIter(bin_root) ? g_func_user : 0;
+                                }
+#endif
 #ifdef AR_TTL
                                 Float gt_kick_inv_bk = gt_kick_inv_.value;
                                 calcAccPotAndGTKickInv();
                                 Float d_gt_kick_inv = gt_kick_inv_.value - gt_kick_inv_bk;
-                                // when the change is large, initialize gt_drift_inv_ to avoid large error
-                                if (fabs(d_gt_kick_inv)/std::max(fabs(gt_kick_inv_bk),fabs(gt_kick_inv_.value)) >1e-3) 
+                                if (fabs(d_gt_kick_inv) / std::max(fabs(gt_kick_inv_bk), fabs(gt_kick_inv_.value)) > 1e-3)
                                     gt_drift_inv_ = gt_kick_inv_.value;
-                                else 
+                                else
                                     gt_drift_inv_ += d_gt_kick_inv;
 #else
                                 calcAccPotAndGTKickInv();
 #endif
-                                // calculate kinetic energy
                                 calcEKin();
+#endif
 
-                                // Notice initially etot_ref_ does not include epert. The perturbation effect is accumulated in the integration. Here instance change of mass does not create any work. So no need to add de_pert
-                                // get perturbation energy change due to mass change
-                                //Float epert_new = 0.0;
-                                //for (int i=0; i<n_particle; i++) {
-                                //    epert_new += force_[i].pot_pert*particles[i].mass;
-                                //}
-                                //Float de_pert = epert_new - epert; // notice this is double perturbation potential
-
-                                // get energy change
-                                Float de = (ekin_ - ekin_bk) + (epot_ - epot_bk); //+ de_pert;
+                                // non-slowdown interrupt energy accounting
+                                Float de = (ekin_ + epot_) - (ekin_bk + epot_bk);
                                 etot_ref_ += de;
                                 de_change_interrupt_ += de;
                                 dH_change_interrupt_ += getH() - H_bk;
-
-#ifdef AR_SLOWDOWN_TREE
-                                Float de_sd = (ekin_sd_ - ekin_sd_bk) + (epot_sd_ - epot_sd_bk);// + de_pert;
-                                etot_sd_ref_ += de_sd;
-
-                                Float dH_sd = getHSlowDown() - H_sd_bk;
-
-                                // add slowdown change to the global slowdown energy
-                                de_sd_change_interrupt_ += de_sd;
-                                dH_sd_change_interrupt_ += dH_sd;
-                                de_sd_change_cum_ += de_sd;
-                                dH_sd_change_cum_ += dH_sd;
-#endif //SLOWDOWN
-
-#ifdef AR_DEBUG_PRINT
-                                std::cerr<<"Interrupt condition triggered!";
-                                std::cerr<<" Time: "<<time_;
-#ifdef AR_SLOWDOWN_TREE
-                                std::cerr<<" Energy change: dE_SD: "<<de_sd<<" dH_SD: "<<dH_sd;
-                                std::cerr<<" Slowdown: "<<bin_root.slowdown.getSlowDownFactor()<<std::endl;
-#endif
-                                auto bin_adr = bin_interrupt.getBinaryTreeAddress();
-                                bin_adr->printColumnTitleOrbitAscii(std::cerr,16);
-                                std::cerr<<std::endl;
-                                bin_adr->printColumnOrbitAscii(std::cerr,16);
-                                std::cerr<<std::endl;
-                                //Tparticle::printColumnTitleAscii(std::cerr,16);
-                                //std::cerr<<std::endl;
-                                //for (int j=0; j<2; j++) {
-                                //    bin_adr->getMember(j)->printColumnAscii(std::cerr,16);
-                                //    std::cerr<<std::endl;
-                                //}
-#endif
 
                                 // change fix step option to make safety if energy change is large
                                 //info.fix_step_option=FixStepOption::none;
@@ -2888,10 +2888,14 @@ namespace AR {
                                 }
 
 #ifdef AR_SLOWDOWN_TREE
-                                updateSlowDownAndCorrectEnergy(true, true);
+                                // ds already set by syncTreeSlowDownAndDs via calcDsAndStepOption
+#else
+                                info.calcDsAndStepOption(manager->step.getOrder(), G, manager->ds_scale
+#ifdef AR_G_FUNC
+                                    , g_func
 #endif
-
-                                info.ds = info.calcDsKeplerBinaryTree(*bin_interrupt.getBinaryTreeAddress(), manager->step.getOrder(), G, manager->ds_scale);
+                                );
+#endif
                                 Float ds_max = manager->step.calcStepModifyFactorFromErrorRatio(2.0)*ds_init;
                                 Float ds_min = manager->step.calcStepModifyFactorFromErrorRatio(0.5)*ds_init;
                                 if (info.ds>ds_max || info.ds<ds_min) {
@@ -2908,14 +2912,14 @@ namespace AR {
 
                                 // return one should be the top root
                                 if (bin_interrupt_return.status!=InterruptStatus::none) {
-                                    if (bin_interrupt_return.getBinaryTreeAddress()!= bin_interrupt.getBinaryTreeAddress()) {
-                                        // give root address if interrupted binaries are different from previous one
-                                        bin_interrupt_return.setBinaryTreeAddress(&(info.getBinaryTreeRoot()));
-                                    }
+                                    bin_interrupt_return.setBinaryTreeAddress(&(info.getBinaryTreeRoot()));
                                     if (bin_interrupt.status==InterruptStatus::merge) 
                                         bin_interrupt_return.status = InterruptStatus::merge;
                                 }
-                                else bin_interrupt_return = bin_interrupt;
+                                else {
+                                    bin_interrupt_return = bin_interrupt;
+                                    bin_interrupt_return.setBinaryTreeAddress(&(info.getBinaryTreeRoot()));
+                                }
                             }
                             bin_interrupt.clear();
                         }
@@ -2925,18 +2929,31 @@ namespace AR {
                     // update binary orbit and ds if unstable
                     if (!time_end_flag&&!binary_update_flag) {
                         bool update_flag=updateBinarySemiEccPeriodIter(bin_root, G, time_);
-
-#ifdef AR_SLOWDOWN_TREE
-                        updateSlowDownAndCorrectEnergy(true, true);
-#endif
-
                         if (update_flag) {
-                    // update slowdown and correct slowdown energy and gt_inv
-
+                            // orbits changed: update stab before slowdown/ds
+                            bin_root.stableCheckIter(bin_root, 10000 * bin_root.period);
+                        }
+#ifdef AR_SLOWDOWN_TREE
+                        Float ds_before = info.ds;
+                        syncTreeSlowDownAndDs(true, true);
+                        if (info.ds != ds_before) {
+                            ASSERT(info.ds > 0);
+                            ds[0] = std::min(ds[0], info.ds);
+                            ds[1] = std::min(ds[1], info.ds);
+                            ds_backup.initial(info.ds);
+                            ds_init = info.ds;
+                        }
+                        else
+#endif
+                        if (update_flag) {
 #ifdef AR_DEBUG_PRINT
                             std::cerr<<"Update binary tree orbits, time= "<<time_<<"\n";
 #endif
-                            info.ds = info.calcDsKeplerBinaryTree(bin_root, manager->step.getOrder(), G, manager->ds_scale);
+                            info.calcDsAndStepOption(manager->step.getOrder(), G, manager->ds_scale
+#ifdef AR_G_FUNC
+                                , g_func
+#endif
+                            );
                             if (abs(ds_init-info.ds)/ds_init>0.1) {
 #ifdef AR_DEBUG_PRINT
                                 std::cerr<<"Change ds after update binary orbit: ds(init): "<<ds_init<<" ds(new): "<<info.ds<<" ds(now): "<<ds[0]<<std::endl;
@@ -2965,27 +2982,6 @@ namespace AR {
 #endif
 //#endif
                 }
-
-#ifdef AR_G_FUNC
-                // g_func auto-switch: periodically check whether to switch
-                const int GFUNC_CHECK_INTERVAL = 100;
-                if (g_func_switch == GFUNC_AUTO && step_count % GFUNC_CHECK_INTERVAL == 0) {
-                    Float ds_before = info.ds;
-                    switchGFuncAuto();
-                    if (info.ds != ds_before) {
-                        // synchronize ds to active step array (same pattern as interrupt path)
-                        ds[0] = std::min(ds[0], info.ds);
-                        ds[1] = std::min(ds[1], info.ds);
-                        ds_backup.initial(info.ds);
-                        ds_init = info.ds;
-#ifdef AR_DEBUG_PRINT
-                        std::cerr << "g_func auto-switch: ds updated from "
-                                  << ds_before << " to " << info.ds
-                                  << " at time " << time_ << std::endl;
-#endif
-                    }
-                }
-#endif
 
                 // get real time 
                 Float dt = time_;

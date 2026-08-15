@@ -1,6 +1,6 @@
 # Hierarchical BLogH: Theory Reference
 
-> **用途**: 本文档提供 BTLogH (hybrid_switch=4) 的理论基础与后续开发计划（自动切换等）。
+> **用途**: 本文档提供 BTLogH (g_func=4) 的理论基础。实际代码实现见 [`hierarchical_blogh_impl_notes.md`](./hierarchical_blogh_impl_notes.md)。
 > 实际代码实现见 [`hierarchical_blogh_impl_notes.md`](./hierarchical_blogh_impl_notes.md)。
 > 原始计划中关于梯度无需修正、`multiplyOuterNodePotentials()` 用 `_bin.semi` 等方案在实测中被发现有问题，
 > 已被 `processOuterNode()` 替代。本文档仅保留经验证正确的理论部分。

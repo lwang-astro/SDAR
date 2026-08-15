@@ -19,8 +19,8 @@ use_mpfrc=yes
 ## compiler-------------------------------------------#
 ifeq ($(use_x86),yes)
 CXX= g++
-CXXFLAGS += -O2 -Wall
-#CXXFLAGS += -g -fbounds-check -Wall -O0 -D AR_DEBUG
+#CXXFLAGS += -O2 -Wall
+CXXFLAGS += -g -fbounds-check -Wall -O0 -D AR_DEBUG
 endif
 
 ifeq ($(use_k_computer),yes)
