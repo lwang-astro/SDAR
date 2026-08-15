@@ -11,6 +11,8 @@
 > - 2026-08-11：tree 配对度量 `r²` → `r³/(m_i·m_j)`（`calcMinDisList` → `calcBindingList`）
 > - 2026-08-14：`calcBinaryTreeSlowDown` 的 tree-stale 判据改用瞬时度量（`calcPertFromMR`），与 `generateBinaryTree` 自洽；排除组外摄动
 > - 2026-08-15：pert 度量函数（`calcPertFromMR`/`calcPertFromBinary`/`calcPertFromForcePot`）从 interaction 类迁移到 `COMM::Binary`，单一事实源；`calcBindingList` 改调用同一函数（`pairLess` → `pairGreater`）
+> - 2026-08-15b：BTLogH ds 引入 perturbation 影响——节点势改轨道平均（semi 口径）+ 节点级扰动缩放；`calcPertRatio` 统一 pert 比值（双曲用瞬时 MR 度量）
+> - 2026-08-15c：BTLogH ds 双曲修复——双曲叶 ds 恢复 2π/256（原丢失 8× 分辨率）；`P_eff_min` 锚点覆盖全部层级（非叶节点贡献 `P·κ`/遭遇时标），遭遇瞬态由真实最快层驱动
 
 ## Summary
 
@@ -222,6 +224,33 @@ g_func 在每次 `syncTreeSlowDownAndDs` 调用时评估（`GFUNC_AUTO` 模式�
 - `calcBindingList` 改调 `COMM::Binary::calcPertFromMR`，方向从 min(r³/m₁m₂) 翻转为 max(m₁m₂/r³)，排序比较器 `pairLess` → `pairGreater`（降序，最紧束缚优先）；
 - SDAR sample 的 `interaction.h` / `ar_interaction.h` 保留 deprecated 转发包装（兼容外部用户）；PeTar `ar_interaction.hpp` 直接删除（内部全部调用点已更新）；Hermite 侧 `calcPertFromForcePot` 新增 `G` 参数；
 - 兼容性注意：PeTar 粒子 `pos` 为 `F64vec`，访问需通过基类引用而非裸指针。
+
+### BTLogH ds 引入 perturbation 影响（2026-08-15b）
+
+**问题**：tree 重构自洽后，实测发现外天体近心点附近树多次变动时，某次重构使 ds 从 0.03 跳升到 0.36（12×），能量误差从 10⁻¹⁰ 恶化到 10⁻⁷。机理：新配对使叶子 m₁m₂ 放大 10× + `multiplyDsByNodePotentials` 用瞬时 `r_sep` 在近心点高估 U_node（1/(1-e) 倍）；然后 integrator 的 error-based 增长机制看见"误差低于阈值一半"就放行 ds 增长，永久退化。
+
+**修改**（`information.h`，均在 `calcDsAndStepOption` / ds 计算链内）：
+- **a) 节点势改轨道平均**：`multiplyDsByNodePotentials` 的 U_node 改用 semi 口径 $Gm_1m_2/a$（双曲/退化轨道用近心点 $|a|(e-1)$ 保守值，再退化为瞬时 `r_sep`）；ds 是"每轨道分辨率"的量，轨道平均势才是正确量纲来源；
+- **b) 节点级扰动缩放**：每个非叶节点乘 $\min(1,\ (c\cdot \mathrm{pert_{in}/pert_{out}})^{1/n_{\mathrm{order}}})$（与 LogH 叶子同配方，数据来自 `slowdown.pert_in/pert_out`，即 apo 口径）——层级破碎时 ds 自动退化回内层主导的保守值；
+- **d) 双曲叶子缩放修复**：新 `calcPertRatio(_bin)` 统一计算 pert 比值——椭圆用 apo 口径 `slowdown.pert_in`，双曲（semi≤0，apo 口径为负导致 `pow(NaN)`→scale 恒为 1）改用活距离的 `calcPertFromMR`；`calcBLogHDsIter`、`calcDsKeplerBinaryTree`（MUL_POT 与 min 两版）全部统一使用；
+- 用户否决了 integrator 侧"重建后 ds 只减不增"的安全网（避免长期性能损失）。
+
+**预期**：层级健康时行为不变（scale≈1、semi≈平均距离）；破碎/重构时 ds 收缩而非膨胀。
+
+### BLogH ds 双曲修复（2026-08-15c）
+
+**gdb 实证**（遭遇瞬间，unstable triple）：叶子 = 双曲飞行对 (0.9,1.0) `semi=-0.00722, ecc=1.164`，`ds_prod=0.189, P_eff_min=period_prod=2.80e-3`，根 `U_node=587`(a_root≈3.2e-4)。对照健康值 ds≈0.03，分解出两个缺陷：
+
+1. **双曲叶丢失 8× 分辨率**：BLogH 原先椭圆/双曲共用 `coeff=2π`，末尾统一 /32 → 双曲只有 2π/32，而 LogH 约定双曲（近心穿越）需 2π/256。修正：双曲叶用 `2π/8`（组合后 = 2π/256）；
+2. **P_eff_min 只扫叶子**：遭遇瞬间真实最快时标是**根层侵入轨道**（a_root≈3.2e-4 → P_root≈2.5e-5，比叶虚拟周期快 110 倍）却不在 min 里。修正：非叶节点也贡献其 `P·κ`（椭圆）或遭遇时标（双曲）——与叶子同一惯例，健康深层级下根 κ 大、P_eff 大，min 不变；破碎态 root κ=1 → P_eff=裸周期，正确驱动 ds 收缩。
+
+组合效应（用 gdb 数值推算）：
+| 组合 | ds 估计 |
+|---|---|
+| 现状 | ≈2.37（60×）|
+| 修双曲 /8 | ≈0.30 |
+| 修 P_min 锚点（×0.0091）| ≈0.021（≈健康值）|
+| 两者 | ≈0.0027（遭遇期 10× 保守，合理）|
 
 Tree 重建判据：`pert_out / pert_in > 1.0`（无量纲比值）。`pert_in = m1·m2 / apo³`，`pert_out` 为外部扰动。当任意内层 binary 的比值超过 1 时触发 `generateBinaryTree`。
 

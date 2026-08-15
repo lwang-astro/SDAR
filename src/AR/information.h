@@ -98,10 +98,30 @@ namespace AR {
     class Information{
 #ifdef AR_G_FUNC_MUL_POT
     private:
+        //! effective period (timescale) of one hierarchy level — shared by leaves and internal nodes
+        /*! elliptic (semi>0): slowdown-effective period P*kappa;
+            hyperbolic/degenerate (semi<=0): encounter timescale 2π |a|^{3/2} / √(G(m1+m2));
+            invalid level (zero mass): returns 0.
+         */
+        Float calcEffectivePeriod(const BinaryTree<Tparticle>& _bin, const Float& _G) const {
+            if (_bin.m1 <= 0 || _bin.m2 <= 0) return 0.0;
+            if (_bin.semi > 0) {
+                return _bin.slowdown.getEffectivePeriod();
+            }
+            // hyperbolic / degenerate / semi==0: encounter timescale
+            Float abs_semi = -_bin.semi;
+            return 2.0 * COMM::PI
+                 * sqrt(pow(abs_semi, Float(3)) / (_G * (_bin.m1 + _bin.m2)));
+        }
+
         //! Iteration to accumulate product of ds_i and periods for BLogH ds formula
         /*! For each innermost binary, computes per-orbit ds_i (no substep coeff)
-            and accumulates ds_prod and period_prod.
-            BLogH ds = prod(ds_i) / prod(P_i)^((nbin-1)/nbin) for switch=1,3,4
+            and accumulates ds_prod and period_prod. P_eff_min is the effective
+            period of the FASTEST level — leaves (elliptic: P*kappa, hyperbolic:
+            encounter timescale) AND internal nodes (their own orbit) — i.e. the
+            true resolution driver of the whole hierarchy. Both use the shared
+            calcEffectivePeriod helper.
+            BLogH ds = prod(ds_i) * P_eff_min / prod(P_eff) for switch=1,3,4
                       = (prod(ds_i))^(1/nbin)                    for switch=2
         */
         void calcBLogHDsIter(Float& _ds_prod, Float& _period_prod, int& _nbin,
@@ -109,6 +129,15 @@ namespace AR {
                              BinaryTree<Tparticle>& _bin,
                              const int _int_order, const Float& _G) {
             if (_bin.getMemberN() > 2) {
+                // internal node: its own orbit is a candidate for the fastest
+                // level. During a close encounter of an outer member the node
+                // period (NOT the leaf virtual period) is the true resolution
+                // driver — without it the ds estimate ignores the fast plunging
+                // orbit and stays far too large. Same effective-period convention
+                // as the leaves, so healthy hierarchies are unaffected (the inner
+                // leaf P_eff remains the minimum).
+                Float P_node = calcEffectivePeriod(_bin, _G);
+                if (P_node > 0 && P_node < _P_eff_min) _P_eff_min = P_node;
                 for (int k=0; k<2; k++) {
                     if (_bin.isMemberTree(k)) {
                         calcBLogHDsIter(_ds_prod, _period_prod, _nbin, _P_eff_min,
@@ -117,31 +146,27 @@ namespace AR {
                 }
             } else {
                 if (_bin.m1 > 0 && _bin.m2 > 0) {
-                    Float pert_ratio = (_bin.slowdown.pert_out > 0 && _bin.slowdown.pert_in > 0)
-                                      ? _bin.slowdown.pert_in / _bin.slowdown.pert_out : 1.0;
+                    // well-defined for elliptic AND hyperbolic orbits (calcPertRatio)
+                    Float pert_ratio = calcPertRatio(_bin);
                     Float scale_factor = std::min(Float(1.0),
                         pow(ds_pert_ratio_coff * pert_ratio, 1.0 / Float(_int_order)));
 
                     Float ds_i;
-                    // per-orbit ds via calcDsElliptic/calcDsHyperbolic with coeff=2*pi
-                    const Float coeff_orbit = 2.0 * COMM::PI;
+                    // per-orbit / per-encounter ds, matching the LogH resolution
+                    // convention after the global /32 step division:
+                    //   elliptic  : 2π   -> 1/32 orbit per step
+                    //   hyperbolic: 2π/8 -> 1/256 encounter per step
+                    // (a hyperbolic peri-center crossing needs 8x finer resolution
+                    // than orbit sampling; lost before when 2π was used for both)
                     if (_bin.semi > 0) {
-                        ds_i = calcDsElliptic(_bin, _G, coeff_orbit);
+                        ds_i = calcDsElliptic(_bin, _G, 2.0 * COMM::PI);
                     } else {
-                        ds_i = calcDsHyperbolic(_bin, _G, coeff_orbit);
+                        ds_i = calcDsHyperbolic(_bin, _G, 2.0 * COMM::PI / 8.0);
                     }
                     ds_i *= scale_factor;
                     _ds_prod *= ds_i;
-                    // equivalent timescale or effective period
-                    Float P_equiv;
-                    if (_bin.semi > 0) {
-                        P_equiv = _bin.slowdown.getEffectivePeriod();
-                    } else {
-                        // hyperbolic: T = 2π |a|^{3/2} / √(G(m1+m2))
-                        Float abs_semi = -_bin.semi;
-                        P_equiv = coeff_orbit
-                                * sqrt(pow(abs_semi, Float(3)) / (_G * (_bin.m1 + _bin.m2)));
-                    }
+                    // equivalent timescale / effective period (shared helper)
+                    Float P_equiv = calcEffectivePeriod(_bin, _G);
                     _period_prod *= P_equiv;
                     if (P_equiv > 0 && P_equiv < _P_eff_min) _P_eff_min = P_equiv;
                     _nbin++;
@@ -151,25 +176,56 @@ namespace AR {
 
         //! Multiply non-leaf tree node potentials into ds for hierarchical BLogH
         /*! Walks binary tree recursively. For each node with >2 members (non-leaf),
-            multiplies U_node = G * m1 * m2 / r_sep into ds,
-            where r_sep is the instantaneous separation between the two member CMs.
+            multiplies U_node = G * m1 * m2 / a (semi-major axis based, orbit-averaged
+            potential) into ds, scaled by the node-level perturbation ratio.
+            The instantaneous r_sep overestimates U at outer peri-center by
+            1/(1-e_out) (10x at e=0.9), and when the hierarchy is transiently
+            restructured r_sep is meaningless — both inflate ds and degrade accuracy.
+            ds is a per-orbit resolution quantity, so the orbital average is the
+            correct source.
         */
-        void multiplyDsByNodePotentials(BinaryTree<Tparticle>& _bin, const Float& _G) {
-            if (_bin.getMemberN() > 2) {
-                // instantaneous separation between the two members
-                auto* m0 = _bin.getMember(0);
-                auto* m1 = _bin.getMember(1);
-                Float dx = m0->pos[0] - m1->pos[0];
-                Float dy = m0->pos[1] - m1->pos[1];
-                Float dz = m0->pos[2] - m1->pos[2];
-                Float r_sep = sqrt(dx*dx + dy*dy + dz*dz);
-                ASSERT(r_sep > 0);
-                Float U_node = _G * _bin.m1 * _bin.m2 / r_sep;
-                ds *= U_node;
+        void multiplyDsByNodePotentials(BinaryTree<Tparticle>& _bin, const Float& _G,
+                                        const int _int_order) {
+            if (_bin.getMemberN() > 2 && _bin.m1 > 0 && _bin.m2 > 0) {
+                // orbit-averaged potential (semi-based); conservative fallbacks below
+                Float U_node;
+                if (_bin.semi > 0) {
+                    U_node = _G * _bin.m1 * _bin.m2 / _bin.semi;
+                } 
+                else if (_bin.semi < 0) {
+                    // hyperbolic outer orbit: no orbital average, use the
+                    // peri-center (maximum) potential as a conservative estimate.
+                    // Keplerian consistency: semi<0 implies ecc>1 (asserted) so a
+                    // non-positive r_ref cannot corrupt ds.
+                    ASSERT(_bin.ecc > 1.0);
+                    Float r_ref = (-_bin.semi) * (_bin.ecc - 1.0);
+                    U_node = _G * _bin.m1 * _bin.m2 / r_ref;
+                }
+                else {
+                    auto* m0 = _bin.getMember(0);
+                    auto* m1 = _bin.getMember(1);
+                    Float dx = m0->pos[0] - m1->pos[0];
+                    Float dy = m0->pos[1] - m1->pos[1];
+                    Float dz = m0->pos[2] - m1->pos[2];
+                    Float r_sep = sqrt(dx*dx + dy*dy + dz*dz);
+                    ASSERT(r_sep > 0);
+                    U_node = _G * _bin.m1 * _bin.m2 / r_sep;
+                }
+
+                // node-level perturbation scaling: when this hierarchy level is
+                // strongly perturbed (pert_out >= pert_in) it cannot be resolved by
+                // the multi-level structure, so its potential contribution must be
+                // suppressed (same formula as the LogH leaf scaling). This makes ds
+                // degrade to the conservative inner-binary dominated value instead of
+                // jumping up during transient tree restructures.
+                Float pert_ratio = calcPertRatio(_bin);
+                Float node_scale = std::min(Float(1.0),
+                    pow(ds_pert_ratio_coff * pert_ratio, 1.0 / Float(_int_order)));
+                ds *= U_node * node_scale;
 
                 for (int k=0; k<2; k++) {
                     if (_bin.isMemberTree(k)) {
-                        multiplyDsByNodePotentials(*_bin.getMemberAsTree(k), _G);
+                        multiplyDsByNodePotentials(*_bin.getMemberAsTree(k), _G, _int_order);
                     }
                 }
             }
@@ -237,6 +293,34 @@ namespace AR {
          */
         inline Float calcDsHyperbolic(BinaryTree<Tparticle>& _bin, const Float& _G, const Float _coff = 0.0245436926) {
             return _coff*sqrt(-_G*_bin.semi/(_bin.m1+_bin.m2))*(_bin.m1*_bin.m2);
+        }
+
+        //! compute pert_in/pert_out ratio for ds perturbation scaling
+        /*! The apo-based pert_in from the slowdown data is used for elliptic orbits
+            (smooth, orbit-averaged measure). For hyperbolic orbits (semi<=0) it is
+            negative/undefined, so the instantaneous tidal metric
+            (COMM::Binary::calcPertFromMR) on the live member separation is used
+            instead, giving a well-defined perturbation ratio everywhere.
+            Missing/zero values return 1.0 (no scaling).
+         */
+        Float calcPertRatio(BinaryTree<Tparticle>& _bin) {
+            Float pert_out = _bin.slowdown.pert_out;
+            if (pert_out <= 0) return 1.0;
+            Float pert_in;
+            if (_bin.semi > 0) {
+                pert_in = _bin.slowdown.pert_in;
+            } else {
+                auto* pm0 = _bin.getMember(0);
+                auto* pm1 = _bin.getMember(1);
+                Float dr[3] = {pm1->pos[0]-pm0->pos[0],
+                               pm1->pos[1]-pm0->pos[1],
+                               pm1->pos[2]-pm0->pos[2]};
+                Float r2 = dr[0]*dr[0] + dr[1]*dr[1] + dr[2]*dr[2];
+                Float r = (r2 > 0) ? sqrt(r2) : 0.0;
+                pert_in = (r > 0) ? COMM::Binary::calcPertFromMR(r, _bin.m1, _bin.m2) : 0.0;
+            }
+            if (pert_in <= 0) return 1.0;
+            return pert_in / pert_out;
         }
 
 #ifdef AR_G_FUNC_MUL_POT
@@ -315,13 +399,13 @@ namespace AR {
             else {
                 // zero mass cause ds=0
                 if (_bin.m1>0 && _bin.m2>0) { 
-                    // perturbation ratio
-                    Float pert_ratio = (_bin.slowdown.pert_out>0&&_bin.slowdown.pert_in>0)? _bin.slowdown.pert_in/_bin.slowdown.pert_out: 1.0;
+                    // perturbation ratio (well-defined for hyperbolic too)
+                    Float pert_ratio = calcPertRatio(_bin);
                     // scale step based on perturbation and sym method order
                     Float scale_factor = std::min(Float(1.0),pow(ds_pert_ratio_coff*pert_ratio,1.0/Float(_int_order)));
 
                     if (_bin.semi>0) ds = calcDsElliptic(_bin, _G)*scale_factor;
-                    else ds = calcDsHyperbolic(_bin, _G);
+                    else ds = calcDsHyperbolic(_bin, _G)*scale_factor;
                     ASSERT(ds<NUMERIC_FLOAT_MAX && ds>0);
                 }
             }
@@ -353,8 +437,8 @@ namespace AR {
             else {
                 // zero mass cause ds=0
                 if (_bin.m1>0 && _bin.m2>0) { 
-                    // perturbation ratio
-                    Float pert_ratio = (_bin.slowdown.pert_out>0&&_bin.slowdown.pert_in>0)? _bin.slowdown.pert_in/_bin.slowdown.pert_out: 1.0;
+                    // perturbation ratio (well-defined for hyperbolic too)
+                    Float pert_ratio = calcPertRatio(_bin);
                     // scale step based on perturbation and sym method order
                     Float scale_factor = std::min(Float(1.0),pow(ds_pert_ratio_coff*pert_ratio,1.0/Float(_int_order)));
 
@@ -452,7 +536,9 @@ namespace AR {
                     ds = ds_prod * P_eff_min / period_prod;
                     if (_g_func == 4) {
                         // with outer potential, eccentricity may affect ds determination that ds is not exact reach P_eff_min.
-                        multiplyDsByNodePotentials(bin_root, _G);
+                        // node potentials are orbit-averaged (semi-based) and
+                        // pert-ratio scaled, see multiplyDsByNodePotentials
+                        multiplyDsByNodePotentials(bin_root, _G, _int_order);
                     }
                 }
                 else {
