@@ -270,6 +270,7 @@ For N-body simulations, unit 0 (unscaled, G=1, total mass=1) or unit 4 (Msun/pc/
 | `--dt-min` | float | Minimum physical time step | 1e-13 |
 | `--slowdown-ref` | float | Slowdown perturbation ratio reference | 1e-6 |
 | `--slowdown-timescale-max` | float | Max timescale for slowdown factor | time-end |
+| `--break-check` | flag | Record hyperbolic-escape break events (root semi<0, outgoing, r>r_crit; mirrors Hermite checkBreak) to stderr. Record only — does NOT stop integration | off |
 
 ### Pattern 2: Hermite+AR Hybrid Integration
 

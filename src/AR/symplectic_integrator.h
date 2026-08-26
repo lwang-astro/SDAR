@@ -1087,32 +1087,64 @@ namespace AR {
 
                 // --- U_node into gt_kick_inv_ (with current-layer slowdown) ---
                 Float G = manager->interaction.gravitational_constant;
-                gt_kick_inv_.value *= G * _bin.m1 * _bin.m2 * inv_r
+                // Hyperbolic outer orbit: cap the separation at the peri-center
+                // q = |semi|*(ecc-1). ds is frozen with the tree (peri-center
+                // gauge, see multiplyDsByNodePotentials) while this g factor
+                // decays as 1/r — without a bound, dt = ds/g grows without bound
+                // as the escaper leaves and the inner-binary resolution degrades.
+                // Freezing the factor at G*m1*m2/q — the SAME gauge ds uses —
+                // keeps the resolution exactly at the design value and dt bounded.
+                // Properties of the q cap (vs e.g. 2|semi|):
+                //   * transient flybys never engage it: on the approach and near
+                //     peri r <= q holds (q is the peri distance), so during close
+                //     encounters g keeps the true 1/r form — no discontinuous g
+                //     jumps at tree rebuilds, which a 2|semi| cap suffers from
+                //     (transient |semi| can be arbitrarily small during a
+                //     three-body dance, inflating the capped U by orders of
+                //     magnitude and corrupting the energy);
+                //   * engagement at r=q is continuous in value (gradient kink
+                //     only, integrable);
+                //   * elliptic nodes are unaffected (closed orbit, r bounded).
+                // When capped, the factor is constant => its gradient must be
+                // suppressed as well, otherwise gt_drift_inv_ would evolve
+                // inconsistently with the g value (TTL consistency).
+                bool grad_active = true;
+                Float inv_r_eff = inv_r;
+                if (_bin.semi < 0.0 && _bin.ecc > 1.0) {
+                    Float r_cap = (-_bin.semi) * (_bin.ecc - 1.0);
+                    if (r_cap > 0.0 && r_sep > r_cap) {
+                        inv_r_eff = 1.0 / r_cap;
+                        grad_active = false;
+                    }
+                }
+                gt_kick_inv_.value *= G * _bin.m1 * _bin.m2 * inv_r_eff
                     / _bin.slowdown.getSlowDownFactor();
 
                 // --- distribute gradient to leaf particles (no slowdown) ---
-                // Left member
-                if (_bin.isMemberTree(0)) {
-                    addOuterGradientToMember(*_bin.getMemberAsTree(0),
-                        r_hat, -inv_r / _bin.m1);
-                } else {
-                    int idx = _bin.getMemberIndex(0);
-                    Float factor = particles[idx].mass * (-inv_r / _bin.m1);
-                    force_[idx].gtgrad[0] += r_hat[0] * factor;
-                    force_[idx].gtgrad[1] += r_hat[1] * factor;
-                    force_[idx].gtgrad[2] += r_hat[2] * factor;
-                }
+                if (grad_active) {
+                    // Left member
+                    if (_bin.isMemberTree(0)) {
+                        addOuterGradientToMember(*_bin.getMemberAsTree(0),
+                            r_hat, -inv_r / _bin.m1);
+                    } else {
+                        int idx = _bin.getMemberIndex(0);
+                        Float factor = particles[idx].mass * (-inv_r / _bin.m1);
+                        force_[idx].gtgrad[0] += r_hat[0] * factor;
+                        force_[idx].gtgrad[1] += r_hat[1] * factor;
+                        force_[idx].gtgrad[2] += r_hat[2] * factor;
+                    }
 
-                // Right member
-                if (_bin.isMemberTree(1)) {
-                    addOuterGradientToMember(*_bin.getMemberAsTree(1),
-                        r_hat, +inv_r / _bin.m2);
-                } else {
-                    int idx = _bin.getMemberIndex(1);
-                    Float factor = particles[idx].mass * (+inv_r / _bin.m2);
-                    force_[idx].gtgrad[0] += r_hat[0] * factor;
-                    force_[idx].gtgrad[1] += r_hat[1] * factor;
-                    force_[idx].gtgrad[2] += r_hat[2] * factor;
+                    // Right member
+                    if (_bin.isMemberTree(1)) {
+                        addOuterGradientToMember(*_bin.getMemberAsTree(1),
+                            r_hat, +inv_r / _bin.m2);
+                    } else {
+                        int idx = _bin.getMemberIndex(1);
+                        Float factor = particles[idx].mass * (+inv_r / _bin.m2);
+                        force_[idx].gtgrad[0] += r_hat[0] * factor;
+                        force_[idx].gtgrad[1] += r_hat[1] * factor;
+                        force_[idx].gtgrad[2] += r_hat[2] * factor;
+                    }
                 }
 
                 // --- single recursion into children ---

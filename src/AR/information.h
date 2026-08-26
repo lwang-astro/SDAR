@@ -197,8 +197,15 @@ namespace AR {
                     // peri-center (maximum) potential as a conservative estimate.
                     // Keplerian consistency: semi<0 implies ecc>1 (asserted) so a
                     // non-positive r_ref cannot corrupt ds.
+                    // NOTE (2026-08-26): ds keeps this frozen peri-center gauge by
+                    // design — ds must not change while the tree is unchanged
+                    // (preserves the extended-phase-space structure and time
+                    // symmetry). The hyperbolic escape-tail gauge mismatch
+                    // (ds frozen vs runtime g ~ 1/r decaying) is handled on the
+                    // g-function side (r cap in processOuterNode), not here.
                     ASSERT(_bin.ecc > 1.0);
                     Float r_ref = (-_bin.semi) * (_bin.ecc - 1.0);
+                    ASSERT(r_ref > 0);
                     U_node = _G * _bin.m1 * _bin.m2 / r_ref;
                 }
                 else {
@@ -221,6 +228,10 @@ namespace AR {
                 Float pert_ratio = calcPertRatio(_bin);
                 Float node_scale = std::min(Float(1.0),
                     pow(ds_pert_ratio_coff * pert_ratio, 1.0 / Float(_int_order)));
+                // defensive checks (Fix B): r_ref > 0, node_scale in (0,1],
+                // U_node finite and positive
+                ASSERT(node_scale > 0.0 && node_scale <= 1.0);
+                ASSERT(U_node > 0.0 && U_node < NUMERIC_FLOAT_MAX);
                 ds *= U_node * node_scale;
 
                 for (int k=0; k<2; k++) {

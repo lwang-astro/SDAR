@@ -1,6 +1,8 @@
 # Hierarchical BLogH 实现笔记
 
-> **最后更新**: 2026-08-14
+> **最后更新**: 2026-08-26
+> - 2026-08-26：**双曲层级 ds/g 规范失配修复（g 函数侧 q-cap）**——详见下方专节与 `hierarchical_blogh_plan.md` §3。要点：`processOuterNode` 对双曲非叶节点把 g 的距离因子 cap 在 q=|a|(e−1)（与 ds 的 15b 口径同规范），cap 生效时同时抑制该节点梯度（TTL 一致性）；ds 逻辑不动（保持 tree 不变即冻结的设计原则）。ustabtri 终点 |dE| 3.8e-2 → 9.9e-7，交换前位级不变，logh/btlogh 固定模式位级不变。
+> - 2026-08-15c：BTLogH ds 双曲修复——双曲叶 ds 恢复 2π/256（原丢失 8× 分辨率）；`P_eff_min` 锚点覆盖全部层级（非叶节点贡献 `P·κ`/遭遇时标），遭遇瞬态由真实最快层驱动
 > - 重构：`updateSlowDownAndCorrectEnergy` + `switchGFuncAuto` → 统一为 `syncTreeSlowDownAndDs`
 > - 新增辅助函数：`calcBinaryTreeSlowDown`, `applyStableCheckAndSlowDown`, `correctSlowDownEnergy`
 > - 中断处理简化：`_is_interrupt` 标志消除重复 tree/force/energy 代码
@@ -128,6 +130,31 @@ time = snap.time + snap.time_offset
 不用 `g_func=True` 会导致列错位，所有后续分析数据错误。
 
 ## 已验证的测试场景
+
+### 2026-08-26 双曲层级 ds/g 规范失配（g 函数侧 q-cap 修复）
+
+**问题**（unstable triple，`--g-func 4 --g-func-switch auto -m orbit`）：交换 #2 后新双星 + 逃逸星构成双曲根节点，ds 按近心口径 q 冻结（Kepler 常数，逐位恒定），而运行时 g(t) 的外层因子 Gm₁m₂/r 随逃逸按 1/r 衰减 → dt=ds/g 无界增长 → 内双星分辨率跌至 ~8 步/轨道（设计 32），dE 从 1e-6 爬到 3.8e-2。基线归因（Phase 0 脚本 `sample/test/analysis_ustabtri_btlogh.py` 固化）：主导通道是 DKD 分裂误差（尾期生效 κ≡1，κ_max 棘轮 1→53 仅为同源症状）。
+
+**被否决的两版方案**（记录以免反复）：
+1. **ds 侧 r_ref = max(q, r_inst)**（计划 v2 Fix A）+ 每步重算 ds（Fix B1）：dE 达 9.9e-7，但违背 BTLogH 设计原则——tree 不变时 ds 应冻结（扩展相空间结构、time symmetry），且实测过保守（尾段分辨率超需 ~40×，+12.8% 步数全花在过度分辨）。
+2. **g 侧 cap = 2|a|**：密近三相舞期间瞬态配对的 |a| 可任意小 → cap 使 U 虚胀上百倍，每次树重建产生巨大 g 跳变 → 一次性能量破坏（dE 跳至 1.67、H_sd 恶化到 6e-3）。教训：g 作为状态函数必须对树重建连续有界。
+
+**采纳方案**：`processOuterNode`（`symplectic_integrator.h`）双曲非叶节点（semi<0 且 ecc>1）取 `r_eff = min(r_sep, q)`，q=|a|(e−1)：
+- 与 ds 的 15b 口径**同规范** → 分辨率锚定设计值、dt 有界；
+- 瞬态 flyby 期间 r≤q 恒成立（q 即近心距）→ 相遇期间 cap 不触发，无接合跳变；
+- 接合点 r=q 处值连续（仅梯度折点，可积）；
+- **cap 生效时必须同时抑制该节点的梯度分发**（`grad_active=false`），否则 `gt_drift_inv_`（经 `gtgrad` 演化）与 g 值不一致，破坏 TTL 扩展哈密顿量守恒。
+
+**验证**（`/home/lwang/localdata/SDAR_BLogH/fixg_test/`，基线在上级目录）：
+| 指标 | 基线 | q-cap |
+|---|---|---|
+| 终点 \|dE\| | 3.8e-2 | **9.9e-7**（与相遇期末同 level） |
+| 交换 #2 前（978 行） | — | **位级一致** |
+| logh / btlogh 固定模式 | — | **位级一致**（排除计时列 18–20） |
+| Nstep_sum | 774265 | 873238（+12.8%，误差控制器自适应 ds 0.0127→0.0359 部分摊销；生产中逃逸尾由 break 截断，长尾成本不存在） |
+
+- `--break-check`（`ar.cxx` 新增，Fix C）：镜像 `H4::checkBreak` 双曲逃逸分支，默认仅记录（t=0.0598 记录到 r=1.06·r_crit 事件），轨迹零影响。
+- 分析脚本 `sample/test/analysis_ustabtri_btlogh.py`：读回需 `SDARData(g_func=True, N_particle=3, slowdown=True, N_sd=2, time_measure=True)`；κ 用 `sd` 列（生效值）、`sd_max` 列=timescale/period 上限。
 
 - **B-B quadruple, quad_sd2**: 两个 inner binary 都触发 slowdown
   - Inner 1: $m=(0.01,0.09)$, $a=10^{-4}$, $e=0.9$, $90^\circ$ 倾角 → KL 离心率振荡

@@ -1,9 +1,9 @@
 # Hierarchical BLogH: Theory Reference
 
-> **用途**: 本文档提供 BTLogH (g_func=4) 的理论基础。实际代码实现见 [`hierarchical_blogh_impl_notes.md`](./hierarchical_blogh_impl_notes.md)。
-> 实际代码实现见 [`hierarchical_blogh_impl_notes.md`](./hierarchical_blogh_impl_notes.md)。
+> **用途**: 本文档提供 BTLogH (g_func=4) 的理论基础与开发历史记录。实际代码实现见 [`hierarchical_blogh_impl_notes.md`](./hierarchical_blogh_impl_notes.md)。
 > 原始计划中关于梯度无需修正、`multiplyOuterNodePotentials()` 用 `_bin.semi` 等方案在实测中被发现有问题，
 > 已被 `processOuterNode()` 替代。本文档仅保留经验证正确的理论部分。
+> 2026-08-26：吸收已完成的《双曲层级 ds 规范统一计划》（原独立文件已删除），见 §3；§2 标注为历史设计。
 
 ---
 
@@ -127,6 +127,15 @@ $N_{\rm s}=32$ substeps/orbit。详见 impl notes。
 ---
 
 ## 2. 自动切换 (4↔0) — 开发计划
+
+> **状态（2026-08-26）**: 本节为历史设计记录，与现行实现有实质差异：
+> 1. **`g_func_user==4` 时判据被旁路**——`checkGFuncCriterionIter()` 对 BTLogH 直接 `continue`（"always use"），
+>    即 auto 模式下 **4→0 的 LogH 回退从不发生**（ustabtri 全程 g_func=4 实证）。这是刻意设计：
+>    BTLogH 的外层节点经 `processOuterNode` 进 g，双曲层级由 q-cap 处理（§3），无需退回 LogH。
+> 2. **hysterisis / check_interval 已取消**——现行实现在 `syncTreeSlowDownAndDs` Step 6 每调用点评估，
+>    无确认计数。
+> 3. §2.3 的 `switchHierarchicalMethod()` 已并入 `syncTreeSlowDownAndDs()`（含 gt_drift_inv_ 重置与 ds 重算）。
+> 下文保留原始设计供参考；若未来恢复 4↔0 切换（如 KL 循环场景），需重新评估判据与切换代价。
 
 ### 2.1 目标与设计原则
 
@@ -306,20 +315,78 @@ if (hybrid_switch == -2) {
 8. [x] `tools/ar.py`：`hybrid_flag` → `g_func` 列名
 9. [x] 编译验证：所有 variants 零 warning
 10. [x] 冒烟测试：fixed + auto 模式均运行正常
-11. [ ] 深度测试：层级三体 KL 循环（g_func 切换验证）
+11. [ ] 深度测试：层级三体 KL 循环（g_func 切换验证）——注：现行实现对 `g_func_user==4` 旁路判据（§2 状态注），此测试只覆盖 mode 1/3 的 auto 路径；若要测 4↔0 需先恢复判据
 
 ---
 
-## 3. 其他后续方向
+## 3. 双曲层级 ds/g 规范失配修复（2026-08-26，已完成）
 
-1. **更深层级测试**: 当前仅验证了 B-B 四星（2 层）。对 3+1 四星、5 体等更深
+> 本节由已完成的独立计划《双曲层级 ds 规范（gauge）统一》迁移合并（原文件已删除）。
+
+### 3.1 问题与机制
+
+Unstable triple（inner: m=(0.1,0.9), a=1e-3, e=0.9; outer: m=(1,1), a=0.01, e=0.9）在 `--g-func 4 --g-func-switch auto -m orbit` 下发生两次双星交换。交换 #2 的密近相遇本身被正确分辨（ds→4.09e-5，dE~1e-6，15c 的 P_eff_min 锚点有效）；**误差在其后的逃逸尾期累积**：
+
+- 交换后新双星 + 逃逸星构成**双曲根节点**：ds 按近心口径 q=|a|(e−1) 计算，而双曲 (a,e) 是 Kepler 常数 → ds 为公式级常数，tree 不变期间**逐位冻结**（0.0127135 恒定至终点）；
+- 运行时 g(t) 的外层因子 G·M_L·M_R/r_esc 按 1/r 单调衰减（r_esc: ~2e-3 → 1.31）；
+- **规范失配 → dt=ds/g 无界增长** → 内双星分辨率从 ~40 步/轨道跌至个位数（末端真实 dt≈ds/g 已达 ~1 步/轨道；输出间隔 6.1e-5 封顶掩盖了部分恶化），dE 包络从 1e-6 单调爬到 3.8e-2。
+
+机制的一般表述：束缚层级 U_node 有轨道平均（semi 口径，g 周期回归自校，15b）；**双曲层级不存在轨道平均**——ds 的 U 因子是常数而 g 的对应因子是瞬时 1/r。误差通道归因（Phase 0 脚本 `sample/test/analysis_ustabtri_btlogh.py` 固化）：主导通道是 DKD 分裂误差；尾期生效 κ≡1（κ_org~1e-12 被钳制），κ_max=timescale/period 棘轮 1→53 仅为同源症状。
+
+### 3.2 被否决的方案（记录以免反复）
+
+| 方案 | 结果 | 否决原因 |
+|---|---|---|
+| ds 侧 r_ref=max(q, r_inst) + semi<0 每步重算 ds（原计划 Fix A/B1） | dE 达标 9.9e-7 | **违背"tree 不变则 ds 冻结"设计原则**（破坏扩展相空间结构与 time symmetry）；实测过保守（尾段分辨率超需 ~50×，+12.8% 步数） |
+| g 侧 cap = 2\|a\| | dE 跳至 1.67，H_sd 恶化到 6e-3 | 密近三相舞期间瞬态配对的 \|a\| 可任意小 → cap 使 U 虚胀上百倍，树重建时 g 跳变巨大 → 一次性能量破坏。**教训：g 作为状态函数对树重建必须连续有界** |
+| 跳过双曲非叶 U_node（v1） | — | dt=ds/g 少一个能量因子，逃逸时发散更严重；对束缚群内 flyby 直接错误 |
+| 破碎后切回 LogH（v1） | — | g_func=4 不回退为刻意设计，LogH 并不比 BTLogH 精确（见 §2 状态注） |
+
+### 3.3 采纳方案：g 函数侧 q-cap
+
+`processOuterNode()`（`symplectic_integrator.h`）对双曲非叶节点（semi<0 且 ecc>1）：
+
+```
+r_eff = min(r_sep, q),   q = |a|·(e−1)
+U_node = G·m1·m2 / r_eff        （cap 生效时梯度分发同步跳过）
+```
+
+- **q 与 ds 的 15b 口径严格同规范** → 分辨率锚定设计值、dt 有界；
+- **瞬态 flyby 期间 r≤q 恒成立**（q 即近心距）→ 相遇期 cap 根本不触发，无接合跳变（对比 2|a| 的致命缺陷）；
+- 接合点 r=q 处值连续（仅梯度折点，可积）；椭圆节点不受影响（闭合轨道 r 有界）；
+- **cap 生效时必须同时抑制该节点的梯度分发**（`grad_active=false`），否则 `gt_drift_inv_`（经 gtgrad 演化）与 g 值不一致，破坏 TTL 扩展哈密顿量守恒；
+- **ds 逻辑完全不动**——保持"tree 不变则 ds 冻结"原则。
+
+### 3.4 验证（ustabtri；输出 `/home/lwang/localdata/SDAR_BLogH/fixg_test/`）
+
+| 指标 | 基线 | q-cap |
+|---|---|---|
+| 终点 \|dE\| | 3.8e-2（max 3.77e-2） | **9.9e-7**（H_sd=-3.5e-9，与相遇期同 level） |
+| 交换 #2 前 978 行 | — | **位级一致** |
+| logh / btlogh 固定模式 | — | **位级一致**（仅计时列 18–20 不同） |
+| Nstep_sum | 774265 | 873238（+12.8%） |
+
+- 尾段 +99.5k 步均匀分布于逃逸段（rebuild 后 50 个输出区间内 11k、其后 88.5k），ds 经误差控制器在 ~10 个区间内从 0.0127 自适应至 0.03593 后冻结；有效分辨率 ~1.6e3 步/轨道（设计值 32 的 ~50×，继承 node_scale 与 P_eff_min 锚点在逃逸构型下的保守化，方向正确但过保守——若需省步数为后续独立课题，受"tree 不变 ds 冻结"原则约束）；
+- 生产中逃逸尾由 Hermite `checkBreak` 截断，长尾成本不存在；standalone ar 用 `--break-check` 记录事件（默认仅记录不终止；验证 t=0.0598 记录 r=1.06·r_crit，轨迹零影响）；
+- 基线注：原 8 月 15 日基线文件已被 2026-08-26 用户以新二进制重跑覆盖（位级复现 fixg_test 结果），基线数字以本节表格与 Phase 0 脚本输出留档为准；
+- 分析脚本读回参数：`SDARData(g_func=True, N_particle=3, slowdown=True, N_sd=2, time_measure=True)`；κ 用 `sd` 列（生效值），`sd_max` 列 = timescale/period 上限。
+
+---
+
+## 4. 其他后续方向
+
+1. **更深层级测试**: 当前仅验证了 B-B 四星（2 层）与 unstable triple（含双曲逃逸，§3）。对 3+1 四星、5 体等更深
    binary tree，需验证 `processOuterNode()` 的递归梯度分发正确性。
 
 2. **与 PeTar 集成**: BTLogH 当前仅在 standalone SDAR 中可用。PeTar 中使用
    SDAR 处理 close encounters 时，需传递 `hybrid_switch=4` 并确保
-   binary tree 结构在 PeTar 的 group 检测后仍然有效。
+   binary tree 结构在 PeTar 的 group 检测后仍然有效。头文件变更（§3 的 q-cap）会传播到 PeTar 构建，
+   需重编 + functional smoke。
 
 3. **Slowdown + 自动 ds 调优**: 当前 ds 用 Eq.~(ds\_combined) 一次性估计。
    对于 $\kappa$ 随时间变化的情况（如 KL 循环中 inner binary 周期变化），
-   可能需要动态调整 ds。
+   可能需要动态调整 ds。**约束（2026-08-26 实测教训）**：任何"ds 随状态重算"的方案都破坏
+   "tree 不变则 ds 冻结"原则与 time symmetry（§3.2 第一行），除非先建立 ds 跳变的
+   能量修正框架；§3.4 显示逃逸段分辨率过保守 ~50×，优化应优先考虑 g 侧或
+   node_scale/P_eff_min 锚点的口径，而非 ds 时变化。
 

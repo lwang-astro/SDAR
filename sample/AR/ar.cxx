@@ -52,6 +52,7 @@ public:
     COMM::IOParams<double>  slowdown_timescale_max;
     COMM::IOParams<int>     interrupt_detection_option;
     COMM::IOParams<int>     fix_step_option;
+    COMM::IOParams<int>     break_check;
 #ifdef USE_MPFRC
     COMM::IOParams<int>     mpfr_digits;
 #endif
@@ -88,6 +89,7 @@ public:
         , slowdown_timescale_max(input_par_store, 0.0,              "slowdown-timescale-max", "maximum timescale for maximum slowdown factor","time-end")
         , interrupt_detection_option(input_par_store, 0,            "i",               "modify orbits and check interruption;  0: turn off;  1: modify the binary orbits based on interruption criterion;  2. recored binary parameters based on interruption criterion")
         , fix_step_option     (input_par_store, -1,                 "fix-step-option", "fix step options: always, later, none","auto")
+        , break_check         (input_par_store, 0,                  "break-check",     "check the group break condition (hyperbolic escape of the root: semi<0, outgoing, r>r); mirror of Hermite checkBreak; record events to stderr only, does NOT stop integration","off")
 #ifdef USE_MPFRC
         , mpfr_digits         (input_par_store, 30,                 "mpfr-dights",     "dights for MPFR precison")
 #endif
@@ -131,6 +133,7 @@ public:
             {slowdown_timescale_max.key,   required_argument, &ar_flag, 18},
             {interrupt_detection_option.key, required_argument, &ar_flag, 24},
             {fix_step_option.key,          required_argument, &ar_flag, 19},
+            {break_check.key,              no_argument,       &ar_flag, 28},
 #ifdef USE_MPFRC
             {mpfr_digits.key,              required_argument, &ar_flag, 20},
 #endif
@@ -272,6 +275,10 @@ public:
                     break;
                 case 26:
                     load_flag.value = 1;
+                    opt_used++;
+                    break;
+                case 28:
+                    break_check.value = 1;
                     opt_used++;
                     break;
                 }
@@ -534,6 +541,29 @@ int main(int argc, char **argv){
     
     // integration loop
     const int n_particle = sym_int.particles.getSize();
+    // Fix C: production-mode break check state (record only, does not stop integration)
+    bool break_recorded = false;
+    auto CheckBreakEvent = [&] () {
+        if (!iop.break_check.value || break_recorded) return;
+        auto& root = sym_int.info.getBinaryTreeRoot();
+        if (root.semi >= 0.0) return; // hyperbolic branch only (H4::checkBreak mirror)
+        auto* bl = root.getLeftMember();
+        auto* br = root.getRightMember();
+        // members are leaf particles or subtrees; their Tparticle base pos/vel
+        // are the live member center-of-mass states (same source as ds r_inst)
+        Float dr[3] = {br->pos[0]-bl->pos[0], br->pos[1]-bl->pos[1], br->pos[2]-bl->pos[2]};
+        Float dv[3] = {br->vel[0]-bl->vel[0], br->vel[1]-bl->vel[1], br->vel[2]-bl->vel[2]};
+        Float r2 = dr[0]*dr[0] + dr[1]*dr[1] + dr[2]*dr[2];
+        Float r = sqrt(r2);
+        Float drdv = dr[0]*dv[0] + dr[1]*dv[1] + dr[2]*dv[2];
+        if (drdv > 0.0 && r > sym_int.info.r_break_crit) {
+            std::cerr<<"[break-check] hyperbolic escape: time "<<sym_int.getTime()+sym_int.info.time_offset
+                     <<" r "<<r<<" drdv "<<drdv
+                     <<" r_crit "<<sym_int.info.r_break_crit
+                     <<" r/r_crit "<<r/sym_int.info.r_break_crit<<std::endl;
+            break_recorded = true;
+        }
+    };
     if (iop.integration_mode.value != "full") {
         bool do_orbit_update = (iop.integration_mode.value == "orbit");
         Float time_out = iop.time_zero.value + iop.dt_out.value;
@@ -572,6 +602,7 @@ int main(int argc, char **argv){
 #ifdef SDAR_TIME_MEASURE
             sym_int.profile.prof_tot.end();
 #endif
+            CheckBreakEvent();
             if (sym_int.getTime()>=time_out) {
                 if (fsnap != NULL) 
                     sym_int.writeBinary(fsnap);
@@ -591,6 +622,7 @@ int main(int argc, char **argv){
         else if (iop.nstep.value>0) iop.dt_out.value = iop.time_end.value/iop.nstep.value;
         for (int i=1; i<=iop.nstep.value; i++) {
             auto bin_interrupt = sym_int.integrateToTime(iop.dt_out.value*i);
+            CheckBreakEvent();
             if (bin_interrupt.status!=InterruptStatus::none) {
                 std::cerr<<"Interrupt condition triggered! ";
                 switch (bin_interrupt.status) {
