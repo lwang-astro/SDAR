@@ -8,6 +8,7 @@
 #include <iomanip>
 #include <cmath>
 #include <cassert>
+#include <cstdint>
 
 #define ASSERT(expr) assert(expr)
 #define DATADUMP(x) abort()

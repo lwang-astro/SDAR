@@ -16,7 +16,7 @@ use_x86=yes
 #use_k_computer=yes
 #QD_PATH=/opt/qd-2.3.22
 MPFRC_PATH=../../../mpfrc++
-GPERF_PATH = $(HOME)
+#GPERF_PATH = $(HOME)
 
 
 ## compiler-------------------------------------------#
