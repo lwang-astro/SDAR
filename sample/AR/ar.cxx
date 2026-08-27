@@ -87,21 +87,21 @@ public:
         , slowdown_mass_ref   (input_par_store, 0.0,                "slowdown-mass-ref", "slowdowm mass reference","averaged mass")
 #endif
         , slowdown_timescale_max(input_par_store, 0.0,              "slowdown-timescale-max", "maximum timescale for maximum slowdown factor","time-end")
-        , interrupt_detection_option(input_par_store, 0,            "i",               "modify orbits and check interruption;  0: turn off;  1: modify the binary orbits based on interruption criterion;  2. recored binary parameters based on interruption criterion")
-        , fix_step_option     (input_par_store, -1,                 "fix-step-option", "fix step options: always, later, none","auto")
+        , interrupt_detection_option(input_par_store, 0,            "i",               "modify orbits and check interruption;  0: turn off;  1: modify the binary orbits based on interruption criterion;  2: recored binary parameters based on interruption criterion")
+        , fix_step_option     (input_par_store, -1,                 "fix-step-option", "fix step option;  0: always - fixed ds, never modified by energy error;  1: later - ds may be reduced in early steps, then fixed (auto-enabled after escape);  2: none - fully adaptive, temporarily reduce ds on energy error and recover;  -1: auto behavior: later for binary or stable multiple systems, none for unstable system")
         , break_check         (input_par_store, 0,                  "break-check",     "check the group break condition (hyperbolic escape of the root: semi<0, outgoing, r>r); mirror of Hermite checkBreak; record events to stderr only, does NOT stop integration","off")
 #ifdef USE_MPFRC
         , mpfr_digits         (input_par_store, 30,                 "mpfr-dights",     "dights for MPFR precison")
 #endif
 #ifdef AR_G_FUNC_MUL_POT
-        , g_func_option      (input_par_store, 0,                  "g-func",          "time transformation (g) function mode;  0=standard LogH;  1=BLogH (innermost binaries);  2=normalized BLogH;  3=all pairs;  4=BTLogH (tree-level product)")
+        , g_func_option      (input_par_store, 0,                  "g-func",          "time transformation (g) function mode;  0: standard LogH - sum of all pair potentials;  1: BLogH - product of the innermost binary potentials only;  2: normalized BLogH - (product of the innermost binary potentials)^(1/n_bin),;     n_bin: number of inner binaries;  3: all pairs - product over every pair;  4: BTLogH - tree-level product of potentials (inner orbit x outer orbit nodes);     For hyperbolic outer orbits the potential is fixed at the peri-center q=|a|(e-1), to avoid divergence")
 #elif AR_G_FUNC_MAX_POT
-        , g_func_option      (input_par_store, 0,                  "g-func",          "g-function mode: 0=standard LogH, 1=use maximum pair potential","0")
+        , g_func_option      (input_par_store, 0,                  "g-func",          "g-function mode;  0: standard LogH - sum of all pair potentials;  1: the maximum pair potential - the strongest pair at each instant (recommended for strongly hierarchical systems)")
 #elif AR_G_FUNC_ADD_POT
-        , g_func_option      (input_par_store, 0,                  "g-func",          "g-function mode: 0=standard LogH, 1=use summation of innermost pair potentials","0")
+        , g_func_option      (input_par_store, 0,                  "g-func",          "g-function mode;  0: standard LogH - sum of all pair potentials;  1: sum of innermost binary pair potentials")
 #endif
 #ifdef AR_G_FUNC
-        , g_func_switch_option(input_par_store, "fixed",           "g-func-switch",   "how to apply --g-func: fixed (always use it), auto (switch between --g-func and 0 based on perturbation)","fixed")
+        , g_func_switch_option(input_par_store, "fixed",           "g-func-switch",   "how to apply --g-func;  fixed: use given --g-func, no change;  auto: switch to standard LogH (--g-func 0) when perturbation to binary is strong;        only work for --g-func 1,2,3, not appliable for --g-func 4 (BTLogH)")
 #endif
         , filename_par        (input_par_store, "",                 "p",               "filename to load manager parameters","input name")
         , filename_out        (input_par_store, "",                 "f",               "filename to output snapshots in BINARY format;  if not given, print directly in standard output","input name")
@@ -227,11 +227,9 @@ public:
                     opt_used += 2;
                     break;
                 case 19:
-                    if (!strcmp(optarg,"none")) fix_step_option.value = 2;
-                    else if (!strcmp(optarg,"always")) fix_step_option.value = 0;
-                    else if (!strcmp(optarg,"later")) fix_step_option.value = 1;
-                    else {
-                        std::cerr<<"Error: fix step option unknown ("<<optarg<<"), should be always, later, none\n";
+                    fix_step_option.value = atoi(optarg);
+                    if (fix_step_option.value < -1 || fix_step_option.value > 2) {
+                        std::cerr<<"Error: fix step option unknown ("<<optarg<<"), should be -1 (auto), 0 (always), 1 (later), 2 (none)\n";
                         abort();
                     }
                     opt_used += 2;

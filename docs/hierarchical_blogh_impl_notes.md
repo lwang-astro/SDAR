@@ -1,6 +1,7 @@
 # Hierarchical BLogH 实现笔记
 
 > **最后更新**: 2026-08-26
+> - 2026-08-26b：**束缚段跳变归因与对照判决**（详见 `hierarchical_blogh_plan.md` §3.5）——分辨率减半（S512）、关闭 tree 重构（fixed）、切 LogH 三思路全部证伪：共振飞掠硬化事件（t=0.0368，内双星 a 9× 收缩）的 ~1e-7 跳变是事件型 floor，不随 ds 收敛、不因重构而变、LogH 反差 6 个量级；tree 重构+ds 重算实为保护机制（事件后窗口差 90×）。**使用警示**：standalone base 模式（无 `-m orbit`）不更新根数，交换后 stale semi>0 使 q-cap 永不触发 → dt 爆炸（fixed s512 终点 dE=218）；发生交换/逃逸的场景必须用 orbit/full 模式（生产路径 integrateToTime 不受影响）。
 > - 2026-08-26：**双曲层级 ds/g 规范失配修复（g 函数侧 q-cap）**——详见下方专节与 `hierarchical_blogh_plan.md` §3。要点：`processOuterNode` 对双曲非叶节点把 g 的距离因子 cap 在 q=|a|(e−1)（与 ds 的 15b 口径同规范），cap 生效时同时抑制该节点梯度（TTL 一致性）；ds 逻辑不动（保持 tree 不变即冻结的设计原则）。ustabtri 终点 |dE| 3.8e-2 → 9.9e-7，交换前位级不变，logh/btlogh 固定模式位级不变。
 > - 2026-08-15c：BTLogH ds 双曲修复——双曲叶 ds 恢复 2π/256（原丢失 8× 分辨率）；`P_eff_min` 锚点覆盖全部层级（非叶节点贡献 `P·κ`/遭遇时标），遭遇瞬态由真实最快层驱动
 > - 重构：`updateSlowDownAndCorrectEnergy` + `switchGFuncAuto` → 统一为 `syncTreeSlowDownAndDs`
@@ -19,7 +20,7 @@
 ## Summary
 
 1. **BTLogH (g_func=4)**: 树级层级 BLogH，`--g-func 4`，支持 B-B 四星及以上。✅ 已实现并验证。
-2. **Auto-Switching**: `--g-func 4 --g-func-switch auto`，自动在 4↔0 间切换。✅ 已实现，待深度测试。
+2. **Auto-Switching**: `--g-func 4 --g-func-switch auto`。⚠️ 2026-08-26 现状：`g_func_user==4` 时判据被旁路（`checkGFuncCriterionIter` 直接 continue），auto 模式下 **4→0 切换从不发生**（ustabtri 全程 g_func=4 实证）——刻意设计，双曲层级由 q-cap 处理，无需 LogH 回退（logh 对照同段差 ~6 个量级，见数据档案）。
 
 ## Files Changed
 
@@ -129,6 +130,8 @@ time = snap.time + snap.time_offset
 
 不用 `g_func=True` 会导致列错位，所有后续分析数据错误。
 
+> **N_particle / N_sd 必须与日志匹配**（列数敏感）：quad_sd2 用 `(4, N_sd=?)`、ustabtri 用 `(3, 2)`（见数据档案节）；N_sd 可从表头 SD 块数确认。
+
 ## 已验证的测试场景
 
 ### 2026-08-26 双曲层级 ds/g 规范失配（g 函数侧 q-cap 修复）
@@ -156,6 +159,41 @@ time = snap.time + snap.time_offset
 - `--break-check`（`ar.cxx` 新增，Fix C）：镜像 `H4::checkBreak` 双曲逃逸分支，默认仅记录（t=0.0598 记录到 r=1.06·r_crit 事件），轨迹零影响。
 - 分析脚本 `sample/test/analysis_ustabtri_btlogh.py`：读回需 `SDARData(g_func=True, N_particle=3, slowdown=True, N_sd=2, time_measure=True)`；κ 用 `sd` 列（生效值）、`sd_max` 列=timescale/period 上限。
 
+### ustabtri 数据档案（论文写作用，2026-08-26 定稿）
+
+**初始条件**（输入 `ustabtri` 由 `keplertree ustabtri.orbit` 生成，3 体，G=1）：
+- inner binary: m=(0.1, 0.9), a=1e-3, e=0.9
+- outer: m=(1+1 等效), a=0.01, e=0.9，与 inner 反向（倾角 π）
+- 轨道演化：t≈0.0022 交换 #1 → 0.0364 共振飞掠（内双星 a 从 5.2e-3 硬化至 5.7e-4，9×）→ t≈0.0598 交换 #2 + 双曲逃逸至 r≈1.38（v≈45）→ t_end=0.0889
+
+**运行矩阵**（`ar.ttl.sd.t.mulpot.cm`，输出间隔 `-o 6.103515625e-05`，`-t 0.08885765876316733`，`--slowdown-ref 1e-20 --slowdown-timescale-max 1e10`）：
+
+| 标签 | 命令差异 | 数据文件（`/home/lwang/localdata/SDAR_BLogH/`） |
+|---|---|---|
+| auto s256 | `--g-func 4 --g-func-switch auto -m orbit --ds-scale 0.125` | `fixg_test/ustabtri.btlogh_auto.qcap.log`（q-cap 后）；`ustabtri.btlogh_auto.s256.log` 为 8/26 用户重跑，位级一致 |
+| fixed s256 | `--g-func 4 --ds-scale 0.125`（无 `-m orbit`：无 tree 重构/ds 重算） | `ustabtri.btlogh.s256.log` |
+| logh s256 | `--g-func 0 --ds-scale 0.125` | `ustabtri.logh.s256.log` |
+| s512 三模式 | 同上，`--ds-scale 0.0625` | `ustabtri.*.s512.log`（`ustabtri.sh` 当前版本即此批） |
+| h4 参照 | `hermite --r-group 0.002 --r-neighbor-over-group 20 --dt-max-power 14 -e 1e-4 -o 14 -t ...` | `ustabtri.h4.log` |
+
+**关键数值**（束缚段末 = t≈0.0597 交换 #2 前）：
+
+| run | 束缚段末 \|dE\| | 终点 \|dE\| | Nstep | 备注 |
+|---|---|---|---|---|
+| auto s256 | 9.9e-7 | **9.9e-7** | 873238 | 推荐配置；逃逸尾零误差（终点=束缚段末） |
+| auto s512 | 6.7e-6 | 6.75e-6 | 1788718 | 分辨率翻倍反差 7×：事件型 floor 证据 |
+| fixed s256 | 4.7e-6 | 1.4e-4 | 77519 | 尾部亦有失配累积 |
+| fixed s512 | 7.9e-7 | **218** | 119545 | stale semi>0 → q-cap 不触发 → dt 爆炸（§已知局限） |
+| logh s256 | 2.4e-2 | 1.8e-2 | 248908 | |
+| logh s512 | 8.4e-5 | 1.2e-4 | 568460 | 收敛快（~100×/减半）但同成本差 3–4 个量级 |
+| h4 | ~0.33 全程 | 0.33 | — | 参照 |
+
+**前 q-cap 基线**（8/15 原始 log 已被覆盖，数字以 plan §3.4 表为准）：auto s256 终点 3.8e-2、ds 冻结 0.0127135、Nstep 774265。
+
+**归因结论**（详见 plan §3.5）：束缚段剩余误差为强相互作用**事件型 floor**（~1e-7–1e-6）——不随 ds 收敛（S512 判决）、不因 tree 重构而变（fixed 对照：事件瞬间增量同为 1e-7 级，但事件后窗口 auto 好 90×）、LogH 同段差 ~6 个量级。分析要点：跳变与共振飞掠硬化后的内双星极近心同时（t=0.03680，+2.2e-7）；通道排除——跳变处 ΔdE_SDC=0、生效 κ 不变、非重建行、q-cap 未触发。
+
+**读回与对比注意事项**：`N_particle=3, N_sd=2`；计时列 18–20（Total/Int/Int_tsyn）每次运行不同，位级对比需排除；tree 拓扑变化用 SD 块的 (I1,I2) 列检测。
+
 - **B-B quadruple, quad_sd2**: 两个 inner binary 都触发 slowdown
   - Inner 1: $m=(0.01,0.09)$, $a=10^{-4}$, $e=0.9$, $90^\circ$ 倾角 → KL 离心率振荡
   - Inner 2: $m=(3,7)$, $a=10^{-3}$, $e=0.9$, $90^\circ$ 倾角
@@ -171,7 +209,9 @@ time = snap.time + snap.time_offset
 
 - **仅测试 B-B 四星**: 更深层级（如 3+1 四星、5 体等）尚未验证
 - **ds 公式对 hyperbolic 内双星**: Eq.(ds_combined) 用 $T_{\rm eq}$ 替代 $P_{\rm eff}$，此路径尚未充分测试
-- **Auto-switching 未深度测试**: 编译通过、冒烟通过，但尚未在真实层次破坏场景（如 KL 循环）中验证 4→0→4 切换行为
+- **Auto-switching (4↔0)**: 判据已旁路（见 Summary 2），切换从不发生；mode 1/3 的 auto 路径未深度测试
+- **standalone base 模式不适用于交换/逃逸场景**: 无 `-m orbit` 时不更新根数，交换后 stale semi>0 使 q-cap 永不触发 → dt 爆炸（fixed s512 终点 dE=218，见数据档案）。生产路径（Hermite/PeTar 经 `integrateToTime`）有根数更新，不受影响
+- **强相互作用事件型误差 floor ~1e-7–1e-6**: 共振飞掠硬化事件的跳变不随 ds 收敛、不因重构而变（三组对照判决，见 plan §3.5）；突破需事件时刻相位精确穿越，未规划
 
 ---
 
