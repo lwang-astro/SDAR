@@ -1,6 +1,11 @@
 # Hierarchical BLogH 实现笔记
 
-> **最后更新**: 2026-08-27
+> **最后更新**: 2026-08-28
+> - 2026-08-28：**g-func 方法精简**——只保留 `AR_G_FUNC_BLOGH` 与 `AR_G_FUNC_BTLOGH` 两个方法宏；
+>   `NORM_BLOGH / MUL_ALL_POT / MAX_POT / ADD_INNER_POT` 及家族宏 `AR_G_FUNC_MUL_POT_FAMILY` 删除
+>   （最后实现版本存于 git tag `gfunc-archive`）；`GtKickInv` 结构体退化为普通 `Float gt_kick_inv_`
+>   （backup 布局不变，旧 dump 仍可读）；旧 `MUL_POT`/`ADD_POT` 改名 #error 守卫一并移除（干净方案）。
+>   回归验收：blogh{gf1,gf2}、btlogh gf1 与精简前物理列逐位一致；btlogh 拒绝 `--g-func 2`。
 > - 2026-08-27：**g-func 宏体系重构**（详见下文"g-func 重构记录"节与"编译 Flag 速查"）——`AR_G_FUNC_MUL_POT` 拆分为每方法一宏（`AR_G_FUNC_BLOGH/NORM_BLOGH/MUL_ALL_POT/BTLOGH`），`ADD_POT` 改名 `ADD_INNER_POT`；`--g-func` 统一模板 0=LogH / 1=本方法 / 2=auto（BTLOGH 与 MUL_ALL_POT 无 2），`--g-func-switch` 删除；输出 `g_func` 列改打生效状态 0/1；宏体系集中定义于 `src/AR/g_func.h`。回归验收：全方法×{fixed,auto,gf0} 物理列逐位一致。
 > - 2026-08-26b：**束缚段跳变归因与对照判决**（详见 `hierarchical_blogh_plan.md` §3.5）——分辨率减半（S512）、关闭 tree 重构（fixed）、切 LogH 三思路全部证伪：共振飞掠硬化事件（t=0.0368，内双星 a 9× 收缩）的 ~1e-7 跳变是事件型 floor，不随 ds 收敛、不因重构而变、LogH 反差 6 个量级；tree 重构+ds 重算实为保护机制（事件后窗口差 90×）。**使用警示**：standalone base 模式（无 `-m orbit`）不更新根数，交换后 stale semi>0 使 q-cap 永不触发 → dt 爆炸（fixed s512 终点 dE=218）；发生交换/逃逸的场景必须用 orbit/full 模式（生产路径 integrateToTime 不受影响）。
 > - 2026-08-26：**双曲层级 ds/g 规范失配修复（g 函数侧 q-cap）**——详见下方专节与 `hierarchical_blogh_plan.md` §3。要点：`processOuterNode` 对双曲非叶节点把 g 的距离因子 cap 在 q=|a|(e−1)（与 ds 的 15b 口径同规范），cap 生效时同时抑制该节点梯度（TTL 一致性）；ds 逻辑不动（保持 tree 不变即冻结的设计原则）。ustabtri 终点 |dE| 3.8e-2 → 9.9e-7，交换前位级不变，logh/btlogh 固定模式位级不变。
@@ -53,19 +58,15 @@
 | Flag | 含义 | `--g-func` 合法值 |
 |------|------|:---:|
 | `AR_G_FUNC_BLOGH` | 内层对势乘积（BLogH） | 0,1,2 |
-| `AR_G_FUNC_NORM_BLOGH` | (内层乘积)^(1/N) | 0,1,2 |
-| `AR_G_FUNC_MUL_ALL_POT` | 所有对势乘积（需 `--s`） | 0,1 |
 | `AR_G_FUNC_BTLOGH` | 树级乘积（内层×外层节点） | 0,1 |
-| `AR_G_FUNC_MAX_POT` | 最大内层 pair potential | 0,1,2 |
-| `AR_G_FUNC_ADD_INNER_POT` | 内层 pair 之和（经 `calc_gt_cross` 间接实现） | 0,1,2 |
 
-任一方法宏 → 自动定义 umbrella `AR_G_FUNC`；前四个方法（乘积家族）另自动定义
-`AR_G_FUNC_MUL_POT_FAMILY`（共享 GtKickInv 乘积结构；MAX/ADD 结构不同，故家族宏
-≠ 伞形宏，不可合并）。旧宏 `MUL_POT`/`ADD_POT` 已删除（保留 #error 提示）。
+任一方法宏 → 自动定义 umbrella `AR_G_FUNC`（两方法均为乘积形式；2026-08-28 起
+家族宏 `AR_G_FUNC_MUL_POT_FAMILY` 与伞形宏等价，已删除；`GtKickInv` 结构体退化
+为 `Float gt_kick_inv_`）。
 
-二进制目标（`sample/AR/Makefile`，命名 `ar.<method>[.ttl][.sd][.cm][.mpfrc]`）：
-`ar.{blogh,normblogh,mulall,btlogh}.ttl.sd[.cm][.mpfrc]`、`ar.maxpot.ttl.sd.cm`、
-`ar.addpot.ttl.sd.cm`。
+二进制目标（`sample/AR/Makefile`，2026-08-28 起任何配置恰好 4 个可执行文件：logh / logh.ttl /
+blogh.ttl / btlogh.ttl 各一；feature 后缀由 `use_sd/use_kdkpert/use_cm/use_mpfrc` 组合生成，
+顺序 `.sd.cm.mpfrc.kdkpert`，`use_kdkpert` 自动强制 sd，命令行可覆盖如 `make use_mpfrc=yes`）。
 
 ## g-func 重构记录（2026-08-27）
 
@@ -126,10 +127,9 @@ if (g_func_on) calc_gt_cross = false;   // 其余五法生效时：仅 inner 对
 
 1. **距离用瞬时成员位置**：`pos0 - pos1`，非 `_bin.semi`，正确反映离心率变化
 2. **`_bin.r` 过时**：integration 期间不更新（仅在 tree generation 时），故从成员位置实时计算
-3. **`gt_kick_inv_.nbin` 不递增**：nbin 仅用于 switch=2 几何平均，switch=4 不读取
-4. **ds substep 系数**：`ds_i` 用 coeff=2π（per-orbit），最终 ds 乘 1/32（非 2π/32，否则多一个 2π）
-5. **成员位置是当前的**：`processOuterNode` 在 drift 步骤后被调用
-6. **USE_CM_FRAME 无关**：`pos0 - pos1` 在 CM frame 和绝对坐标下都成立
+3. **ds substep 系数**：`ds_i` 用 coeff=2π（per-orbit），最终 ds 乘 1/32（非 2π/32，否则多一个 2π）
+4. **成员位置是当前的**：`processOuterNode` 在 drift 步骤后被调用
+5. **USE_CM_FRAME 无关**：`pos0 - pos1` 在 CM frame 和绝对坐标下都成立
 
 ## CLI 用法
 
@@ -138,7 +138,7 @@ if (g_func_on) calc_gt_cross = false;   // 其余五法生效时：仅 inner 对
 --g-func 1                          # 始终本方法（按二进制宏）
 --g-func 0                          # 标准 LogH
 
-# 自动切换（blogh/normblogh/maxpot/addpot 提供；btlogh/mulall 拒绝）
+# 自动切换（blogh 提供；btlogh 拒绝）
 --g-func 2                          # 本方法 ↔ LogH 自动切换
 ```
 
@@ -148,11 +148,10 @@ if (g_func_on) calc_gt_cross = false;   // 其余五法生效时：仅 inner 对
 |--------|----------|
 | 0 | $\sum_{\rm all} U_{ij}$（标准 LogH） |
 | 1 | 本二进制宏对应的方法（见编译 Flag 速查） |
-| 2 | auto：1 ↔ 0 动态切换（btlogh/mulall 无） |
+| 2 | auto：1 ↔ 0 动态切换（btlogh 无） |
 
-各方法 $g$ 定义：BLogH $\prod_{\rm inner} U_{ij}$；NORM $(\prod_{\rm inner} U_{ij})^{1/N}$；
-MUL_ALL $\prod_{\rm all} U_{ij}$；BTLogH $\prod_{\rm n} U_{\rm n}$（树级，B-B 四星+）；
-MAX $\max_{\rm inner} U_{ij}$；ADD_INNER $\sum_{\rm inner} U_{ij}$。
+各方法 $g$ 定义：BLogH $\prod_{\rm inner} U_{ij}$；BTLogH $\prod_{\rm n} U_{\rm n}$（树级，B-B 四星+）。
+（其余四个方法变体已于 2026-08-28 删除，最后实现版本见 tag `gfunc-archive`。）
 
 输出 `g_func` 列打印**当前生效状态**（0=LogH，1=本方法）；auto 模式下每步可翻转。
 旧数据映射：1/2/3/4（含 -1/-2 auto 组合）→ 1。
@@ -162,7 +161,7 @@ MAX $\max_{\rm inner} U_{ij}$；ADD_INNER $\sum_{\rm inner} U_{ij}$。
 `processOuterNode()` 的核心逻辑：
 
 1. **递归遍历 binary tree**：每个内部节点 n 计算 $U_{\rm n} = G M_{\rm L} M_{\rm R} / r_{\rm s}$（用瞬时成员位置 `pos0-pos1`）
-2. **乘入 gt_kick_inv_**: `gt_kick_inv_.value *= U_n`
+2. **乘入 gt_kick_inv_**: `gt_kick_inv_ *= U_n`
 3. **梯度分发**: 对节点的左右子树成员，按质量分数 $m_i/M_{\rm m}$ 加上 $\pm \hat{r}_{\rm s}/r_{\rm s}$ 到各自的 `force_[i].gtgrad`，符号左 + 右 −
 
 这一步修正了以下问题：plan 阶段（`hierarchical_blogh_plan.md` §0.6）认为"梯度计算与 switch=1 完全一致"，但实际发现缺少外层节点的 $\nabla\ln U_{\rm n}$ 贡献会导致 DKD 格式不一致。`processOuterNode` 在一次 tree walk 中同时完成 $U_{\rm n}$ 乘入和梯度分发。
@@ -187,7 +186,7 @@ g-func 输出（`g_func!=0`）比标准 LogH 多一个 `g_func` 列。**必须**
 > **旧代码迁移 (pre-2026-08)**：`hybrid=True` → `g_func=True`，`hybrid_flag` 列 → `g_func` 列。
 
 ```python
-# g-func 输出（g_func=1~4）
+# g-func 输出（--g-func 1 或 2；g_func 列为生效态 0/1）
 snap = sdar.SDARData(g_func=True, N_particle=4, slowdown=True, N_sd=3, time_measure=True)
 snap.loadtxt(path, skiprows=1)
 
@@ -284,15 +283,14 @@ time = snap.time + snap.time_offset
 
 ---
 
-## g_func 三变量设计
+## g_func 双变量设计（2026-08-27 统一模板后）
 
 | 变量 | 含义 | 取值 |
 |------|------|------|
-| `g_func` | 当前生效的 g 函数 | 0-4 |
-| `g_func_user` | 用户 CLI 选择的方法 | 0-4 |
-| `g_func_switch` | 自动切换模式 | `GFUNC_FIXED=0`, `GFUNC_AUTO=1` |
+| `g_func` | 用户 CLI 选择（setup 后不变） | 0 / 1 / 2 |
+| `g_func_on` | 当前生效状态（热路径缓存；auto 模式每步可翻转，即输出 `g_func` 列） | false / true |
 
-`checkGFuncCriterionIter()` 遍历 tree 检查扰动比——所有内层 binary `pert_ratio < 1` 时可用 g_func，否则退为 0。提供 auto 的方法（blogh/normblogh/mulall/maxpot/addpot）用此保守公式；BTLogH 不编译此函数（CLI 拒绝选项 2，双曲外层由 `processOuterNode` 的 q-cap 处理）。
+`checkGFuncCriterionIter()` 遍历 tree 检查扰动比——所有内层 binary `pert_ratio < 1` 时可用 g_func，否则退为 0。提供 auto 的方法（现仅 blogh）用此保守公式；BTLogH 不编译此函数（CLI 拒绝选项 2，双曲外层由 `processOuterNode` 的 q-cap 处理）。
 
 ## 架构 — 2026-08-07 重构
 

@@ -56,12 +56,18 @@ python3 -c "import sys; sys.path.append('/home/lwang/include'); import sdar; pri
 
 - SDAR 是 PeTar 的参考实现，PeTar 中关于 SDAR 的参数（如 `--r-group`、`--r-search-group`）映射到 SDAR 的组检测参数。
 - AR 变体按场景选择，见 `assets/binary-scenario-map.md`。命名规则（2026-08-27）：
-  `ar.<method>[.ttl][.sd][.kdkpert][.cm][.mpfrc]`（method=logh/blogh/normblogh/mulall/btlogh/maxpot/addpot；
+  `ar.<method>[.ttl][.sd][.kdkpert][.cm][.mpfrc]`（method=logh/blogh/btlogh，2026-08-28 精简后；
   `.ttl` 为时间变换实现形式）。`.sd.a` 与旧命名（`ar.ttl.*`、`.sd.t`、`kdk.pert`）已废弃。
-- **g-func 宏体系（2026-08-27 重构）**：每二进制一个方法宏（`AR_G_FUNC_{BLOGH,NORM_BLOGH,MUL_ALL_POT,BTLOGH,MAX_POT,ADD_INNER_POT}`，
-  定义与互斥检查集中在 `src/AR/g_func.h`）；`--g-func` 统一模板 0=LogH / 1=本方法 / 2=auto（btlogh、mulall 无 2）；
-  旧 `AR_G_FUNC_MUL_POT` 宏与 `--g-func-switch` 选项已删除；输出 `g_func` 列为生效态 0/1。
-  方案与验收记录：`docs/hierarchical_blogh_impl_notes.md`（"g-func 重构记录"节）。
+- **sample/AR/Makefile 构建机制（2026-08-28）**：任何配置恰好编译 4 个二进制（logh / logh.ttl /
+  blogh.ttl / btlogh.ttl 各一）；feature 后缀由 `use_sd / use_kdkpert / use_cm / use_mpfrc`
+  组合生成（后缀顺序 `.sd.cm.mpfrc.kdkpert`，命令行可覆盖，如 `make use_mpfrc=yes`）；
+  `use_kdkpert` 自动强制 sd（kdkpert 依赖 slowdown tree）。
+- **g-func 宏体系（2026-08-27 重构，2026-08-28 精简）**：每二进制一个方法宏，现仅
+  `AR_G_FUNC_{BLOGH,BTLOGH}`（定义与互斥检查集中在 `src/AR/g_func.h`；其余四个方法
+  及家族宏 `AR_G_FUNC_MUL_POT_FAMILY` 已删，最后实现版本存于 tag `gfunc-archive`）；
+  `--g-func` 统一模板 0=LogH / 1=本方法 / 2=auto（btlogh 无 2）；
+  输出 `g_func` 列为生效态 0/1。
+  方案与验收记录：`docs/hierarchical_blogh_impl_notes.md`。
 - Python 工具安装在 `/home/lwang/include/sdar/`（通过 `tools/Makefile`）。
 - SDAR 不涉及 MPI、外势、恒星演化 —— 这些只在 PeTar 层面存在。
 - SDAR 的 `-G` 默认值为 1.0（Henon 单位），物理单位下使用 0.00449830997959438。

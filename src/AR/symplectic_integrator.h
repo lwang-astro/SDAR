@@ -291,75 +291,7 @@ namespace AR {
         Float gt_drift_inv_;  ///< integrated inverse time transformation factor for drift: dt(drift) = ds/gt_drift_inv_
 #endif
 
-        struct GtKickInv{
-            Float value;  ///< value of minimum gt_kick_inv with slowdown
-#ifdef AR_G_FUNC_MAX_POT
-            int i; ///< index of binary member 1 having minimum gt_kick_inv
-            int j; ///< index of binary member 1 having minimum gt_kick_inv
-            Float gtgrad[2][3]; ///< time transformation function gradient with slowdown
-            Float max; ///< max of gt_kick_inv
-            Float scale; ///< scale factor to smooth gt_kick_inv change
-            bool initial;
-            int inew;
-            int jnew;
-#elif defined(AR_G_FUNC_MUL_POT_FAMILY)
-#ifdef AR_G_FUNC_NORM_BLOGH
-            // normalized-product scratch members (NORM_BLOGH only; other
-            // product methods keep the base value-only form)
-            int nbin; ///< number of inner binaries in the product (geometric-mean exponent)
-            Float mul_pot_no_pow; ///< product value before the 1/nbin power
-#endif
-#endif
-
-            // initialization
-            GtKickInv(): 
-#ifdef AR_G_FUNC_MAX_POT
-                value(0.0), i(-1), j(-1), gtgrad{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}, max(0.0), scale(1.0), initial(false), inew(-1), jnew(-1)
-#elif defined(AR_G_FUNC_NORM_BLOGH)
-                value(1.0), nbin(0), mul_pot_no_pow(1.0)
-#else
-                value(0.0)
-#endif
-            {}
-
-            // reset 
-            /*! param[in] _g_func_on, if true (mul-pot family), value starts from 1.0 (product form), else 0.0 (sum form)
-             */
-            void reset(const bool _g_func_on = false) {
-#ifdef AR_G_FUNC_MAX_POT
-                value = 0.0;
-                max = 0.0;
-                initial = false;
-#elif defined(AR_G_FUNC_MUL_POT_FAMILY)
-                value = _g_func_on ? 1.0 : 0.0;
-#ifdef AR_G_FUNC_NORM_BLOGH
-                nbin = 0;
-#endif
-#else
-                value = 0.0;
-#endif
-            }
-
-            // clear up
-            void clear() {
-#ifdef AR_G_FUNC_MAX_POT
-                value = 0.0;
-                i = j = -1;
-                max = 0.0;
-                scale = 1.0;
-                initial = false;
-                inew = jnew = -1;
-#elif defined(AR_G_FUNC_MUL_POT_FAMILY)
-                value = 1.0;
-#ifdef AR_G_FUNC_NORM_BLOGH
-                nbin = 0;
-#endif
-#else
-                value = 0.0;
-#endif
-            }
-
-        } gt_kick_inv_;
+        Float gt_kick_inv_;  ///< inverse time transformation factor for kick (sum of pair potentials with slowdown for LogH; product form when a g-func method is active)
 
         // force array
         COMM::List<Force> force_; ///< acceleration array 
@@ -384,7 +316,7 @@ namespace AR {
 #ifdef AR_TTL
                                                gt_drift_inv_(0),
 #endif
-                                               gt_kick_inv_(), 
+                                               gt_kick_inv_(0.0), 
                                                force_(), 
 #ifdef AR_G_FUNC
                                                g_func(0),
@@ -437,7 +369,7 @@ namespace AR {
 #ifdef AR_TTL
             gt_drift_inv_ = 0.0;
 #endif
-            gt_kick_inv_.clear();
+            gt_kick_inv_ = 0.0;
             force_.clear();
 #ifdef AR_G_FUNC
             g_func = 0;
@@ -869,43 +801,7 @@ namespace AR {
 
             if (_calc_gt) { 
 #ifdef AR_TTL
-#ifdef AR_G_FUNC_MAX_POT
-                if (g_func_on) {
-                    // update maximum value of time transformation function gradient (gt_kick_inv) and save two paritcle indices and gtgrad values
-                    // if gt_kick_inv_sd > saved value, update the information
-                    //if (gt_kick_inv_sd > gt_kick_inv_.value) {
-                    if (gt_kick_inv_.i == _i && gt_kick_inv_.j == _j) {
-                        Float factor = gt_kick_inv_.scale*_inv_nest_sd;
-                        gt_kick_inv_.value = gt_kick_inv_.scale*gt_kick_inv_sd;
-                        gt_kick_inv_.gtgrad[0][0] = fij[0].gtgrad[0]*factor;
-                        gt_kick_inv_.gtgrad[0][1] = fij[0].gtgrad[1]*factor;
-                        gt_kick_inv_.gtgrad[0][2] = fij[0].gtgrad[2]*factor;
-                        gt_kick_inv_.gtgrad[1][0] = fij[1].gtgrad[0]*factor;
-                        gt_kick_inv_.gtgrad[1][1] = fij[1].gtgrad[1]*factor;
-                        gt_kick_inv_.gtgrad[1][2] = fij[1].gtgrad[2]*factor;
-                    }
-                    Float rinv = abs(epotij)/(particles[_i].mass*particles[_j].mass);
-                    if (rinv > gt_kick_inv_.max) {
-                        gt_kick_inv_.inew = _i;
-                        gt_kick_inv_.jnew = _j;
-                        gt_kick_inv_.max = rinv;
-                        if (gt_kick_inv_.i == -1 || gt_kick_inv_.initial) {
-                            gt_kick_inv_.initial = true;
-                            gt_kick_inv_.i = _i;
-                            gt_kick_inv_.j = _j;
-                            Float factor = gt_kick_inv_.scale*_inv_nest_sd;
-                            gt_kick_inv_.value = gt_kick_inv_.scale*gt_kick_inv_sd;
-                            gt_kick_inv_.gtgrad[0][0] = fij[0].gtgrad[0]*factor;
-                            gt_kick_inv_.gtgrad[0][1] = fij[0].gtgrad[1]*factor;
-                            gt_kick_inv_.gtgrad[0][2] = fij[0].gtgrad[2]*factor;
-                            gt_kick_inv_.gtgrad[1][0] = fij[1].gtgrad[0]*factor;
-                            gt_kick_inv_.gtgrad[1][1] = fij[1].gtgrad[1]*factor;
-                            gt_kick_inv_.gtgrad[1][2] = fij[1].gtgrad[2]*factor;
-                        }
-                    }
-                }
-                else {
-#elif defined(AR_G_FUNC_MUL_POT_FAMILY)
+#ifdef AR_G_FUNC
                 if (g_func_on) {
                     // gtgrad tracks gradient of ln(gkt). Slowdown factors kappa
                     // are constant w.r.t. particle positions, so they factor out
@@ -918,11 +814,8 @@ namespace AR {
                     force_[_j].gtgrad[1] += fij[1].gtgrad[1]*gt_kick;
                     force_[_j].gtgrad[2] += fij[1].gtgrad[2]*gt_kick;
 
-                    // add binary count and multiply gt_kick_inv by current-layer slowdown
-#ifdef AR_G_FUNC_NORM_BLOGH
-                    gt_kick_inv_.nbin++; // geometric-mean exponent (NORM_BLOGH only)
-#endif
-                    gt_kick_inv_.value *= gt_kick_inv * _inv_sd;
+                    // multiply gt_kick_inv by current-layer slowdown
+                    gt_kick_inv_ *= gt_kick_inv * _inv_sd;
                 }
                 else {
 #endif
@@ -934,13 +827,13 @@ namespace AR {
                     force_[_j].gtgrad[1] += fij[1].gtgrad[1]*_inv_nest_sd;
                     force_[_j].gtgrad[2] += fij[1].gtgrad[2]*_inv_nest_sd;
 
-                    gt_kick_inv_.value += gt_kick_inv_sd;
-#if (defined AR_G_FUNC_MAX_POT) || (defined AR_G_FUNC_MUL_POT_FAMILY)
+                    gt_kick_inv_ += gt_kick_inv_sd;
+#ifdef AR_G_FUNC
                 }
 #endif
 
 #else // NO AR_TTL
-                gt_kick_inv_.value += gt_kick_inv_sd;
+                gt_kick_inv_ += gt_kick_inv_sd;
 #endif
             }
         }
@@ -1013,7 +906,7 @@ namespace AR {
           @param[in] _bin: current binary to drift pos
          */
         void calcAccPotAndGTKickInvTreeIter(const Float& _inv_nest_sd_up, AR::BinaryTree<Tparticle>& _bin) {
-            // current-layer sd factor (for gt_kick_inv_.value accumulation)
+            // current-layer sd factor (for gt_kick_inv_ accumulation)
             Float inv_sd = 1.0 / _bin.slowdown.getSlowDownFactor();            
             // current nested sd factor (for gtgrad and force)
             Float inv_nest_sd = _inv_nest_sd_up*inv_sd;
@@ -1025,13 +918,9 @@ namespace AR {
 
             bool calc_gt_cross = true;
 #ifdef AR_G_FUNC
-#ifndef AR_G_FUNC_MUL_ALL_POT
             // When a g-func method is active, only the innermost binary pairs
-            // enter gt_kick_inv (this is also HOW AR_G_FUNC_ADD_INNER_POT is
-            // implemented: base sum accumulation + skipping all cross pairs).
-            // Exception: MUL_ALL_POT needs every pair in the product.
+            // enter gt_kick_inv; all cross pairs are skipped.
             if (g_func_on) calc_gt_cross = false;
-#endif
 #endif
 
             // check left 
@@ -1073,7 +962,7 @@ namespace AR {
 #ifdef AR_G_FUNC_BTLOGH
         //! Process non-leaf tree nodes for hierarchical BLogH (fused traversal)
         /*! Single tree traversal combining two operations for each node with >2 members:
-            1. Multiply U_node = G * m1 * m2 / r_sep into gt_kick_inv_.value
+            1. Multiply U_node = G * m1 * m2 / r_sep into gt_kick_inv_
             2. Distribute ∇ln U_node gradient to leaf particles via addOuterGradientToMember
             
             @param[in] _bin: current binary tree node
@@ -1124,7 +1013,7 @@ namespace AR {
                         grad_active = false;
                     }
                 }
-                gt_kick_inv_.value *= G * _bin.m1 * _bin.m2 * inv_r_eff
+                gt_kick_inv_ *= G * _bin.m1 * _bin.m2 * inv_r_eff
                     / _bin.slowdown.getSlowDownFactor();
 
                 // --- distribute gradient to leaf particles (no slowdown) ---
@@ -1202,9 +1091,9 @@ namespace AR {
             epot_sd_ = 0.0;
             for (int i=0; i<force_.getSize(); i++) force_[i].clear();
 #ifdef AR_G_FUNC
-            gt_kick_inv_.reset(g_func_on);
+            gt_kick_inv_ = g_func_on ? 1.0 : 0.0; // product form accumulates from 1, sum form from 0
 #else
-            gt_kick_inv_.reset();
+            gt_kick_inv_ = 0.0;
 #endif
 #ifdef USE_CM_FRAME
             ASSERT(!info.getBinaryTreeRoot().isOriginFrame());
@@ -1214,13 +1103,6 @@ namespace AR {
 #ifdef AR_G_FUNC_BTLOGH
             if (g_func_on) {
                 processOuterNode(info.getBinaryTreeRoot());
-            }
-#endif
-#ifdef AR_G_FUNC_NORM_BLOGH
-            if (g_func_on) {
-                // use power in gt_kick_inv_
-                gt_kick_inv_.mul_pot_no_pow = gt_kick_inv_.value;
-                gt_kick_inv_.value = pow(gt_kick_inv_.mul_pot_no_pow, 1.0/gt_kick_inv_.nbin);
             }
 #endif
 
@@ -1303,24 +1185,9 @@ namespace AR {
 
 
                     Float* gtgrad = force_[i].gtgrad;
-#ifdef AR_G_FUNC_MAX_POT
-                    if (g_func_on) {
-                        // use recored gtgrad in gt_kick_inv_max_info instead of force_[i].gtgrad (not calculated)
-                        gtgrad = NULL;
-                        if (i == gt_kick_inv_.i) 
-                            gtgrad = gt_kick_inv_.gtgrad[0];
-                        else if (i == gt_kick_inv_.j)
-                            gtgrad = gt_kick_inv_.gtgrad[1];
-                        if (gtgrad != NULL)
-                            dgt_drift_inv += (vel_sd[0] * gtgrad[0] + 
-                                              vel_sd[1] * gtgrad[1] +
-                                              vel_sd[2] * gtgrad[2]);
-                    }
-                    else 
-#endif
-                        dgt_drift_inv += (vel_sd[0] * gtgrad[0] + 
-                                          vel_sd[1] * gtgrad[1] +
-                                          vel_sd[2] * gtgrad[2]);
+                    dgt_drift_inv += (vel_sd[0] * gtgrad[0] + 
+                                      vel_sd[1] * gtgrad[1] +
+                                      vel_sd[2] * gtgrad[2]);
 
                     Float* pert   = force_[i].acc_pert;
 
@@ -1351,16 +1218,10 @@ namespace AR {
             ASSERT(!particles.isOriginFrame());
             Float dgt_drift_inv = kickEtotAndGTDriftTreeIter(_dt, vel_cm, sd_factor, bin_root);
 #endif
-#ifdef AR_G_FUNC_MUL_POT_FAMILY
-#ifdef AR_G_FUNC_NORM_BLOGH
-            // normalized product: d(ln g) = d(g^(1/N)) / (g^(1/N)/N)
-            if (g_func_on)
-                dgt_drift_inv *= gt_kick_inv_.value / gt_kick_inv_.nbin;
-#else
+#ifdef AR_G_FUNC
             // plain product: d(ln g) = dg / g
             if (g_func_on)
-                dgt_drift_inv *= gt_kick_inv_.value;
-#endif
+                dgt_drift_inv *= gt_kick_inv_;
 #endif
             gt_drift_inv_ += dgt_drift_inv*_dt;
         }
@@ -1450,9 +1311,9 @@ namespace AR {
             Float* pos_offset = NULL;
 #endif
             if (particles.getSize()==2) 
-                gt_kick_inv_.value = manager->interaction.calcInnerAccPotAndGTKickInvTwo(force_[0], force_[1], epot_, particles[0], particles[1], pos_offset);
+                gt_kick_inv_ = manager->interaction.calcInnerAccPotAndGTKickInvTwo(force_[0], force_[1], epot_, particles[0], particles[1], pos_offset);
             else 
-                gt_kick_inv_.value = manager->interaction.calcInnerAccPotAndGTKickInv(force_.getDataAddress(), epot_, particles.getDataAddress(), particles.getSize());
+                gt_kick_inv_ = manager->interaction.calcInnerAccPotAndGTKickInv(force_.getDataAddress(), epot_, particles.getDataAddress(), particles.getSize());
 
             // pertuber force
             manager->interaction.calcAccPert(force_.getDataAddress(), particles.getDataAddress(), particles.getSize(), particles.cm, perturber, getTime());
@@ -1557,9 +1418,9 @@ namespace AR {
             } else {
                 Float kappa_inv = 1.0 / info.getBinaryTreeRoot().slowdown.getSlowDownFactor();
 #ifdef AR_TTL
-                Float gt_kick_inv_new = gt_kick_inv_.value * _sd_backup * kappa_inv;
-                gt_drift_inv_ += gt_kick_inv_new - gt_kick_inv_.value;
-                gt_kick_inv_.value = gt_kick_inv_new;
+                Float gt_kick_inv_new = gt_kick_inv_ * _sd_backup * kappa_inv;
+                gt_drift_inv_ += gt_kick_inv_new - gt_kick_inv_;
+                gt_kick_inv_ = gt_kick_inv_new;
 #endif
                 ekin_sd_ = ekin_ * kappa_inv;
                 epot_sd_ = epot_ * kappa_inv;
@@ -1743,14 +1604,14 @@ namespace AR {
             bool need_force_sync = tree_rebuilt || g_func_switched || (_update_energy_flag && inner_sd_change_flag);
 
             if (need_force_sync) {
-                Float gt_kick_inv_bk = gt_kick_inv_.value;
+                Float gt_kick_inv_bk = gt_kick_inv_;
                 calcAccPotAndGTKickInv();
-                Float dg = gt_kick_inv_.value - gt_kick_inv_bk;
+                Float dg = gt_kick_inv_ - gt_kick_inv_bk;
                 // tree/g_func change: gt could jump; reset if > 1e-3 relative
-                if (fabs(dg) / std::max(fabs(gt_kick_inv_bk), fabs(gt_kick_inv_.value)) > 1e-3) {
+                if (fabs(dg) / std::max(fabs(gt_kick_inv_bk), fabs(gt_kick_inv_)) > 1e-3) {
                     need_ds_update = true;
 #ifdef AR_TTL
-                    gt_drift_inv_ = gt_kick_inv_.value;
+                    gt_drift_inv_ = gt_kick_inv_;
                 }
                 else {
                     gt_drift_inv_ += dg;
@@ -1765,11 +1626,7 @@ namespace AR {
             if (need_ds_update) {
                 info.calcDsAndStepOption(manager->step.getOrder(), G, manager->ds_scale
 #ifdef AR_G_FUNC
-#ifdef AR_G_FUNC_MUL_ALL_POT
-                                         , 0 // no auto-ds formula for the all-pairs product; ds stays at the user-given --s
-#else
-                                         , g_func_on ? 1 : 0
-#endif
+                                         , g_func_on
 #endif
                 );
             }
@@ -1888,7 +1745,7 @@ namespace AR {
             calcAccPotAndGTKickInv();
 
             // initially gt_drift 
-            gt_drift_inv_ = gt_kick_inv_.value;
+            gt_drift_inv_ = gt_kick_inv_;
 
 #else
             calcAccPotAndGTKickInv();
@@ -1931,7 +1788,7 @@ namespace AR {
             // Kick 1/6
             calcAccPot(_bin);
 
-            Float dt_kick = _ds/6.0*gt_kick_inv_.value;
+            Float dt_kick = _ds/6.0*gt_kick_inv_;
             
             kickVelIter(_bin, 0.5*dt_kick);
 #ifdef AR_TTL   
@@ -1983,21 +1840,6 @@ namespace AR {
             ASSERT(!particles.isModified());
             ASSERT(_ds>0);
 
-#ifdef AR_G_FUNC_MAX_POT
-            if (g_func_on && (gt_kick_inv_.inew != gt_kick_inv_.i || gt_kick_inv_.jnew != gt_kick_inv_.j)) {
-                // update i and j for calculate gt_kick_inv
-                gt_kick_inv_.i = gt_kick_inv_.inew;
-                gt_kick_inv_.j = gt_kick_inv_.jnew;
-
-                calcAccPotAndGTKickInv();
-
-                // initially gt_drift
-                gt_kick_inv_.scale = gt_drift_inv_/gt_kick_inv_.value;
-                //gt_kick_inv_ = gt_drift_inv_;
-                //gt_drift_inv_ = gt_kick_inv_.value;
-            }
-#endif
-
             // symplectic step coefficent group n_particleber
             const int nloop = manager->step.getCDPairSize();
 
@@ -2028,7 +1870,7 @@ namespace AR {
 
                 //! calc force, potential and inverse time transformation factor for kick
                 calcAccPotAndGTKickInv();
-                Float gt_kick_inv = gt_kick_inv_.value;
+                Float gt_kick_inv = gt_kick_inv_;
 
                 // time step for kick
                 Float dt_kick = ds_kick/gt_kick_inv;
@@ -2069,21 +1911,6 @@ namespace AR {
             profile.prof_int.start();
 #endif
 
-#ifdef AR_G_FUNC_MAX_POT
-            if (g_func_on && (gt_kick_inv_.inew != gt_kick_inv_.i || gt_kick_inv_.jnew != gt_kick_inv_.j)) {
-                // update i and j for calculate gt_kick_inv
-                gt_kick_inv_.i = gt_kick_inv_.inew;
-                gt_kick_inv_.j = gt_kick_inv_.jnew;
-
-                calcAccPotAndGTKickInv();
-
-                // initially gt_drift
-                gt_kick_inv_.scale = gt_drift_inv_/gt_kick_inv_.value;
-                //gt_kick_inv_ = gt_drift_inv_;
-                //gt_drift_inv_ = gt_kick_inv_.value;
-            }
-#endif
-
             // symplectic step coefficent group n_particleber
             const int nloop = manager->step.getCDPairSize();
 
@@ -2114,7 +1941,7 @@ namespace AR {
 
                 //! calc force, potential and inverse time transformation factor for kick
                 calcAccPotAndGTKickInv();
-                Float gt_kick_inv = gt_kick_inv_.value;
+                Float gt_kick_inv = gt_kick_inv_;
 
                 // time step for kick
                 Float dt_kick = ds_kick/gt_kick_inv;
@@ -2302,7 +2129,7 @@ namespace AR {
 
 #ifdef AR_SLOWDOWN_TREE
                 // back up gt_kick_inv
-                gt_kick_inv_.value = gt_inv*kappa_inv;
+                gt_kick_inv_ = gt_inv*kappa_inv;
                 // integrate gt_drift_inv
                 Float dgt_drift_inv = 2.0*dt*kappa_inv* (vel1[0] * gtgrad1[0] +
                                                          vel1[1] * gtgrad1[1] +
@@ -2310,20 +2137,15 @@ namespace AR {
                                                          vel2[0] * gtgrad2[0] +
                                                          vel2[1] * gtgrad2[1] +
                                                          vel2[2] * gtgrad2[2]);
-#ifdef AR_G_FUNC_MUL_POT_FAMILY
-#ifdef AR_G_FUNC_NORM_BLOGH
+#ifdef AR_G_FUNC
                 if (g_func_on)
-                    dgt_drift_inv *= gt_kick_inv_.value / gt_kick_inv_.nbin;
-#else
-                if (g_func_on)
-                    dgt_drift_inv *= gt_kick_inv_.value;
-#endif
+                    dgt_drift_inv *= gt_kick_inv_;
 #endif
                 gt_drift_inv_ += dgt_drift_inv;
 
 #else // NO Slowdown
                 // back up gt_kick_inv
-                gt_kick_inv_.value = gt_inv;
+                gt_kick_inv_ = gt_inv;
                 // integrate gt_drift_inv
                 gt_drift_inv_ +=  2.0*dt* (vel1[0] * gtgrad1[0] +
                                            vel1[1] * gtgrad1[1] +
@@ -2424,9 +2246,9 @@ namespace AR {
             gt_inv = manager->interaction.calcInnerAccPotAndGTKickInvTwo(force_data[0], force_data[1], epot_, particle_data[0], particle_data[1], pos_offset);
 #ifdef AR_SLOWDOWN_TREE
             epot_sd_ = epot_*kappa_inv;
-            gt_kick_inv_.value = gt_inv*kappa_inv;
+            gt_kick_inv_ = gt_inv*kappa_inv;
 #else
-            gt_kick_inv_.value = gt_inv;
+            gt_kick_inv_ = gt_inv;
 #endif            
 
 #else // NO AR_KDK_PERT
@@ -2536,7 +2358,7 @@ namespace AR {
 
 #ifdef AR_TTL   
                 // back up gt_kick_inv
-                gt_kick_inv_.value = gt_inv;
+                gt_kick_inv_ = gt_inv;
 
 #ifdef AR_SLOWDOWN_TREE
                 etot_sd_ref_ = etot_ref_*kappa_inv;
@@ -2548,14 +2370,9 @@ namespace AR {
                                                                    vel2[0] * gtgrad2[0] +
                                                                    vel2[1] * gtgrad2[1] +
                                                                    vel2[2] * gtgrad2[2]);
-#ifdef AR_G_FUNC_MUL_POT_FAMILY
-#ifdef AR_G_FUNC_NORM_BLOGH
+#ifdef AR_G_FUNC
                 if (g_func_on)
-                    dgt_drift_inv *= gt_kick_inv_.value / gt_kick_inv_.nbin;
-#else
-                if (g_func_on)
-                    dgt_drift_inv *= gt_kick_inv_.value;
-#endif
+                    dgt_drift_inv *= gt_kick_inv_;
 #endif
                 gt_drift_inv_ += dgt_drift_inv;
 
@@ -2875,11 +2692,11 @@ namespace AR {
                                 }
 #endif
 #ifdef AR_TTL
-                                Float gt_kick_inv_bk = gt_kick_inv_.value;
+                                Float gt_kick_inv_bk = gt_kick_inv_;
                                 calcAccPotAndGTKickInv();
-                                Float d_gt_kick_inv = gt_kick_inv_.value - gt_kick_inv_bk;
-                                if (fabs(d_gt_kick_inv) / std::max(fabs(gt_kick_inv_bk), fabs(gt_kick_inv_.value)) > 1e-3)
-                                    gt_drift_inv_ = gt_kick_inv_.value;
+                                Float d_gt_kick_inv = gt_kick_inv_ - gt_kick_inv_bk;
+                                if (fabs(d_gt_kick_inv) / std::max(fabs(gt_kick_inv_bk), fabs(gt_kick_inv_)) > 1e-3)
+                                    gt_drift_inv_ = gt_kick_inv_;
                                 else
                                     gt_drift_inv_ += d_gt_kick_inv;
 #else
@@ -2944,11 +2761,7 @@ namespace AR {
 #else
                                 info.calcDsAndStepOption(manager->step.getOrder(), G, manager->ds_scale
 #ifdef AR_G_FUNC
-#ifdef AR_G_FUNC_MUL_ALL_POT
-                                    , 0 // no auto-ds formula for the all-pairs product; ds stays at the user-given --s
-#else
-                                    , g_func_on ? 1 : 0
-#endif
+                                    , g_func_on
 #endif
                                 );
 #endif
@@ -3007,11 +2820,7 @@ namespace AR {
 #endif
                             info.calcDsAndStepOption(manager->step.getOrder(), G, manager->ds_scale
 #ifdef AR_G_FUNC
-#ifdef AR_G_FUNC_MUL_ALL_POT
-                                , 0 // no auto-ds formula for the all-pairs product; ds stays at the user-given --s
-#else
-                                , g_func_on ? 1 : 0
-#endif
+                                , g_func_on
 #endif
                             );
                             if (abs(ds_init-info.ds)/ds_init>0.1) {
@@ -3875,8 +3684,8 @@ namespace AR {
         //! get Hamiltonian
         Float getH(bool return_approx = false) const {
 //#ifdef AR_TTL
-            //return (ekin_ - etot_ref_)/gt_drift_inv_ + epot_/gt_kick_inv_.value;
-            //return (ekin_ + epot_ - etot_ref_)/gt_kick_inv_.value;
+            //return (ekin_ - etot_ref_)/gt_drift_inv_ + epot_/gt_kick_inv_;
+            //return (ekin_ + epot_ - etot_ref_)/gt_kick_inv_;
 ///#else
             if (return_approx)
                 return (ekin_ + epot_ - etot_ref_)/epot_;
@@ -3984,7 +3793,7 @@ namespace AR {
         Float getHSlowDown(bool return_approx = false) const {
 //#ifdef AR_TTL
             //return (ekin_sd_ - etot_sd_ref_)/gt_drift_inv_ + epot_sd_/gt_kick_inv_;
-//            return (ekin_sd_ + epot_sd_ - etot_sd_ref_)/gt_kick_inv_.value;
+//            return (ekin_sd_ + epot_sd_ - etot_sd_ref_)/gt_kick_inv_;
 //#else
             if (return_approx)
                 return (ekin_sd_ + epot_sd_ - etot_sd_ref_)/epot_sd_;
@@ -4064,7 +3873,7 @@ namespace AR {
 
 #ifdef AR_TTL
             _bk[bk_size++] = gt_drift_inv_;  //13 / 6
-            _bk[bk_size++] = gt_kick_inv_.value;   //14 / 7
+            _bk[bk_size++] = gt_kick_inv_;   //14 / 7
 #endif
 
             for (int i=0; i<particles.getSize(); i++) {
@@ -4134,7 +3943,7 @@ namespace AR {
 #endif
 #ifdef AR_TTL
             gt_drift_inv_  = _bk[bk_size++];
-            gt_kick_inv_.value   = _bk[bk_size++];
+            gt_kick_inv_   = _bk[bk_size++];
 #endif
 
             //! restore member particle position and velocity

@@ -2659,11 +2659,7 @@ namespace H4{
 //#endif
                 // get ds estimation
 #ifdef AR_G_FUNC
-#ifdef AR_G_FUNC_MUL_ALL_POT
-                groups[k].info.calcDsAndStepOption(ar_manager->step.getOrder(), ar_manager->interaction.gravitational_constant, ar_manager->ds_scale, 0); // no auto-ds formula for the all-pairs product
-#else
-                groups[k].info.calcDsAndStepOption(ar_manager->step.getOrder(), ar_manager->interaction.gravitational_constant, ar_manager->ds_scale, groups[k].g_func_on ? 1 : 0);
-#endif
+                groups[k].info.calcDsAndStepOption(ar_manager->step.getOrder(), ar_manager->interaction.gravitational_constant, ar_manager->ds_scale, groups[k].g_func_on);
 #else
                 groups[k].info.calcDsAndStepOption(ar_manager->step.getOrder(), ar_manager->interaction.gravitational_constant, ar_manager->ds_scale);
 #endif

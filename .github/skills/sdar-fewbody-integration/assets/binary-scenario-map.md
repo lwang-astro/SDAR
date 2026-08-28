@@ -5,7 +5,7 @@ This note documents SDAR integrator selection by scenario.
 ## Naming Scheme (2026-08-27)
 
 Binary names follow `ar.<method>[.ttl][.sd][.kdkpert][.cm][.mpfrc]`:
-- `<method>` is the g-function form: `logh`, `blogh`, `normblogh`, `mulall`, `btlogh`, `maxpot`, `addpot`
+- `<method>` is the g-function form: `logh`, `blogh`, `btlogh`
 - `.ttl` marks the Time-Transformed Leapfrog implementation of the method (absent = LogH implementation)
 - `.sd` is the tree-based hierarchical slowdown (the old `.sd.t` tag dropped its `.t`; `.sd.a` is deprecated)
 - `.kdkpert` KDK perturbation splitting (old `kdk.pert`), `.cm` CM-frame build, `.mpfrc` MPFR precision
@@ -34,11 +34,7 @@ All AR binaries are built from `sample/AR/ar.cxx` with different compile flags.
 | `ar.logh.sd.kdkpert` | KDK perturbation splitting | Weakly perturbed binaries |
 | `ar.logh.ttl.sd.kdkpert` | KDK perturbation splitting | Same, with TTL |
 | `ar.blogh.ttl.sd[.cm]` | BLogH g-func (product of innermost pair potentials) | Systems with multiple inner binaries |
-| `ar.normblogh.ttl.sd[.cm]` | Normalized BLogH (geometric mean) | Same, g ~ energy dimension |
-| `ar.mulall.ttl.sd[.cm]` | Product over ALL pairs (needs `--s`) | Small-N systems |
 | `ar.btlogh.ttl.sd[.cm]` | Tree-level product (BTLogH, inner x outer nodes) | Hierarchical quadruples+ (B-B) |
-| `ar.maxpot.ttl.sd.cm` | Max innermost pair potential + CM | Alternative multi-binary handling |
-| `ar.addpot.ttl.sd.cm` | Sum of innermost pair potentials + CM | Alternative multi-binary handling |
 | `ar.logh.mpfrc` | MPFRC arbitrary precision | High-precision requirement |
 | `ar.logh.ttl.mpfrc` | MPFRC arbitrary precision | High-precision with TTL |
 
@@ -48,7 +44,7 @@ All AR binaries are built from `sample/AR/ar.cxx` with different compile flags.
 Is the system hierarchical (nested binaries)?
 ├── Yes → Use slowdown variant (ar.*.sd, N_sd = number of binary pairs)
 │   ├── Weak perturbation? → ar.*.sd.kdkpert
-│   └── Multiple inner binaries? → ar.blogh.ttl.sd (or normblogh/mulall)
+│   └── Multiple inner binaries? → ar.blogh.ttl.sd
 │       └── Hierarchical quadruple+ (B-B)? → ar.btlogh.ttl.sd
 └── No → Use plain variant
     ├── High eccentricity? → ar.logh
@@ -83,17 +79,20 @@ Is the system hierarchical (nested binaries)?
 | `kdkpert` | `-D AR_KDK_PERT` | None |
 | `ttl` | `-D AR_TTL` | None |
 | `blogh` | `-D AR_G_FUNC_BLOGH` | None |
-| `normblogh` | `-D AR_G_FUNC_NORM_BLOGH` | None |
-| `mulall` | `-D AR_G_FUNC_MUL_ALL_POT` | None |
 | `btlogh` | `-D AR_G_FUNC_BTLOGH` | None |
-| `maxpot` | `-D AR_G_FUNC_MAX_POT` | None |
-| `addpot` | `-D AR_G_FUNC_ADD_INNER_POT` | None |
 | `mpfrc` | `-D USE_MPFRC` | `libmpfr`, `libgmp` |
 
 One g-func method macro per build (mutual exclusion enforced in `src/AR/g_func.h`).
 `--g-func`: 0 = standard LogH, 1 = the method of this build, 2 = auto switch
-(rejected for btlogh and mulall). The old `--g-func-switch` option and the
-`AR_G_FUNC_MUL_POT` macro no longer exist.
+(rejected for btlogh). The normblogh / mulall / maxpot / addpot variants were
+removed in the 2026-08-28 simplification (last implementing version: git tag
+`gfunc-archive`).
+
+`sample/AR/Makefile` (2026-08-28) builds exactly 4 executables per
+configuration (one per base method: logh / logh.ttl / blogh.ttl / btlogh.ttl).
+The feature suffix is composed from the `use_sd` / `use_kdkpert` / `use_cm` /
+`use_mpfrc` flags (suffix order `.sd.cm.mpfrc.kdkpert`; `use_kdkpert` forces
+sd on). Flags can be overridden per invocation, e.g. `make use_mpfrc=yes`.
 
 ## Skill Behavior
 

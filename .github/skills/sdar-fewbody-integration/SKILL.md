@@ -97,22 +97,19 @@ the g-function form, `.ttl` the Time-Transformed Leapfrog implementation of it
 | `logh` | g = `log(f(T) - f(-U)) / (T+U)` | Best for isolated binaries. Numerical trajectory follows exact Kepler with phase error only. |
 | `ttl` | Time-Transformed Leapfrog implementation, g = `1/|U|` | Simpler, faster per step but larger energy error for high eccentricity. |
 | `blogh` | BLogH g-func: product of innermost pair potentials | One g-func method per build (see below). |
-| `normblogh` | Normalized BLogH: (product of innermost potentials)^(1/N) | Same, g ~ energy dimension. |
-| `mulall` | All-pairs product | Requires `--s` (no auto ds). |
 | `btlogh` | BTLogH: tree-level product (inner pairs x outer nodes) | Hierarchical quadruples+ (B-B). No auto switch. |
-| `maxpot` | Max-potential: strongest innermost pair at each instant | Strongly hierarchical systems. |
-| `addpot` | Inner-sum: sum of innermost pair potentials | Alternative multi-binary handling. |
 | `sd` | Tree-based hierarchical slowdown (old `.sd.t`; `.sd.a` deprecated) | **Current default for hierarchical systems.** |
 | `kdkpert` | KDK with perturbation splitting (old `kdk.pert`) | Alternative for weakly perturbed systems. |
 | `cm` | Center-of-mass frame build | Useful when system drifts. |
 | `mpfrc` | High-precision (mpfr::mpreal) | Arbitrary-precision mode. Requires `-lmpfr -lgmp`. |
 
-**g-func method macros** (`src/AR/g_func.h`): `AR_G_FUNC_BLOGH / NORM_BLOGH /
-MUL_ALL_POT / BTLOGH / MAX_POT / ADD_INNER_POT` — exactly one per build (mutual
-exclusion enforced at compile time). Runtime option `--g-func`: 0 = standard
-LogH, 1 = the method of this build, 2 = auto switch between 1 and 0 (rejected
-for btlogh and mulall). The old `AR_G_FUNC_MUL_POT` macro and `--g-func-switch`
-option no longer exist (2026-08-27 refactor, see `docs/hierarchical_blogh_impl_notes.md`).
+**g-func method macros** (`src/AR/g_func.h`): `AR_G_FUNC_BLOGH` /
+`AR_G_FUNC_BTLOGH` — exactly one per build (mutual exclusion enforced at
+compile time). Runtime option `--g-func`: 0 = standard LogH, 1 = the method of
+this build, 2 = auto switch between 1 and 0 (rejected for btlogh). The
+normblogh / mulall / maxpot / addpot variants were removed in the 2026-08-28
+simplification; the last version implementing them is preserved at git tag
+`gfunc-archive` (see `docs/hierarchical_blogh_impl_notes.md`).
 
 ### Hermite: Hybrid Hermite+AR
 
@@ -148,22 +145,22 @@ SDAR/
 
 Source files in `sample/` are the standalone executables. Each subdirectory has its own Makefile.
 
-**To compile all AR variants:**
+**To compile AR (exactly 4 executables per configuration):**
 ```bash
 cd sample/AR
-make              # build all targets to ./build/
-make install      # install to ~/bin/ (or modify INSTALL_PATH in Makefile)
+make                          # default (use_sd=yes use_cm=yes): *.sd.cm
+make use_mpfrc=yes            # add .mpfrc (likewise use_kdkpert=yes, use_sd=no ...)
+make install                  # install to ~/bin/ (or modify INSTALL_PATH in Makefile)
 ```
 
-**AR build targets** (from `sample/AR/Makefile`, naming `ar.<method>[.ttl][.sd][.kdkpert][.cm][.mpfrc]`):
+**AR build mechanism** (2026-08-28): one executable per base method (`logh`,
+`logh.ttl`, `blogh.ttl`, `btlogh.ttl`); the feature suffix (order
+`.sd.cm.mpfrc.kdkpert`) is composed from the `use_sd` / `use_cm` / `use_mpfrc` /
+`use_kdkpert` flags (`use_kdkpert` forces `use_sd` on). Naming:
+`ar.<method>[.ttl][.sd][.cm][.mpfrc][.kdkpert]`. Default flags build:
 ```
-ar.logh ar.logh.sd ar.logh.ttl ar.logh.ttl.sd
-ar.blogh.ttl.sd ar.blogh.ttl.sd.cm ar.normblogh.ttl.sd ar.normblogh.ttl.sd.cm
-ar.mulall.ttl.sd ar.mulall.ttl.sd.cm ar.btlogh.ttl.sd ar.btlogh.ttl.sd.cm
-ar.maxpot.ttl.sd.cm ar.addpot.ttl.sd.cm
-ar.logh.sd.kdkpert ar.logh.ttl.sd.kdkpert
+ar.logh.sd.cm ar.logh.ttl.sd.cm ar.blogh.ttl.sd.cm ar.btlogh.ttl.sd.cm
 ```
-Plus MPFRC variants: `ar.logh.mpfrc ar.logh.ttl.mpfrc ar.blogh.ttl.sd(.cm).mpfrc ar.btlogh.ttl.sd(.cm).mpfrc ar.logh.ttl.sd.cm.mpfrc` etc.
 
 **To compile Hermite:**
 ```bash
@@ -189,9 +186,10 @@ make install
 - `-D USE_OMP` — OpenMP parallelization
 - `-D SDAR_TIME_MEASURE` — enable timing profile output (enabled by default)
 
-**When to rebuild:** If the user requests a variant not listed in `sample/AR/Makefile`'s `TARGET`,
-check whether the required `-D` flags are already enabled in the Makefile. If a new combination
-is needed, advise adding a new target rule following the existing pattern.
+**When to rebuild:** If the user requests a different feature combination, rebuild with the
+corresponding `use_*` flags (e.g. `make use_sd=no use_cm=no use_mpfrc=yes`) instead of
+editing rules. Only a new method combination beyond the four base methods would require
+adding a new rule.
 
 **Install path:** Default is `~/bin`. To change, modify `INSTALL_PATH` in each `sample/*/Makefile`.
 
@@ -267,9 +265,12 @@ For N-body simulations, unit 0 (unscaled, G=1, total mass=1) or unit 4 (Msun/pc/
 | Isolated binary (faster, less accurate) | `ar.logh.ttl` |
 | Hierarchical triple/quadruple | `ar.logh.sd` or `ar.logh.ttl.sd` |
 | Weakly perturbed binary | `ar.logh.sd.kdkpert` |
-| System with multiple inner binaries | `ar.blogh.ttl.sd` (or `normblogh`) |
+| System with multiple inner binaries | `ar.blogh.ttl.sd` |
 | Hierarchical quadruple+ (B-B) | `ar.btlogh.ttl.sd` |
 | High-precision requirement | `ar.logh.mpfrc` |
+
+Suffix features beyond the default `.sd.cm` (e.g. `.mpfrc`, `.kdkpert`) are opt-in
+via the `use_*` flags at build time (see Compilation above).
 
 **Key AR command-line options:**
 
@@ -286,7 +287,7 @@ For N-body simulations, unit 0 (unscaled, G=1, total mass=1) or unit 4 (Msun/pc/
 | `-i` | int | Interrupt detection: 0=off, 1=modify orbits, 2=record only | 0 |
 | `-p` | string | Load parameters from file | "" |
 | `--ds-scale` | float | Step size scaling factor | 1.0 |
-| `--g-func` | int | g-function mode: 0=standard LogH; 1=method of this build; 2=auto switch 1<->0 (rejected for btlogh/mulall; only on g-func binaries) | 0 |
+| `--g-func` | int | g-function mode: 0=standard LogH; 1=method of this build; 2=auto switch 1<->0 (rejected for btlogh; only on g-func binaries) | 0 |
 | `--dt-min` | float | Minimum physical time step | 1e-13 |
 | `--slowdown-ref` | float | Slowdown perturbation ratio reference | 1e-6 |
 | `--slowdown-timescale-max` | float | Max timescale for slowdown factor | time-end |

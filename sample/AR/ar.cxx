@@ -95,16 +95,8 @@ public:
 #ifdef AR_G_FUNC
 #if defined(AR_G_FUNC_BLOGH)
 #define AR_G_FUNC_METHOD_NAME "BLogH - product of the innermost binary pair potentials"
-#elif defined(AR_G_FUNC_NORM_BLOGH)
-#define AR_G_FUNC_METHOD_NAME "normalized BLogH - (product of the innermost binary pair potentials)^(1/n_bin);  n_bin: number of inner binaries"
-#elif defined(AR_G_FUNC_MUL_ALL_POT)
-#define AR_G_FUNC_METHOD_NAME "all-pairs product - product over every pair potential (auto ds not supported, a fixed step --s is required)"
 #elif defined(AR_G_FUNC_BTLOGH)
 #define AR_G_FUNC_METHOD_NAME "BTLogH - tree-level product of potentials (inner pairs x outer orbit nodes);  for hyperbolic outer orbits the potential is fixed at the peri-center q=|a|(e-1), to avoid divergence"
-#elif defined(AR_G_FUNC_MAX_POT)
-#define AR_G_FUNC_METHOD_NAME "max-potential - the strongest innermost pair at each instant (recommended for strongly hierarchical systems)"
-#elif defined(AR_G_FUNC_ADD_INNER_POT)
-#define AR_G_FUNC_METHOD_NAME "inner-sum - sum of the innermost binary pair potentials"
 #endif
 #ifdef AR_G_FUNC_BTLOGH
 #define AR_G_FUNC_AUTO_DESC ""
@@ -256,13 +248,9 @@ public:
                         std::cerr<<"Error: --g-func value unknown ("<<optarg<<"), should be 0 (standard LogH), 1 (" AR_G_FUNC_METHOD_NAME ") or 2 (auto switch)\n";
                         abort();
                     }
-#if defined(AR_G_FUNC_BTLOGH) || defined(AR_G_FUNC_MUL_ALL_POT)
-                    if (g_func_option.value == 2) {
 #ifdef AR_G_FUNC_BTLOGH
+                    if (g_func_option.value == 2) {
                         std::cerr<<"Error: --g-func 2 (auto switch) is not supported for the BTLogH method\n";
-#else
-                        std::cerr<<"Error: --g-func 2 (auto switch) is not supported for the all-pairs product method (no auto-ds formula; switching would abort on ds recalculation)\n";
-#endif
                         abort();
                     }
 #endif
@@ -398,21 +386,13 @@ int main(int argc, char **argv){
 
     // binary base name follows the Makefile naming scheme:
     //   ar.<g-func method>[.ttl][.sd][.cm][.mpfrc]
-    // (method: logh/blogh/normblogh/mulall/btlogh/maxpot/addpot; .ttl marks the
+    // (method: logh/blogh/btlogh; .ttl marks the
     // Time-Transformed Leapfrog implementation of the method; .sd the
     // tree-based slowdown; .cm the CM-frame build; .mpfrc MPFR precision)
 #if defined(AR_G_FUNC_BLOGH)
     std::string bin_name("ar.blogh");
-#elif defined(AR_G_FUNC_NORM_BLOGH)
-    std::string bin_name("ar.normblogh");
-#elif defined(AR_G_FUNC_MUL_ALL_POT)
-    std::string bin_name("ar.mulall");
 #elif defined(AR_G_FUNC_BTLOGH)
     std::string bin_name("ar.btlogh");
-#elif defined(AR_G_FUNC_MAX_POT)
-    std::string bin_name("ar.maxpot");
-#elif defined(AR_G_FUNC_ADD_INNER_POT)
-    std::string bin_name("ar.addpot");
 #else
     std::string bin_name("ar.logh");
 #endif
@@ -531,22 +511,10 @@ int main(int argc, char **argv){
     if(!iop.load_flag.value) {
         // initialization 
         sym_int.initialIntegration(iop.time_zero.value);
-#ifdef AR_G_FUNC_MUL_ALL_POT
-        // the all-pairs product has no auto-ds formula: mode 1 requires a
-        // user-given fixed step (--s); the min-ds estimate below is only a
-        // placeholder so that fix_step_option is still set (it is overridden
-        // by --s right after)
-        if (sym_int.g_func_on && iop.s.value<=0.0) {
-            std::cerr<<"Error: --g-func 1 (all-pairs product) requires a fixed step size (e.g. --s)\n";
-            abort();
-        }
-        sym_int.info.calcDsAndStepOption(manager.step.getOrder(), manager.interaction.gravitational_constant, manager.ds_scale, 0);
-#else
 #ifdef AR_G_FUNC
-        sym_int.info.calcDsAndStepOption(manager.step.getOrder(), manager.interaction.gravitational_constant, manager.ds_scale, sym_int.g_func_on ? 1 : 0);
+        sym_int.info.calcDsAndStepOption(manager.step.getOrder(), manager.interaction.gravitational_constant, manager.ds_scale, sym_int.g_func_on);
 #else
         sym_int.info.calcDsAndStepOption(manager.step.getOrder(), manager.interaction.gravitational_constant, manager.ds_scale);
-#endif
 #endif
     }
 #ifdef AR_G_FUNC
@@ -650,7 +618,7 @@ int main(int argc, char **argv){
                         manager.interaction.gravitational_constant,
                         manager.ds_scale
     #ifdef AR_G_FUNC
-                        , sym_int.g_func_on ? 1 : 0
+                        , sym_int.g_func_on
     #endif
                     );
                 }

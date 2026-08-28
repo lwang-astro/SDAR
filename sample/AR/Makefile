@@ -1,6 +1,10 @@
-TARGET= ar.logh ar.logh.sd ar.logh.ttl ar.logh.ttl.sd ar.blogh.ttl.sd ar.blogh.ttl.sd.cm ar.normblogh.ttl.sd ar.normblogh.ttl.sd.cm ar.mulall.ttl.sd ar.mulall.ttl.sd.cm ar.btlogh.ttl.sd ar.btlogh.ttl.sd.cm ar.maxpot.ttl.sd.cm ar.addpot.ttl.sd.cm ar.logh.sd.kdkpert ar.logh.ttl.sd.kdkpert
-#TARGET= ar.logh ar.logh.ttl ar.logh.sd.kdkpert ar.logh.ttl.sd.kdkpert
-TARGET_MPFRC= ar.logh.ttl.sd.cm ar.logh.mpfrc ar.logh.ttl.mpfrc ar.blogh.ttl.sd.cm.mpfrc ar.blogh.ttl.sd.mpfrc ar.btlogh.ttl.sd.cm.mpfrc ar.btlogh.ttl.sd.mpfrc 
+# Exactly ONE executable per base method (4 total, see TARGET below); the
+# feature suffix (.sd/.cm/.mpfrc/.kdkpert) is composed from the use_* flags,
+# so every configuration builds only 4 binaries:
+#   ar.logh$(FEATURE_SUFFIX)      ar.logh.ttl$(FEATURE_SUFFIX)
+#   ar.blogh.ttl$(FEATURE_SUFFIX) ar.btlogh.ttl$(FEATURE_SUFFIX)
+# Note: g-func methods require .sd (AR_SLOWDOWN_TREE); without it --g-func is
+# silently inactive (plain LogH behavior).
 INSTALL_PATH=~/bin
 BUILD_DIR=./build
 
@@ -9,7 +13,13 @@ VPATH=../../src
 SOURCE=${shell ls ../../src/AR/*.h} ${shell ls ../../src/Common/*.h} ${shell ls ./*.h}
 
 use_x86=yes
-use_mpfrc=yes
+# feature combination: each enabled flag appends its suffix and compile flags
+# to ALL 4 base methods (suffix order: .sd .cm .mpfrc .kdkpert;
+# use_kdkpert requires use_sd and forces it on)
+use_sd=yes
+use_cm=yes
+use_kdkpert=no
+use_mpfrc=no
 #use_k_computer=yes
 #QD_PATH=../../../../
 #MPFRC_PATH=../../../mpreal
@@ -63,12 +73,39 @@ CXXFLAGS += -D USE_DD ${shell ${QD_PATH}/bin/qd-config --cxxflags}
 CXXLIBS += ${shell ${QD_PATH}/bin/qd-config --libs}
 endif
 
-## mpfrc++-lib----------------------------------------#
-ifeq ($(use_mpfrc),yes)
-MPFRC_FLAGS += -D USE_MPFRC# -I $(MPFRC_PATH)
-MPFRC_LIBS += -lmpfr -lgmp
-TARGET += ${TARGET_MPFRC}
+## feature suffix / flags (shared by all base methods)----#
+# effective sd state: AR_KDK_PERT requires the slowdown tree, so use_kdkpert
+# forces sd on (an internal variable is used because command-line use_sd=no
+# would otherwise override an in-makefile reassignment)
+ifeq ($(use_kdkpert),yes)
+SD_ENABLED = yes
+else
+SD_ENABLED = $(use_sd)
 endif
+
+FEATURE_SUFFIX =
+FEATURE_FLAGS  =
+FEATURE_LIBS   =
+ifeq ($(SD_ENABLED),yes)
+FEATURE_SUFFIX := $(FEATURE_SUFFIX).sd
+FEATURE_FLAGS += -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE
+endif
+ifeq ($(use_cm),yes)
+FEATURE_SUFFIX := $(FEATURE_SUFFIX).cm
+FEATURE_FLAGS += -D USE_CM_FRAME
+endif
+ifeq ($(use_mpfrc),yes)
+FEATURE_SUFFIX := $(FEATURE_SUFFIX).mpfrc
+FEATURE_FLAGS += -D USE_MPFRC# -I $(MPFRC_PATH)
+FEATURE_LIBS  += -lmpfr -lgmp
+endif
+ifeq ($(use_kdkpert),yes)
+FEATURE_SUFFIX := $(FEATURE_SUFFIX).kdkpert
+FEATURE_FLAGS += -D AR_KDK_PERT
+endif
+
+# 4 executables: one per base method with the common feature suffix
+TARGET= ar.logh$(FEATURE_SUFFIX) ar.logh.ttl$(FEATURE_SUFFIX) ar.blogh.ttl$(FEATURE_SUFFIX) ar.btlogh.ttl$(FEATURE_SUFFIX)
 
 
 all: $(addprefix $(BUILD_DIR)/, $(TARGET))
@@ -78,77 +115,17 @@ $(BUILD_DIR):
 
 ## Target --------------------------------------------#
 
-$(BUILD_DIR)/ar.logh: ar.cxx  ${SOURCE} | $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) $< -o $@ $(CXXLIBS)
+$(BUILD_DIR)/ar.logh$(FEATURE_SUFFIX): ar.cxx  ${SOURCE} | $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) $(FEATURE_FLAGS) $< -o $@ $(CXXLIBS) $(FEATURE_LIBS)
 
-$(BUILD_DIR)/ar.logh.mpfrc: ar.cxx  ${SOURCE} | $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) $(MPFRC_FLAGS) $< -o $@ $(CXXLIBS) $(MPFRC_LIBS)
+$(BUILD_DIR)/ar.logh.ttl$(FEATURE_SUFFIX): ar.cxx ${SOURCE} | $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) $(FEATURE_FLAGS) -D AR_TTL $< -o $@ $(CXXLIBS) $(FEATURE_LIBS)
 
-$(BUILD_DIR)/ar.logh.sd: ar.cxx ${SOURCE} | $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE  $< -o $@ $(CXXLIBS)
+$(BUILD_DIR)/ar.blogh.ttl$(FEATURE_SUFFIX): ar.cxx ${SOURCE} | $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) $(FEATURE_FLAGS) -D AR_TTL -D AR_G_FUNC_BLOGH $< -o $@ $(CXXLIBS) $(FEATURE_LIBS)
 
-$(BUILD_DIR)/ar.logh.sd.kdkpert: ar.cxx ${SOURCE} | $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE -D AR_KDK_PERT $< -o $@ $(CXXLIBS)
-
-$(BUILD_DIR)/ar.logh.ttl: ar.cxx ${SOURCE} | $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) -D AR_TTL $< -o $@ $(CXXLIBS)
-
-$(BUILD_DIR)/ar.logh.ttl.mpfrc: ar.cxx ${SOURCE} | $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) $(MPFRC_FLAGS) -D AR_TTL $< -o $@ $(CXXLIBS) $(MPFRC_LIBS)
-
-$(BUILD_DIR)/ar.logh.ttl.m: ar.cxx ${SOURCE} | $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) -D AR_TTL -D AR_TTL_GT_MULTI $< -o $@ $(CXXLIBS)
-
-$(BUILD_DIR)/ar.logh.ttl.sd: ar.cxx ${SOURCE} | $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) -D AR_TTL -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE  $< -o $@ $(CXXLIBS)
-
-$(BUILD_DIR)/ar.logh.ttl.sd.kdkpert: ar.cxx ${SOURCE} | $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) -D AR_TTL -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE -D AR_KDK_PERT $< -o $@ $(CXXLIBS)
-
-$(BUILD_DIR)/ar.logh.ttl.sd.cm: ar.cxx ${SOURCE} | $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) -D AR_TTL -D USE_CM_FRAME -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE  $< -o $@ $(CXXLIBS)
-
-$(BUILD_DIR)/ar.blogh.ttl.sd: ar.cxx ${SOURCE} | $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) -D AR_TTL -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE -D AR_G_FUNC_BLOGH $< -o $@ $(CXXLIBS)
-
-$(BUILD_DIR)/ar.blogh.ttl.sd.cm: ar.cxx ${SOURCE} | $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) -D AR_TTL -D USE_CM_FRAME -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE -D AR_G_FUNC_BLOGH $< -o $@ $(CXXLIBS)
-
-$(BUILD_DIR)/ar.blogh.ttl.sd.mpfrc: ar.cxx ${SOURCE} | $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) $(MPFRC_FLAGS) -D AR_TTL -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE -D AR_G_FUNC_BLOGH $< -o $@ $(CXXLIBS) $(MPFRC_LIBS)
-
-$(BUILD_DIR)/ar.blogh.ttl.sd.cm.mpfrc: ar.cxx ${SOURCE} | $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) $(MPFRC_FLAGS) -D AR_TTL -D USE_CM_FRAME -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE -D AR_G_FUNC_BLOGH $< -o $@ $(CXXLIBS) $(MPFRC_LIBS)
-
-$(BUILD_DIR)/ar.normblogh.ttl.sd: ar.cxx ${SOURCE} | $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) -D AR_TTL -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE -D AR_G_FUNC_NORM_BLOGH $< -o $@ $(CXXLIBS)
-
-$(BUILD_DIR)/ar.normblogh.ttl.sd.cm: ar.cxx ${SOURCE} | $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) -D AR_TTL -D USE_CM_FRAME -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE -D AR_G_FUNC_NORM_BLOGH $< -o $@ $(CXXLIBS)
-
-$(BUILD_DIR)/ar.mulall.ttl.sd: ar.cxx ${SOURCE} | $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) -D AR_TTL -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE -D AR_G_FUNC_MUL_ALL_POT $< -o $@ $(CXXLIBS)
-
-$(BUILD_DIR)/ar.mulall.ttl.sd.cm: ar.cxx ${SOURCE} | $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) -D AR_TTL -D USE_CM_FRAME -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE -D AR_G_FUNC_MUL_ALL_POT $< -o $@ $(CXXLIBS)
-
-$(BUILD_DIR)/ar.btlogh.ttl.sd: ar.cxx ${SOURCE} | $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) -D AR_TTL -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE -D AR_G_FUNC_BTLOGH $< -o $@ $(CXXLIBS)
-
-$(BUILD_DIR)/ar.btlogh.ttl.sd.cm: ar.cxx ${SOURCE} | $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) -D AR_TTL -D USE_CM_FRAME -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE -D AR_G_FUNC_BTLOGH $< -o $@ $(CXXLIBS)
-
-$(BUILD_DIR)/ar.btlogh.ttl.sd.mpfrc: ar.cxx ${SOURCE} | $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) $(MPFRC_FLAGS) -D AR_TTL -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE -D AR_G_FUNC_BTLOGH $< -o $@ $(CXXLIBS) $(MPFRC_LIBS)
-
-$(BUILD_DIR)/ar.btlogh.ttl.sd.cm.mpfrc: ar.cxx ${SOURCE} | $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) $(MPFRC_FLAGS) -D AR_TTL -D USE_CM_FRAME -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE -D AR_G_FUNC_BTLOGH $< -o $@ $(CXXLIBS) $(MPFRC_LIBS)
-
-$(BUILD_DIR)/ar.maxpot.ttl.sd.cm: ar.cxx ${SOURCE} | $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) -D AR_TTL -D USE_CM_FRAME -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE -D AR_G_FUNC_MAX_POT $< -o $@ $(CXXLIBS)
-
-$(BUILD_DIR)/ar.addpot.ttl.sd.cm: ar.cxx ${SOURCE} | $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) -D AR_TTL -D USE_CM_FRAME -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE -D AR_G_FUNC_ADD_INNER_POT $< -o $@ $(CXXLIBS)
+$(BUILD_DIR)/ar.btlogh.ttl$(FEATURE_SUFFIX): ar.cxx ${SOURCE} | $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) $(FEATURE_FLAGS) -D AR_TTL -D AR_G_FUNC_BTLOGH $< -o $@ $(CXXLIBS) $(FEATURE_LIBS)
 
 install: $(addprefix $(BUILD_DIR)/, $(TARGET))
 	install -m 755 $(addprefix $(BUILD_DIR)/, $(TARGET)) $(INSTALL_PATH)

@@ -67,7 +67,7 @@ if hasattr(data, 'de_sd'):
     print("Slowdown factor:", data.sd.slowdown_factor)
 ```
 
-## Pattern 1a: Read AR Output with g-function mode (BLOGH / NORM_BLOGH / MUL_ALL_POT / BTLOGH / MAX_POT / ADD_INNER_POT)
+## Pattern 1a: Read AR Output with g-function mode (BLOGH / BTLOGH)
 
 **Since 2026-08-05**: Output from g-func binaries (any method macro) includes an extra `g_func` column.
 Pass `g_func=True` to `SDARData` to read it.
@@ -76,7 +76,8 @@ Pass `g_func=True` to `SDARData` to read it.
 > old column `hybrid_flag` → new column `g_func`.
 >
 > **Migration 2 (2026-08-27 macro refactor)**: one g-func method per binary
-> (`ar.{blogh,normblogh,mulall,btlogh,maxpot,addpot}.ttl.sd[.cm]`); the
+> (`ar.{blogh,btlogh}.ttl.sd[.cm]`; until the 2026-08-28 simplification also
+> normblogh / mulall / maxpot / addpot, see git tag `gfunc-archive`); the
 > `g_func` column now prints the **active state: 0=standard LogH, 1=the method
 > of this build** (auto mode `--g-func 2` flips it per step). Old data files
 > used per-method codes 1/2/3/4 — map any non-zero value to 1 when comparing.

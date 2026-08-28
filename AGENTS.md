@@ -27,8 +27,9 @@ make -C tools
 - `AR_KDK_PERT` — KDK perturbation scheme
 - `USE_MPFRC` — arbitrary precision via MPFR (`-lmpfr -lgmp`)
 - `AR_G_FUNC_*` — g-function methods (one per build, mutual exclusion enforced
-  in `src/AR/g_func.h`): `BLOGH`, `NORM_BLOGH`, `MUL_ALL_POT`, `BTLOGH`,
-  `MAX_POT`, `ADD_INNER_POT`; see `docs/hierarchical_blogh_impl_notes.md`
+  in `src/AR/g_func.h`): `BLOGH`, `BTLOGH`; see
+  `docs/hierarchical_blogh_impl_notes.md`. Other variants were removed in the
+  2026-08-28 simplification (last implementing version: git tag `gfunc-archive`)
 
 ## Architecture
 
