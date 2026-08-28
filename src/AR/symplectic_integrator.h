@@ -303,15 +303,19 @@ namespace AR {
             int inew;
             int jnew;
 #elif defined(AR_G_FUNC_MUL_POT_FAMILY)
-            int nbin; ///< number of binaries included in gt_kick_inv
-            Float mul_pot_no_pow; ///< production of potential with no power
+#ifdef AR_G_FUNC_NORM_BLOGH
+            // normalized-product scratch members (NORM_BLOGH only; other
+            // product methods keep the base value-only form)
+            int nbin; ///< number of inner binaries in the product (geometric-mean exponent)
+            Float mul_pot_no_pow; ///< product value before the 1/nbin power
+#endif
 #endif
 
             // initialization
             GtKickInv(): 
 #ifdef AR_G_FUNC_MAX_POT
                 value(0.0), i(-1), j(-1), gtgrad{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}, max(0.0), scale(1.0), initial(false), inew(-1), jnew(-1)
-#elif defined(AR_G_FUNC_MUL_POT_FAMILY)
+#elif defined(AR_G_FUNC_NORM_BLOGH)
                 value(1.0), nbin(0), mul_pot_no_pow(1.0)
 #else
                 value(0.0)
@@ -328,7 +332,9 @@ namespace AR {
                 initial = false;
 #elif defined(AR_G_FUNC_MUL_POT_FAMILY)
                 value = _g_func_on ? 1.0 : 0.0;
+#ifdef AR_G_FUNC_NORM_BLOGH
                 nbin = 0;
+#endif
 #else
                 value = 0.0;
 #endif
@@ -345,7 +351,9 @@ namespace AR {
                 inew = jnew = -1;
 #elif defined(AR_G_FUNC_MUL_POT_FAMILY)
                 value = 1.0;
+#ifdef AR_G_FUNC_NORM_BLOGH
                 nbin = 0;
+#endif
 #else
                 value = 0.0;
 #endif
@@ -911,7 +919,9 @@ namespace AR {
                     force_[_j].gtgrad[2] += fij[1].gtgrad[2]*gt_kick;
 
                     // add binary count and multiply gt_kick_inv by current-layer slowdown
-                    gt_kick_inv_.nbin++;
+#ifdef AR_G_FUNC_NORM_BLOGH
+                    gt_kick_inv_.nbin++; // geometric-mean exponent (NORM_BLOGH only)
+#endif
                     gt_kick_inv_.value *= gt_kick_inv * _inv_sd;
                 }
                 else {

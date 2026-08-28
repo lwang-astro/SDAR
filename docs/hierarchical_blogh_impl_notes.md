@@ -92,7 +92,7 @@ if (g_func_on) calc_gt_cross = false;   // 其余五法生效时：仅 inner 对
 
 | 位置 | BLOGH | NORM_BLOGH | MUL_ALL_POT | BTLOGH | MAX_POT | ADD_INNER_POT |
 |---|---|---|---|---|---|---|
-| `GtKickInv` struct | family | family | family | family | 专属 | 基础 |
+| `GtKickInv` struct | 基础 | 基础+nbin/mul_pot_no_pow | 基础 | 基础 | 专属 | 基础 |
 | pair 累积（`calcAccPotAndGTKickInvTwo`） | 乘积 | 乘积 | 乘积 | 乘积 | max+平滑 | sum |
 | `pow(1/nbin)` 后处理 | — | ✅ | — | — | — | — |
 | `processOuterNode` | — | — | — | ✅ | — | — |

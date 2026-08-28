@@ -27,9 +27,11 @@
 #define AR_G_FUNC
 #endif
 
-// family macro: the four product-form methods share the GtKickInv product
-// structure (nbin / mul_pot_no_pow) and the pair-accumulation branch.
+// family macro: the four product-form methods share the pair-accumulation
+// branch in calcAccPotAndGTKickInvTwo and the dgt_drift_inv product scaling.
 // MAX_POT has its own structure; ADD_INNER_POT uses the base sum structure.
+// GtKickInv keeps the base value-only form for all four; NORM_BLOGH
+// additionally tracks nbin / mul_pot_no_pow for the geometric mean.
 #if (defined AR_G_FUNC_BLOGH) || (defined AR_G_FUNC_NORM_BLOGH) || (defined AR_G_FUNC_MUL_ALL_POT) || (defined AR_G_FUNC_BTLOGH)
 #define AR_G_FUNC_MUL_POT_FAMILY
 #endif
