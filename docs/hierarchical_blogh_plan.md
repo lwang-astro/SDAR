@@ -1,6 +1,6 @@
 # Hierarchical BLogH: Theory Reference
 
-> **用途**: 本文档提供 BTLogH (g_func=4) 的理论基础与开发历史记录。实际代码实现见 [`hierarchical_blogh_impl_notes.md`](./hierarchical_blogh_impl_notes.md)。
+> **用途**: 本文档提供 BTLogH（历史运行期编号 g_func=4；2026-08-27 宏体系重构后为独立编译宏 `AR_G_FUNC_BTLOGH`、运行期选项 `--g-func 1`，重构记录见 [`hierarchical_blogh_impl_notes.md`](./hierarchical_blogh_impl_notes.md) 的"g-func 重构记录"节）的理论基础与开发历史记录。实际代码实现见 [`hierarchical_blogh_impl_notes.md`](./hierarchical_blogh_impl_notes.md)。
 > 原始计划中关于梯度无需修正、`multiplyOuterNodePotentials()` 用 `_bin.semi` 等方案在实测中被发现有问题，
 > 已被 `processOuterNode()` 替代。本文档仅保留经验证正确的理论部分。
 > 2026-08-26：吸收已完成的《双曲层级 ds 规范统一计划》（原独立文件已删除），见 §3；§2 标注为历史设计。

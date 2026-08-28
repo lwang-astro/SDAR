@@ -32,13 +32,13 @@ build correctness, and Python data analysis patterns.
   5. A clear prompt: *"Proceed? (y/n)"* — stop and wait for user response.
 - **Redirect stdout of every major command to a file.** Use consistent naming:
   - `ar.logh ... >ar_logh.log` for AR LogH runs
-  - `ar.ttl ... >ar_ttl.log` for AR TTL runs
+  - `ar.logh.ttl ... >ar_logh_ttl.log` for AR TTL runs
   - `hermite ... >hermite.log` for Hermite runs
   - `keplertree ... >keplertree.log` for tree construction
   - `keplerorbit ... >keplerorbit.log` for orbit conversion
 - **Record every command to a `commands.log` file in the working directory.**
   ```bash
-  echo "# $(date): ~/bin/ar.logh.sd.t -t 1.0 -s 0.01 input.dat" >> commands.log
+  echo "# $(date): ~/bin/ar.logh.sd -t 1.0 -s 0.01 input.dat" >> commands.log
   ```
 - **Never mutate input files.** SDAR input files are small ASCII tables. Always keep the original;
   if parameter changes are needed, copy the input file to the working directory first.
@@ -59,8 +59,8 @@ build correctness, and Python data analysis patterns.
 - **SDAR is the reference integrator for PeTar.** When debugging PeTar close-encounter behavior,
   replicate the subsystem in standalone SDAR first to isolate SDAR-level vs P3T-level issues.
 - **For hierarchical systems, slowdown (`sd`) binaries are preferred.** The slowdown method
-  dramatically accelerates weakly perturbed inner binaries. Use `ar.logh.sd.t` or `ar.ttl.sd.t`
-  over plain `ar.logh`/`ar.ttl` for hierarchical systems.
+  dramatically accelerates weakly perturbed inner binaries. Use `ar.logh.sd` or `ar.logh.ttl.sd`
+  over plain `ar.logh`/`ar.logh.ttl` for hierarchical systems.
 
 ## Algorithm Overview
 
@@ -88,15 +88,31 @@ Key references:
 
 ### AR Method Variants
 
-| Suffix | Method | Time Transformation | Notes |
-|--------|--------|---------------------|-------|
-| `logh` | LogH | `g = log(f(T) - f(-U)) / (T+U)` | Best for isolated binaries. Numerical trajectory follows exact Kepler with phase error only. |
-| `ttl` | TTL (Time-Transformed Leapfrog) | `g = 1/|U|` | Simpler, faster per step but larger energy error for high eccentricity. |
-| `sd.t` | Slowdown, tree | With slowdown for inner+outer binaries | Hierarchical slowdown across binary tree levels. **Current default.** |
-| `kdk.pert` | KDK with perturbation | LogH with KDK splitting | Alternative for weakly perturbed systems. |
-| `mulpot` | Multi-potential | Product-of-pair-potentials time function | For systems with multiple binaries. |
-| `cm` | Center-of-mass | With CM motion tracking | Useful when system drifts. |
-| `mpfrc` | MPFRC | High-precision (mpfr::mpreal) | Arbitrary-precision mode. Requires `-lmpfr -lgmp`. |
+Binary names follow `ar.<method>[.ttl][.sd][.kdkpert][.cm][.mpfrc]` — `<method>` is
+the g-function form, `.ttl` the Time-Transformed Leapfrog implementation of it
+(absent = LogH implementation):
+
+| Suffix | Meaning | Notes |
+|--------|---------|-------|
+| `logh` | g = `log(f(T) - f(-U)) / (T+U)` | Best for isolated binaries. Numerical trajectory follows exact Kepler with phase error only. |
+| `ttl` | Time-Transformed Leapfrog implementation, g = `1/|U|` | Simpler, faster per step but larger energy error for high eccentricity. |
+| `blogh` | BLogH g-func: product of innermost pair potentials | One g-func method per build (see below). |
+| `normblogh` | Normalized BLogH: (product of innermost potentials)^(1/N) | Same, g ~ energy dimension. |
+| `mulall` | All-pairs product | Requires `--s` (no auto ds). |
+| `btlogh` | BTLogH: tree-level product (inner pairs x outer nodes) | Hierarchical quadruples+ (B-B). No auto switch. |
+| `maxpot` | Max-potential: strongest innermost pair at each instant | Strongly hierarchical systems. |
+| `addpot` | Inner-sum: sum of innermost pair potentials | Alternative multi-binary handling. |
+| `sd` | Tree-based hierarchical slowdown (old `.sd.t`; `.sd.a` deprecated) | **Current default for hierarchical systems.** |
+| `kdkpert` | KDK with perturbation splitting (old `kdk.pert`) | Alternative for weakly perturbed systems. |
+| `cm` | Center-of-mass frame build | Useful when system drifts. |
+| `mpfrc` | High-precision (mpfr::mpreal) | Arbitrary-precision mode. Requires `-lmpfr -lgmp`. |
+
+**g-func method macros** (`src/AR/g_func.h`): `AR_G_FUNC_BLOGH / NORM_BLOGH /
+MUL_ALL_POT / BTLOGH / MAX_POT / ADD_INNER_POT` — exactly one per build (mutual
+exclusion enforced at compile time). Runtime option `--g-func`: 0 = standard
+LogH, 1 = the method of this build, 2 = auto switch between 1 and 0 (rejected
+for btlogh and mulall). The old `AR_G_FUNC_MUL_POT` macro and `--g-func-switch`
+option no longer exist (2026-08-27 refactor, see `docs/hierarchical_blogh_impl_notes.md`).
 
 ### Hermite: Hybrid Hermite+AR
 
@@ -139,18 +155,20 @@ make              # build all targets to ./build/
 make install      # install to ~/bin/ (or modify INSTALL_PATH in Makefile)
 ```
 
-**AR build targets** (from `sample/AR/Makefile`):
+**AR build targets** (from `sample/AR/Makefile`, naming `ar.<method>[.ttl][.sd][.kdkpert][.cm][.mpfrc]`):
 ```
-ar.logh ar.logh.sd.t ar.ttl ar.ttl.sd.t ar.ttl.sd.t.mulpot
-ar.ttl.sd.t.mulpot.cm ar.ttl.sd.t.maxpot.cm ar.ttl.sd.t.addpot.cm
-ar.logh.sd.t.kdk.pert ar.ttl.sd.t.kdk.pert
+ar.logh ar.logh.sd ar.logh.ttl ar.logh.ttl.sd
+ar.blogh.ttl.sd ar.blogh.ttl.sd.cm ar.normblogh.ttl.sd ar.normblogh.ttl.sd.cm
+ar.mulall.ttl.sd ar.mulall.ttl.sd.cm ar.btlogh.ttl.sd ar.btlogh.ttl.sd.cm
+ar.maxpot.ttl.sd.cm ar.addpot.ttl.sd.cm
+ar.logh.sd.kdkpert ar.logh.ttl.sd.kdkpert
 ```
-Plus MPFRC variants: `ar.ttl.sd.t.cm ar.logh.mpfrc ar.ttl.mpfrc` etc.
+Plus MPFRC variants: `ar.logh.mpfrc ar.logh.ttl.mpfrc ar.blogh.ttl.sd(.cm).mpfrc ar.btlogh.ttl.sd(.cm).mpfrc ar.logh.ttl.sd.cm.mpfrc` etc.
 
 **To compile Hermite:**
 ```bash
 cd sample/Hermite
-make              # builds hermite, hermite.mpfrc, hermite.kdk.pert
+make              # builds hermite, hermite.mpfrc, hermite.kdkpert
 make install
 ```
 
@@ -162,7 +180,7 @@ make install
 ```
 
 **Compile flags to be aware of:**
-- `-D AR_SLOWDOWN_TREE` — enables hierarchical slowdown (required for `sd.t` variants)
+- `-D AR_SLOWDOWN_TREE` — enables hierarchical slowdown (required for `sd` variants)
 - `-D AR_SLOWDOWN_TIMESCALE` — enables timescale-based slowdown control
 - `-D AR_TTL` — use TTL time transformation instead of LogH
 - `-D AR_KDK_PERT` — use KDK perturbation splitting
@@ -246,10 +264,11 @@ For N-body simulations, unit 0 (unscaled, G=1, total mass=1) or unit 4 (Msun/pc/
 | System | Recommended Binary |
 |--------|-------------------|
 | Isolated binary | `ar.logh` |
-| Isolated binary (faster, less accurate) | `ar.ttl` |
-| Hierarchical triple/quadruple | `ar.logh.sd.t` or `ar.ttl.sd.t` |
-| Weakly perturbed binary | `ar.logh.sd.t.kdk.pert` |
-| System with multiple inner binaries | `ar.ttl.sd.t.mulpot` |
+| Isolated binary (faster, less accurate) | `ar.logh.ttl` |
+| Hierarchical triple/quadruple | `ar.logh.sd` or `ar.logh.ttl.sd` |
+| Weakly perturbed binary | `ar.logh.sd.kdkpert` |
+| System with multiple inner binaries | `ar.blogh.ttl.sd` (or `normblogh`) |
+| Hierarchical quadruple+ (B-B) | `ar.btlogh.ttl.sd` |
 | High-precision requirement | `ar.logh.mpfrc` |
 
 **Key AR command-line options:**
@@ -267,6 +286,7 @@ For N-body simulations, unit 0 (unscaled, G=1, total mass=1) or unit 4 (Msun/pc/
 | `-i` | int | Interrupt detection: 0=off, 1=modify orbits, 2=record only | 0 |
 | `-p` | string | Load parameters from file | "" |
 | `--ds-scale` | float | Step size scaling factor | 1.0 |
+| `--g-func` | int | g-function mode: 0=standard LogH; 1=method of this build; 2=auto switch 1<->0 (rejected for btlogh/mulall; only on g-func binaries) | 0 |
 | `--dt-min` | float | Minimum physical time step | 1e-13 |
 | `--slowdown-ref` | float | Slowdown perturbation ratio reference | 1e-6 |
 | `--slowdown-timescale-max` | float | Max timescale for slowdown factor | time-end |
@@ -379,12 +399,12 @@ data = SDARData(arr, N_particle=2)  # no ncols validation
 | Output | Kwargs | Data cols | Expected cols |
 |--------|--------|-----------|---------------|
 | plain AR (any N) | `N_particle=N, time_measure=True` | 47 (N=2), 56 (N=3) | ✅ match |
-| AR .sd.t (tree slowdown) | `slowdown=True, time_measure=True, N_particle=N, N_sd=M` | 75 (N=3, M=2) | ✅ match |
+| AR .sd (tree slowdown) | `slowdown=True, time_measure=True, N_particle=N, N_sd=M` | 75 (N=3, M=2) | ✅ match |
 | Hermite | `time_measure=True, N_particle=N` | 114 (N=3) | ⚠️ 108, close |
 
 > **Note on `N_sd`**: `N_sd` = total number of binary (slowdown) pairs in the system.
 >
-> **AR (tree slowdown, `.sd.t`):** For a fully-connected hierarchical tree of N particles,
+> **AR (tree slowdown, `.sd`):** For a fully-connected hierarchical tree of N particles,
 > the number of binary pairs is `N_sd = N_particle - 1`. For example:
 > - Hierarchical triple (N=3): inner binary (p0-p1) + outer binary ((p0+p1)-p2) → `N_sd=2`.
 > - Hierarchical quadruple (N=4): 3 binary pairs → `N_sd=3`.
@@ -430,7 +450,7 @@ data.loadtxt("output.log", skiprows=1)
 
 # With slowdown
 data = SDARData(slowdown=True, time_measure=True, N_particle=3)
-data.loadtxt("triple.logh.sd.t.log", skiprows=1)
+data.loadtxt("triple.logh.sd.log", skiprows=1)
 
 # Access data
 data.time        # physical time at each output
@@ -510,7 +530,7 @@ Add `--save-param <filename>` to the command line.
 
 **To reuse parameters:**
 ```bash
-~/bin/ar.logh.sd.t -p saved.par input.dat
+~/bin/ar.logh.sd -p saved.par input.dat
 ```
 
 Command-line arguments override file values, so `-p` + `-t 2.0` uses `t=2.0` regardless of what `saved.par` contains.
@@ -527,7 +547,7 @@ Command-line arguments override file values, so `-p` + `-t 2.0` uses `t=2.0` reg
    then skip the column-title line, then pass to `HermiteData(arr, N_particle=N)`.
 
 3. **Column counts vary by AR variant.** With N=3 particles: plain AR = 56 columns,
-   `.sd.t` = 75 columns. Pass `slowdown=True` only for `.sd.t`; `N_sd` must match
+   `.sd` = 75 columns. Pass `slowdown=True` only for `.sd`; `N_sd` must match
    the number of binary pairs. For a fully-connected hierarchical tree,
    `N_sd = N_particle - 1`. For Hermite, `N_sd` varies by initial SDAR group count.
    When the column mismatch warning appears, adjust `N_sd` to resolve it.

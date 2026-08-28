@@ -1,4 +1,5 @@
 #pragma once
+#include "AR/g_func.h"
 #include "Common/Float.h"
 #include "Common/binary_tree.h"
 #include "AR/slow_down.h"
@@ -96,7 +97,7 @@ namespace AR {
      */
     template <class Tparticle, class Tpcm>
     class Information{
-#ifdef AR_G_FUNC_MUL_POT
+#if defined(AR_G_FUNC_MUL_POT_FAMILY)
     private:
         //! effective period (timescale) of one hierarchy level — shared by leaves and internal nodes
         /*! elliptic (semi>0): slowdown-effective period P*kappa;
@@ -121,8 +122,8 @@ namespace AR {
             encounter timescale) AND internal nodes (their own orbit) — i.e. the
             true resolution driver of the whole hierarchy. Both use the shared
             calcEffectivePeriod helper.
-            BLogH ds = prod(ds_i) * P_eff_min / prod(P_eff) for switch=1,3,4
-                      = (prod(ds_i))^(1/nbin)                    for switch=2
+            BLogH-family ds = prod(ds_i) * P_eff_min / prod(P_eff)  for BLOGH / MUL_ALL_POT / BTLOGH
+                       = (prod(ds_i))^(1/nbin)                    for NORM_BLOGH
         */
         void calcBLogHDsIter(Float& _ds_prod, Float& _period_prod, int& _nbin,
                              Float& _P_eff_min,
@@ -334,7 +335,7 @@ namespace AR {
             return pert_in / pert_out;
         }
 
-#ifdef AR_G_FUNC_MUL_POT
+#ifdef AR_G_FUNC_MUL_POT_FAMILY
         //! iteration function to calculate summation and production of ds for all inner kepler orbits of a binary tree
         /*! 
           @param[out] ds_sum: summation of inner binaries' ds
@@ -523,14 +524,21 @@ namespace AR {
           @param[in] _int_order: accuracy order of the symplectic integrator.
           @param[in] _G: gravitational constant
           @param[in] _ds_scale: scaling factor to determine ds
-          @param[in] _g_func: option to determine whether to multiply node potentials into ds (default: 0, no multiply)
+          @param[in] _g_func: 1 = the g-function method of this build is active (ds formula per method macro), 0 = standard LogH (default)
          */
         void calcDsAndStepOption(const int _int_order, const Float& _G, const Float& _ds_scale, const int _g_func = 0) {
             auto& bin_root = getBinaryTreeRoot();
 
-#ifdef AR_G_FUNC_MUL_POT
+#ifdef AR_G_FUNC_MUL_POT_FAMILY
             if (_g_func > 0) {
-                // BLogH: accumulate product of per-orbit ds_i and periods
+#ifdef AR_G_FUNC_MUL_ALL_POT
+                // all-pairs product: no per-orbit ds estimate available
+                // (the product mixes every pair, including cross pairs); a fixed
+                // user-given step size (--s) is required for this build
+                std::cerr << "Error: auto ds is not supported for the all-pairs product g-function (AR_G_FUNC_MUL_ALL_POT); give a fixed step size (e.g. --s) instead" << std::endl;
+                abort();
+#else
+                // BLogH family: accumulate product of per-orbit ds_i and periods
                 Float ds_prod = 1.0;
                 Float period_prod = 1.0;
                 Float P_eff_min = NUMERIC_FLOAT_MAX;
@@ -538,30 +546,28 @@ namespace AR {
                 calcBLogHDsIter(ds_prod, period_prod, nbin, P_eff_min, bin_root, _int_order, _G);
 
                 ASSERT(nbin > 0);
-                if (_g_func == 2) {
-                    // normal-binary: geometric mean, ds ~ [energy·time]
-                    ds = pow(ds_prod, 1.0 / Float(nbin));
-                } else if (_g_func == 1 || _g_func == 4) {
-                    // binary/all/hierarchical: product formula, ds ~ [energy^nbin·time]
-                    // ds = Π(ds_i) * P_eff_min / Π(P_eff)
-                    ds = ds_prod * P_eff_min / period_prod;
-                    if (_g_func == 4) {
-                        // with outer potential, eccentricity may affect ds determination that ds is not exact reach P_eff_min.
-                        // node potentials are orbit-averaged (semi-based) and
-                        // pert-ratio scaled, see multiplyDsByNodePotentials
-                        multiplyDsByNodePotentials(bin_root, _G, _int_order);
-                    }
-                }
-                else {
-                    std::cerr << "Error: auto ds is not valid for g_func=" << _g_func << std::endl;
-                    abort();
-                }
+#ifdef AR_G_FUNC_NORM_BLOGH
+                // normalized: geometric mean, ds ~ [energy·time]
+                ds = pow(ds_prod, 1.0 / Float(nbin));
+#else
+                // plain product formula, ds ~ [energy^nbin·time]
+                // ds = Π(ds_i) * P_eff_min / Π(P_eff)
+                ds = ds_prod * P_eff_min / period_prod;
+#ifdef AR_G_FUNC_BTLOGH
+                // with outer potential, eccentricity may affect ds determination that ds is not exact reach P_eff_min.
+                // node potentials are orbit-averaged (semi-based) and
+                // pert-ratio scaled, see multiplyDsByNodePotentials
+                multiplyDsByNodePotentials(bin_root, _G, _int_order);
+#endif
+#endif
                 // DKD integrator divides each orbit into n_sub substeps, default is 32 substeps, use _ds_scale to change it.
                 ds *= _ds_scale / 32.0;
+#endif
             } else {
                 ds = calcDsKeplerBinaryTree(bin_root, _int_order, _G, _ds_scale);
             }
 #else
+            (void)_g_func; // g-func methods of this build (MAX_POT / ADD_INNER_POT) use the min-ds form
             ds = calcDsKeplerBinaryTree(bin_root, _int_order, _G, _ds_scale);
 #endif
             ASSERT(ds>0);

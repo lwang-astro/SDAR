@@ -5,6 +5,11 @@ Reads an AR sample log (unstable triple, g_func=4 auto) written by
 ``ar.ttl.sd.t.mulpot.cm`` and reproduces the manual baseline analysis of
 ``SDAR/docs/hierarchical_blogh_ds_hyperbolic_gauge_plan.md`` section 2.1:
 
+NOTE (2026-08-27 g-func refactor): this script targets the ARCHIVED 2026-08-26
+log format (mulpot binary, g_func column 0-4). To regenerate the log with the
+current code use ``ar.btlogh.ttl.sd.cm --g-func 1``; its g_func column is the
+active state 0/1 — map non-zero to 1 before comparing with the archived codes.
+
   1. ds timeline (unique ds states and their first-appearance times)
   2. dE envelope vs escaper separation r_esc
   3. steps-per-inner-orbit estimate from per-interval Nstep increments

@@ -14,10 +14,7 @@
 #include "AR/profile.h"
 #include "AR/information.h"
 #include "AR/interrupt.h"
-
-#if (defined AR_G_FUNC_MUL_POT) || (defined AR_G_FUNC_ADD_POT) || (defined AR_G_FUNC_MAX_POT)
-#define AR_G_FUNC
-#endif
+#include "AR/g_func.h"
 
 //! Algorithmic regularization (time transformed explicit symplectic integrator) namespace
 /*!
@@ -301,11 +298,11 @@ namespace AR {
             int j; ///< index of binary member 1 having minimum gt_kick_inv
             Float gtgrad[2][3]; ///< time transformation function gradient with slowdown
             Float max; ///< max of gt_kick_inv
-            Float scale; ///< scale factor to smooth gt_kick_inv change 
+            Float scale; ///< scale factor to smooth gt_kick_inv change
             bool initial;
             int inew;
             int jnew;
-#elif AR_G_FUNC_MUL_POT
+#elif defined(AR_G_FUNC_MUL_POT_FAMILY)
             int nbin; ///< number of binaries included in gt_kick_inv
             Float mul_pot_no_pow; ///< production of potential with no power
 #endif
@@ -314,7 +311,7 @@ namespace AR {
             GtKickInv(): 
 #ifdef AR_G_FUNC_MAX_POT
                 value(0.0), i(-1), j(-1), gtgrad{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}, max(0.0), scale(1.0), initial(false), inew(-1), jnew(-1)
-#elif AR_G_FUNC_MUL_POT
+#elif defined(AR_G_FUNC_MUL_POT_FAMILY)
                 value(1.0), nbin(0), mul_pot_no_pow(1.0)
 #else
                 value(0.0)
@@ -322,19 +319,15 @@ namespace AR {
             {}
 
             // reset 
-            /*! param[in] g_func, if >0, for MUL_POT mode, value is 1.0, else is 0.0
+            /*! param[in] _g_func_on, if true (mul-pot family), value starts from 1.0 (product form), else 0.0 (sum form)
              */
-            void reset(const int g_func = 0) {
+            void reset(const bool _g_func_on = false) {
 #ifdef AR_G_FUNC_MAX_POT
                 value = 0.0;
                 max = 0.0;
                 initial = false;
-#elif AR_G_FUNC_MUL_POT
-                if (g_func) {
-                    value = 1.0;
-                }
-                else
-                    value = 0.0;
+#elif defined(AR_G_FUNC_MUL_POT_FAMILY)
+                value = _g_func_on ? 1.0 : 0.0;
                 nbin = 0;
 #else
                 value = 0.0;
@@ -350,7 +343,7 @@ namespace AR {
                 scale = 1.0;
                 initial = false;
                 inew = jnew = -1;
-#elif AR_G_FUNC_MUL_POT
+#elif defined(AR_G_FUNC_MUL_POT_FAMILY)
                 value = 1.0;
                 nbin = 0;
 #else
@@ -365,11 +358,8 @@ namespace AR {
 
     public:
 #ifdef AR_G_FUNC
-        //! g-function auto-switch mode
-        enum { GFUNC_FIXED = 0, GFUNC_AUTO = 1 };
-        int g_func;        ///> current active g-function mode (0-4): 0=LogH, 1=BLogH, 2=normal-binary, 3=all, 4=BTLogH
-        int g_func_user;   ///> user-selected g-function mode (0-4) via CLI --g-func
-        int g_func_switch; ///> auto-switch mode: GFUNC_FIXED=use g_func_user always, GFUNC_AUTO=switch (user ↔ 0)
+        int  g_func;     ///> user-selected g-function option (unified template, never modified after setup): 0=standard LogH; 1=method of this build (see AR_G_FUNC_* macro); 2=auto switch between 1 and 0 (not available for AR_G_FUNC_BTLOGH)
+        bool g_func_on;  ///> current active state of the g-function method: true=method of this build active, false=standard LogH (auto mode may flip this during integration; cached: used in the pair force hot path and printed in the g_func column)
 #endif
         TimeTransformedSymplecticManager<Tmethod>* manager; ///< integration manager
         COMM::ParticleGroup<Tparticle,Tpcm> particles; ///< particle group manager
@@ -390,8 +380,7 @@ namespace AR {
                                                force_(), 
 #ifdef AR_G_FUNC
                                                g_func(0),
-                                               g_func_user(0),
-                                               g_func_switch(GFUNC_FIXED),
+                                               g_func_on(false),
 #endif
                                                manager(NULL), particles(), 
                                                perturber(), info(), profile() {}
@@ -444,8 +433,7 @@ namespace AR {
             force_.clear();
 #ifdef AR_G_FUNC
             g_func = 0;
-            g_func_user = 0;
-            g_func_switch = GFUNC_FIXED;
+            g_func_on = false;
 #endif
             particles.clear();
             perturber.clear();
@@ -481,6 +469,10 @@ namespace AR {
 #endif
 #ifdef AR_TTL
             gt_drift_inv_ = _sym.gt_drift_inv_;
+#endif
+#ifdef AR_G_FUNC
+            g_func = _sym.g_func;
+            g_func_on = _sym.g_func_on;
 #endif
             gt_kick_inv_ = _sym.gt_kick_inv_;
             force_  = _sym.force_;
@@ -870,7 +862,7 @@ namespace AR {
             if (_calc_gt) { 
 #ifdef AR_TTL
 #ifdef AR_G_FUNC_MAX_POT
-                if (g_func) {
+                if (g_func_on) {
                     // update maximum value of time transformation function gradient (gt_kick_inv) and save two paritcle indices and gtgrad values
                     // if gt_kick_inv_sd > saved value, update the information
                     //if (gt_kick_inv_sd > gt_kick_inv_.value) {
@@ -905,8 +897,8 @@ namespace AR {
                     }
                 }
                 else {
-#elif AR_G_FUNC_MUL_POT
-                if (g_func) {
+#elif defined(AR_G_FUNC_MUL_POT_FAMILY)
+                if (g_func_on) {
                     // gtgrad tracks gradient of ln(gkt). Slowdown factors kappa
                     // are constant w.r.t. particle positions, so they factor out
                     // and do NOT enter the gradient.
@@ -933,7 +925,7 @@ namespace AR {
                     force_[_j].gtgrad[2] += fij[1].gtgrad[2]*_inv_nest_sd;
 
                     gt_kick_inv_.value += gt_kick_inv_sd;
-#if (defined AR_G_FUNC_MAX_POT) || (defined AR_G_FUNC_MUL_POT)
+#if (defined AR_G_FUNC_MAX_POT) || (defined AR_G_FUNC_MUL_POT_FAMILY)
                 }
 #endif
 
@@ -1023,8 +1015,13 @@ namespace AR {
 
             bool calc_gt_cross = true;
 #ifdef AR_G_FUNC
-            if ((g_func>0 && g_func<=2) || g_func==4)
-                calc_gt_cross = false;
+#ifndef AR_G_FUNC_MUL_ALL_POT
+            // When a g-func method is active, only the innermost binary pairs
+            // enter gt_kick_inv (this is also HOW AR_G_FUNC_ADD_INNER_POT is
+            // implemented: base sum accumulation + skipping all cross pairs).
+            // Exception: MUL_ALL_POT needs every pair in the product.
+            if (g_func_on) calc_gt_cross = false;
+#endif
 #endif
 
             // check left 
@@ -1063,7 +1060,7 @@ namespace AR {
             }
         }
 
-#ifdef AR_G_FUNC_MUL_POT
+#ifdef AR_G_FUNC_BTLOGH
         //! Process non-leaf tree nodes for hierarchical BLogH (fused traversal)
         /*! Single tree traversal combining two operations for each node with >2 members:
             1. Multiply U_node = G * m1 * m2 / r_sep into gt_kick_inv_.value
@@ -1195,7 +1192,7 @@ namespace AR {
             epot_sd_ = 0.0;
             for (int i=0; i<force_.getSize(); i++) force_[i].clear();
 #ifdef AR_G_FUNC
-            gt_kick_inv_.reset(g_func);
+            gt_kick_inv_.reset(g_func_on);
 #else
             gt_kick_inv_.reset();
 #endif
@@ -1204,11 +1201,13 @@ namespace AR {
 #endif
             calcAccPotAndGTKickInvTreeIter(1.0, info.getBinaryTreeRoot());
 
-#ifdef AR_G_FUNC_MUL_POT
-            if (g_func==4) {
+#ifdef AR_G_FUNC_BTLOGH
+            if (g_func_on) {
                 processOuterNode(info.getBinaryTreeRoot());
             }
-            if (g_func==2) {
+#endif
+#ifdef AR_G_FUNC_NORM_BLOGH
+            if (g_func_on) {
                 // use power in gt_kick_inv_
                 gt_kick_inv_.mul_pot_no_pow = gt_kick_inv_.value;
                 gt_kick_inv_.value = pow(gt_kick_inv_.mul_pot_no_pow, 1.0/gt_kick_inv_.nbin);
@@ -1295,7 +1294,7 @@ namespace AR {
 
                     Float* gtgrad = force_[i].gtgrad;
 #ifdef AR_G_FUNC_MAX_POT
-                    if (g_func) {
+                    if (g_func_on) {
                         // use recored gtgrad in gt_kick_inv_max_info instead of force_[i].gtgrad (not calculated)
                         gtgrad = NULL;
                         if (i == gt_kick_inv_.i) 
@@ -1342,11 +1341,16 @@ namespace AR {
             ASSERT(!particles.isOriginFrame());
             Float dgt_drift_inv = kickEtotAndGTDriftTreeIter(_dt, vel_cm, sd_factor, bin_root);
 #endif
-#ifdef AR_G_FUNC_MUL_POT
-            if (g_func==1 || g_func==3 || g_func==4) 
-                dgt_drift_inv *= gt_kick_inv_.value;
-            else if (g_func==2)
+#ifdef AR_G_FUNC_MUL_POT_FAMILY
+#ifdef AR_G_FUNC_NORM_BLOGH
+            // normalized product: d(ln g) = d(g^(1/N)) / (g^(1/N)/N)
+            if (g_func_on)
                 dgt_drift_inv *= gt_kick_inv_.value / gt_kick_inv_.nbin;
+#else
+            // plain product: d(ln g) = dg / g
+            if (g_func_on)
+                dgt_drift_inv *= gt_kick_inv_.value;
+#endif
 #endif
             gt_drift_inv_ += dgt_drift_inv*_dt;
         }
@@ -1683,8 +1687,8 @@ namespace AR {
             applyStableCheckAndSlowDown(_stable_check_flag);
 
             // --- Step 5: BTLogH κ-capping ---
-#ifdef AR_G_FUNC_MUL_POT
-            if (g_func == 4) {
+#ifdef AR_G_FUNC_BTLOGH
+            if (g_func_on) {
                 Float P_eff_min = NUMERIC_FLOAT_MAX;
                 int n_bin_kc = info.binarytree.getSize();
                 for (int i = 0; i < n_bin_kc - 1; i++) {
@@ -1706,19 +1710,19 @@ namespace AR {
             }
 #endif
 
-            // --- Step 6: g_func evaluation + switch ---
+            // --- Step 6: g_func auto-switch (option 2; not available for BTLogH) ---
             bool g_func_switched = false;
-#ifdef AR_G_FUNC
-            if (g_func_switch == GFUNC_AUTO) {
+#if defined(AR_G_FUNC) && !defined(AR_G_FUNC_BTLOGH)
+            if (g_func == 2) {
                 auto& bin_root = info.getBinaryTreeRoot();
-                int target = checkGFuncCriterionIter(bin_root) ? g_func_user : 0;
-                if (target != g_func) {
+                bool target = checkGFuncCriterionIter(bin_root);
+                if (target != g_func_on) {
 #ifdef AR_DEBUG_PRINT
-                    std::cerr << "g_func auto-switch: " << g_func
+                    std::cerr << "g_func auto-switch: " << g_func_on
                               << " -> " << target
                               << " at time " << time_ << std::endl;
 #endif
-                    g_func = target;
+                    g_func_on = target;
                     g_func_switched = true;
                 }
             }
@@ -1751,23 +1755,23 @@ namespace AR {
             if (need_ds_update) {
                 info.calcDsAndStepOption(manager->step.getOrder(), G, manager->ds_scale
 #ifdef AR_G_FUNC
-                                         , g_func
+#ifdef AR_G_FUNC_MUL_ALL_POT
+                                         , 0 // no auto-ds formula for the all-pairs product; ds stays at the user-given --s
+#else
+                                         , g_func_on ? 1 : 0
+#endif
 #endif
                 );
             }
         }
 #endif
 
-#ifdef AR_G_FUNC
-        //! check whether g-function method can be used
-        /*! Mode-aware criterion:
-            - For BTLogH (g_func_user==4): use instantaneous separation ratio.
-              Unlike the conservative a_in(1+e_in)/a_out(1-e_out) formula which
-              triggers at the worst-case pericenter, this uses actual positions
-              (same as processOuterNode) and only switches when the outer body
-              is genuinely close.
-            - For other modes (1/2/3): use conservative peri-center formula —
-              outer nodes are NOT in the g-function for these modes.
+#if defined(AR_G_FUNC) && !defined(AR_G_FUNC_BTLOGH)
+        //! check whether the g-function method can be used (auto-switch criterion, option 2)
+        /*! Conservative peri-center formula: compares the worst-case inner apo-center
+            against the outer peri-center. Used by all methods that provide auto-switch
+            (BTLogH does not compile this function: it has no auto-switch and its
+            hyperbolic levels are handled by the q-cap in processOuterNode).
             perturbation ratio is  m_3*(m_1+m_2)/(m_1*m_2) * (sep_ratio)^3
          */
         bool checkGFuncCriterionIter(AR::BinaryTree<Tparticle>& _bin) {
@@ -1780,11 +1784,6 @@ namespace AR {
                         use_gfunc = use_gfunc && checkGFuncCriterionIter(*bink);
                     }
                     else {
-                        if (g_func_user == 4) {
-                            // BTLogH: outer nodes in g via processOuterNode — 
-                            // no pert_ratio needed. always use
-                            continue;
-                        }
                         if (bink->semi>0) {
                             // check perturbation ratio, if too strong, return false
                             Float r_ratio = bink->semi*(1+bink->ecc) / (_bin.semi*(1-_bin.ecc));
@@ -1798,7 +1797,7 @@ namespace AR {
             return use_gfunc;
         }
 
-#endif // AR_G_FUNC
+#endif // AR_G_FUNC && !AR_G_FUNC_BTLOGH
 
         //! initialization for integration
         /*! initialize the system. Acceleration, energy and time transformation factors are updated. If the center-of-mass is not yet calculated, the system will be shifted to center-of-mass frame.
@@ -1858,16 +1857,21 @@ namespace AR {
 #endif // END AR_SLOWDOWN_TREE
 
 #ifdef AR_G_FUNC
-            // resolve g_func from user settings before first force calc
-            if (g_func_switch == GFUNC_FIXED) {
-                g_func = g_func_user;
-            } else {  // GFUNC_AUTO
-                g_func = checkGFuncCriterionIter(bin_root) ? g_func_user : 0;
+            // resolve the active g-function state from the user option (unified template)
+            if (g_func == 2) {
+#ifdef AR_G_FUNC_BTLOGH
+                // BTLogH has no auto-switch (CLI rejects option 2); fall back to fixed-on
+                g_func_on = true;
+#else
+                auto& bin_root = info.getBinaryTreeRoot();
+                g_func_on = checkGFuncCriterionIter(bin_root);
+#endif
 #ifdef AR_DEBUG_PRINT
-                std::cerr << "g_func auto-switch init: g_func = "
-                          << g_func << " (user=" << g_func_user << ")" << std::endl;
+                std::cerr << "g_func init: option " << g_func
+                          << " active " << g_func_on << std::endl;
 #endif
             }
+            else g_func_on = (g_func == 1);
 #endif
 
 #ifdef AR_TTL
@@ -1970,7 +1974,7 @@ namespace AR {
             ASSERT(_ds>0);
 
 #ifdef AR_G_FUNC_MAX_POT
-            if (g_func && (gt_kick_inv_.inew != gt_kick_inv_.i || gt_kick_inv_.jnew != gt_kick_inv_.j)) {
+            if (g_func_on && (gt_kick_inv_.inew != gt_kick_inv_.i || gt_kick_inv_.jnew != gt_kick_inv_.j)) {
                 // update i and j for calculate gt_kick_inv
                 gt_kick_inv_.i = gt_kick_inv_.inew;
                 gt_kick_inv_.j = gt_kick_inv_.jnew;
@@ -2056,7 +2060,7 @@ namespace AR {
 #endif
 
 #ifdef AR_G_FUNC_MAX_POT
-            if (g_func && (gt_kick_inv_.inew != gt_kick_inv_.i || gt_kick_inv_.jnew != gt_kick_inv_.j)) {
+            if (g_func_on && (gt_kick_inv_.inew != gt_kick_inv_.i || gt_kick_inv_.jnew != gt_kick_inv_.j)) {
                 // update i and j for calculate gt_kick_inv
                 gt_kick_inv_.i = gt_kick_inv_.inew;
                 gt_kick_inv_.j = gt_kick_inv_.jnew;
@@ -2296,11 +2300,14 @@ namespace AR {
                                                          vel2[0] * gtgrad2[0] +
                                                          vel2[1] * gtgrad2[1] +
                                                          vel2[2] * gtgrad2[2]);
-#ifdef AR_G_FUNC_MUL_POT
-                if (g_func==1 || g_func==3 || g_func==4) 
-                    dgt_drift_inv *= gt_kick_inv_.value;
-                else if (g_func==2)
+#ifdef AR_G_FUNC_MUL_POT_FAMILY
+#ifdef AR_G_FUNC_NORM_BLOGH
+                if (g_func_on)
                     dgt_drift_inv *= gt_kick_inv_.value / gt_kick_inv_.nbin;
+#else
+                if (g_func_on)
+                    dgt_drift_inv *= gt_kick_inv_.value;
+#endif
 #endif
                 gt_drift_inv_ += dgt_drift_inv;
 
@@ -2531,11 +2538,14 @@ namespace AR {
                                                                    vel2[0] * gtgrad2[0] +
                                                                    vel2[1] * gtgrad2[1] +
                                                                    vel2[2] * gtgrad2[2]);
-#ifdef AR_G_FUNC_MUL_POT
-                if (g_func==1 || g_func==3 || g_func==4) 
-                    dgt_drift_inv *= gt_kick_inv_.value;
-                else if (g_func==2)
+#ifdef AR_G_FUNC_MUL_POT_FAMILY
+#ifdef AR_G_FUNC_NORM_BLOGH
+                if (g_func_on)
                     dgt_drift_inv *= gt_kick_inv_.value / gt_kick_inv_.nbin;
+#else
+                if (g_func_on)
+                    dgt_drift_inv *= gt_kick_inv_.value;
+#endif
 #endif
                 gt_drift_inv_ += dgt_drift_inv;
 
@@ -2848,10 +2858,10 @@ namespace AR {
                                 syncTreeSlowDownAndDs(true, true, true);
 #else
                                 info.generateBinaryTree(particles, G);
-#ifdef AR_G_FUNC
-                                if (g_func_switch == GFUNC_AUTO) {
+#if defined(AR_G_FUNC) && !defined(AR_G_FUNC_BTLOGH)
+                                if (g_func == 2) {
                                     auto& bin_root = info.getBinaryTreeRoot();
-                                    g_func = checkGFuncCriterionIter(bin_root) ? g_func_user : 0;
+                                    g_func_on = checkGFuncCriterionIter(bin_root);
                                 }
 #endif
 #ifdef AR_TTL
@@ -2924,7 +2934,11 @@ namespace AR {
 #else
                                 info.calcDsAndStepOption(manager->step.getOrder(), G, manager->ds_scale
 #ifdef AR_G_FUNC
-                                    , g_func
+#ifdef AR_G_FUNC_MUL_ALL_POT
+                                    , 0 // no auto-ds formula for the all-pairs product; ds stays at the user-given --s
+#else
+                                    , g_func_on ? 1 : 0
+#endif
 #endif
                                 );
 #endif
@@ -2983,7 +2997,11 @@ namespace AR {
 #endif
                             info.calcDsAndStepOption(manager->step.getOrder(), G, manager->ds_scale
 #ifdef AR_G_FUNC
-                                , g_func
+#ifdef AR_G_FUNC_MUL_ALL_POT
+                                , 0 // no auto-ds formula for the all-pairs product; ds stays at the user-given --s
+#else
+                                , g_func_on ? 1 : 0
+#endif
 #endif
                             );
                             if (abs(ds_init-info.ds)/ds_init>0.1) {
@@ -4315,7 +4333,7 @@ namespace AR {
             perturber.printColumnAscii(_fout, _width);
             info.printColumnAscii(_fout, _width);
 #ifdef AR_G_FUNC
-            _fout<<std::setw(_width)<<g_func;
+            _fout<<std::setw(_width)<<(int)g_func_on;
 #endif
             profile.printColumnAscii(_fout, _width);
 #ifdef AR_SLOWDOWN_TREE

@@ -1,7 +1,7 @@
 # try different versions of the AR code for a stable triple system
 # need to compile AR sample code first
 
-method_list='ttl.sd.a ttl.sd.t ttl logh.sd.a logh.sd.t logh'
+method_list='logh.ttl.sd logh.ttl logh.sd logh'
 # see meaning of method in README.md
 for suffix in $method_list
 do

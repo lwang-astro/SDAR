@@ -1,6 +1,6 @@
 ## TARGET
 BUILD_DIR=./build
-TARGET= hermite hermite.mpfrc hermite.kdk.pert
+TARGET= hermite hermite.mpfrc hermite.kdkpert
 all: $(addprefix $(BUILD_DIR)/, $(TARGET))
 
 $(BUILD_DIR):
@@ -88,7 +88,7 @@ $(BUILD_DIR)/hermite: hermite.cxx ${SOURCE} | $(BUILD_DIR)
 $(BUILD_DIR)/hermite.mpfrc: hermite.cxx ${SOURCE} | $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) $(MPFRC_FLAGS) $< -o $@ $(CXXLIBS) $(MPFRC_LIBS)
 
-$(BUILD_DIR)/hermite.kdk.pert: hermite.cxx ${SOURCE} | $(BUILD_DIR)
+$(BUILD_DIR)/hermite.kdkpert: hermite.cxx ${SOURCE} | $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) -D AR_KDK_PERT $< -o $@ $(CXXLIBS)
 
 install: $(addprefix $(BUILD_DIR)/, $(TARGET))

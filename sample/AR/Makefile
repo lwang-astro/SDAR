@@ -1,6 +1,6 @@
-TARGET= ar.logh ar.logh.sd.t ar.ttl ar.ttl.sd.t ar.ttl.sd.t.mulpot ar.ttl.sd.t.mulpot.cm ar.ttl.sd.t.maxpot.cm ar.ttl.sd.t.addpot.cm ar.logh.sd.t.kdk.pert ar.ttl.sd.t.kdk.pert
-#TARGET= ar.logh ar.ttl ar.logh.sd.t.kdk.pert ar.ttl.sd.t.kdk.pert
-TARGET_MPFRC= ar.ttl.sd.t.cm ar.logh.mpfrc ar.ttl.mpfrc ar.ttl.sd.t.mulpot.cm.mpfrc ar.ttl.sd.t.mulpot.mpfrc 
+TARGET= ar.logh ar.logh.sd ar.logh.ttl ar.logh.ttl.sd ar.blogh.ttl.sd ar.blogh.ttl.sd.cm ar.normblogh.ttl.sd ar.normblogh.ttl.sd.cm ar.mulall.ttl.sd ar.mulall.ttl.sd.cm ar.btlogh.ttl.sd ar.btlogh.ttl.sd.cm ar.maxpot.ttl.sd.cm ar.addpot.ttl.sd.cm ar.logh.sd.kdkpert ar.logh.ttl.sd.kdkpert
+#TARGET= ar.logh ar.logh.ttl ar.logh.sd.kdkpert ar.logh.ttl.sd.kdkpert
+TARGET_MPFRC= ar.logh.ttl.sd.cm ar.logh.mpfrc ar.logh.ttl.mpfrc ar.blogh.ttl.sd.cm.mpfrc ar.blogh.ttl.sd.mpfrc ar.btlogh.ttl.sd.cm.mpfrc ar.btlogh.ttl.sd.mpfrc 
 INSTALL_PATH=~/bin
 BUILD_DIR=./build
 
@@ -19,8 +19,8 @@ use_mpfrc=yes
 ## compiler-------------------------------------------#
 ifeq ($(use_x86),yes)
 CXX= g++
-#CXXFLAGS += -O2 -Wall
-CXXFLAGS += -g -fbounds-check -Wall -O0 -D AR_DEBUG
+CXXFLAGS += -O2 -Wall
+#CXXFLAGS += -g -fbounds-check -Wall -O0 -D AR_DEBUG
 endif
 
 ifeq ($(use_k_computer),yes)
@@ -84,47 +84,71 @@ $(BUILD_DIR)/ar.logh: ar.cxx  ${SOURCE} | $(BUILD_DIR)
 $(BUILD_DIR)/ar.logh.mpfrc: ar.cxx  ${SOURCE} | $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) $(MPFRC_FLAGS) $< -o $@ $(CXXLIBS) $(MPFRC_LIBS)
 
-$(BUILD_DIR)/ar.logh.sd.t: ar.cxx ${SOURCE} | $(BUILD_DIR)
+$(BUILD_DIR)/ar.logh.sd: ar.cxx ${SOURCE} | $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE  $< -o $@ $(CXXLIBS)
 
-$(BUILD_DIR)/ar.logh.sd.t.kdk.pert: ar.cxx ${SOURCE} | $(BUILD_DIR)
+$(BUILD_DIR)/ar.logh.sd.kdkpert: ar.cxx ${SOURCE} | $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE -D AR_KDK_PERT $< -o $@ $(CXXLIBS)
 
-$(BUILD_DIR)/ar.ttl: ar.cxx ${SOURCE} | $(BUILD_DIR)
+$(BUILD_DIR)/ar.logh.ttl: ar.cxx ${SOURCE} | $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) -D AR_TTL $< -o $@ $(CXXLIBS)
 
-$(BUILD_DIR)/ar.ttl.mpfrc: ar.cxx ${SOURCE} | $(BUILD_DIR)
+$(BUILD_DIR)/ar.logh.ttl.mpfrc: ar.cxx ${SOURCE} | $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) $(MPFRC_FLAGS) -D AR_TTL $< -o $@ $(CXXLIBS) $(MPFRC_LIBS)
 
-$(BUILD_DIR)/ar.ttl.m: ar.cxx ${SOURCE} | $(BUILD_DIR)
+$(BUILD_DIR)/ar.logh.ttl.m: ar.cxx ${SOURCE} | $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) -D AR_TTL -D AR_TTL_GT_MULTI $< -o $@ $(CXXLIBS)
 
-$(BUILD_DIR)/ar.ttl.sd.t: ar.cxx ${SOURCE} | $(BUILD_DIR)
+$(BUILD_DIR)/ar.logh.ttl.sd: ar.cxx ${SOURCE} | $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) -D AR_TTL -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE  $< -o $@ $(CXXLIBS)
 
-$(BUILD_DIR)/ar.ttl.sd.t.kdk.pert: ar.cxx ${SOURCE} | $(BUILD_DIR)
+$(BUILD_DIR)/ar.logh.ttl.sd.kdkpert: ar.cxx ${SOURCE} | $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) -D AR_TTL -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE -D AR_KDK_PERT $< -o $@ $(CXXLIBS)
 
-$(BUILD_DIR)/ar.ttl.sd.t.cm: ar.cxx ${SOURCE} | $(BUILD_DIR)
+$(BUILD_DIR)/ar.logh.ttl.sd.cm: ar.cxx ${SOURCE} | $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) -D AR_TTL -D USE_CM_FRAME -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE  $< -o $@ $(CXXLIBS)
 
-$(BUILD_DIR)/ar.ttl.sd.t.mulpot: ar.cxx ${SOURCE} | $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) -D AR_TTL -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE -D AR_G_FUNC_MUL_POT $< -o $@ $(CXXLIBS)
+$(BUILD_DIR)/ar.blogh.ttl.sd: ar.cxx ${SOURCE} | $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) -D AR_TTL -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE -D AR_G_FUNC_BLOGH $< -o $@ $(CXXLIBS)
 
-$(BUILD_DIR)/ar.ttl.sd.t.mulpot.cm: ar.cxx ${SOURCE} | $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) -D AR_TTL -D USE_CM_FRAME -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE -D AR_G_FUNC_MUL_POT $< -o $@ $(CXXLIBS)
+$(BUILD_DIR)/ar.blogh.ttl.sd.cm: ar.cxx ${SOURCE} | $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) -D AR_TTL -D USE_CM_FRAME -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE -D AR_G_FUNC_BLOGH $< -o $@ $(CXXLIBS)
 
-$(BUILD_DIR)/ar.ttl.sd.t.mulpot.mpfrc: ar.cxx ${SOURCE} | $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) $(MPFRC_FLAGS) -D AR_TTL -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE -D AR_G_FUNC_MUL_POT $< -o $@ $(CXXLIBS) $(MPFRC_LIBS)
+$(BUILD_DIR)/ar.blogh.ttl.sd.mpfrc: ar.cxx ${SOURCE} | $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) $(MPFRC_FLAGS) -D AR_TTL -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE -D AR_G_FUNC_BLOGH $< -o $@ $(CXXLIBS) $(MPFRC_LIBS)
 
-$(BUILD_DIR)/ar.ttl.sd.t.mulpot.cm.mpfrc: ar.cxx ${SOURCE} | $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) $(MPFRC_FLAGS) -D AR_TTL -D USE_CM_FRAME -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE -D AR_G_FUNC_MUL_POT $< -o $@ $(CXXLIBS) $(MPFRC_LIBS)
+$(BUILD_DIR)/ar.blogh.ttl.sd.cm.mpfrc: ar.cxx ${SOURCE} | $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) $(MPFRC_FLAGS) -D AR_TTL -D USE_CM_FRAME -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE -D AR_G_FUNC_BLOGH $< -o $@ $(CXXLIBS) $(MPFRC_LIBS)
 
-$(BUILD_DIR)/ar.ttl.sd.t.maxpot.cm: ar.cxx ${SOURCE} | $(BUILD_DIR)
+$(BUILD_DIR)/ar.normblogh.ttl.sd: ar.cxx ${SOURCE} | $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) -D AR_TTL -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE -D AR_G_FUNC_NORM_BLOGH $< -o $@ $(CXXLIBS)
+
+$(BUILD_DIR)/ar.normblogh.ttl.sd.cm: ar.cxx ${SOURCE} | $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) -D AR_TTL -D USE_CM_FRAME -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE -D AR_G_FUNC_NORM_BLOGH $< -o $@ $(CXXLIBS)
+
+$(BUILD_DIR)/ar.mulall.ttl.sd: ar.cxx ${SOURCE} | $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) -D AR_TTL -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE -D AR_G_FUNC_MUL_ALL_POT $< -o $@ $(CXXLIBS)
+
+$(BUILD_DIR)/ar.mulall.ttl.sd.cm: ar.cxx ${SOURCE} | $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) -D AR_TTL -D USE_CM_FRAME -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE -D AR_G_FUNC_MUL_ALL_POT $< -o $@ $(CXXLIBS)
+
+$(BUILD_DIR)/ar.btlogh.ttl.sd: ar.cxx ${SOURCE} | $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) -D AR_TTL -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE -D AR_G_FUNC_BTLOGH $< -o $@ $(CXXLIBS)
+
+$(BUILD_DIR)/ar.btlogh.ttl.sd.cm: ar.cxx ${SOURCE} | $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) -D AR_TTL -D USE_CM_FRAME -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE -D AR_G_FUNC_BTLOGH $< -o $@ $(CXXLIBS)
+
+$(BUILD_DIR)/ar.btlogh.ttl.sd.mpfrc: ar.cxx ${SOURCE} | $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) $(MPFRC_FLAGS) -D AR_TTL -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE -D AR_G_FUNC_BTLOGH $< -o $@ $(CXXLIBS) $(MPFRC_LIBS)
+
+$(BUILD_DIR)/ar.btlogh.ttl.sd.cm.mpfrc: ar.cxx ${SOURCE} | $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) $(MPFRC_FLAGS) -D AR_TTL -D USE_CM_FRAME -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE -D AR_G_FUNC_BTLOGH $< -o $@ $(CXXLIBS) $(MPFRC_LIBS)
+
+$(BUILD_DIR)/ar.maxpot.ttl.sd.cm: ar.cxx ${SOURCE} | $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) -D AR_TTL -D USE_CM_FRAME -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE -D AR_G_FUNC_MAX_POT $< -o $@ $(CXXLIBS)
 
-$(BUILD_DIR)/ar.ttl.sd.t.addpot.cm: ar.cxx ${SOURCE} | $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) -D AR_TTL -D USE_CM_FRAME -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE -D AR_G_FUNC_ADD_POT $< -o $@ $(CXXLIBS)
+$(BUILD_DIR)/ar.addpot.ttl.sd.cm: ar.cxx ${SOURCE} | $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) -D AR_TTL -D USE_CM_FRAME -D AR_SLOWDOWN_TREE -D AR_SLOWDOWN_TIMESCALE -D AR_G_FUNC_ADD_INNER_POT $< -o $@ $(CXXLIBS)
 
 install: $(addprefix $(BUILD_DIR)/, $(TARGET))
 	install -m 755 $(addprefix $(BUILD_DIR)/, $(TARGET)) $(INSTALL_PATH)

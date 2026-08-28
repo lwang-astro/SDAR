@@ -14,7 +14,7 @@ cd "$WORKDIR"
 
 echo "# $(date): Comparing AR methods for $INPUT" >> commands.log
 
-method_list='ttl.sd.t ttl logh.sd.t logh'
+method_list='logh.ttl.sd logh.ttl logh.sd logh'
 
 for suffix in $method_list
 do

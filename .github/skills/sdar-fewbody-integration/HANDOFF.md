@@ -1,4 +1,4 @@
-# SDAR Skill 开发交接说明（2026-08-05 更新）
+# SDAR Skill 开发交接说明（2026-08-27 更新）
 
 本文件用于在新电脑/新 VS Code 会话中快速恢复当前 SDAR skill 开发状态。
 
@@ -55,7 +55,13 @@ python3 -c "import sys; sys.path.append('/home/lwang/include'); import sdar; pri
 ## 5) 当前约定（重要）
 
 - SDAR 是 PeTar 的参考实现，PeTar 中关于 SDAR 的参数（如 `--r-group`、`--r-search-group`）映射到 SDAR 的组检测参数。
-- AR 变体（logh/ttl/sd.t/kdk.pert）按场景选择，见 `assets/binary-scenario-map.md`。`.sd.a` 已废弃，不在当前 Makefile 中。
+- AR 变体按场景选择，见 `assets/binary-scenario-map.md`。命名规则（2026-08-27）：
+  `ar.<method>[.ttl][.sd][.kdkpert][.cm][.mpfrc]`（method=logh/blogh/normblogh/mulall/btlogh/maxpot/addpot；
+  `.ttl` 为时间变换实现形式）。`.sd.a` 与旧命名（`ar.ttl.*`、`.sd.t`、`kdk.pert`）已废弃。
+- **g-func 宏体系（2026-08-27 重构）**：每二进制一个方法宏（`AR_G_FUNC_{BLOGH,NORM_BLOGH,MUL_ALL_POT,BTLOGH,MAX_POT,ADD_INNER_POT}`，
+  定义与互斥检查集中在 `src/AR/g_func.h`）；`--g-func` 统一模板 0=LogH / 1=本方法 / 2=auto（btlogh、mulall 无 2）；
+  旧 `AR_G_FUNC_MUL_POT` 宏与 `--g-func-switch` 选项已删除；输出 `g_func` 列为生效态 0/1。
+  方案与验收记录：`docs/hierarchical_blogh_impl_notes.md`（"g-func 重构记录"节）。
 - Python 工具安装在 `/home/lwang/include/sdar/`（通过 `tools/Makefile`）。
 - SDAR 不涉及 MPI、外势、恒星演化 —— 这些只在 PeTar 层面存在。
 - SDAR 的 `-G` 默认值为 1.0（Henon 单位），物理单位下使用 0.00449830997959438。
@@ -66,7 +72,7 @@ python3 -c "import sys; sys.path.append('/home/lwang/include'); import sdar; pri
 
 1. **正确的 API 模式：先构造再 loadtxt。** `SDARData(N_particle=N, time_measure=True)` 然后 `data.loadtxt(file, skiprows=1)`。kwargs 不能传入 `loadtxt`（会报错）。
 2. **Hermite 输出需预过滤。** 独立 `hermite` 的诊断消息混入数据流，过滤到数字起始行后可正确读取。
-3. **列数随 AR 变体而异，N_sd 可匹配。** N=3 时：plain AR = 56 列，`.sd.t` = 75 列。`slowdown=True, N_sd=2` 可完美匹配 `.sd.t` 的 75 列。废弃的 `.sd.a` 不再使用。
+3. **列数随 AR 变体而异，N_sd 可匹配。** N=3 时：plain AR = 56 列，`.sd` = 75 列。`slowdown=True, N_sd=2` 可完美匹配 `.sd` 的 75 列。废弃的 `.sd.a`/`.sd.t`（旧名）不再使用。
 4. **`findPair` 签名因 `use_kdtree` 而异。** `True`：`(kdt, singles, binary)`，`False`：`(singles, binary)`。
 5. **HermiteData 访问器为 `data.energy_phy`，非 `data.energy`。**
 6. **修改 Jupyter notebook 后必须验证 cell 完整性。** `edit_notebook_file` 的 `replace_string_in_file` 操作容易导致 cell 内容被错误截断（如丢失函数体后半段、缺失 for 循环头、留下孤立 try/except）。每次修改后必须执行被修改的 cell 确认无语法错误和运行时错误。此规则已写入 SKILL.md 的 Non-Negotiable Rules。

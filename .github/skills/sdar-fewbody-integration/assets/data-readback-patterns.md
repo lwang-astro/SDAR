@@ -28,13 +28,9 @@ from sdar import SDARData
 data = SDARData(N_particle=2, time_measure=True)
 data.loadtxt("output.log", skiprows=1)
 
-# With slowdown data (.sd.t variants only)
+# With slowdown data (.sd variants only)
 data = SDARData(slowdown=True, time_measure=True, N_particle=3)
-data.loadtxt("triple.logh.sd.t.log", skiprows=1)
-
-# .sd.a variants have fewer slowdown columns — use slowdown=False
-data = SDARData(slowdown=False, time_measure=True, N_particle=3)
-data.loadtxt("triple.logh.sd.a.log", skiprows=1)
+data.loadtxt("triple.logh.sd.log", skiprows=1)
 data = SDARData(slowdown=True, time_measure=True)
 arr = np.loadtxt("output.dat")
 data = SDARData(arr)
@@ -71,22 +67,28 @@ if hasattr(data, 'de_sd'):
     print("Slowdown factor:", data.sd.slowdown_factor)
 ```
 
-## Pattern 1a: Read AR Output with g-function mode (MUL_POT / MAX_POT / ADD_POT)
+## Pattern 1a: Read AR Output with g-function mode (BLOGH / NORM_BLOGH / MUL_ALL_POT / BTLOGH / MAX_POT / ADD_INNER_POT)
 
-**Since 2026-08-05**: Output from `--g-func` modes (any non-zero) includes an extra `g_func` column.
+**Since 2026-08-05**: Output from g-func binaries (any method macro) includes an extra `g_func` column.
 Pass `g_func=True` to `SDARData` to read it.
 
-> **Migration from old API (pre-2026-08)**: Old `hybrid=True` keyword → new `g_func=True`.
-> Old column `hybrid_flag` → new column `g_func` (values 0-4, not 0/1).
+> **Migration 1 (pre-2026-08 API)**: Old `hybrid=True` keyword → new `g_func=True`;
+> old column `hybrid_flag` → new column `g_func`.
+>
+> **Migration 2 (2026-08-27 macro refactor)**: one g-func method per binary
+> (`ar.{blogh,normblogh,mulall,btlogh,maxpot,addpot}.ttl.sd[.cm]`); the
+> `g_func` column now prints the **active state: 0=standard LogH, 1=the method
+> of this build** (auto mode `--g-func 2` flips it per step). Old data files
+> used per-method codes 1/2/3/4 — map any non-zero value to 1 when comparing.
 
 ```python
 from sdar import SDARData
 
-# g-func output (BTLogH/BLogH/MAX_POT/ADD_POT with --g-func 1-4)
+# g-func output (any g-func binary with --g-func 1 or 2)
 data = SDARData(g_func=True, N_particle=4, slowdown=True, N_sd=3, time_measure=True)
 data.loadtxt("btlogh_output.log", skiprows=1)
 
-# Access g-func column (0=LogH, 1=BLogH, 2=norm, 3=all, 4=BTLogH)
+# Access g-func column (0=LogH, 1=method active; flips over time in --g-func 2 auto mode)
 print("g_func:", data.g_func)
 ```
 
@@ -223,7 +225,7 @@ time_myr = time_henon  # if using Henon units, check scaling
    `HermiteData(arr, N_particle=N)`. The data rows consistently have 114 columns for N=3.
 
 3. **Column counts vary by AR variant.** Plain `ar.logh` produces 56 columns, while
-   `ar.logh.sd.t` produces 63 columns (extra slowdown data). Always pass `slowdown=True/False`
+   `ar.logh.sd` produces 63 columns (extra slowdown data). Always pass `slowdown=True/False`
    to match the producing binary. Mismatch causes column alignment errors.
 
 4. **Using SDARData on Hermite output or vice versa.** The column layouts are different.

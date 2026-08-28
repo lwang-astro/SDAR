@@ -97,7 +97,7 @@ When the user wants to compare different AR methods (e.g., logh vs ttl, with/wit
 | # | Parameter | Notes |
 |---|-----------|-------|
 | 1 | Input file | Same input for all methods |
-| 2 | Methods to compare | From: logh, ttl, logh.sd.t, ttl.sd.t, logh.sd.t.kdk.pert (current Makefile targets) |
+| 2 | Methods to compare | From: logh, logh.ttl, logh.sd, logh.ttl.sd, logh.sd.kdkpert (current Makefile targets) |
 | 3 | Common parameters | `-t`, `-n`, `-G`, `-e` apply to all |
 | 4 | Binary availability | Check which variants are compiled before composing commands |
 
