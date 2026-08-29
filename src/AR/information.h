@@ -190,7 +190,16 @@ namespace AR {
                 // orbit-averaged potential (semi-based); conservative fallbacks below
                 Float U_node;
                 if (_bin.semi > 0) {
-                    U_node = _G * _bin.m1 * _bin.m2 / _bin.semi;
+                    // apoapsis gauge (2026-08-29): the ds gauge must match the
+                    // g-side floor (processOuterNode caps r at the apoapsis for
+                    // elliptic nodes). For a fresh osculating fit r <= a(1+e)
+                    // always holds, so U_gauge = G*m1*m2/[a(1+e)] <= U(r)
+                    // everywhere on the orbit and N >= 32 steps/orbit is
+                    // guaranteed. The previous semi-based (orbit-averaged) gauge
+                    // under-resolved the apoapsis phase by (1+e) per node.
+                    Float r_apo = _bin.semi * (1.0 + _bin.ecc);
+                    ASSERT(r_apo > 0);
+                    U_node = _G * _bin.m1 * _bin.m2 / r_apo;
                 } 
                 else if (_bin.semi < 0) {
                     // hyperbolic outer orbit: no orbital average, use the
@@ -209,6 +218,15 @@ namespace AR {
                     U_node = _G * _bin.m1 * _bin.m2 / r_ref;
                 }
                 else {
+                    // semi==0 (parabolic/degenerate): keep the instantaneous-
+                    // separation gauge. NOTE (2026-08-29 experiment): using the
+                    // angular-momentum pericenter r_p = h^2/(2*G*(m1+m2)) here
+                    // blows up ds during transient (three-body dance) fits where
+                    // semi==0 occurs with r_p << r (U_node ~ G*m1*m2/r_p inflates
+                    // the ds product by orders of magnitude, e.g. 150x spikes in
+                    // the quintuple test). The g-side cap in processOuterNode
+                    // still uses r_p (floor >= U(r_sep) is satisfied), which is
+                    // the safety-relevant side.
                     auto* m0 = _bin.getMember(0);
                     auto* m1 = _bin.getMember(1);
                     Float dx = m0->pos[0] - m1->pos[0];
@@ -518,6 +536,80 @@ namespace AR {
 
 #endif
 
+        //! iteration for the LogH sum-gauge ds: accumulate the perturbation-damped
+        //! lower-bound potentials of ALL tree levels and track the smallest
+        //! effective period
+        /*!
+          @param[out] _u_sum: sum over levels of chi_L * U_L^min
+          @param[out] _P_eff_min: smallest effective period among all levels
+          @param[in] _bin: current tree node
+          @param[in] _int_order: symplectic integrator accurate order
+          @param[in] _G: gravitational constant
+         */
+        void calcLogHSumGaugeIter(Float& _u_sum, Float& _P_eff_min, BinaryTree<Tparticle>& _bin, const int _int_order, const Float& _G) {
+            if (_bin.m1 > 0 && _bin.m2 > 0) {
+                // per-level lower-bound potential (same gauges as the BLogH family):
+                // elliptic: apoapsis; hyperbolic: peri-center; degenerate: instantaneous
+                Float u_min;
+                if (_bin.semi > 0) {
+                    u_min = _G * _bin.m1 * _bin.m2 / (_bin.semi * (1.0 + _bin.ecc));
+                }
+                else if (_bin.semi < 0 && _bin.ecc > 1.0) {
+                    u_min = _G * _bin.m1 * _bin.m2 / ((-_bin.semi) * (_bin.ecc - 1.0));
+                }
+                else {
+                    auto* m0 = _bin.getMember(0);
+                    auto* m1 = _bin.getMember(1);
+                    Float dx = m0->pos[0] - m1->pos[0];
+                    Float dy = m0->pos[1] - m1->pos[1];
+                    Float dz = m0->pos[2] - m1->pos[2];
+                    u_min = _G * _bin.m1 * _bin.m2 / sqrt(dx*dx + dy*dy + dz*dz);
+                }
+                Float pert_ratio = calcPertRatio(_bin);
+                Float scale = std::min(Float(1.0), pow(ds_pert_ratio_coff * pert_ratio, 1.0 / Float(_int_order)));
+                _u_sum += u_min * scale;
+
+                // effective period: elliptic P*kappa (slowdown), hyperbolic encounter timescale
+                Float p_eff;
+                if (_bin.semi > 0) {
+                    p_eff = 2.0 * COMM::PI
+                          * sqrt(pow(_bin.semi, Float(3)) / (_G * (_bin.m1 + _bin.m2)))
+                          * _bin.slowdown.getSlowDownFactor();
+                }
+                else if (_bin.semi < 0) {
+                    p_eff = 2.0 * COMM::PI
+                          * sqrt(pow(-_bin.semi, Float(3)) / (_G * (_bin.m1 + _bin.m2)));
+                }
+                else {
+                    p_eff = 0.0; // degenerate level: no period contribution
+                }
+                if (p_eff > 0 && p_eff < _P_eff_min) _P_eff_min = p_eff;
+            }
+            for (int k = 0; k < 2; k++) {
+                if (_bin.isMemberTree(k)) calcLogHSumGaugeIter(_u_sum, _P_eff_min, *_bin.getMemberAsTree(k), _int_order, _G);
+            }
+        }
+
+        //! LogH ds from the total-potential lower-bound gauge (2026-08-29)
+        /*! ds = _ds_scale/32 * P_eff,min * sum_L chi_L * U_L^min.
+          The runtime LogH time transformation is g = sum over ALL pairs of
+          G*mi*mj/rij (with slowdown); on a Kepler orbit each level potential is
+          bounded from below by U_L^min, so g >= sum_L U_L^min and every level
+          receives at least 32/_ds_scale substeps per effective period. This
+          replaces the old min-over-innermost-pairs form, which followed the
+          tightest pair's OWN potential while g sums all pairs, over-resolving
+          hierarchical systems by (sum_L <U_L>)/<U_tightest> (3-5x in typical
+          hierarchies). For an isolated binary the two forms coincide.
+         */
+        Float calcDsLogHSumGauge(BinaryTree<Tparticle>& _bin, const int _int_order, const Float& _G, const Float& _ds_scale) {
+            Float u_sum = 0.0;
+            Float P_eff_min = NUMERIC_FLOAT_MAX;
+            calcLogHSumGaugeIter(u_sum, P_eff_min, _bin, _int_order, _G);
+            ASSERT(u_sum > 0);
+            ASSERT(P_eff_min < NUMERIC_FLOAT_MAX);
+            return (_ds_scale / 32.0) * P_eff_min * u_sum;
+        }
+
         //! calculate ds from the inner most binary with minimum period, determine the fix step option
         /*! Estimate ds first from the inner most binary orbit (eccentric anomaly), set fix_step_option to later
           @param[in] _int_order: accuracy order of the symplectic integrator.
@@ -550,11 +642,11 @@ namespace AR {
                 // DKD integrator divides each orbit into n_sub substeps, default is 32 substeps, use _ds_scale to change it.
                 ds *= _ds_scale / 32.0;
             } else {
-                ds = calcDsKeplerBinaryTree(bin_root, _int_order, _G, _ds_scale);
+                ds = calcDsLogHSumGauge(bin_root, _int_order, _G, _ds_scale);
             }
 #else
-            (void)_g_func_on; // no g-func method in this build; use the min-ds form
-            ds = calcDsKeplerBinaryTree(bin_root, _int_order, _G, _ds_scale);
+            (void)_g_func_on; // no g-func method in this build; use the LogH sum-gauge form
+            ds = calcDsLogHSumGauge(bin_root, _int_order, _G, _ds_scale);
 #endif
             ASSERT(ds>0);
 
