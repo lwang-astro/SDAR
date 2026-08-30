@@ -1629,6 +1629,25 @@ namespace AR {
                                          , g_func_on
 #endif
                 );
+#ifdef AR_G_FUNC
+                // Fix 2 (2026-08-29): step-count ceiling. The lower-bound gauges can be
+                // extremely loose in non-hierarchical pile-ups (live g >> gauge product),
+                // collapsing dt = ds/g. Cap the implied steps per local period:
+                //   N = P_eff_min * g / ds <= N_max   =>   ds >= P_eff_min * g / N_max,
+                // with N_max = C_n * (32/ds_scale). The ceiling is INACTIVE when the
+                // gauges are tight (g ~ gauge product -> ceiling ~ ds_est/N_max < ds_est),
+                // so healthy hierarchies keep identical ds. ds side only; the g side
+                // (TTL extended Hamiltonian) is untouched. gt_kick_inv_ was just synced
+                // above, i.e. it is the CURRENT g at the ds-update moment.
+                if (g_func_on && info.peff_min > 0.0 && info.peff_min < NUMERIC_FLOAT_MAX) {
+                    const Float cn_coff = 30.0;  // N_max = 30 x floor(32/ds_scale) = 3840 at S128
+                    Float ds_ceiling = info.peff_min * gt_kick_inv_ * manager->ds_scale / (32.0 * cn_coff);
+                    if (ds_ceiling > info.ds) {
+                        info.ds = ds_ceiling;
+                        ASSERT(info.ds > 0.0);
+                    }
+                }
+#endif
             }
         }
 #endif

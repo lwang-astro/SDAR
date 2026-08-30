@@ -263,6 +263,7 @@ namespace AR {
 
     public:
         Float ds;  ///> initial step size for integration
+        Float peff_min;  ///> effective period of the fastest level at the last ds calculation (used by the Fix-2 step-count ceiling)
         Float ds_pert_ratio_coff; ///> coefficient to scale ds based on perturbation ratio
         Float time_offset; ///> offset of time to obtain real physical time (real time = TimeTransformedSymplecticIntegrator:time_ + info.time_offset)
         Float r_break_crit;    // group break radius criterion
@@ -273,7 +274,7 @@ namespace AR {
 #endif
 
         //! initializer, set ds to zero, fix_step_option to none
-        Information(): ds(0.0), ds_pert_ratio_coff(0.1), time_offset(0.0), r_break_crit(-1.0), fix_step_option(AR::FixStepOption::none), binarytree() {
+        Information(): ds(0.0), peff_min(0.0), ds_pert_ratio_coff(0.1), time_offset(0.0), r_break_crit(-1.0), fix_step_option(AR::FixStepOption::none), binarytree() {
 #ifdef AR_DEBUG_DUMP
             dump_flag = false;
 #endif
@@ -633,6 +634,7 @@ namespace AR {
                 // plain product formula, ds ~ [energy^nbin·time]
                 // ds = Π(ds_i) * P_eff_min / Π(P_eff)
                 ds = ds_prod * P_eff_min / period_prod;
+                peff_min = P_eff_min;  // stored for the Fix-2 step-count ceiling (symplectic_integrator.h)
 #ifdef AR_G_FUNC_BTLOGH
                 // with outer potential, eccentricity may affect ds determination that ds is not exact reach P_eff_min.
                 // node potentials are orbit-averaged (semi-based) and
