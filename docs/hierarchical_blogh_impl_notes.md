@@ -1,6 +1,16 @@
 # Hierarchical BLogH 实现笔记
 
-> **最后更新**: 2026-08-28
+> **最后更新**: 2026-09-01
+> - 2026-09-01：**ds gauge 口径回归 semi（撤销 2026-08-29 的 apoapsis gauge）+ pert 阻尼哨兵修复**：
+>   1) `multiplyDsByNodePotentials` 与 `calcLogHSumGaugeIter` 椭圆 gauge 回到轨道平均 $Gm_1m_2/a$
+>      （$\langle 1/r\rangle_t = 1/a$；LogH 族变换下 $U\,dt \propto dE$，步点在偏近点角上均匀分布，
+>      不存在 apoapsis 欠解析相位）；apoapsis 口径把离心层步数抬到 ~32(1+e)——三体/四体实测仅 semi
+>      口径复现预期的 32 步/轨道。g 侧 `processOuterNode` 的 apoapsis r-cap（dt 安全上界）保留不动。
+>   2) `calcPertRatio` 更名 `calcPertScale(_bin, _int_order)` 并内建数据缺失守卫：`pert_out<=0`
+>      （如孤立 group 根层）或 `pert_in<=0` 时 scale ≡ 1，与 `ds_pert_ratio_coff` 解耦——旧哨兵比值
+>      1.0 经 coff 乘子被错误压到 coff^(1/order)（coff=0.1、4 阶 → 0.56，"完全无扰动"反而比真实弱
+>      扰动压得更狠）；默认 `ds_pert_ratio_coff` 0.1 → 1（阻尼仅在 pert_ratio<1 时起作用）；
+>      `checkParams` 断言 coff>0（coff=0 → scale=0 → ds=0）。
 > - 2026-08-28：**g-func 方法精简**——只保留 `AR_G_FUNC_BLOGH` 与 `AR_G_FUNC_BTLOGH` 两个方法宏；
 >   `NORM_BLOGH / MUL_ALL_POT / MAX_POT / ADD_INNER_POT` 及家族宏 `AR_G_FUNC_MUL_POT_FAMILY` 删除
 >   （最后实现版本存于 git tag `gfunc-archive`）；`GtKickInv` 结构体退化为普通 `Float gt_kick_inv_`

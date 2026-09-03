@@ -103,7 +103,7 @@ public:
 #else
 #define AR_G_FUNC_AUTO_DESC ";  2: auto switch between mode 1 and 0 when the perturbation to the binaries is strong"
 #endif
-        , g_func_option      (input_par_store, 0,                  "g-func",          "time transformation (g) function mode;  0: standard LogH - sum of all pair potentials;  1: " AR_G_FUNC_METHOD_NAME AR_G_FUNC_AUTO_DESC)
+        , g_func_option      (input_par_store, 1,                  "g-func",          "time transformation (g) function mode;  0: standard LogH - sum of all pair potentials;  1: " AR_G_FUNC_METHOD_NAME AR_G_FUNC_AUTO_DESC)
 #endif
         , filename_par        (input_par_store, "",                 "p",               "filename to load manager parameters","input name")
         , filename_out        (input_par_store, "",                 "f",               "filename to output snapshots in BINARY format;  if not given, print directly in standard output","input name")

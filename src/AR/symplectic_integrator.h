@@ -293,6 +293,8 @@ namespace AR {
 
         Float gt_kick_inv_;  ///< inverse time transformation factor for kick (sum of pair potentials with slowdown for LogH; product form when a g-func method is active)
 
+        long ds_valve_call_count_;  ///< call counter for the ds cost valve (v2.1): throttles the periodic stale-ds re-estimation check to one per N_valve calls of syncTreeSlowDownAndDs
+
         // force array
         COMM::List<Force> force_; ///< acceleration array 
 
@@ -317,6 +319,7 @@ namespace AR {
                                                gt_drift_inv_(0),
 #endif
                                                gt_kick_inv_(0.0), 
+                                               ds_valve_call_count_(0),
                                                force_(), 
 #ifdef AR_G_FUNC
                                                g_func(0),
@@ -415,6 +418,7 @@ namespace AR {
             g_func_on = _sym.g_func_on;
 #endif
             gt_kick_inv_ = _sym.gt_kick_inv_;
+            ds_valve_call_count_ = _sym.ds_valve_call_count_;
             force_  = _sym.force_;
             manager = _sym.manager;
             particles = _sym.particles;
@@ -1623,31 +1627,101 @@ namespace AR {
                 correctSlowDownEnergy(sd_backup, need_force_sync, _is_interrupt);
             }
 
+#ifdef AR_G_FUNC
+            // Cost valve v2.1 (2026-09-02, one-way): the reproducibility gate only
+            // sees candidates at tree regenerations; with a stable tree no
+            // regeneration occurs, and a stale, too-small committed ds can
+            // persist for a whole post-encounter epoch (measured: the S256
+            // quintuple run spent 24.4M of 25.4M steps at ~200x design
+            // resolution after the burst because ds stayed frozen at a
+            // dance-tail value while the configuration had long dissolved).
+            // When the live step count per P_eff,min under the committed ds
+            // exceeds C_valve x design, offer a fresh candidate every
+            // N_valve calls. ONE-WAY: a valve-triggered candidate is accepted
+            // only if it is LARGER than the committed ds (releasing stale
+            // over-resolution toward lower cost); decreasing ds (adding
+            // resolution) remains the job of tree-regeneration events, where
+            // the safety valve also protects under-resolution. Without the
+            // one-way restriction the 256-step checkpoint spacing makes
+            // consecutive candidates trivially agree (osculating elements
+            // drift negligibly over 256 steps), defeating the gate and letting
+            // ds follow the estimator down into dance depths (observed: S256
+            // stalled at t=0.095 with ds collapsing).
+            bool ds_valve_triggered = false;
+            if (!need_ds_update && g_func_on
+                && info.ds > 0.0 && info.peff_min > 0.0 && info.peff_min < NUMERIC_FLOAT_MAX) {
+                ds_valve_call_count_++;
+                const long n_valve = 256;
+                if (ds_valve_call_count_ >= n_valve) {
+                    ds_valve_call_count_ = 0;
+                    const Float c_valve = 30.0;
+                    Float n_live_valve = info.peff_min * gt_kick_inv_ / info.ds;
+                    if (n_live_valve > c_valve * 32.0 / manager->ds_scale) {
+                        need_ds_update = true;
+                        ds_valve_triggered = true;
+                    }
+                }
+            }
+#endif
+
             if (need_ds_update) {
+                // Quiescence gate v2 (2026-09-02, replaces Fix-2): ds is an epoch
+                // invariant of the extended-phase-space integration and must be
+                // set from data that represents the epoch. A robust, physical
+                // acceptance test is REPRODUCIBILITY: an epoch invariant must be
+                // recovered by two consecutive, independent re-estimates (successive
+                // tree regens). Transient post-encounter fits churn wildly
+                // (quintuple S128 dance: consecutive estimates 3.96 vs 0.08, the
+                // latter from a junk P_eff_min ~ 8e-6 tight pair — burning 6.8M of
+                // 7.6M steps when frozen), so they never falsely agree; genuine
+                // adiabatic evolution drifts slowly and agrees; a real structural
+                // change (ejection) defers ~2 regens until the new tree's fits
+                // stabilize. Policy:
+                //   * candidate agrees with the previous candidate (within x3)
+                //     or no previous candidate -> ACCEPT;
+                //   * disagrees -> DEFER: restore the committed (ds, peff_min,
+                //     fix_step_option) and keep integrating with the old healthy
+                //     ds (momentarily over/under-resolved, but a passage's s-cost
+                //     is bounded by its Kepler action);
+                //   * safety valve: if the live step count per P_eff_min under the
+                //     COMMITTED (trusted) peff_min falls below the design value,
+                //     accept unconditionally (a fresh estimate still beats ~1
+                //     step per orbit).
+                // The instant-g step-count ceiling (Fix 2, 2026-08-29) is removed:
+                // it enforced an instantaneous contract on an epoch invariant at
+                // exactly the worst (spike) moments (S128: ds 51 -> 556 with the
+                // encounter-instant gt, then steps/P_eff_min decayed to ~1 as g
+                // fell; measured de 3.4e-8 -> 1.3e-3).
+                Float ds_bk = info.ds;
+                Float peff_bk = info.peff_min;
+                AR::FixStepOption fso_bk = info.fix_step_option;
                 info.calcDsAndStepOption(manager->step.getOrder(), G, manager->ds_scale
 #ifdef AR_G_FUNC
                                          , g_func_on
 #endif
                 );
-#ifdef AR_G_FUNC
-                // Fix 2 (2026-08-29): step-count ceiling. The lower-bound gauges can be
-                // extremely loose in non-hierarchical pile-ups (live g >> gauge product),
-                // collapsing dt = ds/g. Cap the implied steps per local period:
-                //   N = P_eff_min * g / ds <= N_max   =>   ds >= P_eff_min * g / N_max,
-                // with N_max = C_n * (32/ds_scale). The ceiling is INACTIVE when the
-                // gauges are tight (g ~ gauge product -> ceiling ~ ds_est/N_max < ds_est),
-                // so healthy hierarchies keep identical ds. ds side only; the g side
-                // (TTL extended Hamiltonian) is untouched. gt_kick_inv_ was just synced
-                // above, i.e. it is the CURRENT g at the ds-update moment.
-                if (g_func_on && info.peff_min > 0.0 && info.peff_min < NUMERIC_FLOAT_MAX) {
-                    const Float cn_coff = 30.0;  // N_max = 30 x floor(32/ds_scale) = 3840 at S128
-                    Float ds_ceiling = info.peff_min * gt_kick_inv_ * manager->ds_scale / (32.0 * cn_coff);
-                    if (ds_ceiling > info.ds) {
-                        info.ds = ds_ceiling;
-                        ASSERT(info.ds > 0.0);
-                    }
+                Float ds_candidate = info.ds;
+                bool accept = !info.ds_est_prev_valid
+                              || (ds_candidate < 3.0 * info.ds_est_prev
+                                  && ds_candidate > info.ds_est_prev / 3.0);
+                if (!accept && peff_bk > 0.0 && ds_bk > 0.0 && peff_bk < NUMERIC_FLOAT_MAX) {
+                    // safety valve on the COMMITTED peff_min (only accepted
+                    // updates set it, so it is never transient junk)
+                    Float n_live = peff_bk * gt_kick_inv_ / ds_bk;
+                    if (n_live < 32.0 / manager->ds_scale) accept = true;
                 }
+#ifdef AR_G_FUNC
+                // one-way cost valve: a valve-triggered update may only RAISE ds
+                // (see the valve block above for the rationale)
+                if (accept && ds_valve_triggered && !(ds_candidate > ds_bk)) accept = false;
 #endif
+                info.ds_est_prev = ds_candidate;
+                info.ds_est_prev_valid = true;
+                if (!accept) {
+                    info.ds = ds_bk;
+                    info.peff_min = peff_bk;
+                    info.fix_step_option = fso_bk;
+                }
             }
         }
 #endif

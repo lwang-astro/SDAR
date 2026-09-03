@@ -146,10 +146,8 @@ namespace AR {
                 }
             } else {
                 if (_bin.m1 > 0 && _bin.m2 > 0) {
-                    // well-defined for elliptic AND hyperbolic orbits (calcPertRatio)
-                    Float pert_ratio = calcPertRatio(_bin);
-                    Float scale_factor = std::min(Float(1.0),
-                        pow(ds_pert_ratio_coff * pert_ratio, 1.0 / Float(_int_order)));
+                    // perturbation damping (well-defined for elliptic AND hyperbolic)
+                    Float scale_factor = calcPertScale(_bin, _int_order);
 
                     Float ds_i;
                     // per-orbit / per-encounter ds, matching the LogH resolution
@@ -190,16 +188,19 @@ namespace AR {
                 // orbit-averaged potential (semi-based); conservative fallbacks below
                 Float U_node;
                 if (_bin.semi > 0) {
-                    // apoapsis gauge (2026-08-29): the ds gauge must match the
-                    // g-side floor (processOuterNode caps r at the apoapsis for
-                    // elliptic nodes). For a fresh osculating fit r <= a(1+e)
-                    // always holds, so U_gauge = G*m1*m2/[a(1+e)] <= U(r)
-                    // everywhere on the orbit and N >= 32 steps/orbit is
-                    // guaranteed. The previous semi-based (orbit-averaged) gauge
-                    // under-resolved the apoapsis phase by (1+e) per node.
-                    Float r_apo = _bin.semi * (1.0 + _bin.ecc);
-                    ASSERT(r_apo > 0);
-                    U_node = _G * _bin.m1 * _bin.m2 / r_apo;
+                    // orbit-averaged (semi-based) gauge (restored 2026-09-01; the
+                    // apoapsis gauge of 2026-08-29 reverted): on a Kepler orbit
+                    // <1/r>_t = 1/a exactly, so U(a) = <U(r)>_t and the ds estimate
+                    // matches the orbit-averaged step count N ~ 32/ds_scale per
+                    // node orbit. With the LogH-family time transformation the
+                    // steps are uniform in eccentric anomaly (U dt ~ dE), so there
+                    // is no under-resolved apoapsis phase to compensate; the
+                    // apoapsis gauge merely inflated the count to ~32*(1+e) per
+                    // eccentric node (triple/quadruple tests: only the semi gauge
+                    // reproduces the expected 32). The g-side floor (processOuterNode
+                    // caps r at the apoapsis for elliptic nodes) is unchanged and
+                    // remains the safety bound on dt.
+                    U_node = _G * _bin.m1 * _bin.m2 / _bin.semi;
                 } 
                 else if (_bin.semi < 0) {
                     // hyperbolic outer orbit: no orbital average, use the
@@ -243,9 +244,7 @@ namespace AR {
                 // suppressed (same formula as the LogH leaf scaling). This makes ds
                 // degrade to the conservative inner-binary dominated value instead of
                 // jumping up during transient tree restructures.
-                Float pert_ratio = calcPertRatio(_bin);
-                Float node_scale = std::min(Float(1.0),
-                    pow(ds_pert_ratio_coff * pert_ratio, 1.0 / Float(_int_order)));
+                Float node_scale = calcPertScale(_bin, _int_order);
                 // defensive checks (Fix B): r_ref > 0, node_scale in (0,1],
                 // U_node finite and positive
                 ASSERT(node_scale > 0.0 && node_scale <= 1.0);
@@ -263,8 +262,10 @@ namespace AR {
 
     public:
         Float ds;  ///> initial step size for integration
-        Float peff_min;  ///> effective period of the fastest level at the last ds calculation (used by the Fix-2 step-count ceiling)
-        Float ds_pert_ratio_coff; ///> coefficient to scale ds based on perturbation ratio
+        Float peff_min;  ///> effective period of the fastest level at the last ds calculation (used by the quiescence-gate safety valve)
+        Float ds_est_prev; ///> previous ds re-estimate candidate (quiescence gate v2: an epoch invariant must be reproducible across consecutive regens)
+        bool ds_est_prev_valid; ///> whether ds_est_prev holds a usable candidate
+        Float ds_pert_ratio_coff; ///> perturbation ds damping coefficient: scale = min(1,(coff*pert_in/pert_out)^(1/order)); never applied when perturbation data is missing (pert_out<=0 or pert_in<=0)
         Float time_offset; ///> offset of time to obtain real physical time (real time = TimeTransformedSymplecticIntegrator:time_ + info.time_offset)
         Float r_break_crit;    // group break radius criterion
         FixStepOption fix_step_option; ///> fix step option for integration
@@ -274,7 +275,7 @@ namespace AR {
 #endif
 
         //! initializer, set ds to zero, fix_step_option to none
-        Information(): ds(0.0), peff_min(0.0), ds_pert_ratio_coff(0.1), time_offset(0.0), r_break_crit(-1.0), fix_step_option(AR::FixStepOption::none), binarytree() {
+        Information(): ds(0.0), peff_min(0.0), ds_est_prev(0.0), ds_est_prev_valid(false), ds_pert_ratio_coff(0.1), time_offset(0.0), r_break_crit(-1.0), fix_step_option(AR::FixStepOption::none), binarytree() {
 #ifdef AR_DEBUG_DUMP
             dump_flag = false;
 #endif
@@ -284,7 +285,8 @@ namespace AR {
         /*! \return true: all correct
          */
         bool checkParams() {
-            ASSERT(ds_pert_ratio_coff>=0.0);
+            // must be strictly positive: coff=0 gives scale=0, i.e. ds=0
+            ASSERT(ds_pert_ratio_coff>0.0);
             ASSERT(r_break_crit>=0.0);
             ASSERT(binarytree.getSize()>0);
             return true;
@@ -325,17 +327,26 @@ namespace AR {
             return _coff*sqrt(-_G*_bin.semi/(_bin.m1+_bin.m2))*(_bin.m1*_bin.m2);
         }
 
-        //! compute pert_in/pert_out ratio for ds perturbation scaling
-        /*! The apo-based pert_in from the slowdown data is used for elliptic orbits
+        //! compute the per-level ds damping scale from the perturbation ratio
+        /*! scale = min(1, (ds_pert_ratio_coff * pert_in/pert_out)^(1/_int_order)):
+            a level is damped only when ds_pert_ratio_coff*pert_ratio < 1, i.e. the
+            outer tidal perturbation approaches the level binding (hierarchy
+            breaking down).
+            Data-presence guard (2026-09-01): when the perturbation measures are
+            missing (pert_out<=0, e.g. the root of an isolated group with no
+            external perturbers, or pert_in<=0) the scale is EXACTLY 1.0,
+            independent of ds_pert_ratio_coff. A plain sentinel ratio of 1.0 fed
+            through the coff multiplier would wrongly damp unperturbed levels by
+            coff^(1/order) (0.56 at coff=0.1, order 4).
+            The apo-based pert_in from the slowdown data is used for elliptic orbits
             (smooth, orbit-averaged measure). For hyperbolic orbits (semi<=0) it is
             negative/undefined, so the instantaneous tidal metric
             (COMM::Binary::calcPertFromMR) on the live member separation is used
             instead, giving a well-defined perturbation ratio everywhere.
-            Missing/zero values return 1.0 (no scaling).
          */
-        Float calcPertRatio(BinaryTree<Tparticle>& _bin) {
+        Float calcPertScale(BinaryTree<Tparticle>& _bin, const int _int_order) {
             Float pert_out = _bin.slowdown.pert_out;
-            if (pert_out <= 0) return 1.0;
+            if (pert_out <= 0) return 1.0; // no perturbation measure: no damping
             Float pert_in;
             if (_bin.semi > 0) {
                 pert_in = _bin.slowdown.pert_in;
@@ -349,8 +360,9 @@ namespace AR {
                 Float r = (r2 > 0) ? sqrt(r2) : 0.0;
                 pert_in = (r > 0) ? COMM::Binary::calcPertFromMR(r, _bin.m1, _bin.m2) : 0.0;
             }
-            if (pert_in <= 0) return 1.0;
-            return pert_in / pert_out;
+            if (pert_in <= 0) return 1.0; // no binding measure: no damping
+            return std::min(Float(1.0),
+                            pow(ds_pert_ratio_coff * pert_in / pert_out, 1.0 / Float(_int_order)));
         }
 
 #ifdef AR_G_FUNC
@@ -429,10 +441,8 @@ namespace AR {
             else {
                 // zero mass cause ds=0
                 if (_bin.m1>0 && _bin.m2>0) { 
-                    // perturbation ratio (well-defined for hyperbolic too)
-                    Float pert_ratio = calcPertRatio(_bin);
                     // scale step based on perturbation and sym method order
-                    Float scale_factor = std::min(Float(1.0),pow(ds_pert_ratio_coff*pert_ratio,1.0/Float(_int_order)));
+                    Float scale_factor = calcPertScale(_bin, _int_order);
 
                     if (_bin.semi>0) ds = calcDsElliptic(_bin, _G)*scale_factor;
                     else ds = calcDsHyperbolic(_bin, _G)*scale_factor;
@@ -467,10 +477,8 @@ namespace AR {
             else {
                 // zero mass cause ds=0
                 if (_bin.m1>0 && _bin.m2>0) { 
-                    // perturbation ratio (well-defined for hyperbolic too)
-                    Float pert_ratio = calcPertRatio(_bin);
                     // scale step based on perturbation and sym method order
-                    Float scale_factor = std::min(Float(1.0),pow(ds_pert_ratio_coff*pert_ratio,1.0/Float(_int_order)));
+                    Float scale_factor = calcPertScale(_bin, _int_order);
 
                     if (_bin.semi>0) ds = calcDsElliptic(_bin, _G)*scale_factor;
                     else ds = calcDsHyperbolic(_bin, _G)*scale_factor;
@@ -538,10 +546,10 @@ namespace AR {
 #endif
 
         //! iteration for the LogH sum-gauge ds: accumulate the perturbation-damped
-        //! lower-bound potentials of ALL tree levels and track the smallest
+        //! orbit-averaged potentials of ALL tree levels and track the smallest
         //! effective period
         /*!
-          @param[out] _u_sum: sum over levels of chi_L * U_L^min
+          @param[out] _u_sum: sum over levels of chi_L * <U_L> (orbit average)
           @param[out] _P_eff_min: smallest effective period among all levels
           @param[in] _bin: current tree node
           @param[in] _int_order: symplectic integrator accurate order
@@ -549,11 +557,12 @@ namespace AR {
          */
         void calcLogHSumGaugeIter(Float& _u_sum, Float& _P_eff_min, BinaryTree<Tparticle>& _bin, const int _int_order, const Float& _G) {
             if (_bin.m1 > 0 && _bin.m2 > 0) {
-                // per-level lower-bound potential (same gauges as the BLogH family):
-                // elliptic: apoapsis; hyperbolic: peri-center; degenerate: instantaneous
+                // per-level potential gauge (same convention as the BLogH family):
+                // elliptic: semi-major axis (orbit-averaged, <1/r>_t = 1/a);
+                // hyperbolic: peri-center; degenerate: instantaneous
                 Float u_min;
                 if (_bin.semi > 0) {
-                    u_min = _G * _bin.m1 * _bin.m2 / (_bin.semi * (1.0 + _bin.ecc));
+                    u_min = _G * _bin.m1 * _bin.m2 / _bin.semi;
                 }
                 else if (_bin.semi < 0 && _bin.ecc > 1.0) {
                     u_min = _G * _bin.m1 * _bin.m2 / ((-_bin.semi) * (_bin.ecc - 1.0));
@@ -566,8 +575,7 @@ namespace AR {
                     Float dz = m0->pos[2] - m1->pos[2];
                     u_min = _G * _bin.m1 * _bin.m2 / sqrt(dx*dx + dy*dy + dz*dz);
                 }
-                Float pert_ratio = calcPertRatio(_bin);
-                Float scale = std::min(Float(1.0), pow(ds_pert_ratio_coff * pert_ratio, 1.0 / Float(_int_order)));
+                Float scale = calcPertScale(_bin, _int_order);
                 _u_sum += u_min * scale;
 
                 // effective period: elliptic P*kappa (slowdown), hyperbolic encounter timescale
@@ -591,16 +599,19 @@ namespace AR {
             }
         }
 
-        //! LogH ds from the total-potential lower-bound gauge (2026-08-29)
-        /*! ds = _ds_scale/32 * P_eff,min * sum_L chi_L * U_L^min.
+        //! LogH ds from the total-potential orbit-averaged gauge (2026-08-29; semi gauge restored 2026-09-01)
+        /*! ds = _ds_scale/32 * P_eff,min * sum_L chi_L * <U_L>, with <U_L> the
+          orbit-averaged level potential (elliptic: G*mi*mj/a, since <1/r>_t = 1/a).
           The runtime LogH time transformation is g = sum over ALL pairs of
-          G*mi*mj/rij (with slowdown); on a Kepler orbit each level potential is
-          bounded from below by U_L^min, so g >= sum_L U_L^min and every level
-          receives at least 32/_ds_scale substeps per effective period. This
-          replaces the old min-over-innermost-pairs form, which followed the
-          tightest pair's OWN potential while g sums all pairs, over-resolving
-          hierarchical systems by (sum_L <U_L>)/<U_tightest> (3-5x in typical
-          hierarchies). For an isolated binary the two forms coincide.
+          G*mi*mj/rij (with slowdown); averaged over a Kepler orbit <g> ~ sum_L <U_L>,
+          so each level receives ~32/_ds_scale substeps per effective period,
+          distributed uniformly in eccentric anomaly (U dt ~ dE). The apoapsis
+          lower-bound variant tried on 2026-08-29 was reverted: it over-resolves
+          eccentric levels by ~(1+e) each (triple/quadruple tests). This replaces
+          the old min-over-innermost-pairs form, which followed the tightest pair's
+          OWN potential while g sums all pairs, over-resolving hierarchical systems
+          by (sum_L <U_L>)/<U_tightest> (3-5x in typical hierarchies). For an
+          isolated binary the two forms coincide.
          */
         Float calcDsLogHSumGauge(BinaryTree<Tparticle>& _bin, const int _int_order, const Float& _G, const Float& _ds_scale) {
             Float u_sum = 0.0;
