@@ -3825,23 +3825,21 @@ namespace AR {
         }
 
         //! get Hamiltonian from backup data
+        /*! Use the same formula as getH(): the per-step |H - H_bk| check in
+          integrateToTime must measure the Hamiltonian change of one step. The
+          old AR_TTL branch returned a TTL-form H ((e+U-Eref)/gt_kick_inv) while
+          the live getH() returns the calcH (LogH) form; with the mismatch,
+          |H - H_bk| contains a constant offset between the two expressions
+          (same energy error divided by |U| vs gt_kick_inv) that no ds reduction
+          can remove, so the adaptive loop reduced ds without a lower bound
+          until it underflowed to exactly zero (ASSERT(_ds>0); unstable triple,
+          -m full, BTLogH+TTL).
+         */
         Float getHFromBackup(Float* _bk) const {
             Float& etot_ref =_bk[1];
             Float& ekin = _bk[2];
             Float& epot = _bk[3];
-#ifdef AR_TTL
-#ifdef AR_SLOWDOWN_TREE
-            //Float& gt_drift_inv = _bk[13];
-            Float& gt_kick_inv  = _bk[14];
-#else
-            //Float& gt_drift_inv = _bk[6];
-            Float& gt_kick_inv  = _bk[7];
-#endif
-            return (ekin + epot - etot_ref)/gt_kick_inv;
-            //return (ekin - etot_ref)/gt_drift_inv + epot/gt_kick_inv;
-#else
             return manager->interaction.calcH(ekin - etot_ref, epot);
-#endif
         }
 
 
@@ -3933,18 +3931,14 @@ namespace AR {
         }
 
         //! get slowdown Hamiltonian from backup data
+        /*! Use the same formula as getHSlowDown() (calcH); see getHFromBackup
+          for why the backup and live evaluators must agree.
+         */
         Float getHSlowDownFromBackup(Float* _bk) const {
             Float& etot_sd_ref =_bk[6];
             Float& ekin_sd = _bk[7];
             Float& epot_sd = _bk[8];
-#ifdef AR_TTL
-            //Float& gt_drift_inv = _bk[13];
-            Float& gt_kick_inv  = _bk[14];
-            //return (ekin_sd - etot_sd_ref)/gt_drift_inv + epot_sd/gt_kick_inv;
-            return (ekin_sd + epot_sd - etot_sd_ref)/gt_kick_inv;
-#else
-            return manager->interaction.calcH(ekin_sd - etot_sd_ref, epot_sd);            
-#endif
+            return manager->interaction.calcH(ekin_sd - etot_sd_ref, epot_sd);
         }
 
         //! get integrated energy with inner slowdown from backup data
