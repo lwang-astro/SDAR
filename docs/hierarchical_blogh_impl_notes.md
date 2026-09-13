@@ -1,6 +1,7 @@
 # Hierarchical BLogH 实现笔记
 
-> **最后更新**: 2026-09-01
+> **最后更新**: 2026-09-12
+> - 2026-09-12：**Scheme G：g 侧双侧 gauge clamp（escape 段过分辨率修复）**——`processOuterNode` 双曲非叶节点的一侧 q-cap 推广为 `r_eff = clamp(r, q, X)`、`X = q·P_r_eff/T_h`（P_r_eff = 最快椭圆层级 P·κ，调用点平扫、瞬态计算，不入快照）；ds 估计器/gate/valve **零改动**（运行时证据：首分歧行 ds 列逐位相同）。ustabtri escape 步率 448→125≈N_s（总步数 28,704→19,351），dE 包络位级不变，反向积分双向达设计步率；quin S256/S512 位级不变。详见下方专节与 `hierarchical_blogh_plan.md` §5.6/§5.7。
 > - 2026-09-01：**ds gauge 口径回归 semi（撤销 2026-08-29 的 apoapsis gauge）+ pert 阻尼哨兵修复**：
 >   1) `multiplyDsByNodePotentials` 与 `calcLogHSumGaugeIter` 椭圆 gauge 回到轨道平均 $Gm_1m_2/a$
 >      （$\langle 1/r\rangle_t = 1/a$；LogH 族变换下 $U\,dt \propto dE$，步点在偏近点角上均匀分布，
@@ -214,6 +215,8 @@ time = snap.time + snap.time_offset
 
 ### 2026-08-26 双曲层级 ds/g 规范失配（g 函数侧 q-cap 修复）
 
+> **状态（2026-09-12）**：本节的一侧 cap 已被 Scheme G 双侧 clamp 推广（见下节）——X≤q 时自动退化为本节行为，束缚/相遇段语义不变。
+
 **问题**（unstable triple，`--g-func 4 --g-func-switch auto -m orbit`）：交换 #2 后新双星 + 逃逸星构成双曲根节点，ds 按近心口径 q 冻结（Kepler 常数，逐位恒定），而运行时 g(t) 的外层因子 Gm₁m₂/r 随逃逸按 1/r 衰减 → dt=ds/g 无界增长 → 内双星分辨率跌至 ~8 步/轨道（设计 32），dE 从 1e-6 爬到 3.8e-2。基线归因（Phase 0 脚本 `sample/test/analysis_ustabtri_btlogh.py` 固化）：主导通道是 DKD 分裂误差（尾期生效 κ≡1，κ_max 棘轮 1→53 仅为同源症状）。
 
 **被否决的两版方案**（记录以免反复）：
@@ -272,6 +275,37 @@ time = snap.time + snap.time_offset
 
 **读回与对比注意事项**：`N_particle=3, N_sd=2`；计时列 18–20（Total/Int/Int_tsyn）每次运行不同，位级对比需排除；tree 拓扑变化用 SD 块的 (I1,I2) 列检测。
 
+### 2026-09-12 Scheme G：双侧 gauge clamp（escape 段步率 → N_s，q-cap 的推广）
+
+> 理论推导与方案对比（时间对称性分析、R1/R2 判决）见 `hierarchical_blogh_plan.md` §5.6/§5.7；session 记录与 H4 口径分析见 `~/src/python/SDAR_blogh_method_NOTES.md` 2026-09-12 节。
+
+**问题**（plan §5）：q-cap 后 escape 段每剩余双星轨道 ~448 步（设计 N_s=128）。根因不是 q-cap 与 ds 失配（两者精确相消 → 每 P_eff,min 步数恒为 32/ds_scale），而是 ds 的 P_eff,min 候选含双曲节点的**拟合遭遇时标** T_h = 2π|a_h|^{3/2}/√(G(m₁+m₂))——已结束的交会持续索取分辨率直到运行结束。
+
+**为何改 g 而非更新 P_eff,min（ds 侧）**：R1（退役时间尺度）代数自洽，但 (i) 需在 tree 不变时改 ds——违反 epoch 不变量（§3.2 教训）；(ii) “交会已结束”判据（dr/dt>0 或历史刷新阀）为反转奇/历史依赖，不可时间对称化；(iii) ejection 时刻 regen 的 ×3.37 候选跳变恰在 quiescence gate ×3 边界外，可能被 DEFER 且 escape 段无后续 regen。g 是被设计为逐步重估的偶位置函数——松弛的正确位置。
+
+**采纳实现**（唯一文件 `src/AR/symplectic_integrator.h`）：
+1. `processOuterNode(…, _P_r_eff_min)`：双曲非叶节点（semi<0 且 ecc>1）取 `r_eff = clamp(r_sep, q, X)`，X = q·P_r_eff/T_h（T_h 同 `calcEffectivePeriod` 双曲支公式）；梯度在 r_sep≤X 时激活（带内真 1/r 势），钉住时抑制（TTL 规则同 q-cap）。退化情形：T_h ≥ P_r_eff → X ≤ q → 退化为原 q-cap（无问题处零行为变化）；无椭圆层级（全双曲瞬态树）→ X = q。
+2. `calcAccPotAndGTKickInv` 调用点前平扫：全部椭圆层级（**含根**——镜像 `calcBLogHDsIter` 候选集；注意 `syncTreeSlowDownAndDs` Step 5 排除根，勿“对齐”该边界）取 min `slowdown.getEffectivePeriod()`；瞬态计算，BinarySlowDown 二进制/ASCII I/O 零改动。
+3. ds 估计器 / quiescence gate / 单向阀零改动。
+
+**代数**：钉在 X 时 steps/P_r = N_s·(P_r/T_h)·(q/X) = N_s（X = q·P_r/T_h）；带内 (q<r<X) 真 1/r，steps/P_r = N_s·(P_r/T_h)·(q/r) ≥ N_s；r≤q 与 q-cap 逐点相同（plunge 保护不变）。
+
+**验证**（`localdata/SDAR_BLogH/schemeG/`，commands.log 全留痕；二进制 `~/bin/ar.btlogh.ttl.sd.cm.{base,g}`，标准名未覆盖，Sep 4 原件备份为 `.sep4`）：
+
+| 项 | 结果 |
+|---|---|
+| 基线复现 | 15/15 位级（worktree=v2.1 数值精确复本，含未提交 information.h 清理情性确认） |
+| 冻结树 btlogh + LogH | 6/6 位级（clamp 不触发路径；blogh md5 差异仅为 assert __LINE__ 串，重跑逐位一致） |
+| ustabtri escape 步率 | 457→125.5 步/P_r（s32/s64/s128 = 30/62/125 ≈ N_s）；总步数 28,704→19,351（−33%，含 dance 段 transient-fit epoch 释放 6,055 步） |
+| dE | 三分辨率 de_max 与基线**位级相同**（2.036e-3 / 6.270e-5 / 2.010e-7）；t=0.00342 共振相遇段位级一致；首分歧 t=0.005677 |
+| ustabquin | logh 3/3 位级；btlogh S256/S512 位级（clamp 惰性）；S128 360,713→360,695 步，\|dE\| 略优 |
+| H4 对照 | 数值位级一致（仅 prof_*[s] 计时列异） |
+| 反向积分（对称性协议，`schemeG/check_backward.py`） | escape 步率 base 457/432（对称浪费）vs G 125/128（**双向设计值**）；反向遇相互作用前 de：base 1.5e-11 vs G 1.6e-11；共振后 de 为 Lyapunov 饱和量（双向均然，非判据） |
+
+**保留限制**（review 判决 PASS 附带）：
+1. 精确 N_s 标定仅对**单个**被 clamp 的双曲层级成立；k≥2 同时 clamp 时 steps/P_r = N_s·(P_r/P_eff,min)·Π_{j≠argmin}(T_h,j/P_r_eff) < N_s（欠分辨剩余双星；dance 段已实际多 clamp 而 dE 位级未伤，但 nested-escape 场景未测；缓解 = plan §5.7.5 D3 的 C_x 上限）。
+2. quiescence gate 安全阀 `n_live = peff_bk·g/ds` 仍读 T_h 口径的已提交 peff_min（G 下 ≈37 vs 设计 128），无条件接受裕度被放大；若后续动 gate，需改用 clamp-aware 口径。
+
 - **B-B quadruple, quad_sd2**: 两个 inner binary 都触发 slowdown
   - Inner 1: $m=(0.01,0.09)$, $a=10^{-4}$, $e=0.9$, $90^\circ$ 倾角 → KL 离心率振荡
   - Inner 2: $m=(3,7)$, $a=10^{-3}$, $e=0.9$, $90^\circ$ 倾角
@@ -290,6 +324,8 @@ time = snap.time + snap.time_offset
 - **Auto-switching (4↔0)**: 判据已旁路（见 Summary 2），切换从不发生；mode 1/3 的 auto 路径未深度测试
 - **standalone base 模式不适用于交换/逃逸场景**: 无 `-m orbit` 时不更新根数，交换后 stale semi>0 使 q-cap 永不触发 → dt 爆炸（fixed s512 终点 dE=218，见数据档案）。生产路径（Hermite/PeTar 经 `integrateToTime`）有根数更新，不受影响
 - **强相互作用事件型误差 floor ~1e-7–1e-6**: 共振飞掠硬化事件的跳变不随 ds 收敛、不因重构而变（三组对照判决，见 plan §3.5）；突破需事件时刻相位精确穿越，未规划
+- **Scheme G 的 k≥2 多 clamp 标定未证**（2026-09-12）：双侧 clamp 的精确 N_s 代数仅对单个被 clamp 双曲层级推导；同时 clamp ≥2 个层级时剩余双星被欠分辨 Π(T_h,j/P_r_eff) 倍（见上方专节“保留限制”；nested-escape 场景未测）
+- **gate 安全阀口径与 clamp 脱耦**（2026-09-12）：安全阀 `n_live` 读 T_h 口径已提交 peff_min，Scheme G 生效时段内 ≈37 vs 设计 128——不阻塞当前验收，但改 gate 时必须换 clamp-aware 口径
 
 ---
 

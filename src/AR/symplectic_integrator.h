@@ -972,7 +972,7 @@ namespace AR {
             @param[in] _bin: current binary tree node
             @param[in] _inv_nest_sd: inverse of nested slowdown factor at this level
         */
-        void processOuterNode(AR::BinaryTree<Tparticle>& _bin) {
+        void processOuterNode(AR::BinaryTree<Tparticle>& _bin, const Float _P_r_eff_min) {
             if (_bin.getMemberN() > 2) {
                 // --- common: separation and unit vector (computed once) ---
                 auto* m0 = _bin.getMember(0);
@@ -987,34 +987,52 @@ namespace AR {
 
                 // --- U_node into gt_kick_inv_ (with current-layer slowdown) ---
                 Float G = manager->interaction.gravitational_constant;
-                // Hyperbolic outer orbit: cap the separation at the peri-center
-                // q = |semi|*(ecc-1). ds is frozen with the tree (peri-center
-                // gauge, see multiplyDsByNodePotentials) while this g factor
-                // decays as 1/r — without a bound, dt = ds/g grows without bound
-                // as the escaper leaves and the inner-binary resolution degrades.
-                // Freezing the factor at G*m1*m2/q — the SAME gauge ds uses —
-                // keeps the resolution exactly at the design value and dt bounded.
-                // Properties of the q cap (vs e.g. 2|semi|):
-                //   * transient flybys never engage it: on the approach and near
-                //     peri r <= q holds (q is the peri distance), so during close
-                //     encounters g keeps the true 1/r form — no discontinuous g
-                //     jumps at tree rebuilds, which a 2|semi| cap suffers from
-                //     (transient |semi| can be arbitrarily small during a
-                //     three-body dance, inflating the capped U by orders of
-                //     magnitude and corrupting the energy);
-                //   * engagement at r=q is continuous in value (gradient kink
-                //     only, integrable);
-                //   * elliptic nodes are unaffected (closed orbit, r bounded).
-                // When capped, the factor is constant => its gradient must be
-                // suppressed as well, otherwise gt_drift_inv_ would evolve
-                // inconsistently with the g value (TTL consistency).
+                // Hyperbolic outer orbit: two-sided separation clamp (Scheme G,
+                // 2026-09-12; supersedes the one-sided peri-center q cap of
+                // 2026-08-26):
+                //   r_eff = clamp(r_sep, q, X),  q = |semi|*(ecc-1),
+                //   X = q * P_r_eff / T_h,  T_h = 2*pi*|semi|^{3/2}/sqrt(G(m1+m2)),
+                //   P_r_eff = fastest elliptic level's slowdown-effective period
+                //             (P*kappa, live; NUMERIC_FLOAT_MAX if none exists).
+                // ds is frozen with the tree (peri-center gauge + P_eff,min = T_h,
+                // see multiplyDsByNodePotentials / calcBLogHDsIter). With the node
+                // factor pinned at U(X) = G*m1*m2/X the resolution algebra gives
+                //   steps/P_r = N_s * (P_r/T_h) * (q/X) = N_s  when X = q*P_r/T_h:
+                // the escape tail relaxes exactly to the design rate instead of
+                // paying the encounter rate N_s*P_r/T_h forever (measured 448 vs
+                // 128 steps per P_r in the unstable-triple test). In-band
+                // (q < r_sep < X) the true 1/r factor and gradient are kept, so:
+                //   * plunges and transient flybys are unaffected (r <= q keeps
+                //     the true potential; the approach phase never engages the
+                //     upper clamp - X >= q by construction);
+                //   * both clamp edges are continuous in value (gradient kinks
+                //     only, integrable), so no discontinuous g jumps at tree
+                //     rebuilds, unlike e.g. a 2|semi| cap (transient |semi| can
+                //     be arbitrarily small during a three-body dance);
+                //   * elliptic nodes are unaffected (closed orbit, r bounded);
+                //   * marginal escape (T_h >= P_r_eff) gives X <= q: the clamp
+                //     degenerates to the previous one-sided q cap - no behavior
+                //     change where there is no over-resolution to release.
+                // When clamped (r_sep > X) the factor is constant => its
+                // gradient must be suppressed as well, otherwise gt_drift_inv_
+                // would evolve inconsistently with the g value (TTL consistency).
                 bool grad_active = true;
                 Float inv_r_eff = inv_r;
                 if (_bin.semi < 0.0 && _bin.ecc > 1.0) {
-                    Float r_cap = (-_bin.semi) * (_bin.ecc - 1.0);
-                    if (r_cap > 0.0 && r_sep > r_cap) {
-                        inv_r_eff = 1.0 / r_cap;
-                        grad_active = false;
+                    Float q_peri = (-_bin.semi) * (_bin.ecc - 1.0);
+                    if (q_peri > 0.0) {
+                        Float T_h = 2.0 * COMM::PI
+                                  * sqrt(pow(-_bin.semi, Float(3))
+                                         / (G * (_bin.m1 + _bin.m2)));
+                        Float r_cap = q_peri;
+                        if (T_h > 0.0 && _P_r_eff_min < NUMERIC_FLOAT_MAX
+                            && _P_r_eff_min > T_h) {
+                            r_cap = q_peri * _P_r_eff_min / T_h;
+                        }
+                        if (r_sep > r_cap) {
+                            inv_r_eff = 1.0 / r_cap;
+                            grad_active = false;
+                        }
                     }
                 }
                 gt_kick_inv_ *= G * _bin.m1 * _bin.m2 * inv_r_eff
@@ -1050,7 +1068,7 @@ namespace AR {
                 // --- single recursion into children ---
                 for (int k = 0; k < 2; k++) {
                     if (_bin.isMemberTree(k)) {
-                        processOuterNode(*_bin.getMemberAsTree(k));
+                        processOuterNode(*_bin.getMemberAsTree(k), _P_r_eff_min);
                     }
                 }
             }
@@ -1106,7 +1124,26 @@ namespace AR {
 
 #ifdef AR_G_FUNC_BTLOGH
             if (g_func_on) {
-                processOuterNode(info.getBinaryTreeRoot());
+                // Scheme G pre-scan: fastest elliptic effective period P*kappa
+                // over all tree levels (flat O(N) pass, same traversal style as
+                // syncTreeSlowDownAndDs Step 5 but covering ALL elliptic levels).
+                // Transient by design - never stored, BinarySlowDown I/O is
+                // unchanged. With no elliptic level (all-hyperbolic transient
+                // tree) it stays NUMERIC_FLOAT_MAX and the clamp in
+                // processOuterNode degenerates to the one-sided q cap.
+                Float P_r_eff_min = NUMERIC_FLOAT_MAX;
+                const int n_bin_prescan = info.binarytree.getSize();
+                for (int i = 0; i < n_bin_prescan; i++) {
+                    auto& bini = info.binarytree[i];
+                    if (bini.m1 > 0.0 && bini.m2 > 0.0
+                        && bini.semi > 0.0 && bini.period > 0.0) {
+                        Float P_eff_i = bini.slowdown.getEffectivePeriod();
+                        if (P_eff_i > 0.0 && P_eff_i < P_r_eff_min) {
+                            P_r_eff_min = P_eff_i;
+                        }
+                    }
+                }
+                processOuterNode(info.getBinaryTreeRoot(), P_r_eff_min);
             }
 #endif
 
