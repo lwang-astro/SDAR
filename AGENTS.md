@@ -58,6 +58,17 @@ See `sample/AR/` and `sample/Hermite/` for concrete instantiation patterns.
 
 See [.github/skills/sdar-fewbody-integration/SKILL.md](.github/skills/sdar-fewbody-integration/SKILL.md) for detailed workflow guidance including input format, binary selection, and safety rules.
 
+## Lessons-Learned Capture
+
+After each non-trivial task (integrator change, bug fix, simulation debugging, workflow change):
+
+1. **Reflect**: Did anything go wrong? Mistake, misleading assumption, silent failure, confusing error message?
+2. **If yes**: Append the finding directly to [.github/skills/sdar-fewbody-integration/assets/lessons-learned.md](.github/skills/sdar-fewbody-integration/assets/lessons-learned.md) under the appropriate category, with **Mistake** / **Root cause** / **Prevention rule**, matching the entry style already present.
+3. **If no**: No action needed.
+4. **Periodically**: Review entries and promote well-validated patterns to `SKILL.md` as hard rules.
+
+Lessons rooted in SDAR code (`src/`, `sample/AR`, `sample/Hermite`, `tools/`) belong here — even when discovered inside a PeTar session. See the PeTar developer workflow for the routing rule.
+
 ## Documentation
 
 - [Doxygen docs](https://lwang-astro.github.io/SDAR/docs/html/index.html)

@@ -594,6 +594,7 @@ Use these as primary references for SDAR workflows:
 - `.github/skills/sdar-fewbody-integration/assets/binary-scenario-map.md` — AR/Hermite variant selection guide
 - `.github/skills/sdar-fewbody-integration/assets/data-readback-patterns.md` — Python data readback patterns
 - `.github/skills/sdar-fewbody-integration/assets/minimal-question-sets.md` — per-scenario minimal required inputs
+- `.github/skills/sdar-fewbody-integration/assets/lessons-learned.md` — SDAR-specific mistakes, root causes, and prevention rules (integrator/time-sync, build & baseline methodology)
 - `sample/data_analysis.ipynb` — Jupyter notebook with full analysis workflow examples
 
 ## Reference Documents (Must Read)
@@ -606,6 +607,7 @@ When a task falls into the corresponding category, **read the file explicitly** 
 | **Any SDAR scenario** (after scenario is identified) | `assets/minimal-question-sets.md` | Per-scenario required-ask lists, including the "do not ask if already known" rule |
 | **Selecting AR variant** | `assets/binary-scenario-map.md` | Decision tree, binary-to-scenario mapping, compile flag requirements |
 | **Python data analysis** (before writing any analysis code) | `assets/data-readback-patterns.md` | **MUST READ before writing any analysis code.** Contains verified readback patterns for SDARData, HermiteData, SimpleParticle, SDARBinary, and binary/multiple detection. |
+| **Modifying integrator/time-sync code, A/B step-count comparisons, or adding defensive guards** | `assets/lessons-learned.md` | **MUST READ before touching `integrateToTime`/ds control or comparing runs.** Verified pitfalls: paired-evaluator consistency, same-binary A/B requirement, sorted-cck semantics, ds-floor gauge (float-resolution, not time_error). |
 | **Full analysis workflow** | `sample/data_analysis.ipynb` | Complete Jupyter notebook demonstrating all analysis patterns with runnable code
 
 Technical background (key algorithms):

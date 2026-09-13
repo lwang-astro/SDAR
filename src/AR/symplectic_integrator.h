@@ -2984,6 +2984,77 @@ namespace AR {
 
                 // get real time 
                 Float dt = time_;
+                bool ds_truncated = false; // this step was boundary-truncated; its dt must not drive the ds-enlarge heuristic below
+
+                // inverse time transformation factor for drift (same gauge as
+                // the drift substeps in integrateOneStep), shared by the ds floor
+                // check and the predictive truncation below
+#ifdef AR_TTL
+                const Float gt_drift_inv_pred = gt_drift_inv_;
+#else
+#ifdef AR_SLOWDOWN_TREE
+                const Float gt_drift_inv_pred = manager->interaction.calcGTDriftInv(ekin_sd_-etot_sd_ref_); // pt = -etot_sd
+#else
+                const Float gt_drift_inv_pred = manager->interaction.calcGTDriftInv(ekin_-etot_ref_); // pt = -etot
+#endif
+#endif
+                // defensive floor on the adaptive ds: abort only when one full
+                // step can no longer advance the integrated time at the
+                // FLOATING-POINT resolution (dt < ~4 ulp of the time scale) -
+                // then the finish window can never be closed and the loop is
+                // stuck (historical failure: halving until ds hit exactly 0).
+                // Do NOT use time_error as the floor: dt_end can sit just
+                // above time_error (measured: dt_end/time_error = 1.017 in the
+                // ustabquin dance) while a healthy landing undershoots with
+                // dt < time_error to enter the finish window - a time_error
+                // floor kills that final, perfectly convergent step.
+                const Float dt_step_floor = Float(4.0)*std::numeric_limits<Float>::epsilon()*std::max(abs(_time_end), Float(1.0));
+                if (!(ds[ds_switch] > 0.0)
+                    ||(gt_drift_inv_pred > 0.0 && ds[ds_switch]/gt_drift_inv_pred < dt_step_floor)) {
+                    std::cerr<<"Error! adaptive ds below time resolution in integrateToTime: ds="<<ds[ds_switch]
+                             <<" dt(one step)="<<ds[ds_switch]/gt_drift_inv_pred
+                             <<" dt_step_floor="<<dt_step_floor
+                             <<" gt_drift_inv="<<gt_drift_inv_pred
+                             <<" time="<<time_<<" time_end="<<_time_end
+                             <<" step_count="<<step_count<<std::endl;
+                    printColumnTitleAscii(std::cerr,20,info.binarytree.getSize());
+                    std::cerr<<std::endl;
+                    printColumnAscii(std::cerr,20,info.binarytree.getSize());
+                    std::cerr<<std::endl;
+                    abort();
+                }
+
+                // predictive first-step truncation: when the remaining real time
+                // is shorter than one natural step, truncate
+                // ds BEFORE integrating instead of integrating-overshooting-
+                // restoring, which wasted one full step per output interval when
+                // ds*gt ~ remaining time (measured: ~5-6 steps per output
+                // interval, ~8000 steps over a 1456-interval ustabtri -m full run).
+                // The truncated value is written only to the ACTIVE ds buffer; the
+                // passive buffer keeps the working ds, so an undershoot (gt drifted
+                // upward within the step) automatically restores it via
+                // 'ds[ds_switch] = ds[1-ds_switch]' in the time check below, and a
+                // slight overshoot is finished by the existing time_table-ratio
+                // landing branches (which correctly rescale from the truncated ds
+                // that was actually used). gt <= 0 (possible for the non-TTL
+                // analytic gauge) disables the prediction; the old overshoot path
+                // then applies unchanged. The natural-step estimate is
+                // dt = Sum(CK)*ds/gt with Sum(CK) = 1 by construction of the
+                // composition (only the drift substeps advance the integrated
+                // time). Do NOT replace the sum by
+                // getSortCumSumCK(cd_pair_size-1): the sorted table stores
+                // PARTIAL sums, and for negative-coefficient compositions
+                // (Yoshida type B, e.g. order -8) its last entry is the largest
+                // partial sum (~1.406), not the total.
+                if (!time_end_flag && gt_drift_inv_pred > 0.0) {
+                    Float dt_pred = ds[ds_switch]/gt_drift_inv_pred;
+                    Float dt_end_pred = _time_end - time_;
+                    if (dt_pred > dt_end_pred && dt_end_pred > 0.0) {
+                        ds[ds_switch] *= dt_end_pred/dt_pred;
+                        ASSERT(ds[ds_switch] > 0.0);
+                        ds_truncated = true;
+                    }
+                }
 
                 // integrate one step
                 ASSERT(!ISINF(ds[ds_switch]));
@@ -3324,7 +3395,8 @@ namespace AR {
 #endif
                         }
                         // increase step size if energy error is small, not works correctly, integration error may not increase when ds becomes larger, then a very large ds may appear after several iterations. suppress
-                        else if(integration_error_rel_abs<0.5*energy_error_rel_max && dt>0.0 && dt_full/dt>std::max(100.0,0.02*manager->step_count_max)) {
+                        // ds_truncated: a boundary-truncated step has an artificially small dt; do not let it trigger the enlargement (it would permanently raise info.ds)
+                        else if(!ds_truncated && integration_error_rel_abs<0.5*energy_error_rel_max && dt>0.0 && dt_full/dt>std::max(100.0,0.02*manager->step_count_max)) {
                             Float integration_error_ratio = energy_error_rel_max/integration_error_rel_abs;
                             Float step_modify_factor = std::min(Float(100.0),manager->step.calcStepModifyFactorFromErrorRatio(integration_error_ratio));
                             ASSERT(step_modify_factor>0.0);
