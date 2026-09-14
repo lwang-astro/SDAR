@@ -2861,6 +2861,17 @@ namespace AR {
                                     // only one particle has mass, drift directly
                                     if (count_mass==1) {
                                         ASSERT(index_mass_last<n_particle&&index_mass_last>=0);
+                                        // close the slowdown-energy bookkeeping like the
+                                        // destroy branch: the merged-away member removed
+                                        // its (large, close-pair) potential from the group;
+                                        // leaving etot_sd_ref_ at the pre-merger value
+                                        // makes dE_SD/Etot_SD blow up (measured 2.7e33)
+                                        // in the caller's energy monitor
+#ifdef AR_SLOWDOWN_TREE
+                                        de_sd_change_cum_ -= etot_sd_ref_;
+                                        dH_sd_change_interrupt_ -= getHSlowDown();
+                                        ekin_sd_ = epot_sd_ = etot_sd_ref_ = 0.0;
+#endif
                                         auto& p = particles[index_mass_last];
                                         Float dt = _time_end - time_;
                                         p.pos[0] += dt * p.vel[0];

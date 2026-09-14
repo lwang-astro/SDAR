@@ -546,7 +546,7 @@ namespace H4{
                 const int k = _index_single[i];
                 const Float* acc0 = force_[k].acc0;
                 const Float* acc1 = force_[k].acc1;
-                const Float dt =step.calcBlockDt2nd(acc0, acc1, _dt_limit);
+                const Float dt = step.calcBlockDt2nd(acc0, acc1, _dt_limit, &(particles[k].pos[0]), &(particles[k].vel[0]));
                 particles[k].dt = dt;
                 neighbors[k].initial_step_flag = false;
             }
@@ -556,7 +556,8 @@ namespace H4{
                 const int kf = k + index_offset_group_;
                 const Float* acc0 = force_[kf].acc0;
                 const Float* acc1 = force_[kf].acc1;
-                const Float dt =step.calcBlockDt2nd(acc0, acc1, std::min(_dt_limit, groups[k].info.dt_limit));
+                const Float dt_limit_g = std::min(_dt_limit, groups[k].info.dt_limit);
+                const Float dt = step.calcBlockDt2nd(acc0, acc1, dt_limit_g, &(groups[k].particles.cm.pos[0]), &(groups[k].particles.cm.vel[0]));
                 groups[k].particles.cm.dt = dt;
                 groups[k].perturber.initial_step_flag = false;
             }
@@ -628,6 +629,8 @@ namespace H4{
           @param[in] _pi: particle to corect
           @param[in] _fi: force for correction
           @param[in] _dt_limit: maximum step size allown
+          @param[in] _cm_pos: system c.m. position (for the monopole dt bound)
+          @param[in] _cm_vel: system c.m. velocity (for the monopole dt bound)
           @param[in] _inti_step_flag: true: only calculate dt 2nd instead of 4th
          */
         void correctAndCalcDt4thOne(H4Ptcl& _pi, ForceH4& _fi, const Float _dt_limit, const bool _init_step_flag) {
@@ -682,12 +685,12 @@ namespace H4{
 
             const Float dt_old = _pi.dt;
             if(_init_step_flag) {
-                _pi.dt = step.calcBlockDt2nd(_pi.acc0, _pi.acc1, _dt_limit);
+                _pi.dt = step.calcBlockDt2nd(_pi.acc0, _pi.acc1, _dt_limit, &(_pi.pos[0]), &(_pi.vel[0]));
 #ifdef HERMITE_DEBUG
                 std::cerr<<"Initial step flag on: pi.id: "<<_pi.id<<" step size: "<<_pi.dt<<" time: "<<_pi.time<<std::endl;
 #endif                
             }
-            else _pi.dt = step.calcBlockDt4th(_pi.acc0, _pi.acc1, acc2, acc3, _dt_limit);
+            else _pi.dt = step.calcBlockDt4th(_pi.acc0, _pi.acc1, acc2, acc3, _dt_limit, &(_pi.pos[0]), &(_pi.vel[0]));
 
             ASSERT((dt_old > 0.0 && _pi.dt >0.0));
             (void)dt_old;

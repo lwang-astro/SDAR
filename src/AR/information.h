@@ -421,7 +421,11 @@ namespace AR {
             Float u_sum = 0.0;
             Float P_eff_min = NUMERIC_FLOAT_MAX;
             calcLogHSumGaugeIter(u_sum, P_eff_min, _bin, _int_order, _G);
-            ASSERT(u_sum > 0);
+            // degenerate group (post-merger interrupt: one member has zero
+            // mass, no level contributes): no Kepler gauge exists; keep the
+            // current ds - the caller drifts the single massive remnant out
+            // of the interval, ds is not used for it
+            if (!(u_sum > 0)) return ds;
             ASSERT(P_eff_min < NUMERIC_FLOAT_MAX);
             return (_ds_scale / 32.0) * P_eff_min * u_sum;
         }
@@ -445,19 +449,22 @@ namespace AR {
                 int nbin = 0;
                 calcBLogHDsIter(ds_prod, period_prod, nbin, P_eff_min, bin_root, _int_order, _G);
 
-                ASSERT(nbin > 0);
-                // plain product formula, ds ~ [energy^nbin·time]
-                // ds = Π(ds_i) * P_eff_min / Π(P_eff)
-                ds = ds_prod * P_eff_min / period_prod;
-                peff_min = P_eff_min;  // stored for the Fix-2 step-count ceiling (symplectic_integrator.h)
+                // degenerate group (post-merger): no level contributes, keep
+                // the current ds (see calcDsLogHSumGauge)
+                if (nbin > 0) {
+                    // plain product formula, ds ~ [energy^nbin·time]
+                    // ds = Π(ds_i) * P_eff_min / Π(P_eff)
+                    ds = ds_prod * P_eff_min / period_prod;
+                    peff_min = P_eff_min;  // stored for the Fix-2 step-count ceiling (symplectic_integrator.h)
 #ifdef AR_G_FUNC_BTLOGH
-                // with outer potential, eccentricity may affect ds determination that ds is not exact reach P_eff_min.
-                // node potentials are orbit-averaged (semi-based) and
-                // pert-ratio scaled, see multiplyDsByNodePotentials
-                multiplyDsByNodePotentials(bin_root, _G, _int_order);
+                    // with outer potential, eccentricity may affect ds determination that ds is not exact reach P_eff_min.
+                    // node potentials are orbit-averaged (semi-based) and
+                    // pert-ratio scaled, see multiplyDsByNodePotentials
+                    multiplyDsByNodePotentials(bin_root, _G, _int_order);
 #endif
-                // DKD integrator divides each orbit into n_sub substeps, default is 32 substeps, use _ds_scale to change it.
-                ds *= _ds_scale / 32.0;
+                    // DKD integrator divides each orbit into n_sub substeps, default is 32 substeps, use _ds_scale to change it.
+                    ds *= _ds_scale / 32.0;
+                }
             } else {
                 ds = calcDsLogHSumGauge(bin_root, _int_order, _G, _ds_scale);
             }

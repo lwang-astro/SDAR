@@ -5,6 +5,21 @@
 namespace H4{
     // forth order Time step calculator class
     class TimeStep4th{
+    private:
+        //! monopole (flying-time) dt fallback for degenerate acc/jerk input
+        /*! dt ~ eta*r/|v| with r, v measured from the system c.m. assumed at
+          the coordinate origin (the caller must keep the system in the c.m.
+          frame). Compiled only with HERMITE_MONOPOLE_DT_LIMIT (PeTar hard
+          changeover framework); returns the no-limit value when pos/vel are
+          absent or degenerate (at the c.m. / co-moving).
+        */
+        Float calcDtMonopole(const Float* pos, const Float* vel, const Float eta) const {
+            if (pos==NULL || vel==NULL) return NUMERIC_FLOAT_MAX;
+            const Float r_sq = pos[0]*pos[0] + pos[1]*pos[1] + pos[2]*pos[2];
+            const Float v_sq = vel[0]*vel[0] + vel[1]*vel[1] + vel[2]*vel[2];
+            if (r_sq==0.0 || v_sq==0.0) return NUMERIC_FLOAT_MAX;
+            return eta*sqrt(r_sq/v_sq);
+        }
     public:
         Float eta_4th;  ///> time step coefficient (outside sqrt) for forth order
         Float eta_2nd;  ///> time step coefficient (outside sqrt) for second order
@@ -38,14 +53,29 @@ namespace H4{
         /*! calculate time step based on Acc and its derivatives
           @param[in] acc0: acceleration
           @param[in] acc1: first order derivative of acc0
+          @param[in] pos: particle position in the system c.m. frame (origin at
+            the c.m.). Used only when compiled with HERMITE_MONOPOLE_DT_LIMIT
+            (PeTar hard changeover): when the acc/jerk terms are degenerate
+            (changeover-truncated force ~ zero, e.g. a free particle outside
+            r_out), the flying-time bound dt ~ eta*r/|v| to the system c.m.
+            replaces the no-limit return, so such a particle cannot cross the
+            whole changeover region within one dt_max step (2026-09-13 IMBH
+            slingshot: v*dt=19.5 > r_out-r_in=15.5). Ignored otherwise.
+          @param[in] vel: particle velocity in the system c.m. frame
           \return time step
         */
         Float calcDt2nd(const Float* acc0, 
-                        const Float* acc1) const {
+                        const Float* acc1,
+                        const Float* pos = NULL,
+                        const Float* vel = NULL) const {
             const Float s0 = acc0[0] * acc0[0] + acc0[1] * acc0[1] + acc0[2] * acc0[2] + acc0_offset_sq;
             const Float s1 = acc1[0] * acc1[0] + acc1[1] * acc1[1] + acc1[2] * acc1[2];
             if(s0 == acc0_offset_sq || s1 == 0.0)
+#ifdef HERMITE_MONOPOLE_DT_LIMIT
+                return calcDtMonopole(pos, vel, eta_2nd);
+#else
                 return NUMERIC_FLOAT_MAX;
+#endif
             else 
                 return eta_2nd * sqrt( s0 / s1 );
         }
@@ -56,18 +86,26 @@ namespace H4{
           @param[in] acc1: first order derivative of acc0
           @param[in] acc2: second order derivative of acc0
           @param[in] acc3: thrid  order derivative of acc0
+          @param[in] pos: particle position in the system c.m. frame; see calcDt2nd
+          @param[in] vel: particle velocity in the system c.m. frame
           \return time step
         */
         Float calcDt4th(const Float* acc0,
                         const Float* acc1,
                         const Float* acc2,
-                        const Float* acc3) const {
+                        const Float* acc3,
+                        const Float* pos = NULL,
+                        const Float* vel = NULL) const {
             const Float s0 = acc0[0] * acc0[0] + acc0[1] * acc0[1] + acc0[2] * acc0[2] + acc0_offset_sq;
             const Float s1 = acc1[0] * acc1[0] + acc1[1] * acc1[1] + acc1[2] * acc1[2];
             const Float s2 = acc2[0] * acc2[0] + acc2[1] * acc2[1] + acc2[2] * acc2[2];
             const Float s3 = acc3[0] * acc3[0] + acc3[1] * acc3[1] + acc3[2] * acc3[2];
             if(s0 == acc0_offset_sq || s1 == 0.0) 
+#ifdef HERMITE_MONOPOLE_DT_LIMIT
+                return calcDtMonopole(pos, vel, eta_4th);
+#else
                 return NUMERIC_FLOAT_MAX;
+#endif
             else 
                 return eta_4th * sqrt( (sqrt(s0*s2) + s1) / (sqrt(s1*s3) + s2) );
         }
@@ -218,16 +256,22 @@ namespace H4{
           @param[in] _acc0: acceleration
           @param[in] _acc1: first order derivative of acc0
           @param[in] _dt_limit: maximum step limit
+          @param[in] _pos: particle position in the system c.m. frame; forwarded
+            to TimeStep4th::calcDt2nd (effective only when compiled with
+            HERMITE_MONOPOLE_DT_LIMIT, see there)
+          @param[in] _vel: particle velocity in the system c.m. frame
           \return step size, if dt<dt_min, return -dt;
         */
         Float calcBlockDt2nd(const Float* _acc0, 
                              const Float* _acc1,
-                             const Float _dt_limit) const{
+                             const Float _dt_limit,
+                             const Float* _pos = NULL,
+                             const Float* _vel = NULL) const{
             ASSERT(dt_max_>dt_min_);
             ASSERT(_dt_limit<=dt_max_);
             ASSERT(_dt_limit>=dt_min_);
 
-            const Float dt_ref = TimeStep4th::calcDt2nd(_acc0, _acc1);
+            const Float dt_ref = TimeStep4th::calcDt2nd(_acc0, _acc1, _pos, _vel);
             Float dt = _dt_limit;
             while(dt > dt_ref) dt *= 0.5;
 
@@ -252,12 +296,14 @@ namespace H4{
                              const Float* acc1,
                              const Float* acc2,
                              const Float* acc3,
-                             const Float _dt_limit) const {
+                             const Float _dt_limit,
+                             const Float* _pos = NULL,
+                             const Float* _vel = NULL) const {
             ASSERT(dt_max_>dt_min_);
             ASSERT(_dt_limit<=dt_max_);
             ASSERT(_dt_limit>=dt_min_);
 
-            const Float dt_ref = TimeStep4th::calcDt4th(acc0, acc1, acc2, acc3);
+            const Float dt_ref = TimeStep4th::calcDt4th(acc0, acc1, acc2, acc3, _pos, _vel);
             Float dt = _dt_limit;
             while(dt > dt_ref) dt *= 0.5;
 
