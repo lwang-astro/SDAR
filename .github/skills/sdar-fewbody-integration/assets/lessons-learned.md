@@ -101,3 +101,15 @@ for 1000/1002 "differences" until physical columns were compared selectively.
 3. 诊断此类误杀：gdb 在守卫处打印 dt_end 精确值与 time_error 比较——dt_end 仅比阈值大百分之几时，几乎必然是阈值设计错误而非系统卡死。
 
 ---
+
+### 2026-09-14: quad_sd2 slowdown B--B 的 Δa/a 漂移回归——LogH sum gauge 误乘 κ（85bb681）+ tsyn 截断放大（d86b1e2）；当日误诊两次
+
+**Mistake**: 诊断链上连续犯两个错。(1) 第一轮：把 `Large_energy_error` 初始化爆发（全部消息 t<4.2e-4）+ 慢盘 I/O 节流误判为"运行卡死"，且用 **1e-3 量级的粗精度**比较各版本 a1/a0（打印 4 位有效数字），在 9 月各版本"彼此一致(≤3e-3)"后就宣布"物理健康、无回归"——**基线选错**：正确基线是参照数据的生产二进制（Aug 1-3, `hermite_old`/e55ff89），其 Δa/a 长期 ~4e-8，比 3e-3 小四个量级。(2) 第二轮全精度对比才确认真实回归：85bb681（08-29）给 LogH sum gauge 的椭圆有效周期**乘了 slowdown 因子 κ**（新 `calcLogHSumGaugeIter` 替换从不乘 κ 的 `calcDsKeplerBinaryTree`），ds 放大 κ 倍（quad_sd2 binary1 κ≈19、binary2 κ≈509）→ 每区间能量误差贴着 -e 检查阈值 → binary1 Δa/a 线性漂移（6.4e-6/t，t=4153 外推 2.7e-2）；d86b1e2 首步预测截断在此基础上再降 37% AR 步数 → 6 阶误差 ×16 → 漂移 9.5e-5/t（15×）。用户指出"老版 Δa/a<1e-7、新版>1e-3"后定位完成。
+
+**Root cause**: (a) 85bb681 的验证集（ustabquin 等）全部无 slowdown（κ=1），P·κ 与 P 相同 → 回归只在 κ≫1 的 Hermite slowdown 组路径暴露；(b) 诊断时"同类版本互比"代替"参照基线比对"，且比较精度（4 位）掩盖了 1e-7 vs 1e-3 的四个量级差异；(c) 消息条数/推进速度是运行学症状，精度结论必须来自 .log 的轨道量全精度重算。
+
+**Prevention rule**:
+1. 精度回归判断必须满足两个条件：(i) 基线 = 参照数据的生产二进制（git worktree 重建或 `~/bin/hermite_old` 类存档），(ii) 比较用全浮点精度（%.2e）的轨道量（Δa/a、dE），禁止 4 位打印的"看起来一致"；
+2. 改动 ds 估计器的任何公式，验证矩阵必须包含 **slowdown κ≫1 用例**（Hermite 组路径）而不只是无 slowdown 的 AR -m 路径；κ=1 时新旧公式逐位相同不代表 κ>1 时安全；
+3. 2026-09-14 修复：`calcLogHSumGaugeIter` 椭圆层去掉 κ 乘子（恢复 08-29 前 LogH 语义；κ=1 逐位不变，ustabtri/quin/quad 论文数字不受影响；BTLogH 路径的 P·κ 是 Aug 论文数据既有基线，保持不动）。修复后 quad_sd2 h4：0 消息、Δa/a≤8.5e-8 至 t=600、比 AUG 省 26% AR 步（tsyn 截断收益保留）；κ=56000 的 sd1e2 配置 60 秒到 t=1024 正常；
+4. "卡死"判定先分离 I/O（tmpfs 复跑）再看消息时间直方图（见同日 I/O 节流误判）——但 I/O 结论不能引申为精度结论，两者独立验证。

@@ -382,12 +382,21 @@ namespace AR {
                 Float scale = calcPertScale(_bin, _int_order);
                 _u_sum += u_min * scale;
 
-                // effective period: elliptic P*kappa (slowdown), hyperbolic encounter timescale
+                // effective period: hyperbolic encounter timescale; elliptic uses
+                // the UN-SLOWED Kepler period (2026-09-14 fix): multiplying by the
+                // slowdown factor kappa (2026-08-29) inflated ds by kappa (10-500x
+                // in the quad_sd2 slowdown B--B Hermite test), pushing the
+                // per-interval energy error onto the -e check ceiling and producing
+                // a linear semi-major-axis drift (1e-3 by t=40) plus giant initial
+                // ds (60-700x tolerance trips at group creation). The pre-08-29
+                // LogH estimator (calcDsKeplerBinaryTree) never scaled by kappa;
+                // this restores that resolution. kappa==1 (no slowdown) is
+                // bit-identical. The BLogH/BTLogH product path keeps its own
+                // P*kappa gauge (getEffectivePeriod), unchanged.
                 Float p_eff;
                 if (_bin.semi > 0) {
                     p_eff = 2.0 * COMM::PI
-                          * sqrt(pow(_bin.semi, Float(3)) / (_G * (_bin.m1 + _bin.m2)))
-                          * _bin.slowdown.getSlowDownFactor();
+                          * sqrt(pow(_bin.semi, Float(3)) / (_G * (_bin.m1 + _bin.m2)));
                 }
                 else if (_bin.semi < 0) {
                     p_eff = 2.0 * COMM::PI
