@@ -159,6 +159,9 @@ namespace AR {
 #endif
         Float slowdown_timescale_max;       ///> slowdown maximum timescale to calculate maximum slowdown factor
         long long unsigned int step_count_max; ///> maximum step counts
+#ifdef AR_G_FUNC
+        int g_func;  ///> user-selected g-function option propagated to each group integrator (0=standard LogH; 1=method of this build; 2=auto, not available for AR_G_FUNC_BTLOGH)
+#endif
         
         Tmethod interaction; ///> class contain interaction function
         SymplecticStep step;  ///> class to manager kick drift step
@@ -169,7 +172,11 @@ namespace AR {
                                             slowdown_mass_ref(Float(-1.0)), 
 #endif
                                             slowdown_timescale_max(0.0),
-                                            step_count_max(0), interaction(), step() {}
+                                            step_count_max(0),
+#ifdef AR_G_FUNC
+                                            g_func(0),
+#endif
+                                            interaction(), step() {}
 
         //! check whether parameters values are correct
         /*! \return true: all correct
@@ -245,7 +252,11 @@ namespace AR {
 #endif
                  <<"slowdown_timescale_max    : "<<slowdown_timescale_max<<std::endl
                  <<"step_count_max            : "<<step_count_max<<std::endl
-                 <<"ds_scale                  : "<<ds_scale<<std::endl;
+                 <<"ds_scale                  : "<<ds_scale<<std::endl
+#ifdef AR_G_FUNC
+                 <<"g_func                    : "<<g_func<<std::endl
+#endif
+            ;
             interaction.print(_fout);
             step.print(_fout);
         }
@@ -1541,6 +1552,12 @@ namespace AR {
         void applyStableCheckAndSlowDown(const bool _stable_check_flag) {
             auto& bin_root = info.getBinaryTreeRoot();
             auto& sd_root = bin_root.slowdown;
+            // sync period also when no slowdown is applied (factor=1): a 2-particle
+            // leaf-root group never enters calcBinaryTreeSlowDown's inner loop, so
+            // without this its SlowDown::period stays at the constructor default
+            // NUMERIC_FLOAT_MAX and getEffectivePeriod() (=P*kappa) poisons the
+            // BLogH-family ds estimator
+            if (bin_root.semi > 0.0 && bin_root.period > 0.0) sd_root.period = bin_root.period;
             if (_stable_check_flag) {
                 Float apo = bin_root.semi * (1 + bin_root.ecc);
                 if (bin_root.stab < 1.0 && apo < info.r_break_crit) {
@@ -2267,10 +2284,8 @@ namespace AR {
                                                          vel2[0] * gtgrad2[0] +
                                                          vel2[1] * gtgrad2[1] +
                                                          vel2[2] * gtgrad2[2]);
-#ifdef AR_G_FUNC
-                if (g_func_on)
-                    dgt_drift_inv *= gt_kick_inv_;
-#endif
+                // no g-func branch: for two bodies the product g equals the
+                // LogH sum (single pair), the drift evolution is identical
                 gt_drift_inv_ += dgt_drift_inv;
 
 #else // NO Slowdown
@@ -2500,10 +2515,8 @@ namespace AR {
                                                                    vel2[0] * gtgrad2[0] +
                                                                    vel2[1] * gtgrad2[1] +
                                                                    vel2[2] * gtgrad2[2]);
-#ifdef AR_G_FUNC
-                if (g_func_on)
-                    dgt_drift_inv *= gt_kick_inv_;
-#endif
+                // no g-func branch: for two bodies the product g equals the
+                // LogH sum (single pair), the drift evolution is identical
                 gt_drift_inv_ += dgt_drift_inv;
 
 #else // NO Slowdown

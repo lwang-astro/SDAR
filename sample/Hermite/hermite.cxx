@@ -57,6 +57,9 @@ public:
     COMM::IOParams<double>  slowdown_mass_ref;
 #endif
     COMM::IOParams<double>  slowdown_timescale_max;
+#ifdef AR_G_FUNC
+    COMM::IOParams<int>     g_func_option;
+#endif
 #ifdef USE_MPFRC
     COMM::IOParams<int>     mpfr_digits;
 #endif
@@ -91,6 +94,19 @@ public:
         , slowdown_mass_ref   (input_par_store, 0.0,                "slowdown-mass-ref",    "slowdowm mass reference","averaged mass")
 #endif
         , slowdown_timescale_max(input_par_store, 0.0,              "slowdown-timescale-max", "maximum timescale for maximum slowdown factor","time-end")
+#ifdef AR_G_FUNC
+#if defined(AR_G_FUNC_BLOGH)
+#define AR_G_FUNC_METHOD_NAME "BLogH - product of the innermost binary pair potentials"
+#elif defined(AR_G_FUNC_BTLOGH)
+#define AR_G_FUNC_METHOD_NAME "BTLogH - tree-level product of potentials (inner pairs x outer orbit nodes);  for hyperbolic outer orbits the potential is fixed at the peri-center q=|a|(e-1), to avoid divergence"
+#endif
+#ifdef AR_G_FUNC_BTLOGH
+#define AR_G_FUNC_AUTO_DESC ""
+#else
+#define AR_G_FUNC_AUTO_DESC ";  2: auto switch between mode 1 and 0 when the perturbation to the binaries is strong"
+#endif
+        , g_func_option      (input_par_store, 0,                  "g-func",          "time transformation (g) function mode;  0: standard LogH - sum of all pair potentials;  1: " AR_G_FUNC_METHOD_NAME AR_G_FUNC_AUTO_DESC)
+#endif
 #ifdef USE_MPFRC
         , mpfr_digits         (input_par_store, 30,                 "mpfr-dights",          "dights for MPFR precison")
 #endif
@@ -116,6 +132,9 @@ public:
             {eps_sq.key,                   required_argument, &h4_flag, 12},
             {slowdown_ref.key,             required_argument, &h4_flag, 13},
             {slowdown_timescale_max.key,   required_argument, &h4_flag, 14},
+#ifdef AR_G_FUNC
+            {g_func_option.key,            required_argument, &h4_flag, 21},
+#endif
 #ifdef SLOWDOWN_MASSRATIO
             {slowdown_mass_ref.key,        required_argument, &h4_flag, 15},
 #endif
@@ -194,6 +213,22 @@ public:
                     slowdown_timescale_max.value = atof(optarg);
                     opt_used += 2;
                     break;
+#ifdef AR_G_FUNC
+                case 21:
+                    g_func_option.value = atoi(optarg);
+                    if (g_func_option.value < 0 || g_func_option.value > 2) {
+                        std::cerr<<"Error: --g-func value unknown ("<<optarg<<"), should be 0 (standard LogH), 1 (" AR_G_FUNC_METHOD_NAME ") or 2 (auto switch)\n";
+                        abort();
+                    }
+#ifdef AR_G_FUNC_BTLOGH
+                    if (g_func_option.value == 2) {
+                        std::cerr<<"Error: --g-func 2 (auto switch) is not supported for the BTLogH method\n";
+                        abort();
+                    }
+#endif
+                    opt_used += 2;
+                    break;
+#endif
 #ifdef SLOWDOWN_MASSRATIO
                 case 15:
                     slowdown_mass_ref.value = atof(optarg);
@@ -378,6 +413,9 @@ int main(int argc, char **argv){
     // set symplectic order
     ar_manager.step.initialSymplecticCofficients(iop.sym_order.value);
     ar_manager.interaction.interrupt_detection_option = iop.interrupt_detection_option.value;
+#ifdef AR_G_FUNC
+    ar_manager.g_func = iop.g_func_option.value;
+#endif
 
     // store input parameters
     // Set effective default filenames BEFORE writing the .par file, so the saved

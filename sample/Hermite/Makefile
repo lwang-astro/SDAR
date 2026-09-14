@@ -1,6 +1,6 @@
 ## TARGET
 BUILD_DIR=./build
-TARGET= hermite hermite.mpfrc hermite.kdkpert
+TARGET= hermite hermite.mpfrc hermite.kdkpert hermite.btlogh
 all: $(addprefix $(BUILD_DIR)/, $(TARGET))
 
 $(BUILD_DIR):
@@ -90,6 +90,11 @@ $(BUILD_DIR)/hermite.mpfrc: hermite.cxx ${SOURCE} | $(BUILD_DIR)
 
 $(BUILD_DIR)/hermite.kdkpert: hermite.cxx ${SOURCE} | $(BUILD_DIR)
 	$(CXX) $(CXXFLAGS) -D AR_KDK_PERT $< -o $@ $(CXXLIBS)
+
+# BTLogH (tree-level product g-func): default LogH (g_func=0) is bit-identical
+# to the plain build; --g-func 1 switches BTLogH on at runtime
+$(BUILD_DIR)/hermite.btlogh: hermite.cxx ${SOURCE} | $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) -D AR_G_FUNC_BTLOGH $< -o $@ $(CXXLIBS)
 
 install: $(addprefix $(BUILD_DIR)/, $(TARGET))
 	install -m 755 $(addprefix $(BUILD_DIR)/, $(TARGET)) $(INSTALL_PATH)

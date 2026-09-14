@@ -113,3 +113,27 @@ for 1000/1002 "differences" until physical columns were compared selectively.
 2. 改动 ds 估计器的任何公式，验证矩阵必须包含 **slowdown κ≫1 用例**（Hermite 组路径）而不只是无 slowdown 的 AR -m 路径；κ=1 时新旧公式逐位相同不代表 κ>1 时安全；
 3. 2026-09-14 修复：`calcLogHSumGaugeIter` 椭圆层去掉 κ 乘子（恢复 08-29 前 LogH 语义；κ=1 逐位不变，ustabtri/quin/quad 论文数字不受影响；BTLogH 路径的 P·κ 是 Aug 论文数据既有基线，保持不动）。修复后 quad_sd2 h4：0 消息、Δa/a≤8.5e-8 至 t=600、比 AUG 省 26% AR 步（tsyn 截断收益保留）；κ=56000 的 sd1e2 配置 60 秒到 t=1024 正常；
 4. "卡死"判定先分离 I/O（tmpfs 复跑）再看消息时间直方图（见同日 I/O 节流误判）——但 I/O 结论不能引申为精度结论，两者独立验证。
+
+---
+
+### 2026-09-14: BTLogH 乘积 g 在 2 粒子组（pair 路径）发散——验证矩阵系统性盲区
+
+**Mistake**: BTLogH → Hermite/PeTar 迁移接线完成后做 gf1 冒烟，`--g-func 1` 在**所有含 2 粒子组的场景**立即发散：AR standalone 孤立双星 dE→1.4e15 且输出失控（26GB）；H4 孤立双星（κ=64000）、quad_sd2 双 2 粒子组（κ=21.8）、ustabtri 内双星组（**κ=1**）均 NaN abort。历史 BTLogH 验证矩阵（ustabtri/ustabquin/quad B--B--S、Scheme G 回归 R1-R7）**全部是 3+ 粒子单组**，走树路径（`integrateOneStep` 树版本）；2 粒子走独立的 pair 重载（`integrateOneStep` 2 体版本，KDK/non-KDK 两分支），其乘积形式分支从未被任何验证覆盖。"2 粒子时 BTLogH 的 g ≡ 单对势（=LogH）"的代数论断让人误以为无需专门验证——实际上 pair 路径的 drift 因子积分（`dgt_drift_inv *= gt_kick_inv_`，乘入**含 κ** 的 gt_kick_inv_=U/κ）与 gtgrad（乘积分支给**不含 κ** 的 ∇ln U）口径不一致，`gt_drift_inv_` 偏离 g_kick 量级并失控（dump 实测 2.5e-11/3.95e10 vs g_kick O(0.1)）；κ=1 亦失败，κ 大则恶化更快。
+
+**Root cause**: (a) 组粒子数决定代码路径（2=pair 重载 / 3+=树路径），验证矩阵按"系统拓扑"（三体/四体/五体）设计而未按"代码路径"覆盖——全部多体测试恰好都绕开了 pair 重载的 g_func 分支；(b) 代数等价（g_product=U/κ=g_sum）只保证 g 值相同，不保证 kick/drift 分解与 gt 演变的数值实现一致；(c) H4/PeTar 中 2 粒子组恰是最常见组型（孤立双星），盲区落在生产最重的路径上。具体两缺陷：① `applyStableCheckAndSlowDown` factor=1 分支不同步 `sd_root.period`（2 粒子根=叶子永不进 `calcBinaryTreeSlowDown` 内循环）→ BLogH ds 估计器读到构造默认 DBL_MAX → ds=inf（LogH 口径在线算 P 从不读该成员故隐形）；② pair 路径 `dgt_drift_inv *= gt_kick_inv_` 平白多乘 U——pair 路径直接消费 interaction 层原始 ∇U gtgrad（÷U 的 ∇ln U 换算只在树路径包装层做），**圆轨道 v·∇U≡0 使该缺陷在两体圆轨道测试中完全不可见**。
+
+**Prevention rule**:
+1. g-func（或任何按宏分支的算法路径）的验证矩阵必须按**代码路径**而非系统拓扑设计：至少各包含一个 2 粒子（pair 重载）与 3+ 粒子（树路径）用例 × {κ=1, κ≫1} × {圆轨道, 偏心轨道}；"代数上等价"不能替代运行验证；
+2. **数学上两模式恒等的路径不应有任何模式分支**：两体时乘积 g ≡ LogH 求和，`integrateTwoOneStep` 中的 `AR_G_FUNC` 分支本身即错误（最终修复=整段删除）。曾以 `*=κ⁻¹` 试图"对齐口径"——κ=1 时恰为无操作故通过两体验证，κ=21.8 仍失败；等价性应通过删除分支达成，而非补系数；
+3. 圆轨道是危险的验证用例：v·∇U≡0 使 drift 梯度类缺陷完全静默；两体最小验证必须含偏心轨道（e=0.9 即可在数步内暴露）；
+4. H4 场景的 gf1 冒烟最小集：孤立双星（`bin2.dat` 型输入）+ 一个含 2 粒子组的少体系统（quad_sd2 拆组型）；AR standalone 孤立双星是最小复现载体（`ar.btlogh.ttl.sd.cm --g-func 1 -t 1 <2粒子输入>`，几分钟内 dE 爆炸）；
+5. 失控运行先设输出上限再诊断（`head -c` / `-n <nstep_max>` / timeout），本次 26GB 日志属可预防事故；
+6. 诊断链：先查初始化行（t=0 的 ds/Gt_drift/SD 块）再查首步轨迹——本轮 ds=inf 在 t=0 行即肉眼可见；修复后验收标准=gf1≡gf0（AR 两体逐位；H4 两体末位差来自两条 ds 公式浮点路径，属预期）。
+
+### 2026-09-14: `sample/input/fewbody_hermite.sh` 与当前 experiment 分支不兼容（存量）
+
+**Mistake**: 按 sample 脚本注释（"Runtime: < 0.1 second"）直接跑 `hermite -t 1.0 -o 2 -G 1.0 triple.stable.lowm3`，plain 与安装版二进制均 NaN abort（`Assertion !std::isnan(integration_error_rel_abs)`），一度干扰新改动的冒烟判断。
+
+**Root cause**: 脚本注释基于 2026-07-21 验证；experiment 分支后续演化（κ 修复、着陆截断等）改变了该输入在默认参数下的行为，脚本未同步。
+
+**Prevention rule**: sample 脚本失效时先跑"已安装生产二进制 + 同参数"对照（本次 `~/bin/hermite` 同样 abort → 存量问题，与新改动无关），再寻找替代冒烟输入（ustabtri H4 命令见 plan §Phase 5）；skill/脚本文档在分支演化后需重新验证。

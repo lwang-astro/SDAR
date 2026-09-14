@@ -165,7 +165,7 @@ ar.logh.sd.cm ar.logh.ttl.sd.cm ar.blogh.ttl.sd.cm ar.btlogh.ttl.sd.cm
 **To compile Hermite:**
 ```bash
 cd sample/Hermite
-make              # builds hermite, hermite.mpfrc, hermite.kdkpert
+make              # builds hermite, hermite.mpfrc, hermite.kdkpert, hermite.btlogh
 make install
 ```
 
@@ -316,6 +316,7 @@ via the `use_*` flags at build time (see Compilation above).
 | `-e` | float | Relative energy error limit for AR | 1e-10 |
 | `-i` | int | Interrupt detection option | 0 |
 | `-k` | int | AR symplectic order | -6 |
+| `--g-func` | int | g-function mode, `hermite.btlogh` build only: 0=standard LogH (default, bit-identical to plain build); 1=BTLogH; 2=auto (rejected for BTLogH) | 0 |
 | `--dt-min-power` | int | Power index for minimum Hermite step | 40 |
 | `--dt-max-power` | int | Power index for maximum Hermite step | 2 |
 | `--n-neighbor-max` | int | Max neighbors for group (-1 = same as N) | -1 |
@@ -595,6 +596,7 @@ Use these as primary references for SDAR workflows:
 - `.github/skills/sdar-fewbody-integration/assets/data-readback-patterns.md` — Python data readback patterns
 - `.github/skills/sdar-fewbody-integration/assets/minimal-question-sets.md` — per-scenario minimal required inputs
 - `.github/skills/sdar-fewbody-integration/assets/lessons-learned.md` — SDAR-specific mistakes, root causes, and prevention rules (integrator/time-sync, build & baseline methodology)
+- `.github/skills/sdar-fewbody-integration/assets/HANDOFF.md` — cross-project handoff notes (current: BTLogH → Hermite/PeTar integration, 2026-09-14; read before continuing that work)
 - `sample/data_analysis.ipynb` — Jupyter notebook with full analysis workflow examples
 
 ## Reference Documents (Must Read)
@@ -608,6 +610,7 @@ When a task falls into the corresponding category, **read the file explicitly** 
 | **Selecting AR variant** | `assets/binary-scenario-map.md` | Decision tree, binary-to-scenario mapping, compile flag requirements |
 | **Python data analysis** (before writing any analysis code) | `assets/data-readback-patterns.md` | **MUST READ before writing any analysis code.** Contains verified readback patterns for SDARData, HermiteData, SimpleParticle, SDARBinary, and binary/multiple detection. |
 | **Modifying integrator/time-sync code, A/B step-count comparisons, or adding defensive guards** | `assets/lessons-learned.md` | **MUST READ before touching `integrateToTime`/ds control or comparing runs.** Verified pitfalls: paired-evaluator consistency, same-binary A/B requirement, sorted-cck semantics, ds-floor gauge (float-resolution, not time_error). |
+| **Continuing the BTLogH → Hermite/PeTar integration (or any cross-project handoff task)** | `assets/HANDOFF.md` | Current status, verified facts (compile-clean, LogH-inert flag, kappa-safety of the product form), remaining plumbing, risk list, test data paths, and the validation ladder. |
 | **Full analysis workflow** | `sample/data_analysis.ipynb` | Complete Jupyter notebook demonstrating all analysis patterns with runnable code
 
 Technical background (key algorithms):

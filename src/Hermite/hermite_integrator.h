@@ -1478,6 +1478,11 @@ namespace H4{
                 // set manager
                 ASSERT(ar_manager!=NULL);
                 group_new.manager = ar_manager;
+#ifdef AR_G_FUNC
+                // propagate the g-function option to the group integrator;
+                // g_func_on is resolved in group initialIntegration()
+                group_new.g_func = ar_manager->g_func;
+#endif
 
                 // allocate memory
                 const int n_particle = _n_group_offset[i+1] - _n_group_offset[i];
