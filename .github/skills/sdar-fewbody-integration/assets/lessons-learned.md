@@ -137,3 +137,17 @@ for 1000/1002 "differences" until physical columns were compared selectively.
 **Root cause**: 脚本注释基于 2026-07-21 验证；experiment 分支后续演化（κ 修复、着陆截断等）改变了该输入在默认参数下的行为，脚本未同步。
 
 **Prevention rule**: sample 脚本失效时先跑"已安装生产二进制 + 同参数"对照（本次 `~/bin/hermite` 同样 abort → 存量问题，与新改动无关），再寻找替代冒烟输入（ustabtri H4 命令见 plan §Phase 5）；skill/脚本文档在分支演化后需重新验证。
+
+### 2026-09-15: ds 地板 `max(|t_end|,1)` 钳制在代码单位时间 <1 时退化成 time_error 口径，误杀 812-ulp 着陆步
+
+**Mistake**: PeTar 生产运行（mcluster Kroupa IC，t=0.0039 Myr，二体组 id 34/35）触发 `Error! adaptive ds below time resolution in integrateToTime` 并 abort。dump 显示 H=-8.9e-16（扩展哈密顿量在舍入水平守恒）、gt_drift_inv=0.098（远非 pericenter 大 gt）——AR 积分本身完全健康，却因 ds 在 22 步内从 2.9e-5 塌缩到 6.9e-17 触发地板。直接原因：`dt_step_floor = 4·eps·max(|t_end|, 1.0)` 的 `max(,1)` 钳制——t_end=0.0039=2^-8 时地板虚高 256 倍，被杀的那步 dt=7.04e-16 = 812 个 ulp(time_)，完全可以推进浮点时间且大概率一步进窗收尾。更深一层：`max(,1)` 使地板在一切 |t_end|<1 的运行里恰好等于 time_error 的 clamp 项——2026-09-13 ustabquin 教训明令禁止的 "time_error 口径地板" 从后门回来了。塌缩驱动是着陆重标定 `i==0` 分支的绝对时间比 `_time_end/time_table[k]`（隐含 t_start=0；该组实际从 t≈0.00195 起积，比值错 ~2 倍），在着陆循环里逐次把 ds 压向地板。
+
+**Root cause**: (a) 可表示性判据的尺度取错对象——`time_+dt` 是否推进取决于 ulp(|time_|)，与常数 1.0 无关；Myr 单位下星团早期演化整段都在 t<1 区间，正好落进钳制的放大区；(b) 着陆算术多处隐含 "组积分时间从 0 开始" 假设（`_time_end/time_table[k]`），而 Hermite 调用方传入的组起始时间一般非零；(c) 2026-09-13 的 Prevention rule 第 3 条把 "4 ulp·max(|t_end|,1)" 写成了规则本身，把当时发现的症状当成了正确口径固化下来。
+
+**Prevention rule**:
+1. 防御地板的正确口径是 `4·eps·max(|time_|, |t_end|)`（当前时刻与目标时刻的较大者，无 1.0 钳制）；修复后同 IC 完整跑完 100 Myr，能量误差 -7.5e-6；
+2. 时间量之比必须以"步起点"为参考（`(t_end - t_step_start)/(table[k] - t_step_start)`），禁止绝对时间直除；循环顶部保存 `time_step_start` 供着陆分支使用；`time_table[k] - t_step_start <= 0`（首子步倒退）时保守减半而非套公式；
+3. "X 口径不能用作判据"类教训在写成 Prevention rule 时，要检查新判据在全部参数区间（此处 |t|<1 与 |t|>1）是否真的避开了被禁口径——本条与 2026-09-13 第 3 条冲突即是固化症状的代价；
+4. 负时间步缩步分支（pre-sync 与 time-sync 两处）已加 streak 上限（连续 2 次后停止缩减并显式报 gauge 问题）：ds 幅值改不了 gt 决定的符号，restore 后同状态重试必然同样结果——本 IC 实测 0 次触发，塌缩来自着陆比值而非负步长，但保护留存以防其它场景；
+5. 诊断此族崩溃时先读 dump 里的 H 与 gt_drift_inv：H≈0 + gt 平缓 ⇒ 积分健康、控制器/着陆逻辑有病；gt 巨大 ⇒ 才是真正的 pericenter 正则化场景；
+6. `-DAR_COLLECT_DS_MODIFY_INFO`（PeTar Makefile 中注释保留）一次重编即可区分 ds 修改来源（Large_energy_error / Negative_step / Negative_step_tsyn），先插桩再动控制器逻辑。

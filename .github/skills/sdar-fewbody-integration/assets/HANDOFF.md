@@ -64,6 +64,20 @@
 **Step 2/3（H4/PeTar A/B）已解除阻塞。** 检验系统重新设计仍需覆盖
 2 粒子组 × 乘积 g × {κ=1, κ≫1}（本轮最脆弱面；两修复后已可用作回归项）。
 
+**PeTar 侧首轮 A/B（2026-09-14 晚，最小构建 = 无 SE/无 galpy，
+`petar.mpi.omp.avx2[.btlogh]`，已装 ~/bin；--tt-switch 0）：**
+
+| 系统（t_end） | logh dE/E | btlogh 默认（惰性） | btlogh --ar-g-func 1 |
+|---|---|---|---|
+| 2 体双星（t=0.01） | -1.33e-10 | **逐位一致**（快照 cmp 相同） | -1.14e-10（同量级） |
+| 3 体 ustabtri（t=0.0222） | 9.8e-9 | **逐位一致** | 2.6e-8（同级；dE_cum 166 vs 197，混沌散布） |
+| 4 体 quad_sd2（t=20） | 6.787e-7 | **逐位一致** | 6.777e-7（≈相同，两孤立双星=LogH 退化） |
+
+- 测试管线：`petar.init -f <name> <name>.base`（裸 7 列 mass/pos/vel）→
+  petar 原生输入；驱动脚本与全部运行留痕 `/tmp/petar_gfunc_ab/`。
+- **顺带修复 PeTar 存量 bug（hard.hpp `findGroupsAndCreateArtificialParticlesOneCluster`）**：no-TT 分支用外层候选组索引 `stable_binary_tree[i]` 索引 stable 子树表（两个不相关索引空间）——多候选组（如 quad 双双星）越界段错误、单候选多 stable 子树时静默丢组（修复前 tri 的 dE 与修复后不同即此症状）。修复=遍历当前候选的全部 stable 子树（与 TT 路径同构）。注意：**用户现有生产 logh 族（如 petar.mpi.omp.avx2.bseEmp.galpy，10:33 构建）不含此修复，--tt-switch 0 + 同簇多组场景仍会崩**，建议后续随源重建。
+- 剩余：正式 Step 3 小 cluster A/B（默认 LogH 基线对比 wall time/ar_step）仍待做；本首轮已覆盖 2/3/4 体正确性。
+
 证据目录：`/tmp/h4_gfunc_smoke/`、`/tmp/btlogh_n2_debug/`（易失，结论已录
 本文件、impl notes 与 lessons）。
 

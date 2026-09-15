@@ -2695,6 +2695,14 @@ namespace AR {
             int n_step_end=0;  // number of steps integrated to reach the time end for one during the time sychronization sub steps
             bool time_end_flag=false; // indicate whether time reach the end
 
+            // negative-dt reduction streak control: the sign of a step's dt is
+            // set by the time-transformation gauge (gt), not by ds, so at most
+            // 2 consecutive reductions can help (magnitude-driven cases);
+            // beyond that stop ratcheting ds down (measured collapse:
+            // ds 2.9e-5 -> 6.9e-17 within 22 steps) and surface the issue
+            int n_negative_dt_reduce_streak = 0;
+            long long unsigned int n_negative_dt_accepted = 0;
+
             // step count
             long long unsigned int step_count=0; // integration step 
             long long unsigned int step_count_tsyn=0; // time synchronization step
@@ -3008,6 +3016,11 @@ namespace AR {
 
                 // get real time 
                 Float dt = time_;
+                // time at the start of this composition step; the landing
+                // rescale below needs step-start-referenced ratios, the
+                // absolute form _time_end/time_table[k] silently assumed a
+                // zero start time
+                const Float time_step_start = time_;
                 bool ds_truncated = false; // this step was boundary-truncated; its dt must not drive the ds-enlarge heuristic below
 
                 // inverse time transformation factor for drift (same gauge as
@@ -3027,12 +3040,19 @@ namespace AR {
                 // FLOATING-POINT resolution (dt < ~4 ulp of the time scale) -
                 // then the finish window can never be closed and the loop is
                 // stuck (historical failure: halving until ds hit exactly 0).
+                // The representability scale is the CURRENT integrated time
+                // (time_ + dt must differ from time_), NOT max(|time_end|,1):
+                // clamping to 1.0 inflates the floor by 1/|time_end| for
+                // code-unit times < 1 (measured: time_end=0.0039 -> floor
+                // 256x too strict, a landing step of ~812 ulp of time_ was
+                // killed) and degenerates into exactly the time_error floor
+                // case described next whenever |time_end| < 1.
                 // Do NOT use time_error as the floor: dt_end can sit just
                 // above time_error (measured: dt_end/time_error = 1.017 in the
                 // ustabquin dance) while a healthy landing undershoots with
                 // dt < time_error to enter the finish window - a time_error
                 // floor kills that final, perfectly convergent step.
-                const Float dt_step_floor = Float(4.0)*std::numeric_limits<Float>::epsilon()*std::max(abs(_time_end), Float(1.0));
+                const Float dt_step_floor = Float(4.0)*std::numeric_limits<Float>::epsilon()*std::max(abs(time_), abs(_time_end));
                 if (!(ds[ds_switch] > 0.0)
                     ||(gt_drift_inv_pred > 0.0 && ds[ds_switch]/gt_drift_inv_pred < dt_step_floor)) {
                     std::cerr<<"Error! adaptive ds below time resolution in integrateToTime: ds="<<ds[ds_switch]
@@ -3368,6 +3388,28 @@ namespace AR {
 
                 // if negative step, reduce step size
                 if(!time_end_flag&&dt<0) {
+                    // the sign of dt is set by the time-transformation gauge
+                    // (gt) along the trajectory, not by the ds magnitude: after
+                    // two reductions a still-negative dt will not improve by
+                    // further shrinking ds (restored state -> same gauge).
+                    // Abort with an explicit gauge diagnosis instead of
+                    // ratcheting ds to the time-resolution floor.
+                    if (n_negative_dt_reduce_streak>=2) {
+                        printMessage("Error! negative integrated time step persists after ds reductions in integrateToTime (time-transformation gauge issue, not ds size)");
+                        std::cerr<<"  dt(negative step)="<<dt
+                                 <<"  ds="<<ds[ds_switch]
+                                 <<"  gt_drift_inv(pred)="<<gt_drift_inv_pred
+                                 <<"  time="<<time_<<"  time_end="<<_time_end
+                                 <<"  step_count="<<step_count
+                                 <<"  n_negative_dt_accepted="<<n_negative_dt_accepted<<std::endl;
+                        printColumnTitleAscii(std::cerr,20,info.binarytree.getSize());
+                        std::cerr<<std::endl;
+                        printColumnAscii(std::cerr,20,info.binarytree.getSize());
+                        std::cerr<<std::endl;
+                        abort();
+                    }
+                    n_negative_dt_reduce_streak++;
+                    n_negative_dt_accepted++;
                     // limit step_modify_factor to 0.125
                     step_modify_factor = std::min(std::max(regularStepFactor(manager->step.calcStepModifyFactorFromErrorRatio(abs(_time_end/dt))), Float(0.0625)),Float(0.5)); 
                     ASSERT(step_modify_factor>0.0);
@@ -3404,6 +3446,7 @@ namespace AR {
                 // if no modification, reset previous values
                 previous_step_modify_factor = 1.0;
                 previous_error_ratio = -1.0;
+                n_negative_dt_reduce_streak = 0;
 
                 // check integration time
                 if(time_ < _time_end - time_error){
@@ -3440,13 +3483,24 @@ namespace AR {
 
                         Float dt_end = _time_end - time_;
                         if (dt<0) {
-                            // limit step_modify_factor to 0.125
-                            step_modify_factor = std::min(std::max(regularStepFactor(manager->step.calcStepModifyFactorFromErrorRatio(abs(_time_end/dt))), Float(0.0625)),Float(0.5)); 
-                            ASSERT(step_modify_factor>0.0);
+                            // same rationale as the pre-sync negative-dt
+                            // branch above: ds size cannot fix a gauge-set
+                            // sign; cap the reductions (the existing
+                            // step_count_tsyn guard bounds the iterations)
+                            if (n_negative_dt_reduce_streak<2) {
+                                n_negative_dt_reduce_streak++;
+                                n_negative_dt_accepted++;
+                                // limit step_modify_factor to 0.125
+                                step_modify_factor = std::min(std::max(regularStepFactor(manager->step.calcStepModifyFactorFromErrorRatio(abs(_time_end/dt))), Float(0.0625)),Float(0.5)); 
+                                ASSERT(step_modify_factor>0.0);
 
-                            ds[ds_switch] *= step_modify_factor;
-                            ds[1-ds_switch] = ds[ds_switch];
-                            ASSERT(!ISINF(ds[ds_switch]));
+                                ds[ds_switch] *= step_modify_factor;
+                                ds[1-ds_switch] = ds[ds_switch];
+                                ASSERT(!ISINF(ds[ds_switch]));
+                            }
+#ifdef AR_COLLECT_DS_MODIFY_INFO
+                            collectDsModifyInfo("Negative_step_tsyn");
+#endif
                         }
                         else if (n_step_end>1 && dt<0.3*dt_end) {
                             // dt should be >0.0
@@ -3483,12 +3537,24 @@ namespace AR {
                         if(_time_end<=time_table[k]) break;
                     }
                     if (i==0) { // first step case
-                        ASSERT(time_table[k]>0.0);
-                        ds[ds_switch] *= manager->step.getSortCumSumCK(i)*_time_end/time_table[k];
+                        // reference the landing ratio to the START of the
+                        // retried step, not to time zero: the group time is
+                        // generally nonzero and the absolute form
+                        // _time_end/time_table[k] mis-scales the landing
+                        // whenever time_step_start != 0
+                        const Float dt_first = time_table[k] - time_step_start;
+                        ASSERT(dt_first!=0.0);
+                        if (dt_first>0.0) 
+                            ds[ds_switch] *= manager->step.getSortCumSumCK(i)*(_time_end-time_step_start)/dt_first;
+                        else {
+                            // first substep moved time backward (gauge flip):
+                            // conservative halving retry
+                            ds[ds_switch] *= 0.5;
+                        }
                         ds[1-ds_switch] = ds[ds_switch];
                         ASSERT(!ISINF(ds[ds_switch]));
 #ifdef AR_DEEP_DEBUG
-                        std::cerr<<"Time_end reach, time[k]= "<<time_table[k]<<" time= "<<time_<<" time_end/time[k]="<<_time_end/time_table[k]<<" CumSum_CK="<<manager->step.getSortCumSumCK(i)<<" ds(next) = "<<ds[ds_switch]<<" ds(next_next) = "<<ds[1-ds_switch]<<"\n";
+                        std::cerr<<"Time_end reach, time[k]= "<<time_table[k]<<" time= "<<time_<<" dt_first="<<dt_first<<" (time_end-t0)="<<(_time_end-time_step_start)<<" CumSum_CK="<<manager->step.getSortCumSumCK(i)<<" ds(next) = "<<ds[ds_switch]<<" ds(next_next) = "<<ds[1-ds_switch]<<"\n";
 #endif
                     }
                     else { // not first step case, get the interval time 
