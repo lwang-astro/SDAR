@@ -13,6 +13,7 @@ Periodically reviewed → verified entries are elevated to `SKILL.md` as hard ru
 
 - [Build & Baseline Methodology](#build--baseline-methodology)
 - [AR Integrator & Time Synchronization](#ar-integrator--time-synchronization)
+- [Documentation & Units](#documentation--units)
 
 ---
 
@@ -151,3 +152,15 @@ for 1000/1002 "differences" until physical columns were compared selectively.
 4. 负时间步缩步分支（pre-sync 与 time-sync 两处）已加 streak 上限（连续 2 次后停止缩减并显式报 gauge 问题）：ds 幅值改不了 gt 决定的符号，restore 后同状态重试必然同样结果——本 IC 实测 0 次触发，塌缩来自着陆比值而非负步长，但保护留存以防其它场景；
 5. 诊断此族崩溃时先读 dump 里的 H 与 gt_drift_inv：H≈0 + gt 平缓 ⇒ 积分健康、控制器/着陆逻辑有病；gt 巨大 ⇒ 才是真正的 pericenter 正则化场景；
 6. `-DAR_COLLECT_DS_MODIFY_INFO`（PeTar Makefile 中注释保留）一次重编即可区分 ds 修改来源（Large_energy_error / Negative_step / Negative_step_tsyn），先插桩再动控制器逻辑。
+
+---
+
+## Documentation & Units
+
+### 2026-09-17: `G` 常量规则在 SKILL 内部自相矛盾——单位制静默出错风险
+
+**Mistake**: `SKILL.md` 的 Non-Negotiable Rules 要求"使用 `G_MSUN_PC_MYR = 0.00449830997959438`"，而同文件的选项表与 Common Pitfalls 写"`-G` 默认 1.0（Henon），需确认"。两处并列时，agent 在 Msun/pc/Myr 场景可能直接套用 0.004498（正确），但在 Henon 场景也可能沿用它（错误）；更危险的是 `-G` 与 `-u` 不一致时 SDAR 不报错，只静默给出错误的能量与轨道。同一文件内的配置审计（2026-09-17）才发现。
+
+**Root cause**: 规则按"写作时最方便的角度"分散落笔——Non-Negotiable 层从"该用什么值"表述（只列出一个值），选项表层从"默认值是什么"表述（列出另一个值），两个片段各自孤立看都正确，从未被并列对照过。
+
+**Prevention rule**: 涉及单位制的常量必须写成"合法值集合 + 必须与运行一致"的单一声明，而不是若干各自正确的片段。现行口径：`-G` 只有两个合法值 —— `G_HENON = 1.0`（unscaled / Henon 单位，C++ 默认）与 `G_MSUN_PC_MYR = 0.00449830997959438`（`-u 4`，Msun/pc/Myr）；C++ 运行与 Python 分析必须一致，否则结果静默错误。配置文件审计时，应专门对照"同一常量在不同章节的取值"。

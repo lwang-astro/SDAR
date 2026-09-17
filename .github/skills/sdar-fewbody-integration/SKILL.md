@@ -15,52 +15,31 @@ build correctness, and Python data analysis patterns.
 
 ## Non-Negotiable Rules
 
-- **Always `cd` to a dedicated working directory before running any SDAR integrator.**
-  Do not run inside `sample/` or the repository root — these locations are for source code and build artifacts only.
-  If the user does not specify a working directory, ask for one — do not decide the path yourself.
-  If the user has no preference, suggest `~/sdar_run/<descriptive-name>` and confirm before creating.
-- **Do not run whatever binary happens to be in `~/bin/` without confirming it matches the scenario.**
-  Check what the user needs first (AR or Hermite, LogH or TTL, with/without slowdown, etc.), then select the correct binary.
-- **Validate binary availability** before composing commands: `command -v <binary>` or `ls <path-to-build>`.
-  If the binary is not built, guide the user through `make` in the appropriate `sample/` subdirectory.
-- **Before any solver execution, present a structured parameter summary and wait for explicit confirmation.**
-  The summary must include:
-  1. Working directory and input file
-  2. Full command line (binary, flags, output redirect)
-  3. Expected runtime hint (based on N-body count, end time, and step size)
-  4. Expected output files
-  5. A clear prompt: *"Proceed? (y/n)"* — stop and wait for user response.
-- **Redirect stdout of every major command to a file.** Use consistent naming:
-  - `ar.logh ... >ar_logh.log` for AR LogH runs
-  - `ar.logh.ttl ... >ar_logh_ttl.log` for AR TTL runs
-  - `hermite ... >hermite.log` for Hermite runs
-  - `keplertree ... >keplertree.log` for tree construction
-  - `keplerorbit ... >keplerorbit.log` for orbit conversion
-- **Record every command to a `commands.log` file in the working directory.**
+### Gate 1 — Working directory and inputs
+
+- **Always `cd` into a dedicated working directory before running any SDAR integrator.** Never run inside `sample/` or the repository root — those hold source code and build artifacts only. If the user does not specify a working directory, ask rather than choosing; if they have no preference, suggest `~/sdar_run/<descriptive-name>` and confirm before creating.
+- **Confirm which binary the scenario needs before composing a command** — AR or Hermite, LogH or TTL, with or without slowdown, MPFRC or not. Do not run whatever happens to be in `~/bin/`. See `assets/binary-scenario-map.md`.
+- **Validate binary availability** first: `command -v <binary>` or `ls <path-to-build>`. If it is not built, guide the user through `make` in the correct `sample/` subdirectory.
+- **Never mutate input files.** SDAR inputs are small ASCII tables — keep the original and copy one into the working directory if parameters need changing.
+- **For hierarchical systems, prefer slowdown (`sd`) binaries** (`ar.logh.sd`, `ar.logh.ttl.sd`): the slowdown method dramatically accelerates weakly perturbed inner binaries compared with plain `ar.logh` / `ar.logh.ttl`.
+
+### Gate 2 — Confirmation and traceability
+
+- **Before any solver execution, present a structured parameter summary and wait for explicit confirmation.** Contents, in order: (1) working directory and input file; (2) full command line (binary, flags, redirect); (3) expected runtime hint (from particle count, end time, step size); (4) expected output files; (5) a clear prompt — *"Proceed? (y/n)"* — then stop and wait.
+- **Record every command to `commands.log`** in the working directory:
   ```bash
   echo "# $(date): ~/bin/ar.logh.sd -t 1.0 -s 0.01 input.dat" >> commands.log
   ```
-- **Never mutate input files.** SDAR input files are small ASCII tables. Always keep the original;
-  if parameter changes are needed, copy the input file to the working directory first.
-- **For Python post-processing, always verify the data file format matches the reader class.**
-  AR output and Hermite output have different column layouts — using the wrong reader class
-  produces garbled results without an error message. See "Python Data Analysis Tools" below.
-- **After editing any Jupyter notebook (`*.ipynb`), verify every modified cell for integrity.**
-  Check: (a) code blocks are complete — no truncated functions, missing loops, or orphaned
-  try/except blocks; (b) the cell executes without syntax or runtime errors; (c) all imports
-  and variables used in the cell are defined in previous cells or within the cell.
-  Run each modified cell and confirm it produces expected output before considering the edit done.
-- **Use the `tools/` module via `import sdar` after installing the tools to the Python path.**
-  The tools install to `/home/lwang/include/sdar/` by the `tools/Makefile` (user-specific path).
-  If not installed, run `make -C tools` first.
-- **For gravitational constant, use `G_MSUN_PC_MYR = 0.00449830997959438` for Msun/pc/Myr units
-  and `G_HENON = 1.0` for Henon/N-body units.** These constants are defined in `tools/particle.py`
-  and must be consistent between the C++ integrator and Python analysis.
-- **SDAR is the reference integrator for PeTar.** When debugging PeTar close-encounter behavior,
-  replicate the subsystem in standalone SDAR first to isolate SDAR-level vs P3T-level issues.
-- **For hierarchical systems, slowdown (`sd`) binaries are preferred.** The slowdown method
-  dramatically accelerates weakly perturbed inner binaries. Use `ar.logh.sd` or `ar.logh.ttl.sd`
-  over plain `ar.logh`/`ar.logh.ttl` for hierarchical systems.
+- **Redirect stdout of every major command to a file** — SDAR emits many diagnostic lines that cannot be recovered afterwards. Naming: `ar.logh >ar_logh.log`, `ar.logh.ttl >ar_logh_ttl.log`, `hermite >hermite.log`, `keplertree >keplertree.log`, `keplerorbit >keplerorbit.log`.
+
+### Gate 3 — Units, constants, and precision
+
+- **`-G` must match the unit system, and the C++ run and the Python analysis must agree.** The only two valid values are `G_HENON = 1.0` (unscaled / Henon N-body units — the C++ default) and `G_MSUN_PC_MYR = 0.00449830997959438` (Msun/pc/Myr, unit `-u 4`). Never mix them: a mismatch silently produces wrong energies and orbits.
+- **Use the constants from `tools/particle.py`** — `G_MSUN_PC_MYR` and `G_HENON` — rather than hardcoding numeric values.
+- **Use the `tools/` package via `import sdar`** after installing it with `make -C tools` (installs to `~/include/sdar/`).
+- **For Python post-processing, always verify the data file format matches the reader class.** AR and Hermite outputs have different column layouts; the wrong reader class produces garbled results *without* an error message — see "Python Data Analysis Tools" below.
+- **After editing any Jupyter notebook (`*.ipynb`), verify every modified cell for integrity**: (a) code blocks are complete — no truncated functions, missing loops, or orphaned `try`/`except`; (b) the cell executes without syntax or runtime errors; (c) every import and variable is defined in the cell or an earlier one. Run each modified cell before considering the edit done.
+- **SDAR is the reference integrator for PeTar.** When debugging PeTar close-encounter behaviour, replicate the subsystem in standalone SDAR first to isolate SDAR-level from P3T-level issues.
 
 ## Algorithm Overview
 
@@ -88,28 +67,19 @@ Key references:
 
 ### AR Method Variants
 
-Binary names follow `ar.<method>[.ttl][.sd][.kdkpert][.cm][.mpfrc]` — `<method>` is
-the g-function form, `.ttl` the Time-Transformed Leapfrog implementation of it
-(absent = LogH implementation):
+Binary names follow `ar.<method>[.ttl][.sd][.kdkpert][.cm][.mpfrc]`: `<method>` is the g-function form, `.ttl` marks the Time-Transformed Leapfrog implementation (absent = LogH), and the remaining suffixes are feature builds.
 
-| Suffix | Meaning | Notes |
-|--------|---------|-------|
-| `logh` | g = `log(f(T) - f(-U)) / (T+U)` | Best for isolated binaries. Numerical trajectory follows exact Kepler with phase error only. |
-| `ttl` | Time-Transformed Leapfrog implementation, g = `1/|U|` | Simpler, faster per step but larger energy error for high eccentricity. |
-| `blogh` | BLogH g-func: product of innermost pair potentials | One g-func method per build (see below). |
-| `btlogh` | BTLogH: tree-level product (inner pairs x outer nodes) | Hierarchical quadruples+ (B-B). No auto switch. |
-| `sd` | Tree-based hierarchical slowdown (old `.sd.t`; `.sd.a` deprecated) | **Current default for hierarchical systems.** |
-| `kdkpert` | KDK with perturbation splitting (old `kdk.pert`) | Alternative for weakly perturbed systems. |
-| `cm` | Center-of-mass frame build | Useful when system drifts. |
-| `mpfrc` | High-precision (mpfr::mpreal) | Arbitrary-precision mode. Requires `-lmpfr -lgmp`. |
+Key semantics:
 
-**g-func method macros** (`src/AR/g_func.h`): `AR_G_FUNC_BLOGH` /
-`AR_G_FUNC_BTLOGH` — exactly one per build (mutual exclusion enforced at
-compile time). Runtime option `--g-func`: 0 = standard LogH, 1 = the method of
-this build, 2 = auto switch between 1 and 0 (rejected for btlogh). The
-normblogh / mulall / maxpot / addpot variants were removed in the 2026-08-28
-simplification; the last version implementing them is preserved at git tag
-`gfunc-archive` (see `docs/hierarchical_blogh_impl_notes.md`).
+- `logh` — g = `log(f(T) − f(−U)) / (T+U)`; best for isolated binaries, follows exact Kepler with phase error only.
+- `ttl` — g = `1/|U|`; simpler and faster per step, larger energy error at high eccentricity.
+- `blogh` / `btlogh` — g-function methods (innermost-pair product / tree-level product); exactly one per build.
+- `sd` — tree-based hierarchical slowdown; **the default for hierarchical systems** (old `.sd.t`; `.sd.a` deprecated).
+- `kdkpert`, `cm`, `mpfrc` — KDK perturbation splitting, CM-frame build, and MPFR high-precision mode.
+
+Runtime `--g-func`: 0 = standard LogH, 1 = the method of this build, 2 = auto switch between 1 and 0 (rejected for `btlogh`).
+
+Full variant → scenario mapping, the decision tree, and per-variant compile prerequisites: `assets/binary-scenario-map.md`.
 
 ### Hermite: Hybrid Hermite+AR
 
@@ -123,75 +93,14 @@ use the Hermite scheme.
 
 ## Build System
 
-### Directory Layout
+Directory layout, feature flags, and the standard `make -C sample/<dir>` commands are in [SDAR/AGENTS.md](../../../AGENTS.md) — do not duplicate them here.
 
-```
-SDAR/
-├── src/
-│   ├── Common/      # Float.h, List.h, ParticleGroup.h, BinaryTree.h, io.h
-│   ├── AR/          # symplectic_integrator.h, information.h
-│   └── Hermite/     # hermite_integrator.h
-├── sample/
-│   ├── AR/          # AR standalone executables + Makefile
-│   ├── Hermite/     # Hermite standalone executable + Makefile
-│   ├── Kepler/      # keplerorbit, keplertree + Makefile
-│   ├── input/       # Sample input files
-│   └── test/        # Unit tests
-├── tools/           # Python post-processing modules
-└── docs/            # Doxygen documentation
-```
+Build details this skill relies on:
 
-### Compilation
-
-Source files in `sample/` are the standalone executables. Each subdirectory has its own Makefile.
-
-**To compile AR (exactly 4 executables per configuration):**
-```bash
-cd sample/AR
-make                          # default (use_sd=yes use_cm=yes): *.sd.cm
-make use_mpfrc=yes            # add .mpfrc (likewise use_kdkpert=yes, use_sd=no ...)
-make install                  # install to ~/bin/ (or modify INSTALL_PATH in Makefile)
-```
-
-**AR build mechanism** (2026-08-28): one executable per base method (`logh`,
-`logh.ttl`, `blogh.ttl`, `btlogh.ttl`); the feature suffix (order
-`.sd.cm.mpfrc.kdkpert`) is composed from the `use_sd` / `use_cm` / `use_mpfrc` /
-`use_kdkpert` flags (`use_kdkpert` forces `use_sd` on). Naming:
-`ar.<method>[.ttl][.sd][.cm][.mpfrc][.kdkpert]`. Default flags build:
-```
-ar.logh.sd.cm ar.logh.ttl.sd.cm ar.blogh.ttl.sd.cm ar.btlogh.ttl.sd.cm
-```
-
-**To compile Hermite:**
-```bash
-cd sample/Hermite
-make              # builds hermite, hermite.mpfrc, hermite.kdkpert, hermite.btlogh
-make install
-```
-
-**To compile Kepler tools:**
-```bash
-cd sample/Kepler
-make              # builds keplerorbit, keplertree
-make install
-```
-
-**Compile flags to be aware of:**
-- `-D AR_SLOWDOWN_TREE` — enables hierarchical slowdown (required for `sd` variants)
-- `-D AR_SLOWDOWN_TIMESCALE` — enables timescale-based slowdown control
-- `-D AR_TTL` — use TTL time transformation instead of LogH
-- `-D AR_KDK_PERT` — use KDK perturbation splitting
-- `-D USE_MPFRC` — arbitrary-precision mode (requires `-lmpfr -lgmp`)
-- `-D AR_DEBUG`, `-D BINARY_DEBUG`, `-D AR_DEEP_DEBUG` — debug flags
-- `-D USE_OMP` — OpenMP parallelization
-- `-D SDAR_TIME_MEASURE` — enable timing profile output (enabled by default)
-
-**When to rebuild:** If the user requests a different feature combination, rebuild with the
-corresponding `use_*` flags (e.g. `make use_sd=no use_cm=no use_mpfrc=yes`) instead of
-editing rules. Only a new method combination beyond the four base methods would require
-adding a new rule.
-
-**Install path:** Default is `~/bin`. To change, modify `INSTALL_PATH` in each `sample/*/Makefile`.
+- **One executable per base method** (`logh`, `logh.ttl`, `blogh.ttl`, `btlogh.ttl`); the feature suffix (order `.sd.cm.mpfrc.kdkpert`) is composed from the `use_sd` / `use_cm` / `use_mpfrc` / `use_kdkpert` flags (`use_kdkpert` forces `use_sd` on). The default flags build `ar.logh.sd.cm`, `ar.logh.ttl.sd.cm`, `ar.blogh.ttl.sd.cm`, `ar.btlogh.ttl.sd.cm`.
+- **When to rebuild**: request a different feature combination with `use_*` flags (e.g. `make use_sd=no use_cm=no use_mpfrc=yes`) rather than editing Makefile rules. Only a method combination beyond the four base methods needs a new rule.
+- **Install path**: `~/bin` by default; change `INSTALL_PATH` in each `sample/*/Makefile`.
+- **Debug and profile flags**: `AR_DEBUG`, `BINARY_DEBUG`, `AR_DEEP_DEBUG`, `USE_OMP`; `SDAR_TIME_MEASURE` (timing profile) is on by default and must match the Python reader's `time_measure` kwarg.
 
 ## Input File Format
 
@@ -257,22 +166,9 @@ For N-body simulations, unit 0 (unscaled, G=1, total mass=1) or unit 4 (Msun/pc/
 4. Post-process output with Python tools
 ```
 
-**Selecting the right AR variant:**
+**Selecting the right AR variant**: decision tree, system → binary mapping, and build prerequisites are in `assets/binary-scenario-map.md`. Suffix features beyond the default `.sd.cm` (e.g. `.mpfrc`, `.kdkpert`) are opt-in via `use_*` flags at build time.
 
-| System | Recommended Binary |
-|--------|-------------------|
-| Isolated binary | `ar.logh` |
-| Isolated binary (faster, less accurate) | `ar.logh.ttl` |
-| Hierarchical triple/quadruple | `ar.logh.sd` or `ar.logh.ttl.sd` |
-| Weakly perturbed binary | `ar.logh.sd.kdkpert` |
-| System with multiple inner binaries | `ar.blogh.ttl.sd` |
-| Hierarchical quadruple+ (B-B) | `ar.btlogh.ttl.sd` |
-| High-precision requirement | `ar.logh.mpfrc` |
-
-Suffix features beyond the default `.sd.cm` (e.g. `.mpfrc`, `.kdkpert`) are opt-in
-via the `use_*` flags at build time (see Compilation above).
-
-**Key AR command-line options:**
+**Key AR command-line options** (full list with defaults: `assets/minimal-question-sets.md`):
 
 | Flag | Argument | Description | Default |
 |------|----------|-------------|---------|
@@ -280,18 +176,12 @@ via the `use_*` flags at build time (see Compilation above).
 | `-n` | int | Number of integration steps (overrides `-t`) | 0 |
 | `-s` | float | Step size ds (≤0 = auto) | 0.0 |
 | `-e` | float | Relative energy error limit | 1e-10 |
-| `-o` | float | Output time interval | 0.0 |
-| `-r` | float | Distance criterion for stability check | 1e-3 |
-| `-G` | float | Gravitational constant | 1.0 |
-| `-k` | int | Symplectic integrator order (even; negative = Yoshida 2nd) | -6 |
-| `-i` | int | Interrupt detection: 0=off, 1=modify orbits, 2=record only | 0 |
-| `-p` | string | Load parameters from file | "" |
-| `--ds-scale` | float | Step size scaling factor | 1.0 |
-| `--g-func` | int | g-function mode: 0=standard LogH; 1=method of this build; 2=auto switch 1<->0 (rejected for btlogh; only on g-func binaries) | 0 |
-| `--dt-min` | float | Minimum physical time step | 1e-13 |
-| `--slowdown-ref` | float | Slowdown perturbation ratio reference | 1e-6 |
-| `--slowdown-timescale-max` | float | Max timescale for slowdown factor | time-end |
-| `--break-check` | flag | Record hyperbolic-escape break events (root semi<0, outgoing, r>r_crit; mirrors Hermite checkBreak) to stderr. Record only — does NOT stop integration | off |
+| `-G` | float | Gravitational constant — see Gate 3; must match the unit system | 1.0 (Henon) |
+| `-p` | string | Load parameters from a file | "" |
+| `--g-func` | int | g-function mode: 0 = standard LogH, 1 = method of this build, 2 = auto switch 1↔0 (rejected for btlogh; g-func builds only) | 0 |
+| `--break-check` | flag | Record hyperbolic-escape break events to stderr (record only — does not stop integration) | off |
+
+Other tunables — `-o`, `-r`, `-k`, `-i`, `--ds-scale`, `--dt-min`, `--slowdown-ref`, `--slowdown-timescale-max` — keep their defaults unless there is a specific reason; confirm any change with the user.
 
 ### Pattern 2: Hermite+AR Hybrid Integration
 
@@ -301,25 +191,18 @@ via the `use_*` flags at build time (see Compilation above).
 3. Post-process output with Python tools
 ```
 
-**Key Hermite command-line options:**
+**Key Hermite command-line options** (full list with defaults: `assets/minimal-question-sets.md`):
 
 | Flag | Argument | Description | Default |
 |------|----------|-------------|---------|
 | `-t` | float | End physical time | 1.0 |
 | `-r-group` | float | Group detection radius | 1e-3 |
 | `-r-neighbor-over-group` | float | Neighbor radius = factor × r_group | 2.0 |
-| `-eta-4th` | float | Time step coefficient for 4th order | 0.1 |
-| `-eta-2nd` | float | Time step coefficient for 2nd order | 0.001 |
-| `-eps` | float | Softening parameter | 0.0 |
-| `-G` | float | Gravitational constant | 1.0 |
-| `-o` | int | Output interval (power index of 0.5) | 2 |
+| `-G` | float | Gravitational constant — see Gate 3; must match the unit system | 1.0 (Henon) |
 | `-e` | float | Relative energy error limit for AR | 1e-10 |
-| `-i` | int | Interrupt detection option | 0 |
-| `-k` | int | AR symplectic order | -6 |
-| `--g-func` | int | g-function mode, `hermite.btlogh` build only: 0=standard LogH (default, bit-identical to plain build); 1=BTLogH; 2=auto (rejected for BTLogH) | 0 |
-| `--dt-min-power` | int | Power index for minimum Hermite step | 40 |
-| `--dt-max-power` | int | Power index for maximum Hermite step | 2 |
-| `--n-neighbor-max` | int | Max neighbors for group (-1 = same as N) | -1 |
+| `--g-func` | int | g-function mode, `hermite.btlogh` build only: 0 = standard LogH (default, bit-identical to the plain build), 1 = BTLogH, 2 = auto (rejected for BTLogH) | 0 |
+
+Other tunables — `-eta-4th`, `-eta-2nd`, `-eps`, `-o`, `-i`, `-k`, `--dt-min-power`, `--dt-max-power`, `--n-neighbor-max` — keep their defaults unless there is a specific reason.
 
 ### Pattern 3: Kepler Binary Tree Construction
 
@@ -539,65 +422,21 @@ Command-line arguments override file values, so `-p` + `-t 2.0` uses `t=2.0` reg
 
 ## Common Pitfalls
 
-1. **Missing `N_particle` or `time_measure` at construction.** Always pass `N_particle=N, time_measure=True`
-   to `SDARData()` and `HermiteData()` constructors. Without them, `particles.n` is 0 and
-   column-count validation fails. `loadtxt` does NOT accept these kwargs — they go to `np.loadtxt`
-   which rejects them.
+1. **Step size too large for eccentric orbits.** The default auto step size may be insufficient for high-eccentricity binaries — use `-s <smaller_value>` or tighten `-e`.
+2. **Unit system confusion in the Kepler tools.** `-u` changes the interpretation of semi-major axis, period, and velocities; with unit 4 (Msun/pc/Myr), `-G` must be `0.00449830997959438`.
+3. **`findPair` returns a different tuple shape depending on `use_kdtree`** — `(kdt, singles, binary)` for `True`, `(singles, binary)` for `False`.
+4. **`HermiteData` exposes energies via `data.energy_phy`**, not `data.energy`; the slowdown component is `data.energy_sd`.
 
-2. **Hermite output needs pre-filtering before `HermiteData`.** The raw log contains
-   diagnostic messages mixed with data. Filter to numeric-starting lines first,
-   then skip the column-title line, then pass to `HermiteData(arr, N_particle=N)`.
-
-3. **Column counts vary by AR variant.** With N=3 particles: plain AR = 56 columns,
-   `.sd` = 75 columns. Pass `slowdown=True` only for `.sd`; `N_sd` must match
-   the number of binary pairs. For a fully-connected hierarchical tree,
-   `N_sd = N_particle - 1`. For Hermite, `N_sd` varies by initial SDAR group count.
-   When the column mismatch warning appears, adjust `N_sd` to resolve it.
-
-4. **`findPair` signature depends on `use_kdtree`.** With `use_kdtree=True`, the return is
-   `(kdt, singles, binary)` (3 values). With `use_kdtree=False`, it's `(singles, binary)` (2 values).
-
-5. **HermiteData uses `data.energy_phy` not `data.energy`.** Access Hermite energy via
-   `data.energy_phy.de`, `data.energy_phy.ekin`, etc. — not `data.energy`.
-
-6. **G mismatch between C++ and Python.** The C++ default `-G 1.0` (Henon units) differs from
-   `G_MSUN_PC_MYR = 0.00449830997959438`. Confirm the `-G` value used in the C++ run and
-   use the matching constant in Python.
-
-7. **Step size too large for eccentric orbits.** For high-eccentricity binaries, the default
-   auto step size may be insufficient. Use `-s <smaller_value>` or `-e <tighter_tolerance>`.
-
-8. **Lost output from terminal.** Always redirect stdout. SDAR can produce many output lines;
-   without redirection, important diagnostics are lost.
-
-9. **Unit system confusion.** The `-u` flag in Kepler tools changes interpretation of
-   semi-major axis, period, and velocities. When unit 4 (Msun/pc/Myr) is used, G must be
-   `0.00449830997959438`.
+The constructor-kwarg, pre-filtering, and column-count pitfalls are covered above and in `assets/data-readback-patterns.md`; the G-mismatch and output-redirection rules are Gates 2–3.
 
 ## Preferred References in This Repository
 
-Use these as primary references for SDAR workflows:
-
 - `README.md` — user guide and algorithm introduction
-- `docs/doc.h` — Doxygen mainpage with complete algorithmic derivation
-- `docs/html/index.html` — full Doxygen HTML documentation
-- `sample/input/` — example input files
-- `sample/input/triple.stable.lowm3.sh` — original AR method comparison script
-- `sample/input/binary_logh.sh` — isolated binary AR LogH integration
-- `sample/input/triple_logh_sd.sh` — hierarchical triple AR LogH + slowdown
-- `sample/input/fewbody_hermite.sh` — Hermite+AR hybrid integration
-- `sample/input/triple_compare_methods.sh` — multi-method comparison
-- `sample/input/build_kepler_tree.sh` — Kepler binary tree construction
-- `sample/AR/Makefile` — AR build targets and compile flags
-- `sample/Hermite/Makefile` — Hermite build targets
-- `sample/Kepler/Makefile` — Kepler tool build targets
-- `tools/__init__.py` — Python module entry point
-- `.github/skills/sdar-fewbody-integration/assets/binary-scenario-map.md` — AR/Hermite variant selection guide
-- `.github/skills/sdar-fewbody-integration/assets/data-readback-patterns.md` — Python data readback patterns
-- `.github/skills/sdar-fewbody-integration/assets/minimal-question-sets.md` — per-scenario minimal required inputs
-- `.github/skills/sdar-fewbody-integration/assets/lessons-learned.md` — SDAR-specific mistakes, root causes, and prevention rules (integrator/time-sync, build & baseline methodology)
-- `.github/skills/sdar-fewbody-integration/assets/HANDOFF.md` — cross-project handoff notes (current: BTLogH → Hermite/PeTar integration, 2026-09-14; read before continuing that work)
-- `sample/data_analysis.ipynb` — Jupyter notebook with full analysis workflow examples
+- `docs/doc.h`, `docs/html/index.html` — algorithm derivation and full Doxygen documentation
+- `sample/input/*.sh` — runnable examples (`binary_logh.sh`, `triple_logh_sd.sh`, `fewbody_hermite.sh`, `triple_compare_methods.sh`, `build_kepler_tree.sh`, `triple.stable.lowm3.sh`)
+- `sample/{AR,Hermite,Kepler}/Makefile` — build targets and compile flags
+- `sample/data_analysis.ipynb` — full analysis workflow examples
+- Skill assets — `assets/binary-scenario-map.md`, `assets/data-readback-patterns.md`, `assets/minimal-question-sets.md`, `assets/lessons-learned.md`, `assets/HANDOFF.md`
 
 ## Reference Documents (Must Read)
 
@@ -624,27 +463,17 @@ Technical background (key algorithms):
 
 ## Relationship to PeTar
 
-SDAR is the few-body integrator embedded inside PeTar. When PeTar detects a close encounter
-or bound subsystem, it hands off the particles to SDAR (via the AR/Hermite library in `src/`).
-Key relationship rules:
+SDAR is the few-body integrator embedded inside PeTar: when PeTar detects a close encounter or bound subsystem, it hands the particles to the AR/Hermite library in `src/`.
 
-- **PeTar's SDAR behavior can be tested standalone.** If a PeTar simulation shows unexpected
-  close-binary evolution, extract the subsystem and replicate it with standalone SDAR.
-- **SDAR source (`src/`) is shared.** Changes to `SDAR/src/` affect both standalone SDAR
-  executables and PeTar's internal SDAR integration.
-- **PeTar's `--r-group`, `--r-search-group` map to SDAR's group detection.** When debugging
-  PeTar SDAR group formation issues, check the equivalent SDAR standalone parameters.
-- **Version consistency:** PeTar's VERSION file encodes `PeTar_VERSION_SDAR_VERSION`.
-  When comparing PeTar and standalone SDAR results, ensure versions match.
+- **SDAR source (`src/`) is shared** — changes affect both the standalone executables and PeTar's internal SDAR integration.
+- **PeTar's SDAR behaviour is reproducible standalone.** If a PeTar simulation shows unexpected close-binary evolution, extract the subsystem and replicate it here first (Gate 3).
+- **Group detection maps across the boundary.** PeTar derives `--r-group` / `--r-search-group` from `r_in`; standalone SDAR takes `-r-group` directly. Check the equivalent parameter on the other side when debugging group formation.
+- **Version consistency:** PeTar's `VERSION` encodes `PeTar_VERSION_SDAR_VERSION`. Comparing PeTar and standalone SDAR results requires matching versions.
 
 ## Scope Notes
 
-- This skill focuses on standalone SDAR usage (few-body systems, typically N ≤ 100).
-  For full N-body cluster simulations where SDAR is the close-encounter solver,
-  use the PeTar skill instead.
-- The `BinaryTree` component is used both standalone (Kepler tools) and internally
-  by AR/Hermite. Its standalone use is for constructing/analyzing hierarchical systems.
-- SDAR does not have stellar evolution, external potentials, or MPI parallelism —
-  these features exist only in PeTar.
-- For high-precision (MPFRC) runs, ensure `libmpfr` and `libgmp` are installed and
-  the `-D USE_MPFRC` flag is set during compilation.
+- This skill is the authority for **standalone** SDAR usage (few-body systems, typically N ≤ 100) and is self-sufficient. For full N-body cluster simulations where SDAR is the close-encounter solver, use the [PeTar skill](../../../../PeTar/.github/skills/petar-nbody-simulation/SKILL.md).
+- `src/`, build flags, and the `sdar` Python package internals are owned by [SDAR/AGENTS.md](../../../AGENTS.md) and this skill's assets — the PeTar skill does not restate them.
+- The `BinaryTree` component is used both standalone (Kepler tools) and internally by AR/Hermite; standalone use is for constructing and analysing hierarchical systems.
+- SDAR has no stellar evolution, external potentials, or MPI parallelism — those exist only in PeTar.
+- High-precision (MPFRC) runs require `libmpfr` and `libgmp` at link time and `-D USE_MPFRC` at compile time.
