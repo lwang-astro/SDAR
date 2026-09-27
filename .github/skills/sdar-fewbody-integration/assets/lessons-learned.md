@@ -177,3 +177,11 @@ for 1000/1002 "differences" until physical columns were compared selectively.
 **Root cause**: 校验失败路径只照顾了"可能是有意的超宽读取"这一善意情形，未评估两种真实失败模式的下游后果；且 warning 文本不含类名与 reader 实际 kwargs，用户/agent 无法自助诊断（按文档穷举 kwargs 也试不到版本相关的 `spin_3d`）。
 
 **Prevention rule**: 现行为：`ncol_check=True`（默认）且不匹配时抛 `ValueError`，消息含类名、文件列数、类列数+offset、reader initargs 与 legacy 提示（pre-2024-12 输出用 `spin_3d=False`）；有意读取列子集时先精确宽度切片或传 `ncol_check=False`（嵌套 readArray 本就传 False，不受影响）。通用规则：数据布局校验失败应默认 fail fast，"宽容继续"必须显式 opt-in。
+
+### 2026-09-27: `fromfile` 字节错位默认抛错（实装 strict_mismatch）+ `loadtxt` 二进制检测——文档曾引用未实现的参数
+
+**Mistake**: `fromfile` 对文件字节数与 dtype itemsize 不对齐只 `warnings.warn` 后继续：PeTar Pal5 管线漏 `-i bse` 时错位数据传导成 NaN → `np.histogram` "bins must increase monotonically"，崩溃点距根因三层；`loadtxt` 读二进制 `data.core` 抛裸 `UnicodeDecodeError`。且 PeTar patterns 文档早已写了 `strict_mismatch=False`（DSM interrupt 尾部填充场景），但该参数在代码中从未存在。
+
+**Root cause**: 与 readArray 同类的"校验失败宽容继续"；文档先行描述了计划中的参数而未实现，形成 doc-code 脱节。
+
+**Prevention rule**: `fromfile` 现默认 `strict_mismatch=True`：错位抛 `ValueError`（类名、字节数、itemsize、reader initargs、kwargs 提示）；已知填充/截断文件（DSM `data.interrupt`、petar.data 崩溃恢复 partial）显式传 `False` 读完整记录。`loadtxt` 捕获 `UnicodeDecodeError` 转为明确 `ValueError`（提示改用 fromfile）。新增文档参数必须同 change 实装，否则在文档显式标注"未实现"。

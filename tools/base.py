@@ -705,7 +705,10 @@ class DictNpArrayMix:
         kwargs: dict
             keyword arguments for numpy.loadtxt
         """
-        dat_int = np.loadtxt(fname, ndmin=2, **kwargs)
+        try:
+            dat_int = np.loadtxt(fname, ndmin=2, **kwargs)
+        except UnicodeDecodeError as e:
+            raise ValueError('Reading %s: loadtxt cannot decode the file as text (%s); it is likely in BINARY format (petar.data.process writes binary by default). Use fromfile() for binary files or load() for .npy files.' % (type(self).__name__, e)) from e
         if (dat_int.size>0):
             self.readArray(dat_int, **kwargs)
 
@@ -795,12 +798,16 @@ class DictNpArrayMix:
         fname: string of filename or file handler
         kwargs: dict
             keyword arguments for numpy.fromfile, notice dtype is already defined, do not provide that
+            strict_mismatch: bool (True)
+                if True (default), raise ValueError when the file byte length is not aligned with the dtype itemsize
+                (schema mismatch or truncation); if False, only warn and read the complete records
         """
         dt = np.dtype(self.collectDtype())
 
         # For binary mode (default), validate whether the file byte length aligns with one record size.
         # This catches truncated/corrupted files before numpy silently returns a smaller array.
-        sep = kwargs.get('sep', '')
+        sep = kwargs.pop('sep', '')
+        strict_mismatch = kwargs.pop('strict_mismatch', True)
         if sep == '':
             offset = int(kwargs.get('offset', 0))
             if (offset < 0):
@@ -826,13 +833,16 @@ class DictNpArrayMix:
                 itemsize = dt.itemsize
                 remaining = data_nbytes % itemsize
                 if (remaining != 0):
-                    warnings.warn('Binary file size (%d bytes after offset) is not aligned with dtype itemsize (%d bytes), remaining (%d bytes). File may be truncated or dtype definition mismatches data format.' % (data_nbytes, itemsize, remaining))
+                    msg = 'Reading %s: binary file size (%d bytes after offset) is not aligned with dtype itemsize (%d bytes), remaining (%d bytes). The dtype definition mismatches the data format: check the reader keyword arguments against the producing solver (petar readers: interrupt_mode, external_mode, use_mpfrc, spin_3d; outputs produced before Dec 2024 need spin_3d=False); or the file is truncated. To read the complete records of a padded/truncated file on purpose, pass strict_mismatch=False. Reader keyword arguments: %s' % (type(self).__name__, data_nbytes, itemsize, remaining, self.initargs)
+                    if strict_mismatch:
+                        raise ValueError(msg)
+                    warnings.warn(msg)
 
                 n_item_avail = data_nbytes // itemsize
                 if (count >= 0) and (count > n_item_avail):
                     raise ValueError('Requested count (%d) exceeds available records (%d) after applying offset.' % (count, n_item_avail))
 
-        dat_int = np.fromfile(fname, dtype=dt, **kwargs)
+        dat_int = np.fromfile(fname, dtype=dt, sep=sep, **kwargs)
         self.readArrayWithName(dat_int, '', **kwargs)
 
     def tofile(self, fname, **kwargs):
