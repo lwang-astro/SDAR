@@ -156,12 +156,12 @@ class DictNpArrayMix:
         _offset: int (0)
             Reading column offset of _dat if it is 2D np.ndarray
         ncol_check: bool (True)
-            If True, check whether self.ncols (the number of columns in class) - _offset == _dat.shape[1] (the number of columns). If not equal, output warning
+            If True, check whether self.ncols (the number of columns in class) + _offset == _dat.shape[1] (the number of columns). If not equal, raise ValueError
         kwaygs: dict ()
             keyword arguments
         """
         if (self.ncols + _offset != _dat.shape[1]) & (ncol_check):
-            warnings.warn('The reading data shape[1] or the number of columns (%d) mismatches the number of columns defined in the class instance (%d)! Make sure whether this is intended and whether you properly choose the correct keyword arguments for the class instance initialziation' % (_dat.shape[1], self.ncols+_offset))
+            raise ValueError('Reading %s: the reading data shape[1] or the number of columns (%d) mismatches the number of columns defined in the class instance (%d, column offset %d)! Check the keyword arguments of the reader against the producing data format (petar readers: interrupt_mode, external_mode, use_mpfrc, collect_sp_acc, spin_3d; outputs produced before Dec 2024 need spin_3d=False). To read a column subset on purpose, slice the input array first or pass ncol_check=False. Reader keyword arguments: %s' % (type(self).__name__, _dat.shape[1], self.ncols, _offset, self.initargs))
 
         icol = _offset
         self.size = int(0)

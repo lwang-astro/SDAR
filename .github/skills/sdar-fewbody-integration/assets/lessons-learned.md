@@ -14,6 +14,7 @@ Periodically reviewed → verified entries are elevated to `SKILL.md` as hard ru
 - [Build & Baseline Methodology](#build--baseline-methodology)
 - [AR Integrator & Time Synchronization](#ar-integrator--time-synchronization)
 - [Documentation & Units](#documentation--units)
+- [Python Tools](#python-tools)
 
 ---
 
@@ -164,3 +165,15 @@ for 1000/1002 "differences" until physical columns were compared selectively.
 **Root cause**: 规则按"写作时最方便的角度"分散落笔——Non-Negotiable 层从"该用什么值"表述（只列出一个值），选项表层从"默认值是什么"表述（列出另一个值），两个片段各自孤立看都正确，从未被并列对照过。
 
 **Prevention rule**: 涉及单位制的常量必须写成"合法值集合 + 必须与运行一致"的单一声明，而不是若干各自正确的片段。现行口径：`-G` 只有两个合法值 —— `G_HENON = 1.0`（unscaled / Henon 单位，C++ 默认）与 `G_MSUN_PC_MYR = 0.00449830997959438`（`-u 4`，Msun/pc/Myr）；C++ 运行与 Python 分析必须一致，否则结果静默错误。配置文件审计时，应专门对照"同一常量在不同章节的取值"。
+
+---
+
+## Python Tools
+
+### 2026-09-27: `readArray` 列数不匹配从 warning 改为抛错——列过剩静默丢列与列不足裸 IndexError 都是坑
+
+**Mistake**: `DictNpArrayMix.readArray`（`tools/base.py`）在列数不匹配时只 `warnings.warn` 后继续执行：列不足时随后在 `_dat[:,icol]` 抛出无上下文的 `IndexError`（PeTar Pal5 会话读 2021 年 `data.status` 的直接崩溃点）；列过剩时静默丢弃多余列、不报任何错——错误的 reader kwargs（如 `external_mode` 选错导致中段插列）可产生静默错位数据，比崩溃更危险。
+
+**Root cause**: 校验失败路径只照顾了"可能是有意的超宽读取"这一善意情形，未评估两种真实失败模式的下游后果；且 warning 文本不含类名与 reader 实际 kwargs，用户/agent 无法自助诊断（按文档穷举 kwargs 也试不到版本相关的 `spin_3d`）。
+
+**Prevention rule**: 现行为：`ncol_check=True`（默认）且不匹配时抛 `ValueError`，消息含类名、文件列数、类列数+offset、reader initargs 与 legacy 提示（pre-2024-12 输出用 `spin_3d=False`）；有意读取列子集时先精确宽度切片或传 `ncol_check=False`（嵌套 readArray 本就传 False，不受影响）。通用规则：数据布局校验失败应默认 fail fast，"宽容继续"必须显式 opt-in。
