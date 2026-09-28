@@ -3392,22 +3392,9 @@ namespace AR {
                     // (gt) along the trajectory, not by the ds magnitude: after
                     // two reductions a still-negative dt will not improve by
                     // further shrinking ds (restored state -> same gauge).
-                    // Abort with an explicit gauge diagnosis instead of
-                    // ratcheting ds to the time-resolution floor.
-                    if (n_negative_dt_reduce_streak>=2) {
-                        printMessage("Error! negative integrated time step persists after ds reductions in integrateToTime (time-transformation gauge issue, not ds size)");
-                        std::cerr<<"  dt(negative step)="<<dt
-                                 <<"  ds="<<ds[ds_switch]
-                                 <<"  gt_drift_inv(pred)="<<gt_drift_inv_pred
-                                 <<"  time="<<time_<<"  time_end="<<_time_end
-                                 <<"  step_count="<<step_count
-                                 <<"  n_negative_dt_accepted="<<n_negative_dt_accepted<<std::endl;
-                        printColumnTitleAscii(std::cerr,20,info.binarytree.getSize());
-                        std::cerr<<std::endl;
-                        printColumnAscii(std::cerr,20,info.binarytree.getSize());
-                        std::cerr<<std::endl;
-                        abort();
-                    }
+                    // ASSERT (dumps in hard debug builds) instead of abort()
+                    // so the failure remains analyzable from the dump file
+                    ASSERT(n_negative_dt_reduce_streak<2);
                     n_negative_dt_reduce_streak++;
                     n_negative_dt_accepted++;
                     // limit step_modify_factor to 0.125
