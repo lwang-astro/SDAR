@@ -1454,40 +1454,6 @@ namespace AR {
         }
 
 #ifdef AR_SLOWDOWN_TREE
-        //! correct slowdown energy after slowdown factors have been updated
-        /*! Caller must have called calcAccPotAndGTKickInv() if _force_full_recalc is true.
-            @param _sd_backup: root slowdown factor before update (for scaling path)
-            @param _force_full_recalc: if true, use calcEKin(); else use sd_backup scaling
-            @param _is_interrupt: if true, also accumulate to interrupt-specific counters
-         */
-        void correctSlowDownEnergy(const Float _sd_backup, const bool _force_full_recalc,
-                                     const bool _is_interrupt = false) {
-            Float ekin_sd_bk = ekin_sd_;
-            Float epot_sd_bk = epot_sd_;
-            Float H_sd_bk = getHSlowDown();
-            if (_force_full_recalc) {
-                calcEKin();
-            } else {
-                Float kappa_inv = 1.0 / info.getBinaryTreeRoot().slowdown.getSlowDownFactor();
-#ifdef AR_TTL
-                Float gt_kick_inv_new = gt_kick_inv_ * _sd_backup * kappa_inv;
-                gt_drift_inv_ += gt_kick_inv_new - gt_kick_inv_;
-                gt_kick_inv_ = gt_kick_inv_new;
-#endif
-                ekin_sd_ = ekin_ * kappa_inv;
-                epot_sd_ = epot_ * kappa_inv;
-            }
-            Float de_sd = (ekin_sd_ - ekin_sd_bk) + (epot_sd_ - epot_sd_bk);
-            etot_sd_ref_ += de_sd;
-            Float dH_sd = getHSlowDown() - H_sd_bk;
-            de_sd_change_cum_ += de_sd;
-            dH_sd_change_cum_ += dH_sd;
-            if (_is_interrupt) {
-                de_sd_change_interrupt_ += de_sd;
-                dH_sd_change_interrupt_ += dH_sd;
-            }
-        }
-
         //! calculate root + inner binary slowdown, optionally collect max pert_out/pert_in ratio
         /*! The collected tree-stale ratio uses the instantaneous tidal metric
             (r^3/(m_i*m_j)) via calcPertFromMR on the LIVE member separation — the same
@@ -1661,6 +1627,12 @@ namespace AR {
             bool need_ds_update = false;
             bool need_force_sync = tree_rebuilt || g_func_switched || (_update_energy_flag && inner_sd_change_flag);
 
+            // sd-energy snapshot BEFORE the force sync: calcAccPotAndGTKickInv()
+            // updates epot_sd_; the de_sd correction below must see that jump,
+            // otherwise etot_sd_ref_ drifts by the missed amount every correction
+            Float ekin_sd_pre = ekin_sd_;
+            Float epot_sd_pre = epot_sd_;
+
             if (need_force_sync) {
                 Float gt_kick_inv_bk = gt_kick_inv_;
                 calcAccPotAndGTKickInv();
@@ -1678,7 +1650,28 @@ namespace AR {
             }
 
             if (_update_energy_flag) {
-                correctSlowDownEnergy(sd_backup, need_force_sync, _is_interrupt);
+                Float H_sd_bk = getHSlowDown();
+                if (need_force_sync) {
+                    calcEKin();
+                } else {
+                    Float kappa_inv = 1.0 / info.getBinaryTreeRoot().slowdown.getSlowDownFactor();
+#ifdef AR_TTL
+                    Float gt_kick_inv_new = gt_kick_inv_ * sd_backup * kappa_inv;
+                    gt_drift_inv_ += gt_kick_inv_new - gt_kick_inv_;
+                    gt_kick_inv_ = gt_kick_inv_new;
+#endif
+                    ekin_sd_ = ekin_ * kappa_inv;
+                    epot_sd_ = epot_ * kappa_inv;
+                }
+                Float de_sd = (ekin_sd_ - ekin_sd_pre) + (epot_sd_ - epot_sd_pre);
+                etot_sd_ref_ += de_sd;
+                Float dH_sd = getHSlowDown() - H_sd_bk;
+                de_sd_change_cum_ += de_sd;
+                dH_sd_change_cum_ += dH_sd;
+                if (_is_interrupt) {
+                    de_sd_change_interrupt_ += de_sd;
+                    dH_sd_change_interrupt_ += dH_sd;
+                }
             }
 
 #ifdef AR_G_FUNC

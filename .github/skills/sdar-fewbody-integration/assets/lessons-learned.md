@@ -170,6 +170,18 @@ for 1000/1002 "differences" until physical columns were compared selectively.
 
 **Prevention rule**: 负 dt（pre-sync 与 tsyn 两分支）一律无条件缩 ds；终止只交给既有兜底（ds 地板/下溢 abort、step_count_max abort——仅真 bug 类 g₀<0 触发，届时 dump 中 gt_drift_inv<0 可直接辨认）。从极限论证推出"不可能自愈"的结论，必须有一起实测卡死案例支撑才能固化为 abort 判据。
 
+### 2026-09-28: correctSlowDownEnergy 快照取在调用方更新 epot_sd_ 之后——慢同步每事件漏记 Δepot，etot_sd_ref 漂移致 log() 越界 NaN（fewbody_hermite.sh abort 根因，已修复）
+
+**Mistake**: `fewbody_hermite.sh`（`hermite -t 1.0 -o 2 -G 1.0 triple.stable.lowm3`）稳定复现 `ASSERT(!ISNAN(integration_error_rel_abs))` abort（t≈0.33；9 月 14 日安装版同炸）。-O0+gdb 诊断链：条件断点监视恒等式残差 R=(ekin_sd_+epot_sd_)−etot_sd_ref_（应≈0）→ 首次 <−1e-12 于 t=0.0617 → 残差出现时刻前停下 → `etot_sd_ref_` 硬件观察点+条件 → 单次写入泄漏 −9.8e-9，写入者为 correctSlowDownEnergy 全量路径 `etot_sd_ref_ += de_sd`（由步中 syncTreeSlowDownAndDs←integrateToTime:2961 触发）；数百事件后 R→−1.87e-4，g_sd=ekin_sd_−etot_sd_ref_ 过零，H=log(负数)=NaN。
+
+**Root cause**: syncTreeSlowDownAndDs Step 7 先执行 calcAccPotAndGTKickInv()（更新 epot_sd_，含 κ_in 变化的嵌套标定跳变），之后才调 correctSlowDownEnergy——后者入口取 before 快照时 epot_sd_ 已是新值，Δepot 永远量不到，de_sd 只补了 Δekin（calcEKin 在函数内、快照之后）。触发频率放大器：hermite 组树根节点 stab 保留构造默认 DBL_MAX（该初始化路径未跑 stableCheckIter；物理真值≈0.015），updateBinarySemiEccPeriodIter 的 `stab>1.0` 门恒真 → 每个轨道周期执行一次步中 sync；ar 驱动 stab 正常（<1）无周期 sync，故修复前后 ar 输出逐位不变。诊断中被推翻的两个中间假设（避免重蹈）：(1) "ar 样例无 AR_COLLECT_DS_MODIFY_INFO 导致零事件是插桩假象"——补装插桩后确认 ar 确实无事件；(2) "缩放路径根-κ 与嵌套-κ 约定混合是根因"——条件断点证明该路径在整个失败运行中从未执行（`_force_full_recalc` 恒 true）。
+
+**Prevention rule**:
+1. 能量记账 de_sd 类增量的 before 快照必须在任何重算之前取——"调用方先改、被调方入口才量"的结构必然漏项；修复：syncTreeSlowDownAndDs 在 force sync 前快照 ekin_sd_/epot_sd_ 并作为必填参数传入 correctSlowDownEnergy；
+2. 修复验收：hermite 冒烟跑通 t=1.0，Large_energy_error 从每块步爆发（err/max 1e6-1e7）降至 4 次边缘事件（1.7e-10~2e-9，一次减半即恢复）；ar.logh.ttl.sd.cm 与 ar.logh.sd.cm 修复前后逐位一致；
+3. 慢速记账类 bug 的诊断模板：恒等式残差条件断点定位首发时刻 → 该时刻前停 → 成员观察点+条件继续 → bt 即写入者；比纯静态读码快一个量级（本次 6 次 gdb 会话定位）；
+4. 遗留（未修）：hermite 组树创建路径 stab 未初始化（DBL_MAX）把稳定层级当永不稳定处理，每周期空跑 sync——性能损耗，且正是它把记账漏洞暴露成 NaN；后续应在组初始化处补 stableCheckIter。
+
 ---
 
 ## Documentation & Units
