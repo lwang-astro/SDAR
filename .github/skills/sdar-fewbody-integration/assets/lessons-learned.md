@@ -64,6 +64,14 @@ for 1000/1002 "differences" until physical columns were compared selectively.
 4. 在混沌系统上验证机制假设（如"-o 影响步数"）必须加**非混沌对照**：ustabtri 上 regular 步随 cadence ±25% 无规律摆动，稳定三体对照显示平坦（±1.6%）——摆动是同步网格扰动引发的轨迹散布，不是机制；机制假设会被混沌散布伪造或掩盖；
 5. 改动 ds 恢复/重置逻辑前，先确认它不是历史事故的防护再动手：`integrateToTime` 每次调用入口对工作 ds 的**无条件**向上重置，防的是混沌 dance 中误差长期高于阈值导致塌缩 ds 跨区间滞留（"ds 减小后回不去"）；committed 层的单向 valve 防的是 ustabquin S128 式停滞（24.4M 步 200× 过分辨）。条件重置/对称化这类"优化"会拆掉保险——本次收窄版 C 因此撤销。
 
+### 2026-09-28: 字节级 diff 失败的第一分诊=同二进制复跑（重蹈 09-13 规则 2 + 新增分诊步）
+
+**Mistake**: symplectic_integrator.h 清理后 diff 改动前后的 triple 冒烟日志报 DIFFERS，误以为控制流被改坏；实为计时列（本例第 17/18 列）墙上时间噪声——同二进制两次复跑也互相 DIFFERS，物理列逐位一致。09-13 规则 2 已写"先剔除计时列"，本次未先查教训文件直接 diff，重蹈覆辙。
+
+**Root cause**: SDAR_TIME_MEASURE 默认开启且计时列列号随输出模式变化，肉眼 tail 看不出差异在哪列；教训存在但未进入 diff 前的例行动作。
+
+**Prevention rule**: SDAR 日志 A/B 对比前的例行动作：(1) 同二进制复跑一次，区分"非确定性/计时噪声"与"真实行为改变"；(2) 按列剔除计时列后再 diff 物理列（09-13 规则 2）；(3) 判定"行为是否改变"只以物理列逐位一致为准。
+
 ---
 
 ## AR Integrator & Time Synchronization
@@ -153,6 +161,14 @@ for 1000/1002 "differences" until physical columns were compared selectively.
 4. 负时间步缩步分支（pre-sync 与 time-sync 两处）已加 streak 上限（连续 2 次后停止缩减并显式报 gauge 问题）：ds 幅值改不了 gt 决定的符号，restore 后同状态重试必然同样结果——本 IC 实测 0 次触发，塌缩来自着陆比值而非负步长，但保护留存以防其它场景；
 5. 诊断此族崩溃时先读 dump 里的 H 与 gt_drift_inv：H≈0 + gt 平缓 ⇒ 积分健康、控制器/着陆逻辑有病；gt 巨大 ⇒ 才是真正的 pericenter 正则化场景；
 6. `-DAR_COLLECT_DS_MODIFY_INFO`（PeTar Makefile 中注释保留）一次重编即可区分 ds 修改来源（Large_energy_error / Negative_step / Negative_step_tsyn），先插桩再动控制器逻辑。
+
+### 2026-09-28: 负 dt 的 streak≥2 停止缩减/abort 属过度防御，已撤销（推翻 2026-09-15 规则 4）
+
+**Mistake**: streak 上限（连续 2 次负 dt 后停止缩减并报 gauge 问题，d13b857 降级为 ASSERT）在 PeTar 实际模拟中多次触发 abort；生产构建忽略 ASSERT 后同一批运行全部完成、能量误差无异常——判据在杀健康运行。tsyn 分支的 streak<2 门还会在 streak≥2 后以同一 ds 确定性重放同一状态，直到 step_count_max abort，复刻同一误杀；HARD_DEBUG 构建里该 ASSERT 仍会在良性 streak≥3 上 dump+abort，调试构建比生产更脆。
+
+**Root cause**: "restore 后同状态、g₀<0 ⇒ 缩减改不了符号"的极限论证只在步首 gauge g₀ = ekin − etot_ref < 0 时成立，而真实轨迹状态上 g₀ = U − ΔE > 0（无 bug 恒成立）；负 dt 是大 ds 把组合子步的 gauge 采样到偏离轨迹中间态的数学现象（hyperbolic pericenter + 高阶组合的大正负 CK 系数），缩 ds 使子步收敛回真实轨迹、dt 恢复为正，所需次数可以 >2。streak≥2 被误读为"卡死"，实为"还没缩够"。
+
+**Prevention rule**: 负 dt（pre-sync 与 tsyn 两分支）一律无条件缩 ds；终止只交给既有兜底（ds 地板/下溢 abort、step_count_max abort——仅真 bug 类 g₀<0 触发，届时 dump 中 gt_drift_inv<0 可直接辨认）。从极限论证推出"不可能自愈"的结论，必须有一起实测卡死案例支撑才能固化为 abort 判据。
 
 ---
 

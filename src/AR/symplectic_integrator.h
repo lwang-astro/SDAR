@@ -2695,14 +2695,6 @@ namespace AR {
             int n_step_end=0;  // number of steps integrated to reach the time end for one during the time sychronization sub steps
             bool time_end_flag=false; // indicate whether time reach the end
 
-            // negative-dt reduction streak control: the sign of a step's dt is
-            // set by the time-transformation gauge (gt), not by ds, so at most
-            // 2 consecutive reductions can help (magnitude-driven cases);
-            // beyond that stop ratcheting ds down (measured collapse:
-            // ds 2.9e-5 -> 6.9e-17 within 22 steps) and surface the issue
-            int n_negative_dt_reduce_streak = 0;
-            long long unsigned int n_negative_dt_accepted = 0;
-
             // step count
             long long unsigned int step_count=0; // integration step 
             long long unsigned int step_count_tsyn=0; // time synchronization step
@@ -3388,15 +3380,12 @@ namespace AR {
 
                 // if negative step, reduce step size
                 if(!time_end_flag&&dt<0) {
-                    // the sign of dt is set by the time-transformation gauge
-                    // (gt) along the trajectory, not by the ds magnitude: after
-                    // two reductions a still-negative dt will not improve by
-                    // further shrinking ds (restored state -> same gauge).
-                    // ASSERT (dumps in hard debug builds) instead of abort()
-                    // so the failure remains analyzable from the dump file
-                    ASSERT(n_negative_dt_reduce_streak<2);
-                    n_negative_dt_reduce_streak++;
-                    n_negative_dt_accepted++;
+                    // negative dt is a too-large-ds artifact: the composition
+                    // substeps sample the gauge (gt) off-trajectory (e.g.
+                    // hyperbolic pericenter with high-order coefficients);
+                    // shrinking ds restores dt>0. Reduce unconditionally;
+                    // genuinely stuck cases terminate at the ds-floor/underflow
+                    // abort above or the step_count_max abort.
                     // limit step_modify_factor to 0.125
                     step_modify_factor = std::min(std::max(regularStepFactor(manager->step.calcStepModifyFactorFromErrorRatio(abs(_time_end/dt))), Float(0.0625)),Float(0.5)); 
                     ASSERT(step_modify_factor>0.0);
@@ -3433,7 +3422,6 @@ namespace AR {
                 // if no modification, reset previous values
                 previous_step_modify_factor = 1.0;
                 previous_error_ratio = -1.0;
-                n_negative_dt_reduce_streak = 0;
 
                 // check integration time
                 if(time_ < _time_end - time_error){
@@ -3470,21 +3458,15 @@ namespace AR {
 
                         Float dt_end = _time_end - time_;
                         if (dt<0) {
-                            // same rationale as the pre-sync negative-dt
-                            // branch above: ds size cannot fix a gauge-set
-                            // sign; cap the reductions (the existing
-                            // step_count_tsyn guard bounds the iterations)
-                            if (n_negative_dt_reduce_streak<2) {
-                                n_negative_dt_reduce_streak++;
-                                n_negative_dt_accepted++;
-                                // limit step_modify_factor to 0.125
-                                step_modify_factor = std::min(std::max(regularStepFactor(manager->step.calcStepModifyFactorFromErrorRatio(abs(_time_end/dt))), Float(0.0625)),Float(0.5)); 
-                                ASSERT(step_modify_factor>0.0);
+                            // same cure as the pre-sync negative-dt branch:
+                            // reduce ds; step_count_tsyn bounds the retries
+                            // limit step_modify_factor to 0.125
+                            step_modify_factor = std::min(std::max(regularStepFactor(manager->step.calcStepModifyFactorFromErrorRatio(abs(_time_end/dt))), Float(0.0625)),Float(0.5)); 
+                            ASSERT(step_modify_factor>0.0);
 
-                                ds[ds_switch] *= step_modify_factor;
-                                ds[1-ds_switch] = ds[ds_switch];
-                                ASSERT(!ISINF(ds[ds_switch]));
-                            }
+                            ds[ds_switch] *= step_modify_factor;
+                            ds[1-ds_switch] = ds[ds_switch];
+                            ASSERT(!ISINF(ds[ds_switch]));
 #ifdef AR_COLLECT_DS_MODIFY_INFO
                             collectDsModifyInfo("Negative_step_tsyn");
 #endif
