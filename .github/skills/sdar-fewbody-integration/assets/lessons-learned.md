@@ -221,3 +221,11 @@ for 1000/1002 "differences" until physical columns were compared selectively.
 **Root cause**: H 用 LogH 形式评估 gauge 域（要求 ekin−etot_ref>0），但单步大误差可把它推出定义域；"H 为 NaN"≠"状态损坏"——备份完好、误差是单步截断误差。另记两条 gdb/单位教训：(a) 函数**入口行**的条件断点在序言中评估 `this`，条件永假——本次四个 watchpoint 实验因此全部无效，必须在序言后（如 `dt_full` 行）设断点；(b) PeTar `-u 1` 是 galactic 单位 **G=4.498e-3** 而非 G=1——推 epot 数值/符号前先确认 G，本次因单位误判绕了远路（`epot=-1.6e6 @ r=2.8e-7` 在 G=4.5e-3 下完全正确）。
 
 **Prevention rule**: NaN 能量误差改为恢复分支：restore 备份 + ds 减半重试（与负 dt 分支同构），终止仍交给 ds 地板/下溢与 step_count_max abort；真损坏（持续 NaN）会几何级减 ds 触发兜底。修复验证：该用例完整跑通 t=10、累计相对能量误差 4.4e-9、零断言；ar.logh.ttl.sd.cm 与 hermite 冒烟回归逐位不变。判据设计规则：**"检测量出定义域"类断言（NaN/log 域）必须先问状态是否可回滚**——备份完好时应走恢复路径而非 abort。
+
+### 2026-09-28: SN 踢后双曲对的 ds 双重失配——中断路径丢失 ds 重估（重构回归）+ 能量标度 p_eff 低估飞越时标 2.4e5 倍
+
+**Mistake**: 应用户要求补齐"BSE 事件后 ds 更新"。实施中发现两处独立缺陷叠加成步数爆炸（functional std 用例单区间 2.3M/11.3M 步，两个构建相同=既有问题）：(1) 881abf3 重构把中断路径的无条件 ds 重估（非 slowdown 分支保留的 `calcDsAndStepOption`）换成了 dg 门控——但 SN 速度踢不改变瞬时势能（dg≈0），门不触发，ds 留在事件前的宽轨道时代；(2) 双曲 p_eff 用能量标度 `2π√(|a|³/GM)`——高能掠射在 r≫|a| 处观测时低估穿越时标 ~(r/|a|)^1.5（实测 2.4e5 倍），osculating q 对近径向速度数值敏感（拟合 q=5e-12 vs 实际 r_min=2.8e-7）；再叠加 2 粒子组 `fix_step_option=later` 禁止 ds 恢复 → 近心点分辨率 ds（~1e-11）冻结整个区间，出腿以 dt~1e-12 爬行。
+
+**Root cause**: ds 是"epoch 不变量"的设计对双曲一次性飞越不成立——近心点与出入腿的时标差可达 1e6；"两体一开始定步长然后固定"的语义只对椭圆双星正确。中断路径的 ds 重估在 slowdown 重构中回归丢失，说明该重构时未对照非 slowdown 分支的事件语义做等价审计。
+
+**Prevention rule**: (1) 中断路径恢复 ds 重估：每次中断事件做廉价 O(N) 估算（刷新 ds_est_prev），提交只走单向 >2× 缩减门（`ds_candidate<0.5*ds_bk`），小幅变化/增长不动 committed ds——事件频繁也不抖动；(2) 双曲 p_eff 以当前成员间距的穿越时标 `2r/v` 为下限；(3) 双曲根的 2 粒子组 `fix_step_option=none`（椭圆双星保持 later）——允许近心点后恢复/增长 ds。验收：functional std 用例分钟级→1.27s、零步数爆炸警告、能量 4e-9；ar/hermite 椭圆冒烟逐位不变。性能问题先测再改：本例"每次 interrupt 检查"本身零可测开销（改动前后步数逐位相同），瓶颈全部在既有双曲失配。

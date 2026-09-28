@@ -401,6 +401,23 @@ namespace AR {
                 else if (_bin.semi < 0) {
                     p_eff = 2.0 * COMM::PI
                           * sqrt(pow(-_bin.semi, Float(3)) / (_G * (_bin.m1 + _bin.m2)));
+                    // the energy-scale "period" of a hyperbolic level is the
+                    // pericenter-region timescale; for a high-energy flyby
+                    // seen at r >> |semi| it underestimates the encounter
+                    // duration by ~(r/|semi|)^{3/2} (measured 2.4e5x after an
+                    // SN-kick plunge), which pins ds at pericenter resolution
+                    // over the whole in/out legs. Floor by the live crossing
+                    // timescale of the current member separation.
+                    const auto& pm0 = (_bin.isMemberTree(0) ? *_bin.getMemberAsTree(0) : *_bin.getMember(0));
+                    const auto& pm1 = (_bin.isMemberTree(1) ? *_bin.getMemberAsTree(1) : *_bin.getMember(1));
+                    Float dr[3] = {pm1.pos[0]-pm0.pos[0], pm1.pos[1]-pm0.pos[1], pm1.pos[2]-pm0.pos[2]};
+                    Float dv[3] = {pm1.vel[0]-pm0.vel[0], pm1.vel[1]-pm0.vel[1], pm1.vel[2]-pm0.vel[2]};
+                    Float r_now = sqrt(dr[0]*dr[0]+dr[1]*dr[1]+dr[2]*dr[2]);
+                    Float v_now = sqrt(dv[0]*dv[0]+dv[1]*dv[1]+dv[2]*dv[2]);
+                    if (r_now > 0.0 && v_now > 0.0) {
+                        Float t_cross = 2.0*r_now/v_now;
+                        if (p_eff < t_cross) p_eff = t_cross;
+                    }
                 }
                 else {
                     p_eff = 0.0; // degenerate level: no period contribution
@@ -487,8 +504,16 @@ namespace AR {
 
             // determine the fix step option
             fix_step_option = FixStepOption::none;
-            // for two-body case, determine the step at begining then fix
-            if (n_particle==2||bin_root.stab<1.0) fix_step_option = AR::FixStepOption::later;
+            // for two-body case, determine the step at begining then fix;
+            // hyperbolic two-body (one-shot encounter) stays adaptive: the
+            // pericenter needs a much smaller ds than the in/out legs, and
+            // 'later' freezes the pericenter ds for the whole interval
+            // (measured 2.3M/11.3M steps per hard block after an SN-kick
+            // near-radial plunge)
+            if (n_particle==2) {
+                if (bin_root.semi > 0.0) fix_step_option = AR::FixStepOption::later;
+            }
+            else if (bin_root.stab<1.0) fix_step_option = AR::FixStepOption::later;
         }
 
         //! generate binary tree for the particle group

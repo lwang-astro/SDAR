@@ -1627,6 +1627,17 @@ namespace AR {
             bool need_ds_update = false;
             bool need_force_sync = tree_rebuilt || g_func_switched || (_update_energy_flag && inner_sd_change_flag);
 
+            // BSE/orbit-change events can alter the trajectory timescale
+            // without an instantaneous gt jump (an SN velocity kick at wide
+            // separation leaves the potential unchanged but creates a
+            // plunging orbit), so the dg gate below misses them: re-estimate
+            // ds on the interrupt path like the non-slowdown branch does.
+            // The estimate itself is cheap and commits nothing by default;
+            // the accept logic below commits only a >2x timescale shrink,
+            // and the frequent per-period entry/mid-call syncs
+            // (non-interrupt) still go through the quiescence gate.
+            if (_is_interrupt) need_ds_update = true;
+
             // sd-energy snapshot BEFORE the force sync: calcAccPotAndGTKickInv()
             // updates epot_sd_; the de_sd correction below must see that jump,
             // otherwise etot_sd_ref_ drifts by the missed amount every correction
@@ -1757,6 +1768,13 @@ namespace AR {
                     Float n_live = peff_bk * gt_kick_inv_ / ds_bk;
                     if (n_live < 32.0 / manager->ds_scale) accept = true;
                 }
+                // interrupt events (BSE kick/merger/orbit change): commit only
+                // a LARGE timescale shrink; the estimate above still refreshes
+                // ds_est_prev, but smaller changes and growth keep the
+                // committed ds, so frequent events cannot churn it (growth is
+                // left to the regular recovery/cost-valve machinery)
+                if (!accept && _is_interrupt && ds_bk > 0.0
+                    && ds_candidate < 0.5 * ds_bk) accept = true;
 #ifdef AR_G_FUNC
                 // one-way cost valve: a valve-triggered update may only RAISE ds
                 // (see the valve block above for the rationale)
