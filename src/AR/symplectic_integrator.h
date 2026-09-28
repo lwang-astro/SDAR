@@ -3290,7 +3290,25 @@ namespace AR {
                 std::cerr<<std::endl;
 #endif
 
-                ASSERT(!ISNAN(integration_error_rel_abs));
+                // A wild under-resolved step (e.g. hyperbolic plunge with a
+                // stale-large ds) can change ekin+epot by more than |epot| in
+                // one step, driving the LogH-form gauge ekin_-etot_ref_ <= 0
+                // so H = log(negative) = NaN. The backup state is intact:
+                // restore and shrink ds (same cure as the negative-dt branch)
+                // instead of aborting; stuck cases terminate at the ds-floor/
+                // underflow and step_count_max aborts.
+                if (ISNAN(integration_error_rel_abs) && !time_end_flag) {
+                    step_modify_factor = 0.5;
+                    ds[ds_switch] *= step_modify_factor;
+                    ds[1-ds_switch] = ds[ds_switch];
+                    if (step_count<5) ds_backup.initial(info.ds);
+                    else ds_backup.backup(ds[ds_switch], step_modify_factor);
+                    backup_flag = false;
+#ifdef AR_COLLECT_DS_MODIFY_INFO
+                    collectDsModifyInfo("NaN_energy_error");
+#endif
+                    continue;
+                }
 
                 // modify step if energy error is large
                 if(integration_error_rel_abs>energy_error_rel_max && info.fix_step_option!=FixStepOption::always) {

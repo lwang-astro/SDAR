@@ -213,3 +213,11 @@ for 1000/1002 "differences" until physical columns were compared selectively.
 **Root cause**: 与 readArray 同类的"校验失败宽容继续"；文档先行描述了计划中的参数而未实现，形成 doc-code 脱节。
 
 **Prevention rule**: `fromfile` 现默认 `strict_mismatch=True`：错位抛 `ValueError`（类名、字节数、itemsize、reader initargs、kwargs 提示）；已知填充/截断文件（DSM `data.interrupt`、petar.data 崩溃恢复 partial）显式传 `False` 读完整记录。`loadtxt` 捕获 `UnicodeDecodeError` 转为明确 `ValueError`（提示改用 fromfile）。新增文档参数必须同 change 实装，否则在文档显式标注"未实现"。
+
+### 2026-09-28: NaN 能量误差断言把可自愈瞬态当致命错误——双曲俯冲 + 过期 ds 一步打出 15% 能量误差
+
+**Mistake**: PeTar 开启 HARD_DEBUG 后 functional `std` 用例（双并合 IC，-u 1，-b 4）死于 `ASSERT(!ISNAN(integration_error_rel_abs))`（第 1 个区间内）。gdb 定位：组是 BSE 踢后的**双曲近距飞越**（etot>0，semi<0），`info.ds=0.0331` 是上个宽轨道时代的值、对该俯冲过大 ~40×：单个组合步穿越近心点，TTL gauge 反复变号（time_table 正负振荡 ±1.5e-8），单步能量误差 15% → `ekin_(1.98e7) < etot_ref_(2.14e7)` → LogH 型 `H = calcH(ekin-etot_ref, epot) = log(负) = NaN`。断言位于控制器回滚分支**之前**，且 NaN 参与的比较恒为 false——控制器本可 restore+减半自愈（负 dt 分支正是干这个的），却被断言抢先 abort。
+
+**Root cause**: H 用 LogH 形式评估 gauge 域（要求 ekin−etot_ref>0），但单步大误差可把它推出定义域；"H 为 NaN"≠"状态损坏"——备份完好、误差是单步截断误差。另记两条 gdb/单位教训：(a) 函数**入口行**的条件断点在序言中评估 `this`，条件永假——本次四个 watchpoint 实验因此全部无效，必须在序言后（如 `dt_full` 行）设断点；(b) PeTar `-u 1` 是 galactic 单位 **G=4.498e-3** 而非 G=1——推 epot 数值/符号前先确认 G，本次因单位误判绕了远路（`epot=-1.6e6 @ r=2.8e-7` 在 G=4.5e-3 下完全正确）。
+
+**Prevention rule**: NaN 能量误差改为恢复分支：restore 备份 + ds 减半重试（与负 dt 分支同构），终止仍交给 ds 地板/下溢与 step_count_max abort；真损坏（持续 NaN）会几何级减 ds 触发兜底。修复验证：该用例完整跑通 t=10、累计相对能量误差 4.4e-9、零断言；ar.logh.ttl.sd.cm 与 hermite 冒烟回归逐位不变。判据设计规则：**"检测量出定义域"类断言（NaN/log 域）必须先问状态是否可回滚**——备份完好时应走恢复路径而非 abort。
