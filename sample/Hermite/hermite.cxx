@@ -46,6 +46,7 @@ public:
     COMM::IOParams<double>  time_error;
     COMM::IOParams<double>  time_zero;
     COMM::IOParams<double>  time_end;
+    COMM::IOParams<double>  reverse_at;
     COMM::IOParams<double>  r_group;
     COMM::IOParams<double>  r_neighbor_over_group;
     COMM::IOParams<double>  eta_4th;
@@ -83,6 +84,7 @@ public:
         , time_error          (input_par_store, 0.0,                "time-error",           "time synchronization absolute error limit for AR","default is 0.25*dt-min")
         , time_zero           (input_par_store, 0.0,                "time-start",           "initial physical time")
         , time_end            (input_par_store, 1.0,                "t",                    "ending physical time ")
+        , reverse_at          (input_par_store, -1.0,               "reverse-at",           "physical time to negate all velocities in memory (palindrome/time-symmetry test); <0: off")
         , r_group             (input_par_store, 1e-3,               "r-group",                    "distance criterion (group radius) reference for switching AR and Hermite;  the final radius is scaled by max(1,(mass/<mass>)^(1/3))")
         , r_neighbor_over_group(input_par_store, 2.0,                "r-neighbor-over-group", "coefficient to compute neighbor radius from group radius")
         , eta_4th             (input_par_store, 0.1,                "eta-4th",              "time step coefficient for 4th order")
@@ -135,6 +137,7 @@ public:
 #ifdef AR_G_FUNC
             {g_func_option.key,            required_argument, &h4_flag, 21},
 #endif
+            {reverse_at.key,               required_argument, &h4_flag, 22},
 #ifdef SLOWDOWN_MASSRATIO
             {slowdown_mass_ref.key,        required_argument, &h4_flag, 15},
 #endif
@@ -229,6 +232,13 @@ public:
                     opt_used += 2;
                     break;
 #endif
+                case 22:
+                    reverse_at.value = atof(optarg);
+                    opt_used += 2;
+                    break;
+                case 23:
+                    opt_used += 2;
+                    break;
 #ifdef SLOWDOWN_MASSRATIO
                 case 15:
                     slowdown_mass_ref.value = atof(optarg);
@@ -618,7 +628,9 @@ int main(int argc, char **argv){
     int n_group_sub_tot_init = 0;
     COMM::List<int> n_group_sub_init_lst;
     n_group_sub_init_lst.setMode(COMM::ListMode::local);
-    n_group_sub_init_lst.reserveMem(n_group_init);
+    // guard n_group_init==0 (no initial groups): List asserts on both
+    // reserveMem(0) and clear() of unallocated data (destructor), so keep >=1
+    n_group_sub_init_lst.reserveMem(std::max(n_group_init, 1));
     n_group_sub_init_lst.resizeNoInitialize(n_group_init);
     for (int i = 0; i < n_group_init; i++) {
 #ifdef AR_SLOWDOWN_ARRAY
@@ -665,6 +677,7 @@ int main(int argc, char **argv){
     }
 
     const int* sd_arr = n_group_sub_init_lst.getDataAddress();
+    bool reverse_done = false;
 
     // BINARY CHECKPOINT WRITER
     auto writeCheckpoint = [&](const char* chkpt_path) {
@@ -776,6 +789,18 @@ int main(int argc, char **argv){
 
             // Write restart checkpoint at every output time (always enabled)
             writeCheckpoint(chkpt_filename.c_str());
+
+            // in-memory velocity reversal at an output (synchronized) boundary:
+            // palindrome test without restart artifacts; reverseVelocities()
+            // flips every velocity-odd term (vel, jerk, predictor, slowdown record)
+            if (iop.reverse_at.value >= 0.0 && !reverse_done && h4_int.getTime() >= iop.reverse_at.value) {
+                h4_int.reverseVelocities();
+                h4_int.initialIntegration();
+                h4_int.modifySingleParticles();
+                h4_int.sortDtAndSelectActParticle();
+                std::cerr << "REVERSE at t= " << h4_int.getTime() << std::endl;
+                reverse_done = true;
+            }
 
             time_out += dt_out;
         }
