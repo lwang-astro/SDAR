@@ -269,3 +269,27 @@ for 1000/1002 "differences" until physical columns were compared selectively.
 **Root cause**: 把 "κ 只在需要时才算" 的优化写成与谓词短路结构冲突的守卫；两处调用点各自内联 κ 配方导致约定漂移无编译期/测试期可见性（样本单位 G=1、m~1 下因子≈1，数值上不可见，PeTar 单位下 1-2 个量级）。用户质疑"判据真的对称吗"触发审计才发现。
 
 **Prevention rule**: 统一谓词必须**吞掉**其全部输入的计算（估计器内聚进 `groupedCriterion`），调用点只传原始态量并统一到单一物理约定（这里是 CM 比场、external-only）；"互补性" 声明前必须逐分支核对可达性（守卫 × 短路路径），不能只看公式形态。验证：定向 IC（宽 apo e=0.9 双星 + m=20 掠过）触发二体 κ-break（d≪r_crit、κ≈4e-3）；回文不劣化（事件计数 3/1→4/3）。
+
+### 2026-10-03: hermite 单机 checkpoint 用活跃组数直接索引组槽位——mask 复用后写错组并 abort
+
+**Mistake**: `writeCheckpoint`（hermite.cxx）以 `getNGroup()`（活跃组数）为界直接索引 `groups[i]`；组槽位经 break→mask→复用后，前 n_g 个槽常是已 clear 的空槽：`members.reserveMem(0)` 断言 abort（Plummer N=20、rg=0.05，t≈246 首触发），即使不 abort 也写出错误的组配置（重启即静默错）。长事件 bench 被该 bug 阻断，一度疑为新插桩所致（plain 二进制同参复跑排除）。
+
+**Root cause**: 活跃组身份在 `index_dt_sorted_group_`（排序索引表），`groups` 是含 mask 槽的存储数组——两个"第 i 个"含义不同；类无访问器，调用点自行猜测索引约定。
+
+**Prevention rule**: `HermiteIntegrator::getGroupIndexSorted(i)` 已加；任何遍历活跃组的输出/后处理必须经它取槽位，禁止 `groups[i]`（i<getNGroup()）。诊断归属未知崩溃时先用未改动的二进制同参复跑（本次 40 s 排除插桩嫌疑）。
+
+### 2026-10-03: 回文对照三坑——对比对象是初始态、slowdown-timescale-max 默认耦合 time-end、事件日志须用物理时间
+
+**Mistake**: Phase-1 回文首轮全部 O(1) 无效：(1) pal(2T) 与 ref(T) 的 checkpoint 对比——正确对象是**初始态的镜像**；(2) ref(-t T) 与 pal(-t 2T) 未显式钉住 `--slowdown-timescale-max`（默认=time-end，两跑动力学不同）；(3) GEID 事件日志打 `time_`（内部时钟，shiftTimeOrigin 重锚后周期回绕）→"事件集中在初始相"误读 → 窗口选错；另 N=20 窗口 >数个时间单位即混沌饱和。
+
+**Root cause**: 回文数学对象是 state(2T)≅镜像 state(0)，中间任何状态都不可作参照；time-end 身兼积分终点与 slowdown 上限默认两个语义；time_≠getTime()（物理=内部+offset）。
+
+**Prevention rule**: 回文对照= pal(2T) checkpoint vs 质心平移后的 IC（`pal_vs_init.py` 模式，H4Particle 记录 184 B：Particle 112 + dt/time/acc0/acc1/pot 72）；成对跑必须显式同传 `--slowdown-timescale-max`；诊断日志一律打 `getTime()`；窗口选在事件簇后最近输出格点且总长 ≲2 时间单位。基准数：安静地板 5.1e-6（dt-max-power 8，与 2026-09-30 的 5.6e-6 一致）；+1 对 chatter 事件 5.3e-5（10×）；同相遇 Hermite-only（rg=1e-7）O(1)——混合方案比纯单粒子路径可逆性好 4 个量级。
+
+### 2026-10-03: 切换位置主导缝合成本——早切换在孤立相遇好 400×、强扰动场仅 ~3×（回文 r-group 扫描）
+
+**Mistake**: 归因链条上把"切换固有截断"当作不可调的常数残差收尾；用户质疑"是否切换时机不对"触发参数扫描，发现切换位置才是主导杠杆。
+
+**Root cause**: 专用三体回文 IC（0.45+0.45 双曲相遇 peri=0.02 e=1.067 + 伴星）扫 `--r-group`：0.05（近心才切，55-60 AR 子步）dvel 3.0e-4；0.4（早切，460 子步，整个强场段含近心点由 AR 一体积分，两次切换都在 dr≈0.44 平滑场区，且反转点落在组存活期内不再触发新切换）dvel **7.5e-7**（400×）。伴星拉近加重扰动（pert 比进入生产量级）后：0.05→6.9e-4，0.4→2.4e-4，优势缩到 **3×**——AR 组内存活越长，冻结扰动误差累积越多，吃掉缝合节省。
+
+**Prevention rule**: 组进出的误差评估必须报切换半径，不能只当固定残差；最优 r_group 是扰动场的函数（孤立系统宜大、密集场收益有限且伴随更多组/更长寿命/性能代价）。生产侧验证用 Pal5 回放做 r-group 扫描（改 data.par.hard 副本），别用孤立 IC 外推。另：r-group 经 r_neighbor→`calcAcc0OffsetSq` 间接影响块步控制器，"无组"对照在不同 r-group 下不是同一条轨迹。
