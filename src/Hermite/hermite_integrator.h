@@ -422,6 +422,27 @@ namespace H4{
         COMM::List<bool> table_group_mask_; // bool mask to indicate whether the particle of index (group) (same index of table) is masked (true) or used (false)
         COMM::List<bool> table_single_mask_; // bool mask to indicate whether the particle of index (single) (same index of table) is masked (true) or used (false)
 
+#ifdef ADJUST_GROUP_DEBUG
+        //! injection-decomposition instrumentation (docs/transition_unification_plan.md), stderr trace only
+        int geid_event_count_;
+        struct GEIDForceStash {
+            bool valid;
+            Float acc0[3], acc1[3], pot, time, dt;
+            GEIDForceStash(): valid(false), acc0{0,0,0}, acc1{0,0,0}, pot(0.0), time(0.0), dt(0.0) {}
+        };
+        COMM::List<GEIDForceStash> geid_force_stash_; // single-indexed force snapshot at group formation (audit #7)
+
+        void geidPrepareStash(const int _nmax) {
+            if (geid_force_stash_.getSize()>=_nmax) return;
+            if (geid_force_stash_.getMode()==COMM::ListMode::none) {
+                geid_force_stash_.setMode(COMM::ListMode::local);
+                geid_force_stash_.reserveMem(std::max(_nmax, particles.getSizeMax()));
+            }
+            // entries beyond the old size are default-constructed (valid=false) by the allocation
+            geid_force_stash_.resizeNoInitialize(_nmax);
+        }
+#endif
+
     public:
         BlockTimeStep4th step; ///> time step calculator
         HermiteManager<Tacc>* manager; ///< integration manager
@@ -470,7 +491,11 @@ namespace H4{
                              index_dt_sorted_single_(), index_dt_sorted_group_(), 
                              index_group_resolve_(), index_group_cm_(), 
                              pred_(), force_(), time_next_(), 
-                             index_group_mask_(), table_group_mask_(), table_single_mask_(), step(),
+                             index_group_mask_(), table_group_mask_(), table_single_mask_(),
+#ifdef ADJUST_GROUP_DEBUG
+                             geid_event_count_(0), geid_force_stash_(),
+#endif
+                             step(),
                              manager(NULL), ar_manager(NULL), particles(), groups(), neighbors(), perturber(), 
 #ifdef HERMITE_ONLY_CALC_NEIGHBOR_FORCE
                              kdtree(),
@@ -1490,6 +1515,10 @@ namespace H4{
 
             if (_n_group==0) return;
 
+#ifdef ADJUST_GROUP_DEBUG
+            geidPrepareStash(particles.getSize());
+#endif
+
             modify_system_flag_ = true;
 
             // gether the new index in groups first
@@ -1552,6 +1581,20 @@ namespace H4{
                     // update single mask table 
                     ASSERT(table_single_mask_[p_index]==false);
                     table_single_mask_[p_index] = true;
+#ifdef ADJUST_GROUP_DEBUG
+                    // audit #7: snapshot the single's force state before it leaves the single list
+                    {
+                        auto& geid_stash = geid_force_stash_[p_index];
+                        geid_stash.valid = true;
+                        for (int d=0; d<3; d++) {
+                            geid_stash.acc0[d] = particles[p_index].acc0[d];
+                            geid_stash.acc1[d] = particles[p_index].acc1[d];
+                        }
+                        geid_stash.pot  = particles[p_index].pot;
+                        geid_stash.time = particles[p_index].time;
+                        geid_stash.dt   = particles[p_index].dt;
+                    }
+#endif
                 }
                 group_new.perturber.r_neighbor_crit_sq = std::max(group_new.perturber.r_neighbor_crit_sq, r_neighbor_crit_max*r_neighbor_crit_max);
                 
@@ -2214,8 +2257,36 @@ namespace H4{
             integrateToTimeList(time_, break_group_index_with_offset, n_break);
 
             // break groups
+#ifdef ADJUST_GROUP_DEBUG
+            // rewrite-purity measure (P1): identical state evaluated before/after the transition
+            const bool geid_event = (n_break + n_break_no_add + new_n_group > 0);
+            Float geid_etot_pre = 0.0;
+            if (geid_event) {
+                geid_event_count_++;
+                geid_etot_pre = geidCalcEtotTrue();
+            }
+#endif
             breakGroups(new_group_particle_index, new_n_group_offset, new_n_group, break_group_index_with_offset, n_break_no_add, n_break);
             addGroups(new_group_particle_index, new_n_group_offset, new_n_group);
+#ifdef ADJUST_GROUP_DEBUG
+            if (geid_event) {
+                const Float geid_etot_post = geidCalcEtotTrue();
+                std::ios::fmtflags geid_f = std::cerr.flags();
+                std::streamsize geid_p = std::cerr.precision();
+                std::cerr<<std::setprecision(17)<<"Group transition:"
+                         <<" time: "<<getTime()
+                         <<" event: "<<geid_event_count_
+                         <<" n_break: "<<n_break
+                         <<" n_break_no_add: "<<n_break_no_add
+                         <<" n_form: "<<new_n_group
+                         <<" Etot_pre: "<<geid_etot_pre
+                         <<" Etot_post: "<<geid_etot_post
+                         <<" dE_rewrite: "<<(geid_etot_post-geid_etot_pre)
+                         <<std::endl;
+                std::cerr.flags(geid_f);
+                std::cerr.precision(geid_p);
+            }
+#endif
 
             // initial integration (cannot do it here, in the case AR perturber need initialization first)
             // initialIntegration();
@@ -2389,6 +2460,38 @@ namespace H4{
                 ptcl[k].acc1[1] = force_[k].acc1[1];
                 ptcl[k].acc1[2] = force_[k].acc1[2];
                 ptcl[k].pot    = force_[k].pot;
+#ifdef ADJUST_GROUP_DEBUG
+                // audit #7: discontinuity of the re-entering single's force vs its pre-formation snapshot
+                if (k<geid_force_stash_.getSize() && geid_force_stash_[k].valid) {
+                    auto& geid_stash = geid_force_stash_[k];
+                    Float da2=0.0, a2=0.0, dj2=0.0, j2=0.0;
+                    for (int d=0; d<3; d++) {
+                        const Float da = ptcl[k].acc0[d] - geid_stash.acc0[d];
+                        const Float dj = ptcl[k].acc1[d] - geid_stash.acc1[d];
+                        da2 += da*da; a2 += ptcl[k].acc0[d]*ptcl[k].acc0[d];
+                        dj2 += dj*dj; j2 += ptcl[k].acc1[d]*ptcl[k].acc1[d];
+                    }
+                    const Float norm = std::max(std::sqrt(a2), std::sqrt(j2));
+                    const Float scale = std::max(norm, static_cast<Float>(1e-300));
+                    std::ios::fmtflags geid_f = std::cerr.flags();
+                    std::streamsize geid_p = std::cerr.precision();
+                    std::cerr<<std::setprecision(17)<<"Group re-entry:"
+                             <<" time: "<<getTime()
+                             <<" event: "<<geid_event_count_
+                             <<" index: "<<k
+                             <<" time_stash: "<<geid_stash.time
+                             <<" dacc: "<<std::sqrt(da2)
+                             <<" dacc_rel: "<<(std::sqrt(da2)/scale)
+                             <<" djerk: "<<std::sqrt(dj2)
+                             <<" djerk_rel: "<<(std::sqrt(dj2)/scale)
+                             <<" dpot: "<<(ptcl[k].pot - geid_stash.pot)
+                             <<" dt_stash: "<<geid_stash.dt
+                             <<std::endl;
+                    std::cerr.flags(geid_f);
+                    std::cerr.precision(geid_p);
+                    geid_stash.valid = false;
+                }
+#endif
             }
 
             for(int i=0; i<n_init_group_; i++){
@@ -2406,6 +2509,47 @@ namespace H4{
 
                 // initial group integration
                 group_ptr[k].initialIntegration(time_);
+
+#ifdef ADJUST_GROUP_DEBUG
+                {
+                    auto& bin_dbg = group_ptr[k].info.getBinaryTreeRoot();
+                    auto& sd_dbg = bin_dbg.slowdown;
+                    std::ios::fmtflags geid_f = std::cerr.flags();
+                    std::streamsize geid_p = std::cerr.precision();
+                    std::cerr<<std::setprecision(17)<<"Group formation:"
+                             <<" time: "<<getTime()
+                             <<" event: "<<geid_event_count_
+                             <<" i_group: "<<k
+                             <<" N_member: "<<group_ptr[k].particles.getSize()
+                             <<" Member_index:";
+                    for (int q=0; q<group_ptr[k].info.particle_index.getSize(); q++)
+                        std::cerr<<" "<<group_ptr[k].info.particle_index[q];
+                    std::cerr  // references derived at formation
+                             <<" Etot_ref: "<<group_ptr[k].getEtotRef()
+                             <<" Etot_SD_ref: "<<group_ptr[k].getEtotSlowDownRef()
+                             <<" dE_SD_form: "<<(group_ptr[k].getEtotSlowDownRef()-group_ptr[k].getEtotRef())
+                             <<" epert_record: "<<group_ptr[k].info.epert_record
+                             // slowdown anchoring at formation
+                             <<" SD: "<<sd_dbg.getSlowDownFactor()
+                             <<" SD(org): "<<sd_dbg.getSlowDownFactorOrigin()
+                             <<" SD(max): "<<sd_dbg.getSlowDownFactorMax()
+                             <<" SD(ref): "<<sd_dbg.getSlowDownFactorReference()
+                             <<" Pert_In: "<<sd_dbg.pert_in
+                             <<" Pert_Out: "<<sd_dbg.pert_out
+                             <<" period: "<<sd_dbg.period
+                             <<" timescale: "<<sd_dbg.timescale
+                             <<" time_update: "<<sd_dbg.getUpdateTime()
+                             <<" time_to_update: "<<(sd_dbg.getUpdateTime()-time_)
+                             // AR sync phase at formation
+                             <<" AR_time: "<<group_ptr[k].getTime()
+                             <<" time_diff: "<<(time_-group_ptr[k].getTime())
+                             <<" semi: "<<bin_dbg.semi
+                             <<" ecc: "<<bin_dbg.ecc
+                             <<std::endl;
+                    std::cerr.flags(geid_f);
+                    std::cerr.precision(geid_p);
+                }
+#endif
 
                 // if >2 particles, initial slowdown perturbation and period
                 //if (group_ptr[k].particles.getSize()>2) {
@@ -3008,6 +3152,31 @@ namespace H4{
             }
         }
 
+#ifdef ADJUST_GROUP_DEBUG
+        //! true N-body energy in the origin frame (groups written back first); O(N^2), debug bench only
+        Float geidCalcEtotTrue() {
+            writeBackGroupMembers();
+            const auto* geid_ptcl = particles.getDataAddress();
+            const int geid_n = particles.getSize();
+            const Float geid_G = ar_manager->interaction.gravitational_constant;
+            Float geid_ekin = 0.0, geid_epot = 0.0;
+            for (int i=0; i<geid_n; i++) {
+                const auto& pi = geid_ptcl[i];
+                if (pi.mass<=0.0) continue;
+                geid_ekin += 0.5*pi.mass*(pi.vel[0]*pi.vel[0]+pi.vel[1]*pi.vel[1]+pi.vel[2]*pi.vel[2]);
+                for (int j=i+1; j<geid_n; j++) {
+                    const auto& pj = geid_ptcl[j];
+                    if (pj.mass<=0.0) continue;
+                    const Float dr0 = pj.pos[0]-pi.pos[0];
+                    const Float dr1 = pj.pos[1]-pi.pos[1];
+                    const Float dr2 = pj.pos[2]-pi.pos[2];
+                    geid_epot -= geid_G*pi.mass*pj.mass/std::sqrt(dr0*dr0+dr1*dr1+dr2*dr2);
+                }
+            }
+            return geid_ekin+geid_epot;
+        }
+#endif
+
         //! correct Etot slowdown reference due to the groups change
         /*! @param[in] _igroup: group index to accumulative de_sd_change_cum
          */
@@ -3032,6 +3201,53 @@ namespace H4{
             Float epert = manager->interaction.calcEnergyPertOneGroup(groupi, perturber);
             energy_.de_cum += (epert - groupi.info.epert_record) - de_kin;
             energy_sd_.de_cum += (epert - groupi.info.epert_record) - de_kin ;
+#ifdef ADJUST_GROUP_DEBUG
+            {
+                auto& sd_dbg = bink.slowdown;
+                std::ios::fmtflags geid_f = std::cerr.flags();
+                std::streamsize geid_p = std::cerr.precision();
+                std::cerr<<std::setprecision(17)<<"Group break:"
+                         <<" time: "<<getTime()
+                         <<" event: "<<geid_event_count_
+                         <<" i_group: "<<_igroup
+                         <<" N_member: "<<groupi.particles.getSize()
+                         <<" Member_index:";
+                for (int q=0; q<groupi.info.particle_index.getSize(); q++)
+                    std::cerr<<" "<<groupi.info.particle_index[q];
+                std::cerr  // bookkeeping terms booked at break
+                         <<" dE_interrupt: "<<de_binary_interrupt
+                         <<" dE_SD_change_cum: "<<groupi.getDESlowDownChangeCum()
+                         <<" Etot_group: "<<etot
+                         <<" Etot_SD_group: "<<etot_sd
+                         <<" dE_SD_shutdown: "<<(etot-etot_sd)
+                         <<" epert: "<<epert
+                         <<" epert_record: "<<groupi.info.epert_record
+                         <<" dEpert: "<<(epert-groupi.info.epert_record)
+                         <<" dE_kin: "<<de_kin
+                         // slowdown state at break
+                         <<" SD: "<<sd_dbg.getSlowDownFactor()
+                         <<" SD(org): "<<sd_dbg.getSlowDownFactorOrigin()
+                         <<" SD(max): "<<sd_dbg.getSlowDownFactorMax()
+                         <<" SD(ref): "<<sd_dbg.getSlowDownFactorReference()
+                         <<" Pert_In: "<<sd_dbg.pert_in
+                         <<" Pert_Out: "<<sd_dbg.pert_out
+                         <<" period: "<<sd_dbg.period
+                         <<" timescale: "<<sd_dbg.timescale
+                         <<" time_update: "<<sd_dbg.getUpdateTime()
+                         <<" time_to_update: "<<(sd_dbg.getUpdateTime()-time_)
+                         // AR sync phase at break
+                         <<" AR_time: "<<groupi.getTime()
+                         <<" time_diff: "<<(time_-groupi.getTime())
+                         <<" step: "<<groupi.profile.step_count_sum
+                         <<" step(tsyn): "<<groupi.profile.step_count_tsyn_sum
+                         // energy references at break
+                         <<" Etot_ref: "<<groupi.getEtotRef()
+                         <<" Etot_SD_ref: "<<groupi.getEtotSlowDownRef()
+                         <<std::endl;
+                std::cerr.flags(geid_f);
+                std::cerr.precision(geid_p);
+            }
+#endif
         }
 
         //! correct Etot slowdown reference due to the groups change
@@ -3380,6 +3596,11 @@ namespace H4{
         //! get N groups
         int getNGroup() const {
             return index_dt_sorted_group_.getSize();
+        }
+
+        //! get the group slot index of the i-th active group (sorted-time order)
+        int getGroupIndexSorted(const int _i) const {
+            return index_dt_sorted_group_[_i];
         }
 
         //! get N single

@@ -699,7 +699,7 @@ int main(int argc, char **argv){
             offsets[0] = 0;
             int tot = 0;
             for (int i = 0; i < n_g; i++) {
-                int nm = h4_int.groups[i].particles.getSize();
+                int nm = h4_int.groups[h4_int.getGroupIndexSorted(i)].particles.getSize();
                 tot += nm;
                 offsets[i + 1] = tot;
             }
@@ -708,9 +708,10 @@ int main(int argc, char **argv){
             members.resizeNoInitialize(tot);
             int idx = 0;
             for (int g = 0; g < n_g; g++) {
-                int nm = h4_int.groups[g].particles.getSize();
+                auto& grp = h4_int.groups[h4_int.getGroupIndexSorted(g)];
+                int nm = grp.particles.getSize();
                 for (int j = 0; j < nm; j++)
-                    members[idx++] = h4_int.groups[g].info.particle_index[j];
+                    members[idx++] = grp.info.particle_index[j];
             }
             for (int i = 0; i < n_g + 1; i++) fwrite(&offsets[i], sizeof(int), 1, fchkpt);
             for (int i = 0; i < tot; i++) fwrite(&members[i], sizeof(int), 1, fchkpt);
