@@ -365,6 +365,7 @@ namespace H4{
             sd.initialSlowDownReference(ar_manager->slowdown_pert_ratio_ref, ar_manager->slowdown_timescale_max);
 #endif
             sd.pert_in  = COMM::Binary::calcPertFromMR(_dr, _m1, _m2);
+            if (_pot_cm == 0.0) return true; // no usable c.m. field, use the pairwise perturbation as a fallback
             sd.pert_out = COMM::Binary::calcPertFromForcePot(ar_manager->interaction.gravitational_constant, _acc_cm, _pot_cm);
             sd.calcSlowDownFactor();
             const Float kappa_org = sd.getSlowDownFactorOrigin();
