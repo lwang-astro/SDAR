@@ -617,7 +617,11 @@ namespace H4{
             const Float r_sq = _pi.pos[0]*_pi.pos[0] + _pi.pos[1]*_pi.pos[1] + _pi.pos[2]*_pi.pos[2];
             const Float v_sq = _pi.vel[0]*_pi.vel[0] + _pi.vel[1]*_pi.vel[1] + _pi.vel[2]*_pi.vel[2];
             if (v_sq==0.0 || r_sq<=r_limit*r_limit) return NUMERIC_FLOAT_MAX;
-            return step.eta_4th*(sqrt(r_sq)-r_limit)/sqrt(v_sq);
+            // floor at dt_min: without it, a particle converging to the limit sphere shrinks
+            // the bound geometrically (dt ~ eta*gap/v, gap *= (1-eta) per step) and can never
+            // cross, collapsing dt below the block-step grid; with the floor the crossing
+            // completes within ~1/eta steps at grid resolution
+            return std::max(step.eta_4th*(sqrt(r_sq)-r_limit)/sqrt(v_sq), step.getDtMin());
         }
 
         //! Calculate 2nd order time step for lists particles 
