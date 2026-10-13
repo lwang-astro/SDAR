@@ -1,6 +1,0 @@
-<map id="AR::TimeTransformedSymplecticIntegrator::writeBinary" name="AR::TimeTransformedSymplecticIntegrator::writeBinary">
-<area shape="rect" id="node1" title="write class data with BINARY format" alt="" coords="5,49,217,90"/>
-<area shape="rect" id="node2" href="$classCOMM_1_1List.html#a929bb5bdaaa7ce70d872ae0c758c77ae" title="get current member number" alt="" coords="271,5,411,32"/>
-<area shape="rect" id="node3" href="$classAR_1_1Profile.html#ae3afe50f02c55bb640ec60569d9a359a" title="write class data with BINARY format" alt="" coords="265,56,417,83"/>
-<area shape="rect" id="node4" href="$classCOMM_1_1ParticleGroup.html#a9841046fae8fbbd01ddfa4c549aaa23d" title="write particle data to files (notice original address is lost)" alt="" coords="267,107,415,149"/>
-</map>

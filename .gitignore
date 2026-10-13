@@ -51,3 +51,5 @@ tools/__pycache__/
 # temp src
 src/*/tmp
 
+docs/html/
+docs/latex/

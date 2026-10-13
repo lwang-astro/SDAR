@@ -1,8 +1,0 @@
-<map id="COMM::List::resizeNoInitialize" name="COMM::List::resizeNoInitialize">
-<area shape="rect" id="node1" title="increase size without initialization" alt="" coords="460,111,655,138"/>
-<area shape="rect" id="node2" href="$classH4_1_1HermiteIntegrator.html#aa2e53961f55ac16a239a07471cbe6110" title="Check break condition." alt="" coords="233,5,379,47"/>
-<area shape="rect" id="node4" href="$classAR_1_1TimeTransformedSymplecticIntegrator.html#adc635c0084f56558f2e87c86d1a80b00" title="initialization for integration" alt="" coords="200,71,412,112"/>
-<area shape="rect" id="node5" href="$classH4_1_1HermiteIntegrator.html#ae588ac618961f983b7c8710b2e6a65dc" title="Initial system array." alt="" coords="233,136,379,177"/>
-<area shape="rect" id="node6" href="$classAR_1_1TimeTransformedSymplecticIntegrator.html#a9a5c7bd3dfff2fd3ab96fd639ec30d27" title="read class data with BINARY format and initial the array" alt="" coords="200,201,412,243"/>
-<area shape="rect" id="node3" href="$classH4_1_1HermiteIntegrator.html#a4681b656dd42eae01d3d85e66ac55112" title="adjust groups" alt="" coords="5,5,152,47"/>
-</map>

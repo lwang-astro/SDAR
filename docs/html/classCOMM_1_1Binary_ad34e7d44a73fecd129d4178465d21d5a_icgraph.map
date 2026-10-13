@@ -1,5 +1,0 @@
-<map id="COMM::Binary::orbitToParticle" name="COMM::Binary::orbitToParticle">
-<area shape="rect" id="node1" title="Orbit to position and velocity." alt="" coords="268,31,463,57"/>
-<area shape="rect" id="node2" href="$classCOMM_1_1Binary.html#a63121141b69896f59f742cf9b97bb409" title="calculate two components from kepler Orbit" alt="" coords="19,5,206,32"/>
-<area shape="rect" id="node3" href="$classCOMM_1_1Binary.html#a3b76733f76ca3f8696e2f5b2dcc9393f" title="calculate two components from kepler Orbit with input eccentricity anomaly" alt="" coords="5,56,220,83"/>
-</map>

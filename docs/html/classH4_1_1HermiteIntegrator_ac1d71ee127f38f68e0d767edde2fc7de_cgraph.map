@@ -1,5 +1,0 @@
-<map id="H4::HermiteIntegrator::sortDtAndSelectActParticle" name="H4::HermiteIntegrator::sortDtAndSelectActParticle">
-<area shape="rect" id="node1" title="sort time step array and select active particles" alt="" coords="5,23,192,65"/>
-<area shape="rect" id="node2" href="$classCOMM_1_1List.html#ad6c06deee95952a09db820733ea428f9" title="return member data array address" alt="" coords="240,5,431,32"/>
-<area shape="rect" id="node3" href="$classCOMM_1_1List.html#a929bb5bdaaa7ce70d872ae0c758c77ae" title="get current member number" alt="" coords="265,56,405,83"/>
-</map>

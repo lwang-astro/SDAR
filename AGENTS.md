@@ -1,7 +1,7 @@
 # SDAR Project Guidelines
 
 SDAR (Symplectic, Drift, Acceleration, Regularization) is a C++11 header-only library for solving gravitational few-body problems. It is the close-encounter and multiple-system integrator inside PeTar.
-[Full documentation](https://lwang-astro.github.io/SDAR/docs/html/index.html)
+[Full documentation](https://lwang-astro.github.io/SDAR/) (CI-built from `master`; local: `cd docs && doxygen doxygen_config`)
 
 ## Build and Test
 
@@ -80,7 +80,7 @@ Doc taxonomy (mirror of PeTar `AGENTS.md` → "Doc & Plan Organization"): every 
 
 Routing (same rule as PeTar): **lessons-learned is the default** — anything with the Mistake / Root cause / Prevention shape ("what went wrong, why, how to avoid"). Reference notes take only mechanism/design documentation of implemented or removed code ("how/why does the code behave this way"). Boundary unclear → lessons.
 
-- [Doxygen docs](https://lwang-astro.github.io/SDAR/docs/html/index.html)
+- [Doxygen docs](https://lwang-astro.github.io/SDAR/) (CI-built from `master`; local: `cd docs && doxygen doxygen_config`)
 - [Local docs](docs/html/index.html)
 - `docs/hierarchical_blogh_impl_notes.md` — implementation reference: current-code BLogH/g-func mechanism, Scheme G, retained limitations
 - `docs/hierarchical_blogh_theory_notes.md` — theory reference + development history (§5.7 executed 2026-09-12, commit `9b40e8e`)
