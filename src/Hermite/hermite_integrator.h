@@ -419,9 +419,9 @@ namespace H4{
         COMM::List<Float> time_next_; // next integrated time of particles
         // per-particle dt-limit radius, indexed like time_next_ (single: k, group c.m.:
         // k+index_offset_group_); application-set geometric datum (<0: none). The dt calls keep
-        // the step below the flying time to the sphere of this radius, recomputed from the
-        // CURRENT particle state, so the application (e.g. PeTar changeover) constrains steps
-        // without the estimator knowing the application's force-splitting geometry;
+        // the step below eta times the flying time ACROSS this radius, recomputed from the
+        // CURRENT particle velocity, so the application (e.g. PeTar changeover) constrains
+        // steps without the estimator knowing the application's force-splitting geometry;
         // the radius-based counterpart of the group-level info.dt_limit
         COMM::List<Float> r_dt_limit_;
 
@@ -607,21 +607,19 @@ namespace H4{
         }
 
     private:
-        //! crossing-time dt limit of one slot from the current c.m.-frame particle state
-        /*! no limit when the dt-limit radius is unset, the particle is inside the limit
-          sphere (e.g. a group c.m. at the frame origin), or at rest */
+        //! crossing-time dt limit of one slot from the current c.m.-frame particle velocity
+        /*! no limit when the dt-limit radius is unset or the particle is at rest; otherwise
+          the step stays below eta times the flying time across the limit radius, so a region
+          of that scale cannot be crossed within one step. The bound depends on the fixed
+          radius, not on the particle position: a frame-center c.m. with roundoff velocity
+          gets a huge (non-binding) value, and the dt_min floor guards extreme velocities */
         template <class Tpi>
         Float calcDtLimitCrossing(const Tpi& _pi, const int _slot) const {
             const Float r_limit = r_dt_limit_[_slot];
             if (r_limit <= 0.0) return NUMERIC_FLOAT_MAX;
-            const Float r_sq = _pi.pos[0]*_pi.pos[0] + _pi.pos[1]*_pi.pos[1] + _pi.pos[2]*_pi.pos[2];
             const Float v_sq = _pi.vel[0]*_pi.vel[0] + _pi.vel[1]*_pi.vel[1] + _pi.vel[2]*_pi.vel[2];
-            if (v_sq==0.0 || r_sq<=r_limit*r_limit) return NUMERIC_FLOAT_MAX;
-            // floor at dt_min: without it, a particle converging to the limit sphere shrinks
-            // the bound geometrically (dt ~ eta*gap/v, gap *= (1-eta) per step) and can never
-            // cross, collapsing dt below the block-step grid; with the floor the crossing
-            // completes within ~1/eta steps at grid resolution
-            return std::max(step.eta_4th*(sqrt(r_sq)-r_limit)/sqrt(v_sq), step.getDtMin());
+            if (v_sq==0.0) return NUMERIC_FLOAT_MAX;
+            return std::max(step.eta_4th*r_limit/sqrt(v_sq), step.getDtMin());
         }
 
         //! Calculate 2nd order time step for lists particles 
