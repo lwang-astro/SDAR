@@ -1,7 +1,7 @@
 # SDAR: A library for solving few-body problems
 Please read this short manual before start to use the code. 
 Any questions that are already answered here won't get reply from developers and GitHub Issue.
-You can find the [SDAR documentation](https://lwang-astro.github.io/SDAR/) written in the Doxygen style (built from `master` by CI; generate locally with `cd docs && doxygen doxygen_config`).
+You can find the [SDAR documentation](https://lwang-astro.github.io/SDAR/docs/html/index.html) written in the Doxygen style (built from `master` by CI; generate locally with `cd docs && doxygen doxygen_config`).
 
 # About the version
 SDAR code is maintained across multiple branches, and for users seeking stability, it is advisable to obtain the released version (see tags on GitHub webpage). The master branch undergoes regular updates to introduce new features and address bugs. Users can opt for this version if they find the new features beneficial.
