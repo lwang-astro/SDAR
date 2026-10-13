@@ -293,3 +293,11 @@ for 1000/1002 "differences" until physical columns were compared selectively.
 **Root cause**: 专用三体回文 IC（0.45+0.45 双曲相遇 peri=0.02 e=1.067 + 伴星）扫 `--r-group`：0.05（近心才切，55-60 AR 子步）dvel 3.0e-4；0.4（早切，460 子步，整个强场段含近心点由 AR 一体积分，两次切换都在 dr≈0.44 平滑场区，且反转点落在组存活期内不再触发新切换）dvel **7.5e-7**（400×）。伴星拉近加重扰动（pert 比进入生产量级）后：0.05→6.9e-4，0.4→2.4e-4，优势缩到 **3×**——AR 组内存活越长，冻结扰动误差累积越多，吃掉缝合节省。
 
 **Prevention rule**: 组进出的误差评估必须报切换半径，不能只当固定残差；最优 r_group 是扰动场的函数（孤立系统宜大、密集场收益有限且伴随更多组/更长寿命/性能代价）。生产侧验证用 Pal5 回放做 r-group 扫描（改 data.par.hard 副本），别用孤立 IC 外推。另：r-group 经 r_neighbor→`calcAcc0OffsetSq` 间接影响块步控制器，"无组"对照在不同 r-group 下不是同一条轨迹。
+
+### 2026-10-13: 【退化分支门控】crossing dt 界限只应在准则退化(零加速度/零 jerk)时介入——无条件 cap 干扰 Aarseth 准则,且门控版顺带修复 T1 最粗端点悬崖
+
+**Mistake**: per-slot crossing 界限(459e-461e)在所有调用点无条件 `min()` 进 dt_limit,对一切有速度的粒子生效;用户指出这干扰了原算法——有真实力时 Aarseth 准则本身随加权力的增长自适应收缩,几何 cap 冗余且在弱力非零区产生不必要的过小步长。5765150 提交信息自证其职责本就是"force-free particle"场景(旧 HERMITE_MONOPOLE_DT_LIMIT 的替代)。
+
+**Fix**: 把界限移入 calcBlockDt2nd/4th 内部:仅当 `s0==acc0_offset_sq || s1==0.0`(准则无力度尺度)时,dt_ref 用 `max(eta_4th·r_limit/|v|, dt_min)` 替代 NUMERIC_FLOAT_MAX;调用点恢复原算法签名(vel/r_limit 作模板参数传入,兼容 PS::F64vec)。力驱动的 sub-dt_min 需求仍按策略 abort。验证:note 复现器干净(−3e-12);T3 10/10 计数器逐位不变;T1 si00 与旧版逐位相同;**T1 crossfull_r015_si07(最粗 dt 端点,458e-461e 在 LWLaptop 全崩)两族均确定性通过**——机制:粗 dt 交界后的伪轨道在关键步出现精确零加权力,458e 无限制→dt_max 跳步落上碰撞航线,门控版以 eta·r_in/|v| 尺度解析接近段。
+
+**Prevention rule**: ① 几何类 dt 界限只应填补充准则失效的退化分支,不得无条件叠加——先问"准则在该状态有没有力度尺度";② 安装二进制按 configure 族覆盖:一次 `make install` 只装当前族,跨族验证前必须逐族重装(本次 T1 non64b 首轮用了旧安装件假失败);③ 端点悬崖的 FP 敏感结论要保留"策略改动可移动悬崖位置"的开放性——语义修复需单变量对照(同机同编译器只改源码)确认。

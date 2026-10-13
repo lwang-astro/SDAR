@@ -218,16 +218,32 @@ namespace H4{
           @param[in] _acc0: acceleration
           @param[in] _acc1: first order derivative of acc0
           @param[in] _dt_limit: maximum step limit
+          @param[in] _vel: particle velocity (c.m.-frame), used only when the
+          acceleration criterion degenerates (zero acceleration or zero jerk)
+          @param[in] _r_dt_limit: dt-limit radius; when the criterion degenerates,
+          the step is capped at eta_4th times the flying time across this radius
+          (floored at dt_min), so a force-free particle cannot cross the limit
+          region in one step; <0 or zero velocity: no limit
           \return step size, if dt<dt_min, return -dt;
         */
+        template <class Tvec>
         Float calcBlockDt2nd(const Float* _acc0, 
                              const Float* _acc1,
-                             const Float _dt_limit) const{
+                             const Float _dt_limit,
+                             const Tvec& _vel,
+                             const Float _r_dt_limit = Float(-1.0)) const{
             ASSERT(dt_max_>dt_min_);
             ASSERT(_dt_limit<=dt_max_);
             ASSERT(_dt_limit>=dt_min_);
 
-            const Float dt_ref = TimeStep4th::calcDt2nd(_acc0, _acc1);
+            Float dt_ref = TimeStep4th::calcDt2nd(_acc0, _acc1);
+            // degenerate branch (zero acceleration or zero jerk): the criterion
+            // has no force scale; use the geometric crossing bound instead
+            if (dt_ref == NUMERIC_FLOAT_MAX && _r_dt_limit > 0.0) {
+                const Float v_sq = _vel[0]*_vel[0] + _vel[1]*_vel[1] + _vel[2]*_vel[2];
+                if (v_sq > 0.0)
+                    dt_ref = std::max(Float(eta_4th)*_r_dt_limit/std::sqrt(v_sq), dt_min_);
+            }
             Float dt = _dt_limit;
             while(dt > dt_ref) dt *= 0.5;
 
@@ -246,18 +262,33 @@ namespace H4{
           @param[in] acc2: second order derivative of acc0
           @param[in] acc3: thrid  order derivative of acc0
           @param[in] _dt_limit: maximum step limit
+          @param[in] _vel: particle velocity (c.m.-frame), used only when the
+          acceleration criterion degenerates (zero acceleration or zero jerk)
+          @param[in] _r_dt_limit: dt-limit radius; when the criterion degenerates,
+          the step is capped at eta_4th times the flying time across this radius
+          (floored at dt_min); <0 or zero velocity: no limit
           \return step size, if dt<dt_min, return -dt;
         */
+        template <class Tvec>
         Float calcBlockDt4th(const Float* acc0, 
                              const Float* acc1,
                              const Float* acc2,
                              const Float* acc3,
-                             const Float _dt_limit) const {
+                             const Float _dt_limit,
+                             const Tvec& _vel,
+                             const Float _r_dt_limit = Float(-1.0)) const {
             ASSERT(dt_max_>dt_min_);
             ASSERT(_dt_limit<=dt_max_);
             ASSERT(_dt_limit>=dt_min_);
 
-            const Float dt_ref = TimeStep4th::calcDt4th(acc0, acc1, acc2, acc3);
+            Float dt_ref = TimeStep4th::calcDt4th(acc0, acc1, acc2, acc3);
+            // degenerate branch (zero acceleration or zero jerk): the criterion
+            // has no force scale; use the geometric crossing bound instead
+            if (dt_ref == NUMERIC_FLOAT_MAX && _r_dt_limit > 0.0) {
+                const Float v_sq = _vel[0]*_vel[0] + _vel[1]*_vel[1] + _vel[2]*_vel[2];
+                if (v_sq > 0.0)
+                    dt_ref = std::max(Float(eta_4th)*_r_dt_limit/std::sqrt(v_sq), dt_min_);
+            }
             Float dt = _dt_limit;
             while(dt > dt_ref) dt *= 0.5;
 

@@ -418,11 +418,12 @@ namespace H4{
         COMM::List<ForceH4> force_;  // force
         COMM::List<Float> time_next_; // next integrated time of particles
         // per-particle dt-limit radius, indexed like time_next_ (single: k, group c.m.:
-        // k+index_offset_group_); application-set geometric datum (<0: none). The dt calls keep
-        // the step below eta times the flying time ACROSS this radius, recomputed from the
-        // CURRENT particle velocity, so the application (e.g. PeTar changeover) constrains
-        // steps without the estimator knowing the application's force-splitting geometry;
-        // the radius-based counterpart of the group-level info.dt_limit
+        // k+index_offset_group_); application-set geometric datum (<0: none). Consumed
+        // only inside calcBlockDt2nd/4th when the acceleration criterion degenerates
+        // (zero acceleration or zero jerk): the step is then capped at eta times the
+        // flying time ACROSS this radius from the CURRENT particle velocity, so the
+        // application (e.g. PeTar changeover) constrains the degenerate case without
+        // touching the criterion for particles with a well-defined force scale
         COMM::List<Float> r_dt_limit_;
 
         // table of mask to show which particles are removed from the integration
@@ -607,21 +608,6 @@ namespace H4{
         }
 
     private:
-        //! crossing-time dt limit of one slot from the current c.m.-frame particle velocity
-        /*! no limit when the dt-limit radius is unset or the particle is at rest; otherwise
-          the step stays below eta times the flying time across the limit radius, so a region
-          of that scale cannot be crossed within one step. The bound depends on the fixed
-          radius, not on the particle position: a frame-center c.m. with roundoff velocity
-          gets a huge (non-binding) value, and the dt_min floor guards extreme velocities */
-        template <class Tpi>
-        Float calcDtLimitCrossing(const Tpi& _pi, const int _slot) const {
-            const Float r_limit = r_dt_limit_[_slot];
-            if (r_limit <= 0.0) return NUMERIC_FLOAT_MAX;
-            const Float v_sq = _pi.vel[0]*_pi.vel[0] + _pi.vel[1]*_pi.vel[1] + _pi.vel[2]*_pi.vel[2];
-            if (v_sq==0.0) return NUMERIC_FLOAT_MAX;
-            return std::max(step.eta_4th*r_limit/sqrt(v_sq), step.getDtMin());
-        }
-
         //! Calculate 2nd order time step for lists particles 
         /*! Calculate 2nd order time step 
           @param[in] _index_single: active particle index for singles
@@ -641,7 +627,7 @@ namespace H4{
                 const int k = _index_single[i];
                 const Float* acc0 = force_[k].acc0;
                 const Float* acc1 = force_[k].acc1;
-                const Float dt =step.calcBlockDt2nd(acc0, acc1, std::min(_dt_limit, calcDtLimitCrossing(particles[k], k)));
+                const Float dt = step.calcBlockDt2nd(acc0, acc1, _dt_limit, particles[k].vel, r_dt_limit_[k]);
                 particles[k].dt = dt;
                 neighbors[k].initial_step_flag = false;
             }
@@ -651,7 +637,7 @@ namespace H4{
                 const int kf = k + index_offset_group_;
                 const Float* acc0 = force_[kf].acc0;
                 const Float* acc1 = force_[kf].acc1;
-                const Float dt =step.calcBlockDt2nd(acc0, acc1, std::min(std::min(_dt_limit, groups[k].info.dt_limit), calcDtLimitCrossing(groups[k].particles.cm, kf)));
+                const Float dt = step.calcBlockDt2nd(acc0, acc1, std::min(_dt_limit, groups[k].info.dt_limit), groups[k].particles.cm.vel, r_dt_limit_[kf]);
                 groups[k].particles.cm.dt = dt;
                 groups[k].perturber.initial_step_flag = false;
             }
@@ -723,9 +709,12 @@ namespace H4{
           @param[in] _pi: particle to corect
           @param[in] _fi: force for correction
           @param[in] _dt_limit: maximum step size allown
+          @param[in] _vel: particle velocity for the degenerate-branch crossing bound
+          @param[in] _r_dt_limit: dt-limit radius for the degenerate-branch crossing bound
           @param[in] _inti_step_flag: true: only calculate dt 2nd instead of 4th
          */
-        void correctAndCalcDt4thOne(H4Ptcl& _pi, ForceH4& _fi, const Float _dt_limit, const bool _init_step_flag) {
+        template <class Tvec>
+        void correctAndCalcDt4thOne(H4Ptcl& _pi, ForceH4& _fi, const Float _dt_limit, const Tvec& _vel, const Float _r_dt_limit, const bool _init_step_flag) {
             static thread_local const Float inv3 = 1.0 / 3.0;
             const Float dt = _pi.dt;
             const Float h = 0.5 * dt;
@@ -777,12 +766,12 @@ namespace H4{
 
             const Float dt_old = _pi.dt;
             if(_init_step_flag) {
-                _pi.dt = step.calcBlockDt2nd(_pi.acc0, _pi.acc1, _dt_limit);
+                _pi.dt = step.calcBlockDt2nd(_pi.acc0, _pi.acc1, _dt_limit, _vel, _r_dt_limit);
 #ifdef HERMITE_DEBUG
                 std::cerr<<"Initial step flag on: pi.id: "<<_pi.id<<" step size: "<<_pi.dt<<" time: "<<_pi.time<<std::endl;
 #endif                
             }
-            else _pi.dt = step.calcBlockDt4th(_pi.acc0, _pi.acc1, acc2, acc3, _dt_limit);
+            else _pi.dt = step.calcBlockDt4th(_pi.acc0, _pi.acc1, acc2, acc3, _dt_limit, _vel, _r_dt_limit);
 
             ASSERT((dt_old > 0.0 && _pi.dt >0.0));
             (void)dt_old;
@@ -809,7 +798,7 @@ namespace H4{
             ForceH4* force = force_.getDataAddress();
             for(int i=0; i<_n_single; i++){
                 const int k = _index_single[i];
-                correctAndCalcDt4thOne(ptcl[k], force[k], std::min(_dt_limit, calcDtLimitCrossing(ptcl[k], k)), neighbors[k].initial_step_flag);
+                correctAndCalcDt4thOne(ptcl[k], force[k], _dt_limit, ptcl[k].vel, r_dt_limit_[k], neighbors[k].initial_step_flag);
                 neighbors[k].initial_step_flag = false;
             }
             // group
@@ -817,7 +806,7 @@ namespace H4{
             for(int i=0; i<_n_group; i++) {
                 const int k = _index_group[i];
                 auto& groupi = group_ptr[k];
-                correctAndCalcDt4thOne(groupi.particles.cm, force[k+index_offset_group_], std::min(std::min(_dt_limit, groupi.info.dt_limit), calcDtLimitCrossing(groupi.particles.cm, k+index_offset_group_)), groupi.perturber.initial_step_flag);
+                correctAndCalcDt4thOne(groupi.particles.cm, force[k+index_offset_group_], std::min(_dt_limit, groupi.info.dt_limit), groupi.particles.cm.vel, r_dt_limit_[k+index_offset_group_], groupi.perturber.initial_step_flag);
                 groupi.perturber.initial_step_flag = false;
                 //groupi.correctCenterOfMassDrift();
             }
