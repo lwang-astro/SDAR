@@ -60,7 +60,7 @@ This process is canonical here and shared with the PeTar workspace (PeTar's `AGE
 After each non-trivial task (integrator change, bug fix, simulation debugging, workflow change):
 
 1. **Reflect**: did anything go wrong? A mistake, a misleading assumption, a silent failure, a confusing error message?
-2. **If yes**: append the finding directly to [.github/skills/sdar-fewbody-integration/assets/lessons-learned.md](.github/skills/sdar-fewbody-integration/assets/lessons-learned.md) under the appropriate category, with **Mistake** / **Root cause** / **Prevention rule**, matching the entry style already present. **Title each entry `### <date>: <one-line rule>`** so that `grep -n '^### ' lessons-learned.md` is a complete index — do not split the file into per-lesson files (split trigger is in the maintenance doc below). Do not delegate this.
+2. **If yes**: append the finding directly to [.github/skills/sdar-fewbody-integration/assets/lessons-learned.md](.github/skills/sdar-fewbody-integration/assets/lessons-learned.md) under the appropriate category, with **Mistake** / **Root cause** / **Prevention rule**, matching the entry style already present. Before appending, grep the index (`grep -n '^### ' <lessons file>`) for a similar existing entry — extend/update that entry instead of appending a near-duplicate; place new entries chronologically inside the correct category and keep the file's Categories list in sync (it is the retrieval path once the file grows). **Title each entry `### <date>: <one-line rule>`** so that `grep -n '^### ' lessons-learned.md` is a complete index — do not split the file into per-lesson files (split trigger is in the maintenance doc below). Do not delegate this.
 3. **If no**: no action needed.
 4. **Periodically**: review entries and promote well-validated patterns into `SKILL.md` as hard rules.
 
@@ -76,7 +76,12 @@ Lessons rooted in SDAR code (`src/`, `sample/AR`, `sample/Hermite`, `tools/`) be
 
 ## Documentation
 
+Doc taxonomy (mirror of PeTar `AGENTS.md` → "Doc & Plan Organization"): every md in `docs/` is a **plan** (`plan` in the name, open items only; executed sections get an executed-marker and are distilled to lessons/reference notes), a **registered reference note** (listed below, with a one-line status header stating its nature — implementation notes, theory reference, or legacy-behavior record), or **temporary** (distill to lessons then delete). Unclassified notes are a defect.
+
+Routing (same rule as PeTar): **lessons-learned is the default** — anything with the Mistake / Root cause / Prevention shape ("what went wrong, why, how to avoid"). Reference notes take only mechanism/design documentation of implemented or removed code ("how/why does the code behave this way"). Boundary unclear → lessons.
+
 - [Doxygen docs](https://lwang-astro.github.io/SDAR/docs/html/index.html)
 - [Local docs](docs/html/index.html)
-- `docs/hierarchical_blogh_impl_notes.md` — BlogH implementation notes
-- `docs/hierarchical_blogh_plan.md` — BlogH development plan
+- `docs/hierarchical_blogh_impl_notes.md` — implementation reference: current-code BLogH/g-func mechanism, Scheme G, retained limitations
+- `docs/hierarchical_blogh_theory_notes.md` — theory reference + development history (§5.7 executed 2026-09-12, commit `9b40e8e`)
+- `docs/legacy_group_criteria_notes.md` — legacy group form/break criteria reference (scheme removed 2026-10-01; kept for comparing old runs)

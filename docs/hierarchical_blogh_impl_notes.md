@@ -1,9 +1,10 @@
 # Hierarchical BLogH 实现笔记
 
+> **性质**：implementation reference（现行代码的 BLogH/g-func 机制、Scheme G 代数与实测行为、保留限制；无开放项——保留限制的处置条件见文中"保留限制"节）。
 > **最后更新**: 2026-09-14
 > - 2026-09-14（晚）：**2 粒子组两处缺陷修复（n=2 退化验证通过）**——① `applyStableCheckAndSlowDown` 在 factor=1 分支不同步 `sd_root.period`，2 粒子组（根=叶子，永不进 `calcBinaryTreeSlowDown` 内循环）的 `SlowDown::period` 停留构造默认 DBL_MAX，BLogH ds 估计器经 `getEffectivePeriod()=P·κ` 读到 DBL_MAX，`ds_prod·P_eff_min` 溢出 → **ds=inf**（LogH 求和口径在线算 P，从不读该成员，故隐形；3+ 组叶子在内循环中已设 period 故历史验证全过）。修复：椭圆根无条件同步 period。② `integrateTwoOneStep`（pair 路径）内本不应存在任何 `AR_G_FUNC` 分支——两体时乘积 g ≡ 单对势 ≡ LogH 求和，drift 演化两模式恒等；原 `dgt_drift_inv *= gt_kick_inv_`（乘入 U/κ）因 pair 路径直接消费 interaction 层**原始 ∇U 形式** gtgrad（÷U 的 ∇ln U 换算只在树路径包装 `calcAccPotAndGTKickInvTwo` 中做）而平白多乘一个 U → 偏心轨道 gt_drift 失控（dE→1e-2..1e15）、**圆轨道因 v·∇U≡0 完全掩盖该缺陷**。修复：删除 pair 路径全部 g_func 分支（用户裁定；曾试 `*= κ⁻¹` 版本，κ=1 时恰为无操作故通过两体验证，κ=21.8 的 quad 仍失败——分支本身即错误）。**验收**：AR standalone n=2（圆/e=0.9，κ=1）gf1≡gf0 逐位一致；H4 n=2 κ=64000 双星 dE~1e-13（末位差）；H4 quad_sd2（2×两体组，κ=21.8）全程 t=20 零错误、终点 dE 与 gf0 四位一致；H4 ustabtri gf1 全程零错误 dE -0.0126（gf0 -0.018）；3+ 回归 ustabtri{auto,fixed,logh}×s128 + ustabquin auto s128（59,806 行）对 HEAD 逐位一致；惰性 plain vs gf0 零差异。教训见 lessons-learned 2026-09-14 条目（代码路径覆盖、圆轨道掩盖、分支不应存在）。
 > - 2026-09-14：**Hermite/PeTar 接线落地 + 2 粒子组乘积路径阻塞发现**——`sample/Hermite` 加 `--g-func` CLI（默认 0）与 `hermite.btlogh` target；`TimeTransformedSymplecticManager` 新增 `g_func` 成员、`HermiteIntegrator::addGroups` 传递（`g_func_on` 由组 `initialIntegration` 解析；注意 g-func 构建的 manager dump 布局改变）。PeTar 侧 `--ar-g-func` 选项 + `./configure --with-sdar-g-func=btlogh`（`PROG_NAME` 加 `.btlogh` 后缀）。**LogH 惰性验证**：ustabtri H4 plain vs btlogh 构建 `--g-func 0`，364 行 × 103 物理列（剔 8 计时列）逐位一致。**阻塞**：`--g-func 1` 在 2 粒子组发散（AR standalone 孤立双星 dE→1e15；H4 孤立双星/quad/ustabtri 内双星组均 NaN abort；ustabtri 案例 κ=1 亦失败 → 与 slowdown 无关）。历史 BTLogH 验证矩阵全部为 3+ 粒子单组，2 粒子 pair 路径（`integrateOneStep` 2 体重载）乘积形式从未验证；首要嫌疑为 drift 因子积分 `dgt_drift_inv *= gt_kick_inv_`（乘入含 κ 的 gt_kick_inv_，而 gtgrad 为 ∇ln U 不含 κ）口径不一致，`gt_drift_inv_` 失控（O(1e±10) vs g_kick O(0.1)）。详见 `SDAR/.github/skills/sdar-fewbody-integration/assets/HANDOFF.md` 2026-09-14 节。
-> - 2026-09-12：**Scheme G：g 侧双侧 gauge clamp（escape 段过分辨率修复）**——`processOuterNode` 双曲非叶节点的一侧 q-cap 推广为 `r_eff = clamp(r, q, X)`、`X = q·P_r_eff/T_h`（P_r_eff = 最快椭圆层级 P·κ，调用点平扫、瞬态计算，不入快照）；ds 估计器/gate/valve **零改动**（运行时证据：首分歧行 ds 列逐位相同）。ustabtri escape 步率 448→125≈N_s（总步数 28,704→19,351），dE 包络位级不变，反向积分双向达设计步率；quin S256/S512 位级不变。详见下方专节与 `hierarchical_blogh_plan.md` §5.6/§5.7。
+> - 2026-09-12：**Scheme G：g 侧双侧 gauge clamp（escape 段过分辨率修复）**——`processOuterNode` 双曲非叶节点的一侧 q-cap 推广为 `r_eff = clamp(r, q, X)`、`X = q·P_r_eff/T_h`（P_r_eff = 最快椭圆层级 P·κ，调用点平扫、瞬态计算，不入快照）；ds 估计器/gate/valve **零改动**（运行时证据：首分歧行 ds 列逐位相同）。ustabtri escape 步率 448→125≈N_s（总步数 28,704→19,351），dE 包络位级不变，反向积分双向达设计步率；quin S256/S512 位级不变。详见下方专节与 `hierarchical_blogh_theory_notes.md` §5.6/§5.7。
 > - 2026-09-01：**ds gauge 口径回归 semi（撤销 2026-08-29 的 apoapsis gauge）+ pert 阻尼哨兵修复**：
 >   1) `multiplyDsByNodePotentials` 与 `calcLogHSumGaugeIter` 椭圆 gauge 回到轨道平均 $Gm_1m_2/a$
 >      （$\langle 1/r\rangle_t = 1/a$；LogH 族变换下 $U\,dt \propto dE$，步点在偏近点角上均匀分布，
@@ -20,8 +21,8 @@
 >   （backup 布局不变，旧 dump 仍可读）；旧 `MUL_POT`/`ADD_POT` 改名 #error 守卫一并移除（干净方案）。
 >   回归验收：blogh{gf1,gf2}、btlogh gf1 与精简前物理列逐位一致；btlogh 拒绝 `--g-func 2`。
 > - 2026-08-27：**g-func 宏体系重构**（详见下文"g-func 重构记录"节与"编译 Flag 速查"）——`AR_G_FUNC_MUL_POT` 拆分为每方法一宏（`AR_G_FUNC_BLOGH/NORM_BLOGH/MUL_ALL_POT/BTLOGH`），`ADD_POT` 改名 `ADD_INNER_POT`；`--g-func` 统一模板 0=LogH / 1=本方法 / 2=auto（BTLOGH 与 MUL_ALL_POT 无 2），`--g-func-switch` 删除；输出 `g_func` 列改打生效状态 0/1；宏体系集中定义于 `src/AR/g_func.h`。回归验收：全方法×{fixed,auto,gf0} 物理列逐位一致。
-> - 2026-08-26b：**束缚段跳变归因与对照判决**（详见 `hierarchical_blogh_plan.md` §3.5）——分辨率减半（S512）、关闭 tree 重构（fixed）、切 LogH 三思路全部证伪：共振飞掠硬化事件（t=0.0368，内双星 a 9× 收缩）的 ~1e-7 跳变是事件型 floor，不随 ds 收敛、不因重构而变、LogH 反差 6 个量级；tree 重构+ds 重算实为保护机制（事件后窗口差 90×）。**使用警示**：standalone base 模式（无 `-m orbit`）不更新根数，交换后 stale semi>0 使 q-cap 永不触发 → dt 爆炸（fixed s512 终点 dE=218）；发生交换/逃逸的场景必须用 orbit/full 模式（生产路径 integrateToTime 不受影响）。
-> - 2026-08-26：**双曲层级 ds/g 规范失配修复（g 函数侧 q-cap）**——详见下方专节与 `hierarchical_blogh_plan.md` §3。要点：`processOuterNode` 对双曲非叶节点把 g 的距离因子 cap 在 q=|a|(e−1)（与 ds 的 15b 口径同规范），cap 生效时同时抑制该节点梯度（TTL 一致性）；ds 逻辑不动（保持 tree 不变即冻结的设计原则）。ustabtri 终点 |dE| 3.8e-2 → 9.9e-7，交换前位级不变，logh/btlogh 固定模式位级不变。
+> - 2026-08-26b：**束缚段跳变归因与对照判决**（详见 `hierarchical_blogh_theory_notes.md` §3.5）——分辨率减半（S512）、关闭 tree 重构（fixed）、切 LogH 三思路全部证伪：共振飞掠硬化事件（t=0.0368，内双星 a 9× 收缩）的 ~1e-7 跳变是事件型 floor，不随 ds 收敛、不因重构而变、LogH 反差 6 个量级；tree 重构+ds 重算实为保护机制（事件后窗口差 90×）。**使用警示**：standalone base 模式（无 `-m orbit`）不更新根数，交换后 stale semi>0 使 q-cap 永不触发 → dt 爆炸（fixed s512 终点 dE=218）；发生交换/逃逸的场景必须用 orbit/full 模式（生产路径 integrateToTime 不受影响）。
+> - 2026-08-26：**双曲层级 ds/g 规范失配修复（g 函数侧 q-cap）**——详见下方专节与 `hierarchical_blogh_theory_notes.md` §3。要点：`processOuterNode` 对双曲非叶节点把 g 的距离因子 cap 在 q=|a|(e−1)（与 ds 的 15b 口径同规范），cap 生效时同时抑制该节点梯度（TTL 一致性）；ds 逻辑不动（保持 tree 不变即冻结的设计原则）。ustabtri 终点 |dE| 3.8e-2 → 9.9e-7，交换前位级不变，logh/btlogh 固定模式位级不变。
 > - 2026-08-15c：BTLogH ds 双曲修复——双曲叶 ds 恢复 2π/256（原丢失 8× 分辨率）；`P_eff_min` 锚点覆盖全部层级（非叶节点贡献 `P·κ`/遭遇时标），遭遇瞬态由真实最快层驱动
 > - 重构：`updateSlowDownAndCorrectEnergy` + `switchGFuncAuto` → 统一为 `syncTreeSlowDownAndDs`
 > - 新增辅助函数：`calcBinaryTreeSlowDown`, `applyStableCheckAndSlowDown`, `correctSlowDownEnergy`
@@ -177,7 +178,7 @@ if (g_func_on) calc_gt_cross = false;   // 其余五法生效时：仅 inner 对
 2. **乘入 gt_kick_inv_**: `gt_kick_inv_ *= U_n`
 3. **梯度分发**: 对节点的左右子树成员，按质量分数 $m_i/M_{\rm m}$ 加上 $\pm \hat{r}_{\rm s}/r_{\rm s}$ 到各自的 `force_[i].gtgrad`，符号左 + 右 −
 
-这一步修正了以下问题：plan 阶段（`hierarchical_blogh_plan.md` §0.6）认为"梯度计算与 switch=1 完全一致"，但实际发现缺少外层节点的 $\nabla\ln U_{\rm n}$ 贡献会导致 DKD 格式不一致。`processOuterNode` 在一次 tree walk 中同时完成 $U_{\rm n}$ 乘入和梯度分发。
+这一步修正了以下问题：设计阶段（`hierarchical_blogh_theory_notes.md` §0.6）认为"梯度计算与 switch=1 完全一致"，但实际发现缺少外层节点的 $\nabla\ln U_{\rm n}$ 贡献会导致 DKD 格式不一致。`processOuterNode` 在一次 tree walk 中同时完成 $U_{\rm n}$ 乘入和梯度分发。
 
 ## ds 公式（最终版）
 
@@ -279,7 +280,7 @@ time = snap.time + snap.time_offset
 
 ### 2026-09-12 Scheme G：双侧 gauge clamp（escape 段步率 → N_s，q-cap 的推广）
 
-> 理论推导与方案对比（时间对称性分析、R1/R2 判决）见 `hierarchical_blogh_plan.md` §5.6/§5.7；session 记录与 H4 口径分析见 `~/src/python/SDAR_blogh_method_NOTES.md` 2026-09-12 节。
+> 理论推导与方案对比（时间对称性分析、R1/R2 判决）见 `hierarchical_blogh_theory_notes.md` §5.6/§5.7；session 记录与 H4 口径分析见 `~/src/python/SDAR_blogh_method_NOTES.md` 2026-09-12 节。
 
 **问题**（plan §5）：q-cap 后 escape 段每剩余双星轨道 ~448 步（设计 N_s=128）。根因不是 q-cap 与 ds 失配（两者精确相消 → 每 P_eff,min 步数恒为 32/ds_scale），而是 ds 的 P_eff,min 候选含双曲节点的**拟合遭遇时标** T_h = 2π|a_h|^{3/2}/√(G(m₁+m₂))——已结束的交会持续索取分辨率直到运行结束。
 

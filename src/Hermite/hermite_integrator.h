@@ -432,7 +432,7 @@ namespace H4{
         COMM::List<bool> table_single_mask_; // bool mask to indicate whether the particle of index (single) (same index of table) is masked (true) or used (false)
 
 #ifdef ADJUST_GROUP_DEBUG
-        //! injection-decomposition instrumentation (docs/transition_unification_plan.md), stderr trace only
+        //! injection-decomposition instrumentation (SDAR lessons-learned 2026-10-03; design record: git d474412), stderr trace only
         int geid_event_count_;
         struct GEIDForceStash {
             bool valid;

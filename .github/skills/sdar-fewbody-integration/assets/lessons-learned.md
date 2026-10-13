@@ -5,6 +5,8 @@ This file records mistakes, gotchas, and pitfalls discovered during SDAR agent s
 Each entry documents: what went wrong, why, and how to prevent recurrence.
 
 **Lifecycle**: New entries are added by agents automatically after encountering issues.
+Capture rules (grep-dedup before adding, extend in place, category + chronological placement,
+Categories maintenance) are owned by `AGENTS.md` → "Lessons-Learned Capture".
 Periodically reviewed → verified entries are elevated to `SKILL.md` as hard rules.
 
 ---
@@ -292,7 +294,15 @@ for 1000/1002 "differences" until physical columns were compared selectively.
 
 **Root cause**: 专用三体回文 IC（0.45+0.45 双曲相遇 peri=0.02 e=1.067 + 伴星）扫 `--r-group`：0.05（近心才切，55-60 AR 子步）dvel 3.0e-4；0.4（早切，460 子步，整个强场段含近心点由 AR 一体积分，两次切换都在 dr≈0.44 平滑场区，且反转点落在组存活期内不再触发新切换）dvel **7.5e-7**（400×）。伴星拉近加重扰动（pert 比进入生产量级）后：0.05→6.9e-4，0.4→2.4e-4，优势缩到 **3×**——AR 组内存活越长，冻结扰动误差累积越多，吃掉缝合节省。
 
-**Prevention rule**: 组进出的误差评估必须报切换半径，不能只当固定残差；最优 r_group 是扰动场的函数（孤立系统宜大、密集场收益有限且伴随更多组/更长寿命/性能代价）。生产侧验证用 Pal5 回放做 r-group 扫描（改 data.par.hard 副本），别用孤立 IC 外推。另：r-group 经 r_neighbor→`calcAcc0OffsetSq` 间接影响块步控制器，"无组"对照在不同 r-group 下不是同一条轨迹。
+**Prevention rule**: 组进出的误差评估必须报切换半径，不能只当固定残差；最优 r_group 是扰动场的函数（孤立系统宜大、密集场收益有限且伴随更多组/更长寿命/性能代价）。生产侧验证**不能**用回放：判据半径烧录在 dump 的逐粒子 changeover 态，data.par.hard 的 r-group 修改无效（实测 0.1–10× 因子下 r_crit 逐位相同，x30 触发 r_search 断言）——须用改参的目标生产运行段（或 dump 补丁），也别用孤立 IC 外推。另：r-group 经 r_neighbor→`calcAcc0OffsetSq` 间接影响块步控制器，"无组"对照在不同 r-group 下不是同一条轨迹。
+
+### 2026-10-03: 【切换层注入归因三律】一次性记账看净值不看单项、审计表会过期、对照组必须同相遇——切换层终判"是解的一部分",成组门优化方向已死
+
+**Mistake**: 切换层统一调查(Phase 1/2,2026-10-03 关闭)中途的三次归因偏差:① Phase-1 bench 报"每 break 3e-2 注入"并据此锁定 #4/#5 为待修项;② 审计表(§3)把 #4 kappa 采样调度、#7 重入初始化分裂列为待修不对称;③ pre-consolidation 时期的"无事件 5.6e-6 vs 2 事件 1.5e-3(270× 劣化)"测量被当作切换层有害的证据。
+
+**Root cause**: ① FORM 时 AR 记 `de_sd=+E_bin(1-1/κ)`、BREAK 时 Hermite 记 `-E_bin(1-1/κ)`——**逐对相消**,单事件单项是定义性缩放项,每周期净注入 ~1e-3·E_bin 才是预算量;② 审计表描述的是 pre-consolidation 行为,#4 的"formation 锚定调度"(`time_update_`/`setUpdateTime`)在 HEAD 已是死代码,#7 重入路径已统一为 `initialIntegration` 同款;③ 270× 来自未配对对照——正确对象是**同一条相遇轨迹**的分组 vs 不分组(matched-control:分组 3.0e-4 vs 纯 Hermite 9.5e-3,**好 32×**)。
+
+**Prevention rule**: ① 注入/误差预算先验证记账项是否成对相消,报净值;② 按审计表设计修复前,先在 HEAD 上确认审计项仍存在(grep 调用点/测死代码);③ 跨方案误差比较必须 matched-control(同 IC 同相遇,仅切换 r-group 门),非配对的历史测量不可复用;④ 附带裁定:fixed-ds(`-e 1e10`)与自适应位相同→自适应 ds 控制器(#6)对 chatter 类无贡献;"值不值得成组"门方向已死(单扰动源 68×..1.1e8×、12 伴星环 6.4×..7000× 分组全胜,无有害阈值);kappa gate 与 kappa_ref 约定强耦合(sample 默认 1e-6 在潮汐环境完全拒绝成组,生产用 1e-4);判据/切换工作的回归工具是 `sample/test/group_transition_bench.sh`(8 案例+`--scan` 杠杆方向门)。
 
 ### 2026-10-13: 【退化分支门控】crossing dt 界限只应在准则退化(零加速度/零 jerk)时介入——无条件 cap 干扰 Aarseth 准则,且门控版顺带修复 T1 最粗端点悬崖
 

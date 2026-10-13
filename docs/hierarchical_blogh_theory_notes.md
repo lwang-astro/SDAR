@@ -1,5 +1,6 @@
 # Hierarchical BLogH: Theory Reference
 
+> **性质**：theory reference（BLogH 理论基础 + 开发史；无开放项）；已执行/被证伪的历史方案保留为记录，勿当作待办。实际代码实现见 [`hierarchical_blogh_impl_notes.md`](./hierarchical_blogh_impl_notes.md)。
 > **用途**: 本文档提供 BTLogH（历史运行期编号 g_func=4；2026-08-27 宏体系重构后为独立编译宏 `AR_G_FUNC_BTLOGH`、运行期选项 `--g-func 1`，重构记录见 [`hierarchical_blogh_impl_notes.md`](./hierarchical_blogh_impl_notes.md) 的"g-func 重构记录"节）的理论基础与开发历史记录。实际代码实现见 [`hierarchical_blogh_impl_notes.md`](./hierarchical_blogh_impl_notes.md)。
 > 原始计划中关于梯度无需修正、`multiplyOuterNodePotentials()` 用 `_bin.semi` 等方案在实测中被发现有问题，
 > 已被 `processOuterNode()` 替代。本文档仅保留经验证正确的理论部分。
@@ -601,6 +602,7 @@ gate/valve 的不对称性作为遗留保留（新机制下 escape 尾不再依�
 
 ### 5.7 方案 G 实施计划（2026-09-12）
 
+> **已执行并通过 review（2026-09-12，commit `9b40e8e`）**：escape 步率 448→125≈N_s、总步数 28,704→19,351、quin 位级不变、backward 双向达设计步率；结果与保留限制见 [`hierarchical_blogh_impl_notes.md`](./hierarchical_blogh_impl_notes.md) "2026-09-12 Scheme G" 专节。
 > 执行 §5.6 裁定的方案 G。回归矩阵已按用户裁定排除 btlogh_tri、quad 等全束缚测试（与本问题无关）；无 clamp 路径的 bit-identity 由 R1（ustabtri 冻结树）与 R3（LogH 宏门）覆盖。
 
 #### 5.7.1 代码改动点（唯一文件：`src/AR/symplectic_integrator.h`）

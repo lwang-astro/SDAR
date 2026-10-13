@@ -3,7 +3,7 @@
 #
 # Purpose: self-contained replacement for the Pal5-specific replay cases when
 # validating changes to the group form/break criterion or the transition layer
-# (docs/transition_unification_plan.md). Each case is one deterministic
+# (SDAR lessons-learned 2026-10-03 entries; full design record: git d474412). Each case is one deterministic
 # hyperbolic encounter (the "chatter" class behind Pal5 hard_large_energy
 # warnings: form -> AR episode -> break around peri of a marginally unbound
 # pair, e=1.067, peri 0.02) with a controlled perturber field.
