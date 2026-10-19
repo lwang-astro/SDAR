@@ -3,6 +3,51 @@ import numpy as np
 import warnings
 warnings.simplefilter('always')
 
+def detectAsciiFile(fname, sniff_bytes=512):
+    """ Detect whether a file starts with printable ASCII text (e.g. an ASCII data table)
+
+    Used by DictNpArrayMix.fromfile() to catch ASCII files passed to the binary
+    reader. Binary float/int records virtually always contain non-printable
+    bytes within the first records, while ASCII tables written by savetxt() /
+    printColumnAscii never do.
+
+    Parameters
+    ----------
+    fname: string of filename or file handler
+        paths are sniffed from the file start; a (seekable, binary-mode) file
+        handler is sniffed from its current position and restored afterwards
+        (that position is also where numpy.fromfile would start parsing)
+    sniff_bytes: int (512)
+        number of bytes to inspect
+
+    Returns
+    -------
+    bool:
+        True when the inspected bytes are all printable ASCII
+        (0x20-0x7E plus tab/newline/carriage return) and the file is not empty;
+        False for binary content, empty files, unreadable or non-seekable
+        sources (including text-mode handles)
+    """
+    import os
+    try:
+        if isinstance(fname, (str, bytes, os.PathLike)):
+            with open(fname, 'rb') as fp:
+                chunk = fp.read(sniff_bytes)
+        elif hasattr(fname, 'read') and hasattr(fname, 'seekable') and fname.seekable():
+            pos = fname.tell()
+            chunk = fname.read(sniff_bytes)
+            fname.seek(pos)
+        else:
+            return False
+    except (OSError, ValueError, TypeError):
+        return False
+    if (len(chunk) == 0):
+        return False
+    if isinstance(chunk, str):
+        # text-mode handle: sniff the decoded characters directly
+        return all((32 <= ord(c) < 127) or ord(c) in (9, 10, 13) for c in chunk)
+    return all((32 <= c < 127) or c in (9, 10, 13) for c in chunk)
+
 class DictNpArrayMix:
     """ The basic class of data structure
         The member functions are initialized by provided keys in initial function
@@ -801,6 +846,14 @@ class DictNpArrayMix:
             strict_mismatch: bool (True)
                 if True (default), raise ValueError when the file byte length is not aligned with the dtype itemsize
                 (schema mismatch or truncation); if False, only warn and read the complete records
+            format: string ('auto')
+                physical format handling (only effective without `sep`): 'auto' (default) sniffs the first
+                bytes and dispatches an ASCII text table to loadtxt() (with a UserWarning pointing at the
+                right reader); 'binary' skips the sniffing and reads as binary; 'ascii' dispatches to
+                loadtxt() without sniffing and without warning.
+                The dispatch is a pure loadtxt(**kwargs) passthrough: no keyword translation happens,
+                so ASCII files with a header line still need the caller to pass skiprows=1 (a wrong
+                column count then fails loudly inside loadtxt instead of returning garbage records)
         """
         dt = np.dtype(self.collectDtype())
 
@@ -808,7 +861,26 @@ class DictNpArrayMix:
         # This catches truncated/corrupted files before numpy silently returns a smaller array.
         sep = kwargs.pop('sep', '')
         strict_mismatch = kwargs.pop('strict_mismatch', True)
+        data_format = kwargs.pop('format', 'auto')
+        if (data_format not in ('auto', 'binary', 'ascii')):
+            raise ValueError("format must be one of 'auto', 'binary', 'ascii', given '%s'" % data_format)
         if sep == '':
+            # Sniff BEFORE the alignment/strict_mismatch logic below: an ASCII text
+            # file must never be misparsed as binary records, even when the caller
+            # passes strict_mismatch=False (the tolerance flag must only relax byte
+            # alignment for real binary files, not mask a wrong reader choice).
+            detected_text = False
+            if (data_format == 'auto'):
+                if detectAsciiFile(fname):
+                    data_format = 'ascii'
+                    detected_text = True
+            if (data_format == 'ascii'):
+                binary_only_kwargs = [k for k in ('offset', 'count') if k in kwargs]
+                if (len(binary_only_kwargs) > 0):
+                    raise ValueError('Reading %s: the file appears to be an ASCII text table, but fromfile() (binary reader) was called with binary-only keyword argument(s): %s. Use loadtxt() instead (e.g. loadtxt(..., skiprows=1) when the file has a one-line header), or pass format="binary" to force binary parsing.' % (type(self).__name__, ', '.join(binary_only_kwargs)))
+                if detected_text:
+                    warnings.warn('Reading %s: the file appears to be an ASCII text table; fromfile() dispatches to loadtxt(). Call loadtxt() directly, or pass format="ascii"/"binary", to silence this warning.' % type(self).__name__)
+                return self.loadtxt(fname, **kwargs)
             offset = int(kwargs.get('offset', 0))
             if (offset < 0):
                 raise ValueError('offset must be >= 0, given %d' % offset)
