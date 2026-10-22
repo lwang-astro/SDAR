@@ -71,7 +71,9 @@ Lessons rooted in SDAR code (`src/`, `sample/AR`, `sample/Hermite`, `tools/`) be
 ## Repository Rules
 
 - Do not commit or push without user confirmation.
-- Bump `VERSION` in every commit: `bash get_version.sh` from the repo root (the script has no executable bit), then append the `e` experiment suffix and stage `VERSION`.
+- Bump `VERSION` in every commit: run `bash get_version.sh` from the repo root (no
+  executable bit; it writes commit-count+1 and preserves the `e` experiment
+  suffix automatically) and stage `VERSION`.
 - Prefer repository-relative tracked files as inputs; never rely on untracked local files for test logic.
 
 ## Documentation
