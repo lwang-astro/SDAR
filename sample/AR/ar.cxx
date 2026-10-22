@@ -87,7 +87,7 @@ public:
 #endif
         , slowdown_timescale_max(input_par_store, 0.0,              "slowdown-timescale-max", "maximum timescale for maximum slowdown factor","time-end")
         , interrupt_detection_option(input_par_store, 0,            "i",               "modify orbits and check interruption;  0: turn off;  1: modify the binary orbits based on interruption criterion;  2: recored binary parameters based on interruption criterion")
-        , fix_step_option     (input_par_store, -1,                 "fix-step-option", "fix step option;  0: always - fixed ds, never modified by energy error;  1: later - ds may be reduced in early steps, then fixed (auto-enabled after escape);  2: none - fully adaptive, temporarily reduce ds on energy error and recover;  -1: auto behavior: later for binary or stable multiple systems, none for unstable system")
+        , fix_step_option     (input_par_store, -1,                 "fix-step-option", "fix step option;  0: always - fixed ds, never modified by energy error;  1: later - ds may be reduced in early steps, then fixed;  2: none - fully adaptive, temporarily reduce ds on energy error and recover;  -1: auto behavior: later for elliptic two-body, none for everything else")
         , break_check         (input_par_store, 0,                  "break-check",     "check the group break condition (hyperbolic escape of the root: semi<0, outgoing, r>r); mirror of Hermite checkBreak; record events to stderr only, does NOT stop integration","off")
 #ifdef USE_MPFRC
         , mpfr_digits         (input_par_store, 30,                 "mpfr-dights",     "dights for MPFR precison")

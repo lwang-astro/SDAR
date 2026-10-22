@@ -294,6 +294,23 @@ namespace AR {
         Float dH_sd_change_cum_;  // slowdown Hamiltonian change 
         Float de_sd_change_interrupt_;   // slowdown energy change due to interruption
         Float dH_sd_change_interrupt_;   // slowdown energy change due to interruption
+#ifdef AR_DEBUG
+        // (2026-10-21) open-system work audit: cumulative perturbation work
+        // credited to the references since construction -- full-weight
+        // (physical channel) vs tree-kappa-weighted (SD channel). Diagnostic
+        // only, never serialized; validates that the SD reference absorbs
+        // work at the kappa-weighted rate (the slowdown system's energy S
+        // responds to external perturbation as dS/dt = sum m_i vel_sd_i .
+        // a_pert_i -- vel_sd is the exact velocity gradient of the tree-
+        // decomposed ekin_sd, incl. the full-weight CM part). ROLLBACK
+        // semantics: NOT restored by restoreIntData — after a reduce/retry
+        // the discarded step's credits persist here while etot_sd_ref_ is
+        // rolled back, so these totals overcount; valid for quiescent-phase
+        // audits (no rollbacks) only.
+        Float de_kick_full_cum_;  // cumulative full-weight perturbation work credited to etot_ref_
+        Float de_kick_sd_cum_;    // cumulative kappa-weighted perturbation work credited to etot_sd_ref_
+#endif
+
 
 #endif
 
@@ -305,6 +322,11 @@ namespace AR {
         Float gt_kick_inv_;  ///< inverse time transformation factor for kick (sum of pair potentials with slowdown for LogH; product form when a g-func method is active)
 
         long ds_valve_call_count_;  ///< call counter for the ds cost valve (v2.1): throttles the periodic stale-ds re-estimation check to one per N_valve calls of syncTreeSlowDownAndDs
+
+        // (2026-10-19→21) a rate-type H-drift EMA compensation lived here and
+        // was removed after its two inputs were root-fixed (kappa-weighted
+        // work credit; gauge-invariant control criterion). Case record:
+        // docs/etot-sd-ref-tracking-corruption-plan.md + lessons 2026-10-19.
 
         // force array
         COMM::List<Force> force_; ///< acceleration array 
@@ -325,6 +347,9 @@ namespace AR {
 #ifdef AR_SLOWDOWN_TREE
                                                ekin_sd_(0), epot_sd_(0), etot_sd_ref_(0), 
                                                de_sd_change_cum_(0), dH_sd_change_cum_(0), de_sd_change_interrupt_(0), dH_sd_change_interrupt_(0),
+#ifdef AR_DEBUG
+                                               de_kick_full_cum_(0), de_kick_sd_cum_(0),
+#endif
 #endif
 #ifdef AR_TTL
                                                gt_drift_inv_(0),
@@ -379,6 +404,10 @@ namespace AR {
             dH_sd_change_cum_ = 0.0;
             de_sd_change_interrupt_ = 0.0;
             dH_sd_change_interrupt_ = 0.0;
+#ifdef AR_DEBUG
+            de_kick_full_cum_ = 0.0;
+            de_kick_sd_cum_ = 0.0;
+#endif
 #endif
 #ifdef AR_TTL
             gt_drift_inv_ = 0.0;
@@ -420,6 +449,10 @@ namespace AR {
             dH_sd_change_cum_= _sym.dH_sd_change_cum_;
             de_sd_change_interrupt_= _sym.de_sd_change_interrupt_;
             dH_sd_change_interrupt_= _sym.dH_sd_change_interrupt_;
+#ifdef AR_DEBUG
+            de_kick_full_cum_ = _sym.de_kick_full_cum_;
+            de_kick_sd_cum_ = _sym.de_kick_sd_cum_;
+#endif
 #endif
 #ifdef AR_TTL
             gt_drift_inv_ = _sym.gt_drift_inv_;
@@ -1183,6 +1216,7 @@ namespace AR {
             Float inv_nest_sd = _inv_nest_sd_up/_bin.slowdown.getSlowDownFactor();
             Float dgt_drift_inv = 0.0;
             Float de = 0.0;
+            Float de_sd = 0.0; // (2026-10-21) kappa-weighted work rate absorbed by the sd-energy S
 
 #ifndef USE_CM_FRAME
             auto& vel_cm = _bin.vel;
@@ -1246,10 +1280,30 @@ namespace AR {
                     de += particles[i].mass * (vel[0] * pert[0] +
                                                vel[1] * pert[1] +
                                                vel[2] * pert[2]);
+                    // (2026-10-21) SD-channel work credit: the slowdown system
+                    // is the modified dynamics actually integrated (inner forces
+                    // 1/kappa, inner drift v/kappa, perturbation kicks at full
+                    // strength in real time), and its energy S responds to the
+                    // perturbation through its OWN velocity gradient -- vel_sd
+                    // (= dS/d(m v), the telescoping identity of the tree
+                    // decomposition, incl. the full-weight CM part) -- NOT the
+                    // physical velocity. Crediting the full-weight de to
+                    // etot_sd_ref_ made R = S - etot_sd_ref_ drift at
+                    // -(1-1/kappa)*W per unit work (measured 2026-10-19:
+                    // per-step |dH| ~ W*dt/|E| with the FULL W), feeding the
+                    // degenerate-gauge scenario. The 2-body path has always
+                    // been consistent (etot_sd_ref_ = etot_ref_*kappa_inv).
+                    de_sd += particles[i].mass * (vel_sd[0] * pert[0] +
+                                                  vel_sd[1] * pert[1] +
+                                                  vel_sd[2] * pert[2]);
                 }
             }
             etot_ref_     += _dt * de;
-            etot_sd_ref_ += _dt * de;
+            etot_sd_ref_ += _dt * de_sd;
+#ifdef AR_DEBUG
+            de_kick_full_cum_ += _dt * de;
+            de_kick_sd_cum_   += _dt * de_sd;
+#endif
 
             return dgt_drift_inv;
         }
@@ -1283,6 +1337,12 @@ namespace AR {
         /*!
           @param[in] _dt: time step
         */
+        // (2026-10-21) NOTE: the kappa-weighted SD work credit implemented in
+        // kickEtotAndGTDriftTreeIter (TTL) applies here too, but this flat
+        // loop has no per-particle nested-kappa available; it needs a tree
+        // walk for vel_sd. PeTar hard integrates with AR_TTL, so the LogH
+        // tree path keeps the full-weight credit for now (follow-up item in
+        // docs/etot-sd-ref-tracking-corruption-plan.md).
         inline void kickEtot(const Float _dt) {
             Float de = 0.0;
             const int num = particles.getSize();
@@ -2740,6 +2800,40 @@ namespace AR {
             manager->interaction.calcAccPert(force_.getDataAddress(), particles.getDataAddress(), n_particle, particles.cm, perturber, time_);            
 #endif
 
+            // (2026-10-21) Physical-error gate for sd-gauge repairs
+            // (user-directed): a repair (ds-floor degenerate trigger or the
+            // structural-NaN rebase) discards the accumulated sd-bookkeeping
+            // residual R; acceptable only while the PHYSICAL energy error is
+            // within tolerance. |R| is compared against the physical scale
+            // max(|ekin_|,|epot_|) (never degenerate, unlike the
+            // kappa-collapsed |epot_sd|); over energy_error_rel_max this is
+            // real error accumulation, not a parametrization event: dump the
+            // state for replay (ASSERT-style) and abort. Measured context:
+            // healthy runs sit >=1e6x from a flip (bookfix/gauge_*.log
+            // step scans); the pre-fix natural cases had |R|/|E|~1e-4 and
+            // would abort here.
+            auto abortSdGaugeRepair = [&](const char* _site, const Float _R) {
+                const Float rel_phys = fabs(_R)
+                    / std::max(fabs(ekin_), fabs(epot_));
+                std::cerr<<"Error! sd-gauge repair rejected ("<<_site
+                         <<"): physical energy error |R|/max(|Ekin|,|Epot|) = "<<rel_phys
+                         <<" > "<<energy_error_rel_max
+                         <<" (R = "<<_R<<", Ekin = "<<ekin_<<", Epot = "<<epot_
+                         <<") at time "<<time_<<std::endl;
+                printColumnTitleAscii(std::cerr,20,info.binarytree.getSize());
+                std::cerr<<std::endl;
+                printColumnAscii(std::cerr,20,info.binarytree.getSize());
+                std::cerr<<std::endl;
+#ifdef AR_DEBUG_DUMP
+                {
+                    std::string dump_name = "dump_sd_gauge_repair_rejected_ar_n"
+                        + std::to_string(particles.getSize());
+                    DATADUMP(dump_name.c_str());
+                }
+#endif
+                abort();
+            };
+
             // integration loop
             while(true) {
                 // backup data
@@ -3058,6 +3152,46 @@ namespace AR {
                 const Float dt_step_floor = Float(4.0)*std::numeric_limits<Float>::epsilon()*std::max(abs(time_), abs(_time_end));
                 if (!(ds[ds_switch] > 0.0)
                     ||(gt_drift_inv_pred > 0.0 && ds[ds_switch]/gt_drift_inv_pred < dt_step_floor)) {
+#ifdef AR_SLOWDOWN_TREE
+                    // (2026-10-20) The ds floor is the EXACT 'halving is
+                    // futile' criterion for a degenerate sd-energy gauge:
+                    // convergent crossings (pericenter passages) clear at
+                    // larger ds and never arrive here; only a quasi-static
+                    // degeneration drives ds to the floor. The condition
+                    // covers both a hard violation (num <= 0, H NaN) and a
+                    // DEGENERATE argument (num < 1e-6*den, i.e. H < -13.8:
+                    // the reference drifted so far that the log ratio is
+                    // meaningless -- measured rp=0.4 BTLogH: H=-24.9,
+                    // num/den ~1e-11, per-step |Int_err|=1.4e-3 fully excused
+                    // by the then-active drift-rate compensation
+                    // (|Int_err_eff|=0, the Finding-7 blindness), NaN sign-flips interleaved with clean steps
+                    // cascading ds 1.72 -> 9e-12 while the PHYSICAL channel
+                    // stayed at |dE/E|~2e-12; measured numbers recorded in
+                    // docs/etot-sd-ref-tracking-corruption-plan.md Finding 4/7
+                    // and the 2026-10-20 session logs). Repair the gauge and
+                    // resume at the epoch ds; a genuine pure-resolution wall
+                    // (healthy log argument) still aborts below.
+                    if (ekin_sd_ - etot_sd_ref_ < Float(1e-6)*(-epot_sd_)) {
+                        const Float R_repair = (ekin_sd_ + epot_sd_) - etot_sd_ref_;
+                        if (fabs(R_repair) > energy_error_rel_max*std::max(fabs(ekin_),fabs(epot_)))
+                            abortSdGaugeRepair("ds-floor degenerate gauge", R_repair);
+                        Float etot_sd_ref_old = etot_sd_ref_;
+                        etot_sd_ref_ = ekin_sd_ + epot_sd_;
+                        de_sd_change_cum_ += etot_sd_ref_ - etot_sd_ref_old;
+                        std::cerr<<"Warning: ds floor reached with a degenerate sd-energy gauge (log argument <= 1e-6); sd-energy reference rebased "
+                                 <<etot_sd_ref_old<<" -> "<<etot_sd_ref_
+                                 <<", ds restored to "<<info.ds
+                                 <<" at time "<<time_<<std::endl;
+                        // resume at the committed epoch ds with a fresh
+                        // backup of the repaired state (backup_flag=true so
+                        // the next loop top re-backs-up instead of restoring
+                        // the pre-repair backup_data)
+                        ds[0] = ds[1] = info.ds;
+                        ds_backup.initial(info.ds);
+                        backup_flag = true;
+                        continue;
+                    }
+#endif
                     std::cerr<<"Error! adaptive ds below time resolution in integrateToTime: ds="<<ds[ds_switch]
                              <<" dt(one step)="<<ds[ds_switch]/gt_drift_inv_pred
                              <<" dt_step_floor="<<dt_step_floor
@@ -3143,13 +3277,66 @@ namespace AR {
 
                 Float energy_error_rel_abs = abs(energy_error_diff/etot_ref_bk);
 
+                // (2026-10-21) Controller criterion: gauge-invariant per-step
+                // sd-ENERGY error, replacing the H-gauge |H-H_bk| as the
+                // reduce/growth/recovery signal. Rationale (measured,
+                // ~/sdar_run/etot-research/bookfix/loc15.log): H = ln(1+R/epot_sd)
+                // re-normalizes at EVERY slowdown sync (epot_sd is rescaled by
+                // the new kappa; the de_sd bridge preserves R exactly), giving a
+                // persistent-signed per-sync H shift ~R*Delta(1/epot_sd) — 72%
+                // of steps in a kappa-active dance, same-sign persistence 0.97,
+                // amplitude ~3e-8: a pure gauge artifact, not energy error (the
+                // kappa-const steps are zero-mean truncation; correlation with
+                // the kick-work increments is ~0). The kappa-weighted work
+                // credit removes the work-rate component at source, and this
+                // criterion is immune to the re-normalization by construction.
+                // Denominator rationale: Delta R is an ABSOLUTE energy
+                // change and must be normalized to compare against the
+                // relative threshold (ar-max-error); max(|ref|,|epot_sd|)
+                // lets whichever term is nonzero carry the energy scale in
+                // the regime where the other collapses: a marginally bound
+                // group crosses ref ~ 0 (measured: g4e etot_sd_ref_ -946 ->
+                // +988) while |epot_sd| stays O(binding); a dissolving group
+                // has |epot_sd| -> 0 while |ref| -> |ekin_sd| > 0. This is
+                // NOT inherited from the old |H-H_bk| criterion — the log
+                // form self-normalized and had no division; the pre-existing
+                // |dR/etot_ref_bk| is print-only. No zero-floor guard is
+                // needed: epot_sd_ is a sum of strictly negative pair terms
+                // and equals 0.0 only with <=1 massive particle — the
+                // interrupt machinery handles that (destroy and
+                // single-mass merger branches return before any further
+                // step; mass changes and interrupt detection happen in the
+                // same modifyAndInterruptIter call, so no window exists
+                // where integration continues in a zero-potential state).
+                // (2026-10-21, review fix B1) denominator guarded for
+                // non-AR_SLOWDOWN_TREE builds (epot_sd_ does not exist there;
+                // use the physical epot_ mirror — verified failing without
+                // the guard on sample/AR use_sd=no variants)
+#ifdef AR_SLOWDOWN_TREE
+                const Float control_error_abs = abs(energy_error_diff)
+                    / std::max(abs(etot_ref_bk), abs(epot_sd_));
+#else
+                const Float control_error_abs = abs(energy_error_diff)
+                    / std::max(abs(etot_ref_bk), abs(epot_));
+#endif
+
                 // get integration error for extended Hamiltonian
                 Float integration_error_rel_abs = abs(H-H_bk);
                 // H should be zero initially
                 Float integration_error_rel_cum_abs = abs(H);
 
-                Float integration_error_ratio = energy_error_rel_max/integration_error_rel_abs;
-      
+                // (2026-10-21) ratio for the step-modify factor estimate now
+                // uses the control criterion (see control_error_abs above).
+                // No zero guard needed: control_error_abs is used for control
+                // only after the >threshold gate fired (so it is positive),
+                // and the exact-zero case (Delta R == 0 to the last bit)
+                // gives threshold/+0.0 = +inf per IEEE — the same "full
+                // recovery allowed" semantics the pre-EMA code had with its
+                // unguarded |H-H_bk| division. (The 1e-300 guard here was an
+                // EMA-era leftover: the EMA-subtracted eff could be exactly
+                // 0; control_error_abs inherits no such subtraction.)
+                Float integration_error_ratio = energy_error_rel_max/control_error_abs;
+
                 // time error
                 Float time_diff_rel = (_time_end - time_)/dt_full;
 
@@ -3308,28 +3495,32 @@ namespace AR {
                 std::cerr<<std::endl;
 #endif
 
-                // A wild under-resolved step (e.g. hyperbolic plunge with a
-                // stale-large ds) can change ekin+epot by more than |epot| in
-                // one step, driving the LogH-form gauge ekin_-etot_ref_ <= 0
-                // so H = log(negative) = NaN. The backup state is intact:
-                // restore and shrink ds (same cure as the negative-dt branch)
-                // instead of aborting; stuck cases terminate at the ds-floor/
-                // underflow and step_count_max aborts.
-                if (ISNAN(integration_error_rel_abs) && !time_end_flag) {
-                    step_modify_factor = 0.5;
-                    ds[ds_switch] *= step_modify_factor;
-                    ds[1-ds_switch] = ds[ds_switch];
-                    if (step_count<5) ds_backup.initial(info.ds);
-                    else ds_backup.backup(ds[ds_switch], step_modify_factor);
-                    backup_flag = false;
-#ifdef AR_COLLECT_DS_MODIFY_INFO
-                    collectDsModifyInfo("NaN_energy_error");
-#endif
-                    continue;
-                }
+                // (2026-10-21) The former ISNAN(H) NaN-gauge block (restore+
+                // halve for step-transient log-domain flips, gated rebase
+                // for committed violations) was REMOVED for all builds:
+                // * LogH: num IS the drift gauge (calcGTDriftInv returns it,
+                //   dt = ds/num), so a domain exit (num <= 0) makes dt <= 0
+                //   and is caught by the pre-existing negative-dt tripwire
+                //   below at the same post-step point -- same restore+reduce
+                //   cure for transients; committed violations halve down to
+                //   the ds-floor degenerate repair (gated) after a bounded
+                //   (~1e3-step) grind. The NaN check was a redundant
+                //   detector plus a grind shortcut.
+                // * TTL: the trajectory never consults num; the controller
+                //   (control_error_abs, finite) handles real error, the
+                //   ds-floor repair handles quasi-static degeneration, and a
+                //   fast crossing's symptom is loud (H/dE_SD columns, the
+                //   caller's energy monitor) -- measured margins put it
+                //   >=1e6 away in gauge space (bookfix/gauge_*.log step
+                //   scans; the kappa cap bounds the denominator collapse).
+                // H is print-only everywhere now.
 
                 // modify step if energy error is large
-                if(integration_error_rel_abs>energy_error_rel_max && info.fix_step_option!=FixStepOption::always) {
+                // (2026-10-21) criterion = gauge-invariant control_error_abs;
+                // the H-gauge signal (integration_error_rel_abs) is printed
+                // for diagnostics only (it carries the kappa-resync
+                // re-normalization artifact — not energy error)
+                if(control_error_abs>energy_error_rel_max && info.fix_step_option!=FixStepOption::always) {
 
                     bool check_flag = true;
 
@@ -3467,9 +3658,14 @@ namespace AR {
                         }
                         // increase step size if energy error is small, not works correctly, integration error may not increase when ds becomes larger, then a very large ds may appear after several iterations. suppress
                         // ds_truncated: a boundary-truncated step has an artificially small dt; do not let it trigger the enlargement (it would permanently raise info.ds)
-                        else if(!ds_truncated && integration_error_rel_abs<0.5*energy_error_rel_max && dt>0.0 && dt_full/dt>std::max(100.0,0.02*manager->step_count_max)) {
-                            Float integration_error_ratio = energy_error_rel_max/integration_error_rel_abs;
-                            Float step_modify_factor = std::min(Float(100.0),manager->step.calcStepModifyFactorFromErrorRatio(integration_error_ratio));
+                        // (2026-10-21) criterion = control_error_abs (gauge-invariant
+                        // sd-energy error; the H-gauge signal is not used for control)
+                        else if(!ds_truncated && control_error_abs<0.5*energy_error_rel_max && dt>0.0 && dt_full/dt>std::max(100.0,0.02*manager->step_count_max)) {
+                            // (m4, 2026-10-21) renamed: was a shadowing local
+                            // `integration_error_ratio` differing from the outer
+                            // one only in the zero-guard constant
+                            Float enlarge_error_ratio = (control_error_abs>0.0) ? energy_error_rel_max/control_error_abs : Float(1.0e14);
+                            Float step_modify_factor = std::min(Float(100.0),manager->step.calcStepModifyFactorFromErrorRatio(enlarge_error_ratio));
                             ASSERT(step_modify_factor>0.0);
                             ds[1-ds_switch] *= step_modify_factor;
                             info.ds = ds[1-ds_switch];

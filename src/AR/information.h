@@ -66,8 +66,11 @@ namespace AR {
 
     //! Fix step options for integration with adjusted step (not for time sychronizatio phase)
     /*! always: use the given step without change \n
-        later: fix step after a few adjustment of initial steps due to energy error
-        none: don't fix step
+        later: fix step after a few adjustment of initial steps due to energy error \n
+              (2026-10-21: auto-granted ONLY for elliptic two-body groups; the\n
+              former n>=3 stable-root auto-grant is removed — it froze ds\n
+              through P_eff swings that the stability predicate cannot see) \n
+        none: don't fix step \n
      */
     enum class FixStepOption {always, later, none};
 
@@ -513,7 +516,24 @@ namespace AR {
             if (n_particle==2) {
                 if (bin_root.semi > 0.0) fix_step_option = AR::FixStepOption::later;
             }
-            else if (bin_root.stab<1.0) fix_step_option = AR::FixStepOption::later;
+            // (2026-10-21) the former n>=3 stable-root grant (stab<1.0 ->
+            // later) is REMOVED: a frozen ds disabled the error-triggered
+            // reduce, and an under-resolved plunge (P_eff shrank ~8000x
+            // while stab stayed <1 from the formation-frame fit) committed
+            // O(epot_sd) sd-energy error per step, later detonating the
+            // log-gauge NaN -> ds-floor abort (g4e dump replay; case record
+            // docs/etot-sd-ref-tracking-corruption-plan.md). The stability
+            // predicate conflated "long-term survival" (stab, apo-based) with
+            // "resolution requirement adiabatic" (P_eff = P*kappa, which
+            // swings 4+ decades in a dance) — even the peri-evaluated stab
+            // passes at 0.6 for the failing case. Multiple systems now stay
+            // adaptive; the ds-churn protection 'later' was meant for is
+            // independently covered by the quiescence gate (estimator side,
+            // 2026-09-03) and the temporary-reduce + recovery machinery
+            // (feedback side). 'later' remains valid for the true 2-body
+            // Kepler case above, where integrateTwoOneStep's assignment
+            // bookkeeping (etot_sd_ref_ = etot_ref_*kappa_inv) is
+            // self-consistent under fixed ds.
         }
 
         //! generate binary tree for the particle group
