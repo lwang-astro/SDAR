@@ -3,8 +3,9 @@
 Status: **reference note** — investigation record (2026-10-19→22), the
 implemented fix mechanism, and its validation; open follow-up items live in
 `docs/etot-sd-ref-tracking-corruption-plan.md`. Opened 2026-10-20 from the
-PeTar restart-grind investigation (parent:
-`PeTar/doc/restart-slowdown-cold-state-plan.md`, anomaly class B); root
+PeTar restart-grind investigation (parent archived 2026-10-22: the PeTar
+plan was distilled and deleted; record: this note + PeTar lessons-learned
+2026-10-19/22; anomaly class B); root
 causes fixed 2026-10-21; production-validated 2026-10-22 (N=1000 cluster
 A/B, §Production validation). Headline: the original "tracking corruption"
 hypothesis is disproven — the `etot_sd_ref_` bookkeeping is exact; the
@@ -436,8 +437,10 @@ range, seed 42, `petar.init -s merger`; run: `-u 1 -b 500 -t 30 -o 0.5 -s
 ## Cross-references
 
 - Open follow-ups: `docs/etot-sd-ref-tracking-corruption-plan.md`.
-- Parent investigation: `PeTar/doc/restart-slowdown-cold-state-plan.md`
-  (anomaly classes a/b; the rate-type controller fix and its T7 validation).
+- Parent investigation: archived 2026-10-22 (PeTar plan
+  `doc/restart-slowdown-cold-state-plan.md`, distilled and deleted; record:
+  this note + PeTar lessons-learned 2026-10-19/2026-10-22; anomaly classes
+  a/b; the rate-type controller fix and its T7 validation).
 - SDAR lessons-learned 2026-10-20 entries #8/#9 (minimal-system localization;
   NaN three-step localization method: abort-frame member dump → conditional
   watchpoint → writer backtrace) — #9(b) updated 2026-10-20 with the measured

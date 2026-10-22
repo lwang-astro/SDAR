@@ -60,4 +60,6 @@ keeps only its release-gating remainder.
 - Item-5 fix record (BTLogH ds estimation architecture):
   `docs/hierarchical_blogh_impl_notes.md` (2026-10-22 header entry +
   调用点表).
-- Parent investigation: `PeTar/doc/restart-slowdown-cold-state-plan.md`.
+- Parent investigation: archived 2026-10-22 (`PeTar/doc/restart-slowdown-cold-state-plan.md`,
+  distilled and deleted; record: `docs/etot_sd_ref_corruption_fix_notes.md` +
+  PeTar lessons-learned 2026-10-19/2026-10-22).
