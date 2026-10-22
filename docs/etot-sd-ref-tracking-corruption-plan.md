@@ -16,11 +16,10 @@ keeps only its release-gating remainder.
    `t7_triple_perturber_ar_ds_adjustment` (22 checks, former abort band
    pinned as complete-guards; commit `2ae102c`; the originally sketched
    κ-ramp invariant test was dropped as moot — `de_sd ≡ ΔS` proven at
-   runtime to 1e-9 relative). Remaining: the full matrix on the
-   canonical binary family — T1–T7 + functional smoke + SDAR samples
-   (the merger variant needs `petar.init -s merger` input conversion;
-   the g4e.dump replay needs a binary with matching defines). This
-   matrix is also the pre-release regression gate for the item-5 fix.
+   runtime to 1e-9 relative). ~~Full matrix~~ done 2026-10-22 on the
+   fixed trees: T1–T8 all pipelines pass (9 reports), functional smoke
+   green except `merger` (see item 6), SDAR sample builds + test binaries
+   all clean.
 2. **LogH tree-path κ-weighted kick credit** (code note at `kickEtot` in
    `src/AR/symplectic_integrator.h`): the TTL tree walk credits κ-weighted
    work via `vel_sd`; the flat LogH loop still credits full weight — needs
@@ -35,18 +34,23 @@ keeps only its release-gating remainder.
    from hyperbolic fits is *accepted* because no previous candidate
    exists. (Still open after the item-5 fix: the creation-time estimate
    accepts its first candidate unconditionally by design.)
-5. **BTLogH ds-decision defect**: ~~fix + validation~~ done 2026-10-22 —
-   root cause (three-layer chain: checkBreak-refit tree with slot-stale
-   slowdown → ungated per-block estimate → gate/clamp keeping the junk),
-   fix design (creation-time estimate restored, per-block estimate
-   removed, ASSERT tripwire, period init), and validation numbers
-   (bit-identical snapshot-restart reproducer A/B, T8 22/22, full
-   N=1000 BTLogH t=30 clean, LogH energy parity) are archived in
+5. **BTLogH ds-decision defect**: ~~fix + validation + commit~~ done
+   2026-10-22 (commits SDAR `96f0d39`, PeTar `d14ce63`) — root cause,
+   fix design, and validation numbers are archived in
    `docs/hierarchical_blogh_impl_notes.md` (2026-10-22 header entry);
-   prevention rules in lessons-learned (2026-10-22). Remaining: commit
-   both repos (user confirmation; VERSION bump each, PeTar release.note
-   entry); the T1–T7 + functional smoke matrix of item 1 doubles as the
-   pre-release regression for this change.
+   prevention rules in lessons-learned (2026-10-22).
+6. **Functional `merger` case stalls in a 2-body contact grind** (found
+   2026-10-22 during the item-1 matrix run): the collision-interrupt IC
+   pair (10+10 Msun, marginally hyperbolic fit semi≈−1.8e-8, ecc≈1.0006)
+   collapses ds (ds_init≈0.098 → 5.5e-7) and grinds at T≈3.6e-11 with
+   NaN H columns until the runner's 1800 s step timeout. A/B with a
+   pre-item-5-fix binary stalls IDENTICALLY (same state, same dump path)
+   — pre-existing, unrelated to the item-5 fix; both binaries include
+   the 2026-10-21 sd-gauge fix, so the regression window (if any) is
+   that fix or earlier. Needs its own investigation (suspects:
+   post-interrupt ds handling for near-contact hyperbolic pairs;
+   interplay with plan item 4's junk hyperbolic-root first estimate).
+   Evidence: `PeTar/test/out/functional_merger/`, A/B dirs `/tmp/mAB/`.
 
 ## Cross-references
 
