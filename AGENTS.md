@@ -82,6 +82,7 @@ Routing (same rule as PeTar): **lessons-learned is the default** — anything wi
 
 - [Doxygen docs](https://lwang-astro.github.io/SDAR/docs/html/index.html) (CI-built from `master`; local: `cd docs && doxygen doxygen_config`)
 - [Local docs](docs/html/index.html)
+- `docs/etot_sd_ref_corruption_fix_notes.md` — investigation record + implemented-fix mechanism: sd-energy gauge (`etot_sd_ref_`) corruption (root-caused 2026-10-21: `later`-frozen ds one-step injection + full-weight SD work credit; grant-layer fix, κ-weighted credit, `control_error_abs` criterion, gated floor repair, NaN-block removal), N=1000 production validation
 - `docs/hierarchical_blogh_impl_notes.md` — implementation reference: current-code BLogH/g-func mechanism, Scheme G, retained limitations
 - `docs/hierarchical_blogh_theory_notes.md` — theory reference + development history (§5.7 executed 2026-09-12, commit `9b40e8e`)
 - `docs/legacy_group_criteria_notes.md` — legacy group form/break criteria reference (scheme removed 2026-10-01; kept for comparing old runs)
