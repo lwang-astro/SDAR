@@ -222,6 +222,12 @@ for 1000/1002 "differences" until physical columns were compared selectively.
 3. **Prevention rules**: (a) 判据/机制更换后必须审计所有旧防御的覆盖关系,被完全覆盖即删,不以"保险"名义保留;(b) 存在性争议用裕度扫描量化自然可达距离,注入实验只用于验证分支行为,不得作为保留依据;(c) 丢弃记账残差类修复(rebase/重置参考)必须以物理能量误差门控(超阈 abort+dump,如 abortSdGaugeRepair),规范量(NaN/log 域)只做诊断打印;(d) 数值参考的再校准点应与 gt 重锚、时钟再锚定同族设计,由健康谓词触发而非定时。
 4. 验证方法论沉淀:确定性 A/B 用日志逐行 diff 证明行为不变(比二进制 cmp 更抗构建元数据噪声);gdb 两级断点(冷锚点武装热断点+计数自退)在 -O3 -g 二进制上可做受控状态注入,每步打印的规范裕度扫描是"过度防御"争议的裁决手段。
 
+### 2026-10-22: `Neighbor::r_min_mass` 构造与两处重置均缺初始化——NaN 堆垃圾使近邻选择永久中毒(GH issue #2,已修复)
+
+1. **Mistake**: `H4::Neighbor` 的 `r_min_mass` 在构造函数初始化列表、`clearNoFreeMemNoResizeNeighborAdress()`、`resetNeighbor()` 三处全部缺失,而 `checkAndAddNeighborSingle/Group` 首次比较即读取(`_r2*r_min_mass < r_min_sq*mass`)。外部报告(GH issue #2)后用 placement-new 到受控垃圾内存的微测实证分档:垃圾为 0/有限值时无害(`r_min_sq` 每轮重置为 DBL_MAX 占绝对主导,首个正质量候选必被接受,argmin(r²/m) 正确;`neighbors.reserveMem` 只在初始化 `new[]` 一次,构造函数跑过但该成员留堆值);垃圾为 NaN 时比较永假 → `r_min_index` 永为 -1,且 `resetNeighbor()` 不清它使 NaN 跨轮存活——该粒子永远无法经近邻路径成团,静默、依赖堆布局(不可复现性来源)。下游 `checkNewGroup` 的 `j<0 continue` 保证不崩溃,纯正确性/可复现性风险。issue 第二项(`merge_mask` 按活跃组数定长)已在 ed6eb16 修复。
+2. **Root cause**: 类成员部分初始化——比较用的质量字段加入时未同步全部构造/重置点;NaN 与一切比较为假的语义绕过了"首候选种子+DBL_MAX 哨兵"的自愈机制。稳态(stale 有限值)本无害的假象掩盖了首轮窗口。
+3. **Prevention rules**: (a) 新增类成员时 grep 该类全部构造/clear/reset 函数同步初始化,比较表达式左端读到的成员必须有与输入无关的确定初值;(b) "未初始化读是否真问题"用分档微测定裁(0/有限/NaN 三档 × 修复前后),不以"通常堆是零"辩护;(c) 修复取 `r_min_mass(0.0)`(三处),0.0 恰是占主导的既有良性语义——零质量候选本就不会胜出(`_r2*0 < r_min_sq*0` 为假)且 `checkNewGroup` 另有 mass==0 跳过,故数值行为严格不变。
+
 ---
 
 ## Documentation & Units

@@ -53,7 +53,7 @@ namespace H4 {
         COMM::List<NBAdr<Tparticle>> neighbor_address; // neighbor perturber address
 
         //! constructor
-        Neighbor(): r_min_index(-1), mass_min_index(-1), r_min_sq(NUMERIC_FLOAT_MAX), mass_min(NUMERIC_FLOAT_MAX), r_neighbor_crit_sq(-1.0), need_resolve_flag(false), initial_step_flag(false), n_neighbor_group(0), n_neighbor_single(0), neighbor_address() {}
+        Neighbor(): r_min_index(-1), mass_min_index(-1), r_min_sq(NUMERIC_FLOAT_MAX), r_min_mass(0.0), mass_min(NUMERIC_FLOAT_MAX), r_neighbor_crit_sq(-1.0), need_resolve_flag(false), initial_step_flag(false), n_neighbor_group(0), n_neighbor_single(0), neighbor_address() {}
 
         //! check whether parameters values are correct
         /*! \return true: all correct
@@ -114,6 +114,7 @@ namespace H4 {
             r_min_index = -1;
             mass_min_index = -1;
             r_min_sq = NUMERIC_FLOAT_MAX;
+            r_min_mass = 0.0;
             mass_min = NUMERIC_FLOAT_MAX;
             need_resolve_flag = false;
             initial_step_flag = false;
@@ -124,6 +125,7 @@ namespace H4 {
             r_min_index = -1;
             mass_min_index = -1;
             r_min_sq = NUMERIC_FLOAT_MAX;
+            r_min_mass = 0.0;
             mass_min = NUMERIC_FLOAT_MAX;
             n_neighbor_group = 0;
             n_neighbor_single = 0;
