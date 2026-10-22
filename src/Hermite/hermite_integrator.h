@@ -2689,11 +2689,30 @@ namespace H4{
 //                if (i!=interrupt_group_dt_sorted_group_index_ ) 
 //                    ASSERT(abs(groups[k].getTime()-time_)<=ar_manager->time_error_max);
 //#endif
-                // get ds estimation
+                // (plan item 5 fix, 2026-10-22) the per-block ds estimate is
+                // REMOVED for slowdown-tree builds: the tree may have been
+                // regenerated since the last sync (checkBreak refits every
+                // active group each block to evaluate the break criterion),
+                // so the slowdown state can be older than the Kepler
+                // elements -- estimating on that state committed junk ds
+                // (unset SlowDown::period from a hyperbolic-era sync ->
+                // BLogH product /DBL_MAX -> denormal, ungated commit;
+                // N=1000 benchmark abort 2026-10-22, see
+                // docs/etot-sd-ref-tracking-corruption-plan.md item 5).
+                // ds re-estimation is event-driven by design (tree rebuild /
+                // dg jump / valve / interrupt, gated in syncTreeSlowDownAndDs
+                // at integrateToTime entry and per loop-top); the per-step
+                // error controller and the one-way cost valve cover the
+                // intervals between events, and the first estimate now lives
+                // in AR::initialIntegration. Non-slowdown builds keep the
+                // plain estimate: no slowdown state exists to desync there
+                // and there is no entry sync in those builds.
+#ifndef AR_SLOWDOWN_TREE
 #ifdef AR_G_FUNC
                 groups[k].info.calcDsAndStepOption(ar_manager->step.getOrder(), ar_manager->interaction.gravitational_constant, ar_manager->ds_scale, groups[k].g_func_on);
 #else
                 groups[k].info.calcDsAndStepOption(ar_manager->step.getOrder(), ar_manager->interaction.gravitational_constant, ar_manager->ds_scale);
+#endif
 #endif
 
 #ifdef SDAR_TIME_MEASURE

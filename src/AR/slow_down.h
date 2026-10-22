@@ -124,6 +124,7 @@ namespace AR{
         /*! \return period * kappa
         */
         Float getEffectivePeriod() const {
+            ASSERT(period != NUMERIC_FLOAT_MAX);
             return period * kappa_;
         }
 

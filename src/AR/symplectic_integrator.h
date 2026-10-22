@@ -561,6 +561,18 @@ namespace AR {
                 _bin.slowdown.calcSlowDownFactor();
             }
             else {
+                // (plan item 5 fix, 2026-10-22) an elliptic level that gets no
+                // slowdown (unstable child subtree) still must carry a valid
+                // period: with kappa=1 the effective period IS the Kepler
+                // period. Leaving the constructor default NUMERIC_FLOAT_MAX
+                // here made getEffectivePeriod() return DBL_MAX on routine
+                // dance states, which the Step-5 / Scheme-G prescans and the
+                // BLogH ds estimator consume. Hyperbolic nodes (semi<=0)
+                // deliberately keep the default: no legitimate caller queries
+                // them (all call sites guard semi>0), and the default marks
+                // "not slowdown-initialized" for the getEffectivePeriod()
+                // ASSERT tripwire.
+                if (_bin.semi > 0.0) _bin.slowdown.period = _bin.period;
                 _bin.slowdown.setSlowDownFactor(1.0);
             }
         }
@@ -1982,6 +1994,25 @@ namespace AR {
             // add slowdown change to the global slowdown energy
             de_sd_change_cum_ += de_sd;
             dH_sd_change_cum_ = 0.0;
+#endif
+
+            // (plan item 5 fix, 2026-10-22) first ds estimation, restoring the
+            // documented creation sequence (generateBinaryTree -> slowdown
+            // init -> ... -> calcDsAndStepOption; the call had drifted to the
+            // driver call sites). Runs on the freshly synced, consistent tree
+            // built above, so the ungated estimate is safe. Also covers group
+            // slot reuse: a newly formed group occupying a recycled slot must
+            // not inherit the PREVIOUS group's info.ds now that the H4
+            // per-block estimate is removed (and a fresh 0.0 would trip
+            // ASSERT(_ds>0) on the first step).
+#ifdef AR_G_FUNC
+            info.calcDsAndStepOption(manager->step.getOrder(),
+                                     manager->interaction.gravitational_constant,
+                                     manager->ds_scale, g_func_on);
+#else
+            info.calcDsAndStepOption(manager->step.getOrder(),
+                                     manager->interaction.gravitational_constant,
+                                     manager->ds_scale);
 #endif
         }
 
