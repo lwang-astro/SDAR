@@ -11,10 +11,11 @@ fixed and validated 2026-10-22 — its record is distilled into
 `docs/hierarchical_blogh_impl_notes.md` (2026-10-22 entry); this file
 keeps only its release-gating remainder. The LogH hyperbolic S-criterion
 defect (merger NaN / negative-dt grind) was fixed and validated 2026-10-23
-(S-cap in `calcLogHSumGaugeIter`), and the item-6 limit-cycle
-investigation closed the same day; both records are distilled into
-`docs/step_size_effect_logh_notes.md` (§6 implementation + validation,
-§7 residual mechanism).
+(S-cap in `calcLogHSumGaugeIter`), item 4 closed entirely the same day
+(its g-func remainder was rejected on design review, note §5), and the
+item-6 limit-cycle investigation closed; records are distilled into
+`docs/step_size_effect_logh_notes.md` (§5 item-4 close-out, §6
+implementation + validation, §7 residual mechanism).
 
 1. **Regression test wiring**: ~~T7 abort-band placements~~ done
    2026-10-22 — record: PeTar `test/validation` T7 scenario
@@ -33,17 +34,17 @@ investigation closed the same day; both records are distilled into
 3. **LogH runtime validation** of the negative-dt → ds-floor-repair
    routing (compile-verified only; needs a LogH SDAR-sample injection
    run).
-4. **ds estimator hyperbolic-root nonsense**: LogH sum-gauge side
-   RESOLVED 2026-10-23 by the S-criterion fix in `calcLogHSumGaugeIter`
-   (`src/AR/information.h`): hyperbolic layers get semi-gauge u_min
-   (Gm₁m₂/|a|, e-independent), a t_cross=2r/v floor on p_eff, and an
-   S≤0.25 cap — first estimates from garbage hyperbolic fits are now
-   S-safe by construction (deterministic merger reproducer: 0 NaN /
-   0 negative-dt; controlled g5-vs-g6 full run: warnings 168→6,
-   wallclock 43→9.5 min, error same order; record
-   `docs/step_size_effect_logh_notes.md` §6). Open remainder (g-func
-   path): `calcEffectivePeriod`'s hyperbolic branch still lacks the
-   t_cross floor — mirror the F1 convention there.
+4. **ds estimator hyperbolic-root nonsense**: CLOSED 2026-10-23 — LogH
+   side resolved by the S-criterion fix (semi-gauge u_min + t_cross
+   floor + S≤0.25 cap in `calcLogHSumGaugeIter`; merger reproducer
+   0 NaN / 0 negative-dt; controlled g5-vs-g6: warnings 168→6,
+   wallclock 43→9.5 min, error same order); the proposed g-func
+   remainder (mirror the t_cross floor into `calcEffectivePeriod`)
+   REJECTED on design review — full rationale in
+   `docs/step_size_effect_logh_notes.md` §5 (bundled-fix origin never
+   isolated; the g-func product formula cancels an isolated hyperbolic
+   pair's period, so the far-leg cost pathology is sum-gauge-specific;
+   event-driven ds re-estimation is already load-bearing there).
 5. **BTLogH ds-decision defect**: ~~fix + validation + commit~~ done
    2026-10-22 (commits SDAR `96f0d39`, PeTar `d14ce63`) — root cause,
    fix design, and validation numbers are archived in
