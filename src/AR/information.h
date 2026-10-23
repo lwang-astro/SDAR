@@ -362,40 +362,12 @@ namespace AR {
           @param[in] _int_order: symplectic integrator accurate order
           @param[in] _G: gravitational constant
          */
-        void calcLogHSumGaugeIter(Float& _u_sum, Float& _P_eff_min, BinaryTree<Tparticle>& _bin, const int _int_order, const Float& _G) {
+        void calcLogHSumGaugeIter(Float& _u_sum, Float& _P_eff_min, BinaryTree<Tparticle>& _bin, const int _int_order, const Float& _G, const Float& _ds_scale) {
             if (_bin.m1 > 0 && _bin.m2 > 0) {
-                // per-level potential gauge (same convention as the BLogH family):
-                // elliptic: semi-major axis (orbit-averaged, <1/r>_t = 1/a);
-                // hyperbolic: peri-center; degenerate: instantaneous
-                Float u_min;
-                if (_bin.semi > 0) {
-                    u_min = _G * _bin.m1 * _bin.m2 / _bin.semi;
-                }
-                else if (_bin.semi < 0 && _bin.ecc > 1.0) {
-                    u_min = _G * _bin.m1 * _bin.m2 / ((-_bin.semi) * (_bin.ecc - 1.0));
-                }
-                else {
-                    auto* m0 = _bin.getMember(0);
-                    auto* m1 = _bin.getMember(1);
-                    Float dx = m0->pos[0] - m1->pos[0];
-                    Float dy = m0->pos[1] - m1->pos[1];
-                    Float dz = m0->pos[2] - m1->pos[2];
-                    u_min = _G * _bin.m1 * _bin.m2 / sqrt(dx*dx + dy*dy + dz*dz);
-                }
-                Float scale = calcPertScale(_bin, _int_order);
-                _u_sum += u_min * scale;
-
-                // effective period: hyperbolic encounter timescale; elliptic uses
-                // the UN-SLOWED Kepler period (2026-09-14 fix): multiplying by the
-                // slowdown factor kappa (2026-08-29) inflated ds by kappa (10-500x
-                // in the quad_sd2 slowdown B--B Hermite test), pushing the
-                // per-interval energy error onto the -e check ceiling and producing
-                // a linear semi-major-axis drift (1e-3 by t=40) plus giant initial
-                // ds (60-700x tolerance trips at group creation). The pre-08-29
-                // LogH estimator (calcDsKeplerBinaryTree) never scaled by kappa;
-                // this restores that resolution. kappa==1 (no slowdown) is
-                // bit-identical. The BLogH/BTLogH product path keeps its own
-                // P*kappa gauge (getEffectivePeriod), unchanged.
+                // --- effective period: elliptic uses the UN-SLOWED Kepler
+                // period (2026-09-14 fix, unchanged); hyperbolic the
+                // encounter timescale floored by the live crossing time
+                // (2026-09-28, unchanged); degenerate 0 ---
                 Float p_eff;
                 if (_bin.semi > 0) {
                     p_eff = 2.0 * COMM::PI
@@ -425,10 +397,60 @@ namespace AR {
                 else {
                     p_eff = 0.0; // degenerate level: no period contribution
                 }
+
+                // --- per-level potential gauge: elliptic semi-major axis
+                // (orbit-averaged, <1/r>_t = 1/a); degenerate: instantaneous.
+                // (item 6 fix, 2026-10-22) hyperbolic: SEMI gauge
+                // G*m1*m2/|a| (ecc-free), replacing the peri-center gauge
+                // G*m1*m2/(|a|(e-1)). The peri-center gauge made the
+                // single-level ds = pi/(16(e-1))*L, i.e.
+                // S = ds_half/L = pi/(32(e-1)) — violating the TSI
+                // hyperbolic criterion (Wang & Nitadori 2020: S < 1 or
+                // phase transition — pseudo-branch T-U=H, H=NaN, dt<0;
+                // merger functional case ground at S~1e2..1e3, see
+                // docs/step_size_effect_logh_notes.md). The semi gauge
+                // cancels the ecc dependence exactly: u*p_eff = 2*pi*L →
+                // S = pi/32, the same convention as the elliptic branch
+                // (no 8x over-resolution of ordinary flybys).
+                Float u_min;
+                const bool hyperbolic = (_bin.semi < 0 && _bin.ecc > 1.0);
+                if (_bin.semi > 0) {
+                    u_min = _G * _bin.m1 * _bin.m2 / _bin.semi;
+                }
+                else if (hyperbolic) {
+                    u_min = _G * _bin.m1 * _bin.m2 / (-_bin.semi);
+                }
+                else {
+                    auto* m0 = _bin.getMember(0);
+                    auto* m1 = _bin.getMember(1);
+                    Float dx = m0->pos[0] - m1->pos[0];
+                    Float dy = m0->pos[1] - m1->pos[1];
+                    Float dz = m0->pos[2] - m1->pos[2];
+                    u_min = _G * _bin.m1 * _bin.m2 / sqrt(dx*dx + dy*dy + dz*dz);
+                }
+                Float scale = calcPertScale(_bin, _int_order);
+                Float u_eff = u_min * scale;
+
+                // (item 6 fix) S-cap for hyperbolic levels: the t_cross
+                // floor above can inflate S = _ds_scale*p_eff*u_eff/(64*L)
+                // far above 1 (floor factor ~ r/(pi|a|): SN-kick legs
+                // measured ~7.6e4; the merger creation state sits exactly
+                // at S~1). Cap the level's contribution at S_cap, leaving
+                // margin for the max |c_k| > 1 coefficients of high-order
+                // compositions.
+                if (hyperbolic && p_eff > 0.0) {
+                    const Float S_cap = 0.25;
+                    Float L_level = _bin.m1 * _bin.m2
+                                  * sqrt(_G * (-_bin.semi) / (_bin.m1 + _bin.m2));
+                    Float S_level = _ds_scale * p_eff * u_eff / (64.0 * L_level);
+                    if (S_level > S_cap) u_eff *= S_cap / S_level;
+                }
+                _u_sum += u_eff;
+
                 if (p_eff > 0 && p_eff < _P_eff_min) _P_eff_min = p_eff;
             }
             for (int k = 0; k < 2; k++) {
-                if (_bin.isMemberTree(k)) calcLogHSumGaugeIter(_u_sum, _P_eff_min, *_bin.getMemberAsTree(k), _int_order, _G);
+                if (_bin.isMemberTree(k)) calcLogHSumGaugeIter(_u_sum, _P_eff_min, *_bin.getMemberAsTree(k), _int_order, _G, _ds_scale);
             }
         }
 
@@ -449,7 +471,7 @@ namespace AR {
         Float calcDsLogHSumGauge(BinaryTree<Tparticle>& _bin, const int _int_order, const Float& _G, const Float& _ds_scale) {
             Float u_sum = 0.0;
             Float P_eff_min = NUMERIC_FLOAT_MAX;
-            calcLogHSumGaugeIter(u_sum, P_eff_min, _bin, _int_order, _G);
+            calcLogHSumGaugeIter(u_sum, P_eff_min, _bin, _int_order, _G, _ds_scale);
             // degenerate group (post-merger interrupt: one member has zero
             // mass, no level contributes): no Kepler gauge exists; keep the
             // current ds - the caller drifts the single massive remnant out

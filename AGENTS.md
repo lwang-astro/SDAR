@@ -84,6 +84,7 @@ Routing (same rule as PeTar): **lessons-learned is the default** — anything wi
 
 - [Doxygen docs](https://lwang-astro.github.io/SDAR/docs/html/index.html) (CI-built from `master`; local: `cd docs && doxygen doxygen_config`)
 - [Local docs](docs/html/index.html)
+- `docs/step_size_effect_logh_notes.md` — theory + implementation reference: LogH/TSI hyperbolic step-size S-criterion (Wang & Nitadori 2020; S<1 or phase transition: pseudo-branch T−U=H, H=NaN, dt<0), the LogH sum-gauge hyperbolic branch's violation S=π/(32(e−1)) with merger-case numerical closure, the fix design basis, its 2026-10-23 implementation (S-cap) with deterministic + production validation, and the residual LogH-path recovery-injection limit-cycle mechanism
 - `docs/etot_sd_ref_corruption_fix_notes.md` — investigation record + implemented-fix mechanism: sd-energy gauge (`etot_sd_ref_`) corruption (root-caused 2026-10-21: `later`-frozen ds one-step injection + full-weight SD work credit; grant-layer fix, κ-weighted credit, `control_error_abs` criterion, gated floor repair, NaN-block removal), N=1000 production validation
 - `docs/hierarchical_blogh_impl_notes.md` — implementation reference: current-code BLogH/g-func mechanism, Scheme G, retained limitations
 - `docs/hierarchical_blogh_theory_notes.md` — theory reference + development history (§5.7 executed 2026-09-12, commit `9b40e8e`)
