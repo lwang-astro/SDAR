@@ -70,7 +70,7 @@ Lessons rooted in SDAR code (`src/`, `sample/AR`, `sample/Hermite`, `tools/`) be
 
 ## Repository Rules
 
-- Do not commit or push without user confirmation.
+- Never commit or push autonomously: every commit needs explicit user confirmation for that specific change first — reporting finished work is not authorization.
 - Bump `VERSION` in every commit: run `bash get_version.sh` from the repo root (no
   executable bit; it writes commit-count+1 and preserves the `e` experiment
   suffix automatically) and stage `VERSION`.
