@@ -155,6 +155,15 @@ std::ostream& operator <<(std::ostream& os, const IOParams<Type>& par) {
 /*!
     Stores IOParams by name-keyed maps for type-safe read/write.
     Uses a type-prefixed ASCII format for robust round-trip serialization.
+    Integer tags follow the exact C++ type used at registration ('I': long
+    int, 'L': long long int, 'D': int). Distinct integer types of the same
+    width (e.g. long int vs long long int, both 64-bit on common platforms;
+    int64_t resolves to either depending on the platform) are different C++
+    types, so the same option can register under different tags in different
+    builds. To keep parameter files portable across such builds, 64-bit
+    integer options are always written with the canonical tag 'L' (the
+    historical format), and readAscii() accepts any integer tag for an
+    integer option regardless of its registered type.
 */
 class IOParamsContainer{
     struct char_cmp {
@@ -199,8 +208,15 @@ public:
         for(auto iter = d_f64.begin(); iter!=d_f64.end(); iter++) {
             fprintf(_fout, "%c %s %a\n", IOParamsPrintHelp::getValueTypeShortName(iter->second->value), iter->first, iter->second->value);
         }
+        // 64-bit integer options registered as 'long int' are written with the
+        // canonical tag 'L' (long long int), the historical format used by the
+        // existing file corpus, so the files stay readable by readers that
+        // register the same option as 'long long int'; emitting the native tag
+        // 'I' here would make such readers silently drop these options.
+        // readAscii() heals integer tag mismatches in either direction, so
+        // files carrying 'I' lines remain readable as well.
         for(auto iter = d_l64.begin(); iter!=d_l64.end(); iter++)
-            fprintf(_fout, "%c %s %ld\n",  IOParamsPrintHelp::getValueTypeShortName(iter->second->value), iter->first, iter->second->value);
+            fprintf(_fout, "L %s %lld\n", iter->first, (long long int)iter->second->value);
         for(auto iter = d_ll64.begin();iter!=d_ll64.end();iter++)
             fprintf(_fout, "%c %s %lld\n", IOParamsPrintHelp::getValueTypeShortName(iter->second->value), iter->first, iter->second->value);
         for(auto iter = d_s32.begin(); iter!=d_s32.end(); iter++)
@@ -209,6 +225,30 @@ public:
             fprintf(_fout, "%c %s %s\n",   IOParamsPrintHelp::getValueTypeShortName(iter->second->value), iter->first, iter->second->value.c_str());
     }
     
+private:
+    //! Apply an integer parameter value to whichever integer map holds the key
+    /*!
+      Fallback used by readAscii() when the type tag found in the file does not
+      match the registered C++ integer type of the option (e.g. the same option
+      registered as 'long long int' by one build and as 'long int' by another:
+      both are 64-bit on common platforms but distinct C++ types with different
+      tags). Integer option types are semantically interchangeable; the value
+      is narrowed to the registered type.
+      \param[in] _key: parameter name key
+      \param[in] _value: integer value parsed from the file
+      \return whether the key was found in one of the integer maps
+    */
+    bool storeIntegerByKey(const char* _key, const long long int _value) {
+        auto search_ll = d_ll64.find(_key);
+        if (search_ll != d_ll64.end()) { search_ll->second->value = _value; return true; }
+        auto search_l = d_l64.find(_key);
+        if (search_l != d_l64.end()) { search_l->second->value = (long int)_value; return true; }
+        auto search_s = d_s32.find(_key);
+        if (search_s != d_s32.end()) { search_s->second->value = (int)_value; return true; }
+        return false;
+    }
+
+public:
     void readAscii(FILE *_fin) {        
         char key_name[1024];
         while (!feof(_fin)) {
@@ -251,8 +291,10 @@ public:
                     abort();
                 }
                 auto search = d_l64.find(key_name);
-                if (search == d_l64.end()) 
-                    std::cerr<<"Warning: parameter name key "<<key_name<<" is not found!\n";
+                if (search == d_l64.end()) {
+                    if (!storeIntegerByKey(key_name, (long long int)dtmp))
+                        std::cerr<<"Warning: parameter name key "<<key_name<<" is not found!\n";
+                }
                 else 
                     search->second->value = dtmp;
                 break;
@@ -266,8 +308,10 @@ public:
                     abort();
                 }
                 auto search = d_ll64.find(key_name);
-                if (search == d_ll64.end()) 
-                    std::cerr<<"Warning: parameter name key "<<key_name<<" is not found!\n";
+                if (search == d_ll64.end()) {
+                    if (!storeIntegerByKey(key_name, dtmp))
+                        std::cerr<<"Warning: parameter name key "<<key_name<<" is not found!\n";
+                }
                 else 
                     search->second->value = dtmp;
                 break;
@@ -281,8 +325,10 @@ public:
                     abort();
                 }
                 auto search = d_s32.find(key_name);
-                if (search == d_s32.end()) 
-                    std::cerr<<"Warning: parameter name key "<<key_name<<" is not found!\n";
+                if (search == d_s32.end()) {
+                    if (!storeIntegerByKey(key_name, (long long int)dtmp))
+                        std::cerr<<"Warning: parameter name key "<<key_name<<" is not found!\n";
+                }
                 else 
                     search->second->value = dtmp;
                 break;

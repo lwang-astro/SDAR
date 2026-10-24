@@ -93,6 +93,17 @@ for 1000/1002 "differences" until physical columns were compared selectively.
 
 **Prevention rules**: (a) `Float` 上的数学调用一律用非限定形式（`sqrt`/`max`/`min`，ADL 对 double 与 mpreal 都成立）或查 `Float.h` 约定，避免 `std::` 限定；(b) 触碰公共头（`Float.h` 依赖面、`information.h`、Hermite 层）时至少执行一次全变体门禁（含 mpfrc）——本次正是全变体门禁把它从"静默损坏"翻出来；(c) 发现先存损坏用干净 worktree 复现定责，修复不混入无关提交（mpfrc 修复另行处理）。
 
+### 2026-10-24: 参数文件整数 tag 绑定精确 C++ 类型——上游 typedef 漂移使整数选项跨构建静默丢弃（已修复）
+
+**Mistake**: 用本机最新构建 replay 一份旧生产版本的 PeTar hard dump，17 个整数参数全部报 `Warning: parameter name key ... is not found!`，`id_offset` 保持默认 -1 后在 `checkParams` 断言崩溃；先怀疑 dump 版本不兼容或 PeTar 代码回归（1843e..HEAD 的 src diff 只有无关改动），而同事环境同版本代码 replay 正常——差异不在代码，在构建所依赖的上游类型定义。
+
+**Root cause**: `IOParamsContainer`（`src/Common/io.h`）按精确 C++ 类型分桶存储（`long int`→tag `I`，`long long int`→`L`，`int`→`D`），`readAscii` 对文件里的 tag 只查对应桶。PeTar 侧 FDPS 8.0（`039fae4`，2025-09）把 `PS::S64` 从 `long long int` 改为 `std::int64_t`（LP64 上 = `long int`：同为 64 位但不同的 C++ 类型），所有经 `IOParams<PS::S64>` 注册的整数选项从 `L` 桶搬到 `I` 桶——跨桶的两个方向互读文件时整数选项全部 warning 后静默落默认值（多数无断言保护；PeTar restart 读旧 `data.par*` 同样中招，hard dump replay 因 `id_offset>0` 断言才暴露）。io.h 本身是独立模块，修复保持通用：同宽整数类型身份漂移即触发。
+
+**Prevention rule**:
+1. 已修复（2026-10-24）：`readAscii` 整数 tag 未命中时按 key 跨整数桶回退（`storeIntegerByKey`，收窄到注册类型）；`writeAscii` 把 `long int` 桶规范写为历史格式 `L`（`int` 桶保持 `D`——SDAR sample 大量注册 `IOParams<int>`；`long long` 桶本就是 `L`）。文件格式对注册类型的精确身份不再敏感；
+2. 序列化格式的 tag 不能绑定"精确 C++ typedef"这类随上游/平台漂移的身份（`int64_t` 在 LP64/LLP64 下分别是 `long`/`long long`）；同宽整数类型在设计上应视为可互换；
+3. "同版本代码行为不同"的第一分诊是构建环境差异（上游依赖版本、编译器、旗标），先比对 Build banner 与依赖 commit 再读代码 diff；banner 的 `built` 时间早于 `configured` 时间说明二进制内部不一致（版本串被 reconfigure 刷新但未重编），不可作基线。
+
 ---
 
 ## AR Integrator & Time Synchronization
