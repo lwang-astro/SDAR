@@ -78,7 +78,7 @@ Lessons rooted in SDAR code (`src/`, `sample/AR`, `sample/Hermite`, `tools/`) be
 
 ## Documentation
 
-Doc taxonomy (mirror of PeTar `AGENTS.md` → "Doc & Plan Organization"): every md in `docs/` is a **plan** (`plan` in the name, open items only; executed sections get an executed-marker and are distilled to lessons/reference notes), a **registered reference note** (listed below, with a one-line status header stating its nature — implementation notes, theory reference, or legacy-behavior record), or **temporary** (distill to lessons then delete). Unclassified notes are a defect.
+Doc taxonomy (mirror of PeTar `AGENTS.md` → "Doc & Plan Organization"): every md in `docs/` is a **plan** (`plan` in the name, open items only; executed sections get an executed-marker and are distilled to lessons/reference notes; closed-item records never live in the plan — no "Closed items" section, at most a one-line pointer per closed item), a **registered reference note** (listed below, with a one-line status header stating its nature — implementation notes, theory reference, or legacy-behavior record), or **temporary** (distill to lessons then delete). Unclassified notes are a defect.
 
 Routing (same rule as PeTar): **lessons-learned is the default** — anything with the Mistake / Root cause / Prevention shape ("what went wrong, why, how to avoid"). Reference notes take only mechanism/design documentation of implemented or removed code ("how/why does the code behave this way"). Boundary unclear → lessons.
 

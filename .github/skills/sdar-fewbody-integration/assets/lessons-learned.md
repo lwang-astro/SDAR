@@ -84,26 +84,13 @@ for 1000/1002 "differences" until physical columns were compared selectively.
 1. 版本后缀已并入脚本（2026-10-22 起）：`get_version.sh` 写出 `<提交数+1>` 并自动保留既有 `e` 后缀，提交前只需运行脚本+stage，删除人工追加步骤（PeTar `tools/get_version.sh` 同步修复）；
 2. 断言"工具 X 有 bug"之前必须先读 X 的源码并复现 X 的原始输出（本次脚本裸输出是正确的 `470`，读三行源码即可证伪）；
 3. 检查"自动化输出是否被污染"时先查命令历史里的重定向/echo 覆盖，再怀疑工具本身。
+### 2026-10-25: 为某条代码路径构造 A/B 前必须先静态核对路由前提——kickEtot 仅 n≥3 组调用、standalone 组的 acc_pert 需组外邻居
 
-### 2026-10-23: mpfrc 变体自 2026-10-12 起静默损坏——`std::sqrt` 对 `mpfr::mpreal` 无重载；例行门禁矩阵不含 mpfrc 故未被发现
+**Mistake**: 为验证 LogH κ-加权记账修复，连造三个 A/B 场景全部空转：整组三体（无外部摄动者，acc_pert≡0）、2 体组+单摄动者与强摄动 2 体组（2 体组走 `integrateTwoOneStep`，根本不调用 `kickEtot`）。第四个场景（3 体组+外摄动者）才激活路径，第五个（T7 移植）才得到定量分离（AR 步数 166k→76）。
 
-**Mistake**: F1 提交前跑 `make -C sample/Hermite` 全变体门禁，`hermite.mpfrc` 编译失败（18 个错误）；干净 worktree 于 HEAD（`0ed7cf5`）复现相同失败——损坏先存，与本次改动无关。引入点：`63e8308`/`2c3dd3e`（dt-limit 半径特性）在 `block_time_step.h:245/290` 与 `hermite_integrator.h:2490` 写了 `std::sqrt(v_sq)`，而 `mpfr::mpreal` 无 `std::sqrt` 重载（需非限定 `sqrt` 走 ADL 或 `mpfr::sqrt`）。
+**Root cause**: 按物理直觉选 IC，而没有先核对代码路由：`integrateToTime` 里 `n_particle==2 ? integrateTwoOneStep : integrateOneStep→kickEtot`，且 standalone 组的 acc_pert 只来自组外邻居表——场景的必要结构（组员数≥3 + 组外邻居非空）由调用图决定，不由物理直觉决定。
 
-**Root cause**: 变体门禁矩阵默认只覆盖 `.sd.cm` 系；mpfrc 变体不在任何例行门禁里。`std::` 限定的数学调用在 double 构建下永远合法，只有 USE_MPFRC 构建才暴露——"编译通过的子集"被当成了"全部变体"。
-
-**Prevention rules**: (a) `Float` 上的数学调用一律用非限定形式（`sqrt`/`max`/`min`，ADL 对 double 与 mpreal 都成立）或查 `Float.h` 约定，避免 `std::` 限定；(b) 触碰公共头（`Float.h` 依赖面、`information.h`、Hermite 层）时至少执行一次全变体门禁（含 mpfrc）——本次正是全变体门禁把它从"静默损坏"翻出来；(c) 发现先存损坏用干净 worktree 复现定责，修复不混入无关提交（mpfrc 修复另行处理）。
-
-### 2026-10-24: 参数文件整数 tag 绑定精确 C++ 类型——上游 typedef 漂移使整数选项跨构建静默丢弃（已修复）
-
-**Mistake**: 用本机最新构建 replay 一份旧生产版本的 PeTar hard dump，17 个整数参数全部报 `Warning: parameter name key ... is not found!`，`id_offset` 保持默认 -1 后在 `checkParams` 断言崩溃；先怀疑 dump 版本不兼容或 PeTar 代码回归（1843e..HEAD 的 src diff 只有无关改动），而同事环境同版本代码 replay 正常——差异不在代码，在构建所依赖的上游类型定义。
-
-**Root cause**: `IOParamsContainer`（`src/Common/io.h`）按精确 C++ 类型分桶存储（`long int`→tag `I`，`long long int`→`L`，`int`→`D`），`readAscii` 对文件里的 tag 只查对应桶。PeTar 侧 FDPS 8.0（`039fae4`，2025-09）把 `PS::S64` 从 `long long int` 改为 `std::int64_t`（LP64 上 = `long int`：同为 64 位但不同的 C++ 类型），所有经 `IOParams<PS::S64>` 注册的整数选项从 `L` 桶搬到 `I` 桶——跨桶的两个方向互读文件时整数选项全部 warning 后静默落默认值（多数无断言保护；PeTar restart 读旧 `data.par*` 同样中招，hard dump replay 因 `id_offset>0` 断言才暴露）。io.h 本身是独立模块，修复保持通用：同宽整数类型身份漂移即触发。
-
-**Prevention rule**:
-1. 已修复（2026-10-24）：`readAscii` 整数 tag 未命中时按 key 跨整数桶回退（`storeIntegerByKey`，收窄到注册类型）；`writeAscii` 把 `long int` 桶规范写为历史格式 `L`（`int` 桶保持 `D`——SDAR sample 大量注册 `IOParams<int>`；`long long` 桶本就是 `L`）。文件格式对注册类型的精确身份不再敏感；
-2. 序列化格式的 tag 不能绑定"精确 C++ typedef"这类随上游/平台漂移的身份（`int64_t` 在 LP64/LLP64 下分别是 `long`/`long long`）；同宽整数类型在设计上应视为可互换；
-3. "同版本代码行为不同"的第一分诊是构建环境差异（上游依赖版本、编译器、旗标），先比对 Build banner 与依赖 commit 再读代码 diff；banner 的 `built` 时间早于 `configured` 时间说明二进制内部不一致（版本串被 reconfigure 刷新但未重编），不可作基线。
-
+**Prevention rule**: （a）为目标路径列路由前提（组员数、邻居表非空、构建宏），再按前提反推 IC 结构；不满足时用最小激活场景（n=4：3 体组+1 外摄动者）；（b）已有存档验证案例（如 T7）优先移植复用——机制、单位、阈值已被标定，且其 A/B 比值可与历史测量互验（本次 2186× vs TTL 存档 1800×）。
 ---
 
 ## AR Integrator & Time Synchronization
@@ -255,7 +242,7 @@ for 1000/1002 "differences" until physical columns were compared selectively.
    - **无 gate 通道**: H4 积分循环(hermite_integrator.h ~2694)在每次 `integrateToTime` 前直接 `calcDsAndStepOption`——绕过 quiescence gate,把上述不一致树上的 denormal 乘积(ds = ds_prod·P_eff_min/period_prod = 5.8e-5·3.2e-4/5.8e304 ≈ 1.2e-311)**无条件提交**进 `info.ds`(`ds_est_prev` 都不更新)。
    - **gate/钳位交互**: `integrateToTime` 入口 sync 产生健康候选 0.144,但 ×3 复现性对 prev=0.796 判拒(5.5×)→ DEFER **盲目恢复 committed ds**(即垃圾值);`ds[0]` 已按它初始化,随后被接受的 0.144 只经 `min(ds[0], info.ds)` 进入——min 钳位保住垃圾 → 循环顶地板检查 abort。gate 的"restore 是安全的"假设只对"committed ds 都经过 gate"成立,被上一层违反。
 3. **Prevention rules**: (a) 估计器消费的每棵树必须处于"元素拟合与 slowdown 数据同一次刷新"的一致状态——任何 `generateBinaryTree`/元素 refit 之后、下一次 slowdown 重算之前,存在消费窗口就要么关窗(先 sync 再估),要么让估计器对未设状态免疫(`calcEffectivePeriod` 对 `period>=NUMERIC_FLOAT_MAX`/非有限回退 Kepler period;`calcSlowDownInnerBinary` 两个分支都设 period,κ=1 ⇒ P_eff=P_kep 语义不变);(b) 同一估计函数的调用点必须全数过 gate——新增绕 gate 的"方便调用"(如块前预提)就是给垃圾候选开后门,审计 ds 提交路径时 grep 全部 `calcDsAndStepOption` 调用点而不是只看 gate 内那一个;(c) DEFER-恢复与 `min()` 钳位不得保住连时间分辨率地板都过不了的 ds(×gt 后 dt < ulp 地板的 committed ds 在下次循环顶必 abort,恢复它等于延迟引爆);(d) 诊断插桩要用 env 门控(`getenv` 一次缓存)+ 极端值触发树 dump(每层 semi/ecc/sd_period/κ/peff/pin/pout),一次复跑即锁定毒层——本次 4 分钟复跑 + 三行算术(`period_prod/peff_min`)完成全部归因。
-4. **修复落地(2026-10-22,同日验证)**:最小方案(创建时估计恢复原始设计——git 考古 `a6ba155` 证实 hermite 的 ds 估计原本就在组创建处,循环内位置是 g-func 重构漂移;`initialIntegration` 全历史从未内含 ds 计算,无禁止放回的理由):(i) `getEffectivePeriod` 加 `ASSERT(period != NUMERIC_FLOAT_MAX)` tripwire;(ii) `calcSlowDownInnerBinary` else 分支 `semi>0` 补 period(双曲留默认给 ASSERT 执法);(iii) H4 循环每 block 无门估计删除(`#ifndef AR_SLOWDOWN_TREE` 保留——无 slowdown 状态可失配),首估移入 `AR::initialIntegration`(同时堵住组槽位复用继承旧组 `info.ds` 的隐患),驱动层重复估计移除。每 block 估计被有意放弃:ds 重估按 gate 设计本就是事件驱动,事件间由步内误差控制器+单向 valve 覆盖。**确定性验证法(snapshot 重启重现器)**:从 abort 前最后一个 snapshot(`-i 0` 二进制重启)重启,修复前二进制逐位复现 denormal abort(ds=9.64305e-312),修复后 exit 0——比重跑全程快两个量级且不受混沌分叉影响。全套验证:snapshot A/B、T8 22/22、N=1000 BTLogH 全程 t=30 干净完成,能量误差与同 IC 的 LogH 全程平价(1.1e-6/步 vs 2.5e-6/步)。5. **归因纪律(2026-10-22 晚,双重误判教训)**:对 N=1000 混沌团簇的"能量误差回归/磨步增加"做单次实现的跨二进制比较**不是有效归因**——同一缺陷类在不同轨迹上的表现方差远大于修复的真实效应(实测:同快照同轨迹重启 A/B 中,修复前二进制反而更糟 cum −12,502 vs −252,完全反转全程印象;另一次"F1 高 e 欠分辨"归因的灾难组经查全椭圆、与所疑改动零交集)。**Prevention rules**:(a) 混沌系统的修复效果归因必须用确定性重现器(单事件 snapshot 重启/dump 重放)或多种子统计,全程单跑对比只做线索不做结论;(b) 归因前先解剖"出问题的系统是什么"——打印其轨道根数、κ、层级结构,确认所疑改动的代码路径是否真的触碰它(全椭圆组 vs 双曲改动 = 零交集);(c) 混沌轨迹上 warnings/事件计数的大幅波动(0 vs 168)本身是轨迹方差的表现,需受控重启分离"状态决定"与"二进制决定"两种成因;(d) 机制假设在受控重放验证前不得写成事实——"ds 无关误差地板"曾作为机制描述写入 plan,重放证伪(实为恢复注入过大 ds 后 err∝ds² 健康级联渐近钉在 1.0–1.02× 阈值);机制性结论须有重放/复现曲线在手再落笔;(e) 把一条路径的修复"约定"镜像到另一条路径前,必须先(i)隔离原修复的孤立贡献(捆绑验收≠分量有效——2026-09-28 三缺陷捆绑中 t_cross floor 的单独贡献从未测过)且(ii)核对目标结构是否同病(g-func 乘积公式中孤立双曲对周期分子分母相消,长腿成本病理为 LogH 求和口径特有);"镜像 t_cross floor 到 calcEffectivePeriod"建议因缺这两步被用户设计审查否决(2026-10-23)。
+4. **修复落地(2026-10-22,同日验证)**:最小方案(创建时估计恢复原始设计——git 考古 `a6ba155` 证实 hermite 的 ds 估计原本就在组创建处,循环内位置是 g-func 重构漂移;`initialIntegration` 全历史从未内含 ds 计算,无禁止放回的理由):(i) `getEffectivePeriod` 加 `ASSERT(period != NUMERIC_FLOAT_MAX)` tripwire;(ii) `calcSlowDownInnerBinary` else 分支 `semi>0` 补 period(双曲留默认给 ASSERT 执法);(iii) H4 循环每 block 无门估计删除(`#ifndef AR_SLOWDOWN_TREE` 保留——无 slowdown 状态可失配),首估移入 `AR::initialIntegration`(同时堵住组槽位复用继承旧组 `info.ds` 的隐患),驱动层重复估计移除。每 block 估计被有意放弃:ds 重估按 gate 设计本就是事件驱动,事件间由步内误差控制器+单向 valve 覆盖。**确定性验证法(snapshot 重启重现器)**:从 abort 前最后一个 snapshot(`-i 0` 二进制重启)重启,修复前二进制逐位复现 denormal abort(ds=9.64305e-312),修复后 exit 0——比重跑全程快两个量级且不受混沌分叉影响。全套验证:snapshot A/B、T8 22/22、N=1000 BTLogH 全程 t=30 干净完成,能量误差与同 IC 的 LogH 全程平价(1.1e-6/步 vs 2.5e-6/步)。5. **归因纪律(2026-10-22 晚,双重误判教训)**:对 N=1000 混沌团簇的"能量误差回归/磨步增加"做单次实现的跨二进制比较**不是有效归因**——同一缺陷类在不同轨迹上的表现方差远大于修复的真实效应(实测:同快照同轨迹重启 A/B 中,修复前二进制反而更糟 cum −12,502 vs −252,完全反转全程印象;另一次"F1 高 e 欠分辨"归因的灾难组经查全椭圆、与所疑改动零交集)。**Prevention rules**:(a) 混沌系统的修复效果归因必须用确定性重现器(单事件 snapshot 重启/dump 重放)或多种子统计,全程单跑对比只做线索不做结论;(b) 归因前先解剖"出问题的系统是什么"——打印其轨道根数、κ、层级结构,确认所疑改动的代码路径是否真的触碰它(全椭圆组 vs 双曲改动 = 零交集);(c) 混沌轨迹上 warnings/事件计数的大幅波动(0 vs 168)本身是轨迹方差的表现,需受控重启分离"状态决定"与"二进制决定"两种成因。
 ---
 
 ## Documentation & Units
@@ -267,6 +254,14 @@ for 1000/1002 "differences" until physical columns were compared selectively.
 **Root cause**: 规则按"写作时最方便的角度"分散落笔——Non-Negotiable 层从"该用什么值"表述（只列出一个值），选项表层从"默认值是什么"表述（列出另一个值），两个片段各自孤立看都正确，从未被并列对照过。
 
 **Prevention rule**: 涉及单位制的常量必须写成"合法值集合 + 必须与运行一致"的单一声明，而不是若干各自正确的片段。现行口径：`-G` 只有两个合法值 —— `G_HENON = 1.0`（unscaled / Henon 单位，C++ 默认）与 `G_MSUN_PC_MYR = 0.00449830997959438`（`-u 4`，Msun/pc/Myr）；C++ 运行与 Python 分析必须一致，否则结果静默错误。配置文件审计时，应专门对照"同一常量在不同章节的取值"。
+
+### 2026-10-25: 归档=蒸馏到 lessons/owning note——plan 不设 Closed 记录区,完成项至多留一行指针(多次违反后明文固化)
+
+**Mistake**: 归档操作连续三次(item 5 2026-10-22、item 4 2026-10-23、item 4/6 2026-10-25)把完整完成记录(根因/验证数字/否决理由)写进 plan 的 "Closed items" 区——违反 "plan 只放 open items + 指针" 规则;用户多次纠正后仍再犯,本次明文固化。
+
+**Root cause**: 把"归档"误读为"在 plan 里把条目标记 closed 并留档",而规则的语义是**内容搬家**:完成记录的唯一合法居所是 lessons(预防/错误形状)或 owning reference note(机制/实现形状),plan 侧只剩指针。"closed 但留在 plan"既违反单一权威位置,又让常读文件持续膨胀。
+
+**Prevention rule**: 关闭 plan 条目的动作序列:(1) 内容判形——Mistake/Root cause/Prevention 形状 → lessons;机制/实现/验证记录形状 → owning reference note;(2) 蒸馏完成、交叉引用补齐后,plan 中该条目至多保留一行指针(目标 note 路径+节号);(3) 不创建/不维护 "Closed items" 记录区。自查:归档 diff 里 plan 的净变化应接近"删多增一"。
 
 ---
 

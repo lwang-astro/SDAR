@@ -1,8 +1,11 @@
 # Reference note: sd-energy gauge (`etot_sd_ref_`) corruption — investigation record and implemented fix
 
 Status: **reference note** — investigation record (2026-10-19→22), the
-implemented fix mechanism, and its validation; open follow-up items live in
-`docs/etot-sd-ref-tracking-corruption-plan.md`. Opened 2026-10-20 from the
+implemented fix mechanism, and its validation. All follow-up items were
+closed 2026-10-22..25 (records: §Open-item dispositions, §LogH-path
+mirror, and the sibling notes below); the follow-up plan file was
+distilled and deleted 2026-10-25 — this note is the record. Opened
+2026-10-20 from the
 PeTar restart-grind investigation (parent archived 2026-10-22: the PeTar
 plan was distilled and deleted; record: this note + PeTar lessons-learned
 2026-10-19/22; anomaly class B); root
@@ -406,10 +409,12 @@ a. *Grant-layer fix (user-directed revision, 2026-10-21 — supersedes the
    trigger — watch their frequency in production matrices; the post-sync
    estimator-channel clamp `ds=min(ds,info.ds)` remains one-way for ALL
    options (growth flows through the feedback enlargement — direct
-   estimator-channel growth is still absent by design). Open follow-ups
-   (T7 wiring + full matrix, LogH tree-path kick credit, LogH runtime
-   routing validation, hyperbolic-root ds estimator) live in
-   `etot-sd-ref-tracking-corruption-plan.md`.
+   estimator-channel growth is still absent by design). The former open
+   follow-ups (T7 wiring + full matrix, LogH tree-path kick credit, LogH
+   runtime routing validation, hyperbolic-root ds estimator) were all
+   closed 2026-10-22..25 — records: §Open-item dispositions and
+   §LogH-path mirror below, `docs/step_size_effect_logh_notes.md`,
+   `docs/hierarchical_blogh_impl_notes.md`, PeTar `test/validation/README.md`.
 
 ## Production validation — N=1000 cluster A/B (2026-10-22, user-directed pre-commit gate)
 
@@ -434,9 +439,58 @@ range, seed 42, `petar.init -s merger`; run: `-u 1 -b 500 -t 30 -o 0.5 -s
   2.16M AR steps, dissolves into 13 ordinary pairs, 0 rebase / 0 gate —
   legal-expensive, not pathological.
 
+## Open-item dispositions (from the plan, closed 2026-10-24)
+
+- **LogH runtime validation of the negative-dt → ds-floor-repair
+  routing** — closed as unnecessary: the routing is definitional (in
+  LogH num IS the drift gauge, dt = ds/num, num≤0 → dt≤0 → the
+  unconditional negative-dt tripwire fires at the same post-step
+  point; the num==0-exact corner gives dt=inf → the landing path; the
+  tsyn sub-branch covers time_end). SDAR sample suite (LogH builds)
+  passes clean; residual risk accepted.
+
+## LogH-path mirror of the κ-weighted credit (plan item 2, 2026-10-25)
+
+The TTL fix above left the non-TTL LogH+slowdown path crediting
+full-weight work to `etot_sd_ref_` (flat loop in `kickEtot`, flagged
+2026-10-21). Implemented 2026-10-25: `kickEtotTreeIter` mirrors
+`kickEtotAndGTDriftTreeIter` minus the gt-gradient part — per level
+`inv_nest_sd = up/κ`, leaves credit `de` (full, →`etot_ref_`) and
+`de_sd = Σ m·vel_sd·a_pert` (κ-weighted, →`etot_sd_ref_`); the flat
+c.m.-frame loop's missing `v_cm·F_net` term is included by the walk;
+the AR_DEBUG audit counters are now updated on this path too.
+2-body identity: in the c.m. frame Σm v_rel = 0 ⇒ de_sd = de/κ,
+exactly the convention the 2-body path (`integrateTwoOneStep`) always
+maintained (`etot_sd_ref_ = etot_ref_·κ⁻¹`); 2-particle groups never
+route through `kickEtot` at all.
+
+**Validation** (one-off `hermite.logh` build = sample/Hermite without
+`-D AR_TTL`; A/B vs HEAD worktree):
+
+- No-regression: whole-group triple and 2-body-group scenarios are
+  bit-identical (no external perturber / path not routed).
+- Quantitative: the T7 IC (this note's reproducer, PeTar
+  `make_ic.py --case t7` trio + static 1.0 perturber at rp=0.15,
+  converted to hermite-standalone format, `-G 4.49830997959438
+  --r-group 0.08 -t 0.0078 -o 13`, trio as one explicit group):
+  base 166,158 AR steps vs fixed **76** (**2186×**), final |dE|
+  3.06e-5 vs **3.49e-6** (8.8×), |dE_SD| comparable — the same
+  rate-type ds-controller collapse signature and the same fix ratio
+  as the TTL measurement above (2.27e7 → 1.25e4 ≈ 1800×).
+- 3-body-group + external-perturber scenario (quad IC): both arms
+  stable, trajectories diverge (LogH drift gauge couples
+  `etot_sd_ref_` to dt directly) — mechanism live, no pathological
+  behavior introduced.
+
+Exposure scope unchanged: PeTar hard is TTL; this path serves SDAR
+standalone LogH+slowdown builds only.
+
 ## Cross-references
 
-- Open follow-ups: `docs/etot-sd-ref-tracking-corruption-plan.md`.
+- Follow-up plan: closed with no open items 2026-10-25 (items 1–6 all
+  distilled; records: §Open-item dispositions and §LogH-path mirror in
+  this note, plus the sibling notes below); the plan file was distilled
+  and deleted — this note is the record.
 - Parent investigation: archived 2026-10-22 (PeTar plan
   `doc/restart-slowdown-cold-state-plan.md`, distilled and deleted; record:
   this note + PeTar lessons-learned 2026-10-19/2026-10-22; anomaly classes

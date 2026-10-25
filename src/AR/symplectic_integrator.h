@@ -1345,31 +1345,131 @@ namespace AR {
         }
 
 #else //! AR_TTL
-        //! kick energy
-        /*!
+        //! kick energy iteration function (LogH gauge) with binary tree
+        /*! (plan item 2, 2026-10-25) mirrors kickEtotAndGTDriftTreeIter (TTL)
+            minus the gt-gradient part: accumulates the full-weight
+            perturbation work (etot_ref_) and the kappa-weighted SD-channel
+            work (etot_sd_ref_) using vel_sd, the velocity gradient of the
+            tree-decomposed ekin_sd (telescoping identity, incl. the
+            full-weight CM part).
+          @param[in] _dt: time step
+          @param[in] _vel_up: upper cm vel (USE_CM_FRAME only)
+          @param[in] _vel_sd_up: upper cm sd vel
+          @param[in] _inv_nest_sd_up: upper inverse nested slowdown factor
+          @param[in] _bin: current binary tree node
+        */
+        void kickEtotTreeIter(const Float& _dt,
+#ifdef USE_CM_FRAME
+                              const Float* _vel_up,
+#endif
+                              const Float* _vel_sd_up,
+                              const Float& _inv_nest_sd_up,
+                              AR::BinaryTree<Tparticle>& _bin) {
+            // current nested sd factor
+            Float inv_nest_sd = _inv_nest_sd_up/_bin.slowdown.getSlowDownFactor();
+            Float de = 0.0;
+            Float de_sd = 0.0; // kappa-weighted work rate absorbed by the sd-energy S
+
+#ifndef USE_CM_FRAME
+            auto& vel_cm = _bin.vel;
+#endif
+            for (int k=0; k<2; k++) {
+                if (_bin.isMemberTree(k)) {
+                    auto* bink = _bin.getMemberAsTree(k);
+#ifdef USE_CM_FRAME
+                    auto& vel_rel = bink->vel;
+                    Float vel[3] = {vel_rel[0] + _vel_up[0],
+                                    vel_rel[1] + _vel_up[1],
+                                    vel_rel[2] + _vel_up[2]};
+#else
+                    auto& vel = bink->vel;
+                    Float vel_rel[3] = {vel[0] - vel_cm[0],
+                                        vel[1] - vel_cm[1],
+                                        vel[2] - vel_cm[2]};
+#endif
+                    Float vel_sd[3] = {vel_rel[0] * inv_nest_sd + _vel_sd_up[0],
+                                       vel_rel[1] * inv_nest_sd + _vel_sd_up[1],
+                                       vel_rel[2] * inv_nest_sd + _vel_sd_up[2]};
+
+                    kickEtotTreeIter(_dt,
+#ifdef USE_CM_FRAME
+                                     vel,
+#endif
+                                     vel_sd,
+                                     inv_nest_sd,
+                                     *bink);
+                }
+                else {
+                    int i = _bin.getMemberIndex(k);
+                    ASSERT(i>=0&&i<particles.getSize());
+                    ASSERT(&particles[i]==_bin.getMember(k));
+
+#ifdef USE_CM_FRAME
+                    auto& vel_rel = particles[i].vel;
+                    Float vel[3] = {vel_rel[0] + _vel_up[0],
+                                    vel_rel[1] + _vel_up[1],
+                                    vel_rel[2] + _vel_up[2]};
+#else
+                    auto& vel = particles[i].vel;
+                    Float vel_rel[3] = {vel[0] - vel_cm[0],
+                                        vel[1] - vel_cm[1],
+                                        vel[2] - vel_cm[2]};
+#endif
+                    Float vel_sd[3] = {vel_rel[0] * inv_nest_sd + _vel_sd_up[0],
+                                       vel_rel[1] * inv_nest_sd + _vel_sd_up[1],
+                                       vel_rel[2] * inv_nest_sd + _vel_sd_up[2]};
+
+                    Float* pert   = force_[i].acc_pert;
+
+                    de += particles[i].mass * (vel[0] * pert[0] +
+                                               vel[1] * pert[1] +
+                                               vel[2] * pert[2]);
+                    // (plan item 2, 2026-10-25) SD-channel work credit,
+                    // mirroring the TTL fix (2026-10-21, commit 6a8a357): the
+                    // slowdown system's energy S responds to the perturbation
+                    // through its OWN velocity gradient vel_sd, NOT the
+                    // physical velocity. The previous flat loop credited the
+                    // full-weight de to etot_sd_ref_, making
+                    // R = S - etot_sd_ref_ drift at -(1-1/kappa)*W per unit
+                    // work -- the same corruption class as the archived etot
+                    // fix, retained here in the non-default LogH+slowdown
+                    // gauge. 2-body consistency: in the c.m. frame
+                    // sum(m_i v_i,rel) = 0, so de_sd = de/kappa -- the same
+                    // relation the 2-body path maintains via
+                    // etot_sd_ref_ = etot_ref_*kappa_inv. The tree walk also
+                    // adds the v_cm . F_net term the flat c.m.-frame loop
+                    // dropped.
+                    de_sd += particles[i].mass * (vel_sd[0] * pert[0] +
+                                                  vel_sd[1] * pert[1] +
+                                                  vel_sd[2] * pert[2]);
+                }
+            }
+            etot_ref_     += _dt * de;
+            etot_sd_ref_ += _dt * de_sd;
+#ifdef AR_DEBUG
+            de_kick_full_cum_ += _dt * de;
+            de_kick_sd_cum_   += _dt * de_sd;
+#endif
+        }
+
+        //! kick energy (LogH gauge) with the slowdown tree
+        /*! (plan item 2, 2026-10-25) kappa-weighted SD work credit via a tree
+            walk for vel_sd, replacing the flat full-weight loop (history in
+            kickEtotTreeIter).
           @param[in] _dt: time step
         */
-        // (2026-10-21) NOTE: the kappa-weighted SD work credit implemented in
-        // kickEtotAndGTDriftTreeIter (TTL) applies here too, but this flat
-        // loop has no per-particle nested-kappa available; it needs a tree
-        // walk for vel_sd. PeTar hard integrates with AR_TTL, so the LogH
-        // tree path keeps the full-weight credit for now (follow-up item in
-        // docs/etot-sd-ref-tracking-corruption-plan.md).
         inline void kickEtot(const Float _dt) {
-            Float de = 0.0;
-            const int num = particles.getSize();
-            Tparticle* pdat = particles.getDataAddress();
-            Force* force = force_.getDataAddress();
-            for (int i=0;i<num;i++) {
-                Float  mass= pdat[i].mass;
-                auto& vel = pdat[i].vel;
-                Float* pert= force[i].acc_pert;
-                de += mass * (vel[0] * pert[0] +
-                              vel[1] * pert[1] +
-                              vel[2] * pert[2]);
-            }
-            etot_sd_ref_ += _dt * de;
-            etot_ref_ += _dt * de;
+            // the particle cm velocity is zero (assume in rest-frame)
+            auto& bin_root = info.getBinaryTreeRoot();
+            Float vel_cm[3] = {0.0,0.0,0.0};
+            Float sd_factor = 1.0;
+#ifdef USE_CM_FRAME
+            ASSERT(!bin_root.isOriginFrame());
+            kickEtotTreeIter(_dt, vel_cm, vel_cm, sd_factor, bin_root);
+#else
+            ASSERT(!particles.isOriginFrame());
+            kickEtotTreeIter(_dt, vel_cm, sd_factor, bin_root);
+#endif
         }
 #endif // AR_TTL
 
