@@ -41,7 +41,7 @@ namespace H4{
         //Float r_neighbor_crit; ///> the distance for neighbor search
         Float reinitialize_step_dm_criterion; ///> criterion of mass change rate for reinitializing step size
         Float reinitialize_step_de_criterion; ///> criterion of energy change rate for reinitializing step size
-        int n_neighbor_max; ///> maximum number of neighbors to be stored
+        int n_neighbor_max; ///> initial capacity hint of the group neighbor address list; lists grow on demand (Neighbor::checkAndGrowNeighborAddress), kept for input/restart compatibility
         Tmethod interaction; ///> class contain interaction function
         BlockTimeStep4th step; ///> time step calculator
 #ifdef HERMITE_ONLY_CALC_NEIGHBOR_FORCE
@@ -1580,8 +1580,16 @@ namespace H4{
                 group_new.particles.setMode(COMM::ListMode::copy);
                 group_new.particles.reserveMem(n_particle);
                 group_new.reserveIntegratorMem();
-                const int nmax_tot = std::min(particles.getSizeMax() + groups.getSizeMax(), manager->n_neighbor_max);
-                group_new.perturber.reserveMemNeighborAddress(nmax_tot);
+                // Initial capacity only: the list grows on demand when the distance-based
+                // rebuild exceeds it (Neighbor::checkAndGrowNeighborAddress), so the memory
+                // follows the actual neighbor number instead of a global cap.
+                // manager->n_neighbor_max is a first-allocation hint, not a hard limit.
+                // Floor of 1: a 0/negative hint (only possible when the input ASSERT is
+                // stripped by NDEBUG) must not silently disable the group address storage
+                // (capacity 0 means "store no addresses" for singles); with the floor the
+                // first fill simply grows to the actual neighbor number.
+                const int n_address_init = std::max(1, std::min(std::min(particles.getSizeMax() + groups.getSizeMax(), manager->n_neighbor_max), neighbor_address_capacity_init));
+                group_new.perturber.reserveMemNeighborAddress(n_address_init);
                 group_new.info.reserveMem(n_particle);
             
                 // Add members to AR 
@@ -1673,6 +1681,7 @@ namespace H4{
                 for (int j=0; j<_n_group; j++) {
                     const int jk = group_index[j];
                     if (k==jk) continue;
+                    nbk.checkAndGrowNeighborAddress();
                     nbk.neighbor_address.addMember(NBAdr<Tparticle>(&groups[jk].particles, jk+index_offset_group_));
                     nbk.n_neighbor_group++;
                 }
@@ -1903,6 +1912,7 @@ namespace H4{
                 // add single index
                 for (int j=0; j<n_single_new; j++) {
                     const int jk = new_index_single[j];
+                    nbk.checkAndGrowNeighborAddress();
                     nbk.neighbor_address.addMember(NBAdr<Tparticle>(&particles[jk],jk));
                     nbk.n_neighbor_single++;
                 }

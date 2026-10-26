@@ -77,7 +77,7 @@ public:
         , dt_min_power_index  (input_par_store, 40,                 "dt-min-power",         "power index to calculate mimimum hermite time step: 0.5^n")
         , dt_max_power_index  (input_par_store, 2,                  "dt-max-power",         "power index of 0.5 for maximum hermite time step")
         , dt_out_power_index  (input_par_store, 2,                  "o",                    "power index of 0.5 for output time interval")
-        , n_neighbor_max      (input_par_store, -1,                 "n-neighbor-max",       "maximum number of neighbors for group","same as N")
+        , n_neighbor_max      (input_par_store, -1,                 "n-neighbor-max",       "initial capacity of the group neighbor address list (auto-grown on demand, not a limit)","-1: use N (capped at 64)")
         , ds_scale            (input_par_store, 1.0,                "ds-scale",             "step size scaling factor for Ar integration")
         , interrupt_detection_option(input_par_store, 0,            "i",                    "modify orbits and check interruption; 0: turn off; 1: modify the binary orbits based on detection criterion; 2. only record the binary information when interruption criterion is triggered")
         , energy_error        (input_par_store, 1e-10,              "e",                    "relative energy error limit for AR")

@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include "Common/Float.h"
+#include "Common/list.h"
 #include "AR/force.h"
 #include "Hermite/neighbor.h"
 #include "particle.h"
@@ -186,7 +187,16 @@ public:
 
             auto* pert_adr = _perturber.neighbor_address.getDataAddress();
 
-            Float xp[n_pert][3], xcm[3], m[n_pert];
+            // thread-local scratch arrays: grown on demand and reused across calls
+            // (COMM::List::ensureSize, amortized O(1)). Formerly stack VLAs sized
+            // by n_pert (bounded by the old fixed neighbor-list cap); large
+            // perturber lists would overflow the (small) OpenMP thread stack.
+            static thread_local COMM::List<Float> xp_storage, m_storage;
+            xp_storage.ensureSize(3*n_pert);
+            m_storage.ensureSize(n_pert);
+            Float (*xp)[3] = reinterpret_cast<Float (*)[3]>(xp_storage.getDataAddress());
+            Float* m = m_storage.getDataAddress();
+            Float xcm[3];
 
             for (int j=0; j<n_pert; j++) {
                 H4::NBAdr<Particle>::Single* pertj;

@@ -9,6 +9,14 @@ namespace H4 {
     //! type of neighbor address
     enum class NBType {single, group, none};
 
+    //! initial capacity of the per-group neighbor address list
+    /*! The list grows on demand (Neighbor::checkAndGrowNeighborAddress) when the
+      distance-based rebuild exceeds the initial reservation, so this is only the
+      first-allocation size, not a hard cap; the memory follows the actual number
+      of neighbors.
+    */
+    constexpr int neighbor_address_capacity_init = 64;
+
     // neighbor address 
     template <class Tparticle>
     struct NBAdr{ 
@@ -109,6 +117,24 @@ namespace H4 {
             neighbor_address.reserveMem(_nmax);
         }
 
+        //! ensure one free slot in the neighbor address list, grow the memory if full
+        /*! Amortized O(1) filling: the capacity doubles (with a minimum margin of 32)
+          when full, replacing the former fixed cap that either aborted the run
+          (single path) or silently overflowed (group path, NDEBUG builds) when the
+          actual neighbor number exceeded it.
+          Do nothing when the address storage is not initialized (capacity 0, e.g. singles).
+          \warning growMem reallocates the array: no pointer obtained from
+          neighbor_address.getDataAddress() may be kept across this call
+          (audited: all readers are transient within a single call).
+        */
+        void checkAndGrowNeighborAddress() {
+            if (neighbor_address.getSizeMax()==0) return; // address storage not initialized
+            if (neighbor_address.getSize() >= neighbor_address.getSizeMax()) {
+                const int nmax_new = std::max(2*neighbor_address.getSizeMax(), neighbor_address.getSize()+32);
+                neighbor_address.growMem(nmax_new);
+            }
+        }
+
         //! clear function
         void clearNoFreeMemNoResizeNeighborAdress() {
             r_min_index = -1;
@@ -156,12 +182,7 @@ namespace H4 {
         void checkAndAddNeighborSingle(const Float _r2, Tp& _particle, const Neighbor<Tparticle>& _nbp, const int _index) {
             if (_r2<std::max(r_neighbor_crit_sq,_nbp.r_neighbor_crit_sq)) {
                 if (neighbor_address.getSizeMax()>0) {// only add neighbor address if initialized
-                    if (neighbor_address.getSizeMax() <= neighbor_address.getSize()) {
-                        std::cerr<<"Error: neighbor address list full. max size="<<neighbor_address.getSizeMax()
-                                 <<", current size="<<neighbor_address.getSize()
-                                 <<", trying to increase the maximum number of group neighbors from input options\n";
-                        abort();
-                    }
+                    checkAndGrowNeighborAddress();
                     neighbor_address.addMember(NBAdr<Tparticle>(&_particle, _index));
                 }
                 n_neighbor_single++;
@@ -187,8 +208,10 @@ namespace H4 {
         void checkAndAddNeighborGroup(const Float _r2, Tgroup& _group, const int _index) {
             ASSERT(_r2>0.0);
             if (_r2<std::max(r_neighbor_crit_sq, _group.perturber.r_neighbor_crit_sq)) {
-                if (neighbor_address.getSizeMax()>0) // only add neighbor address if initialized
+                if (neighbor_address.getSizeMax()>0) { // only add neighbor address if initialized
+                    checkAndGrowNeighborAddress();
                     neighbor_address.addMember(NBAdr<Tparticle>(&_group.particles,_index));
+                }
                 n_neighbor_group++;
             }
             // mass weighted nearest neigbor

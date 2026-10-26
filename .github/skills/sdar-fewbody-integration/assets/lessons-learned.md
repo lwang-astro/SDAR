@@ -91,6 +91,14 @@ for 1000/1002 "differences" until physical columns were compared selectively.
 **Root cause**: 按物理直觉选 IC，而没有先核对代码路由：`integrateToTime` 里 `n_particle==2 ? integrateTwoOneStep : integrateOneStep→kickEtot`，且 standalone 组的 acc_pert 只来自组外邻居表——场景的必要结构（组员数≥3 + 组外邻居非空）由调用图决定，不由物理直觉决定。
 
 **Prevention rule**: （a）为目标路径列路由前提（组员数、邻居表非空、构建宏），再按前提反推 IC 结构；不满足时用最小激活场景（n=4：3 体组+1 外摄动者）；（b）已有存档验证案例（如 T7）优先移植复用——机制、单位、阈值已被标定，且其 A/B 比值可与历史测量互验（本次 2186× vs TTL 存档 1800×）。
+
+### 2026-10-26: 放宽容量上限前必须审计全部消费者——n_neighbor_max 上限曾隐式守护溢出路径与栈尺寸
+
+**Mistake**: 把 `--hermite-n-neighbor-max`(300) 仅理解为"内存预留上限"。安全审计发现它同时隐式守护两处下游:(1) `checkAndAddNeighborGroup` 无任何容量检查,唯一保护是 `COMM::List::addMember` 内的 `ASSERT(num_<nmax_)`——生产构建(NDEBUG)下静默堆越界写,与 single 路径的显式 abort 不对称(此项为真实潜在 bug);(2) PeTar/SDAR sample `calcAccPert` 用 `n_pert` 尺寸的栈 VLA(`xp[n_pert][3]`/`m[n_pert]`/指针数组,~40B/perturber):10⁵ perturber ≈ 4MB,只有在违反 PeTar 环境要求(未设 `OMP_STACKSIZE`,默认栈 ~8MB,含 noparallel/单线程走主线程栈的路径)且 n_pert ≳2×10⁵ 时才爆栈;按强制要求(`OMP_STACKSIZE=128M`+`ulimit -s unlimited`,需 ~3×10⁶ perturber)不会发生——该项是防御性加固+去除非标准扩展(VLA 是 C++ 编译器扩展),非当下必现 bug。
+
+**Root cause**: 一个"内存上限"参数在代码里同时充当**内存、正确性、栈安全**三种边界;所有下游都默认邻居数 ≤ 上限,但没有任何一处把这个假设写成显式检查。历史上限是 2025-11-17 为 100k 成员 cluster 内存事故打的补丁(commit 6929e5f),补丁只封了内存一侧。
+
+**Prevention rule**: (1) 放宽/移除任何数值上限前,`grep` 该量的全部消费者,逐一回答"超过上限时会怎样"——计数、地址、栈尺寸三类假设都要查,并核对每一假设所依赖的运行环境前提(如栈大小约定);(2) 填充点的容量保证必须显式(增长或检查+报错),不得依赖会被 NDEBUG 剥离的 ASSERT;(3) 依赖输入规模的可变长度数组不用栈 VLA,用 thread_local 按需增长缓冲(稳态零分配、免每次 malloc,`COMM::List::ensureSize` 模式;顺带消除非标准扩展);(4) 给 `COMM::List` 加 `growMem` 这类会搬迁底层数组的 API 前,审计所有 `getDataAddress()` 持有点的存活范围(本次审计:全部读取方为单函数内瞬态,AR 消费与 Hermite 重建严格串行);(5) 设计不变量要注释固化:`NBAdr::adr` 指向 `groups` List 元素与 link 模式 particles 数组,**groups List 自身必须保持一次性预留不可增长**。
 ---
 
 ## AR Integrator & Time Synchronization

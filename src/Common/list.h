@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Common/Float.h"
+#include <algorithm>
 
 namespace COMM {
 
@@ -67,6 +68,48 @@ namespace COMM {
             case ListMode::none:
                 break;
             }
+        }
+
+        //! Grow the allocated memory size keeping the current members
+        /*! Only work for #ListMode::local case. Allocate a new array with a larger
+          size, copy the current members, then free the old array.
+          \warning growMem reallocates the underlying array: any pointer obtained
+          from getDataAddress() (or references to elements) becomes invalid after
+          this call. Callers must not hold such pointers across growMem.
+          @param[in] _nmax_new: new maximum number of members, must be larger than the current one
+        */
+        void growMem(const int _nmax_new) {
+            ASSERT(mode_==ListMode::local);
+            ASSERT(_nmax_new>nmax_);
+            Ttype* data_new = new Ttype[_nmax_new];
+            for (int i=0; i<num_; i++) data_new[i] = data_[i];
+            delete[] data_;
+            data_ = data_new;
+            nmax_ = _nmax_new;
+        }
+
+        //! Ensure the capacity for _n members and set the current member number to _n
+        /*! Reuse-and-grow pattern for scratch buffers whose size is only known at
+          runtime (e.g. per-thread arrays sized by a particle/neighbor number): the
+          first call allocates (mode #ListMode::local is set automatically), later
+          calls reuse the memory and reallocate only when the capacity is exceeded,
+          doubling the capacity so that repeated calls are amortized O(1).
+          \warning like growMem, reallocation invalidates pointers obtained from
+          getDataAddress(); entries in [_n, nmax) keep stale data (callers must
+          fill [0,_n) before reading).
+          @param[in] _n: required member number (new current member number)
+          @param[in] _nmax_min: minimum first allocation size, avoids early re-growth for small _n
+        */
+        void ensureSize(const int _n, const int _nmax_min = 64) {
+            if (mode_==ListMode::none) {
+                setMode(ListMode::local);
+                reserveMem(std::max(_n, _nmax_min));
+            }
+            else {
+                ASSERT(mode_==ListMode::local);
+                if (nmax_ < _n) growMem(std::max(2*nmax_, _n));
+            }
+            resizeNoInitialize(_n);
         }
 
 
