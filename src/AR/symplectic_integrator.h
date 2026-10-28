@@ -1030,6 +1030,31 @@ namespace AR {
         */
         void processOuterNode(AR::BinaryTree<Tparticle>& _bin, const Float _P_r_eff_min) {
             if (_bin.getMemberN() > 2) {
+                // (2026-10-28, BTLogH default-flip P0) zero-mass-member guard:
+                // after a merger the vanished member (BSE kw=15, mass set
+                // exactly 0) stays in the AR group until the H4 break, and
+                // generateBinaryTree parks it at the outermost orbit — so this
+                // node's U factor G*m1*m2/r_eff is exactly 0 and MUST be
+                // skipped, not multiplied (a zero factor would null the whole
+                // gt_kick_inv_ product); the gradient contributions scale with
+                // the member mass and vanish with it. Recurse into children
+                // only (the massive subtree still carries real inner levels).
+                // ONLY the exact m==0 case skips: negative masses and
+                // r_sep<=0 with positive masses are non-physical states that
+                // must abort loudly below for investigation (measured abort:
+                // T9 replay9 dump_binary_merger t=380.62, r_sep==0 with a
+                // post-merger ghost; LogH survives the same state because
+                // this walk is BTLogH-only).
+                if (_bin.m1 == 0.0 || _bin.m2 == 0.0) {
+                    for (int k = 0; k < 2; k++) {
+                        if (_bin.isMemberTree(k)) {
+                            processOuterNode(*_bin.getMemberAsTree(k), _P_r_eff_min);
+                        }
+                    }
+                    return;
+                }
+                ASSERT(_bin.m1 > 0.0);
+                ASSERT(_bin.m2 > 0.0);
                 // --- common: separation and unit vector (computed once) ---
                 auto* m0 = _bin.getMember(0);
                 auto* m1 = _bin.getMember(1);
